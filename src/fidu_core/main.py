@@ -1,7 +1,8 @@
+"""Main application module for the FIDU Local App."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="FIDU Local API")
+app = FastAPI(title="FIDU Local App")
 
 # Configure CORS for local development
 app.add_middleware(
@@ -14,10 +15,12 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to FIDU Local API"}
+    """Root endpoint returning a welcome message."""
+    return {"message": "Welcome to FIDU Local App"}
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint."""
     return {"status": "healthy"}
 
 if __name__ == "__main__":
