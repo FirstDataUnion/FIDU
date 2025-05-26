@@ -2,7 +2,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+
+# TODO: replace this with an initialtion of the API class (to be renamed) 
 app = FastAPI(title="FIDU Local App")
+
+# TODO: Initialise dummy storage layer and pass it to the API class(?)
+
+# TODO: insert a basic preferences file to be read and written to by the API class
 
 # Configure CORS for local development
 app.add_middleware(
