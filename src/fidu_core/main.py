@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .fidu_core.data_packets.api import app as data_packets_app
+from fidu_core.data_packets.api import app as data_packets_app
 
 
 app = FastAPI(title="FIDU Local App")
