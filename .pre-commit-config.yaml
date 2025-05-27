@@ -1,0 +1,9 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: lint-all
+        name: Run all linters
+        entry: ./scripts/lint.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit] 

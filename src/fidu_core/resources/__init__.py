@@ -1,3 +1,0 @@
-"""
-FIDU Core Resources Package
-""" 

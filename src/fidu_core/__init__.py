@@ -1,5 +1,5 @@
 """
-FIDU Local API Server
+FIDU Core Application
 """
 
 __version__ = "0.1.0"

@@ -11,6 +11,17 @@ setup(
         "python-dotenv>=1.0.0",
         "pydantic>=2.4.2",
     ],
+    extras_require={
+        "dev": [
+            "pycodestyle>=2.11.1",  # PEP 8 style guide checker
+            "pylint>=3.0.3",  # Python linter
+            "black>=24.1.1",  # Code formatter
+            "mypy>=1.8.0",  # Static type checker
+            "pytest>=8.0.0",  # Testing framework
+            "pytest-cov>=4.1.0",  # Coverage reporting
+            "pre-commit>=4.2.0",  # Git hooks manager
+        ],
+    },
     author="FirstDataUnion",
     author_email="evenoli@hotmail.co.uk",
     description="A local API server for the Fidu desktop application",
