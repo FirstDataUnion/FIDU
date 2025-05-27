@@ -10,24 +10,6 @@
 # Could be a good space to work on, to allow the pre-commit hook to continue even if there are certain errors
 # or warnings present, so the linter is less of a pain. 
 
-# Function to handle script exit
-handle_exit() {
-    if [ $? -ne 0 ]; then
-        echo """
-❌ Code quality checks failed!
-
-YOUR COMMIT HAS BEEN REJECTED BY THE COUNCIL OF LINTERS.
-Please fix the issues above before committing.
-If you need to bypass these checks temporarily, use:
-    git commit --no-verify -m "your message"
-"""
-        exit 1
-    fi
-}
-
-# Set up trap to catch script exit
-trap handle_exit EXIT
-
 # Exit on any error
 set -e
 
