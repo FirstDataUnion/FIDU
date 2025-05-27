@@ -25,6 +25,17 @@ Our ultimate goal is to empower users to collect and control a large portion of 
 
 Coming Soon: instructions on a local installation. 
 
+## Development Setup
+
+Once pulling the repo, run the following script before you start work:
+
+`/scripts/setup_dev.sh`
+
+this will install all requirements, including dev only tools (linters, formatters etc.), 
+create a virtual env, and set up the precommit hook to run all linters/testers on every commit. 
+
+Linters can be run manually via the command './scripts/lint.sh'
+
 ## Usage
 
 Coming Soon: Example guide of firing up browser plugin, setting preferences, collecting some data, and observing it. Windows/Unix usage differences.  
