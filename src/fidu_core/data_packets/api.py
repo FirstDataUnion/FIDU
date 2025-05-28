@@ -2,36 +2,69 @@
 
 from fastapi import FastAPI
 from .schema import DataPacket, DataPacketSubmissionRequest
-
-# TODO: Turn this into a class and add a constructor that takes a database connection
-app = FastAPI()
+from .service import DataPacketService
 
 
-@app.post("/")
-async def submit_data_packet(
-    data_packet_submission_request: DataPacketSubmissionRequest,
-) -> DataPacket:
-    """Submit a data packet to the system to be stored.
+class DataPacketAPI:
+    """API endpoints for data packet submission and retrieval."""
 
-    Args:
-        data_packet_submission_request: a request containing the data packet to be stored
+    def __init__(self, app: FastAPI, service: DataPacketService) -> None:
+        """Initialize the API layer.
 
-    Returns:
-        The submitted data packet
-    """
-    # TODO: Store the data packet in the database
-    return data_packet_submission_request.data_packet
+        Args:
+            app: The FastAPI app to mount the API on
+            service: The service layer object to use for storing and retrieving data packets
+        """
+        self.service = service
+        self.app = app
+        self._setup_routes()
 
+    def _setup_routes(self) -> None:
+        """Set up the API routes."""
+        self.app.add_api_route(
+            "/api/v1/data-packets",
+            self.submit_data_packet,
+            methods=["POST"],
+            response_model=DataPacket,
+            tags=["data-packets"],
+        )
+        self.app.add_api_route(
+            "/api/v1/data-packets/{data_packet_id}",
+            self.get_data_packet,
+            methods=["GET"],
+            response_model=DataPacket,
+            tags=["data-packets"],
+        )
 
-@app.get("/{data_packet_id}")
-async def get_data_packet(data_packet_id: str) -> DataPacket:  # TODO: Async? Or sync?
-    """Get a data packet from the system by its ID.
+    async def submit_data_packet(
+        self, data_packet_submission_request: DataPacketSubmissionRequest
+    ) -> DataPacket:
+        """Submit a data packet to the system to be stored.
 
-    Args:
-        data_packet_id: the ID of the data packet to be retrieved
+        Args:
+            data_packet_submission_request: a request containing the data packet to be stored
 
-    Returns:
-        The data packet
-    """
-    # TODO: Retrieve the data packet from the database
-    raise NotImplementedError("Not implemented")
+        Returns:
+            The submitted data packet
+        """
+
+        # Pydantic does basic validation automatically, so no need for that here.
+
+        # Pass data packet to service layer to be processed and stored
+        saved_data_packet = self.service.submit_data_packet(
+            data_packet_submission_request.data_packet
+        )
+
+        return saved_data_packet
+
+    async def get_data_packet(self, data_packet_id: str) -> DataPacket:
+        """Get a data packet from the system by its ID.
+
+        Args:
+            data_packet_id: the ID of the data packet to be retrieved
+
+        Returns:
+            The data packet
+        """
+        data_packet = self.service.get_data_packet(data_packet_id)
+        return data_packet
