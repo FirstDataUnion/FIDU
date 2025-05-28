@@ -2,17 +2,30 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fidu_core.data_packets.api import app as data_packets_app
+from fidu_core.data_packets.store import DataPacketStore
+from fidu_core.data_packets.service import DataPacketService
+from fidu_core.data_packets.api import DataPacketAPI
 
+app = FastAPI(
+    title="FIDU Core API",
+    description="API for interacting with the FIDU Core Application",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 
-app = FastAPI(title="FIDU Local App")
+# Create storage layer objects
+data_packet_store = DataPacketStore()
 
-# Mount the data packets API
-# TODO: Not sure I want to mount the separate APIs like this and add 'api' to the paths,
-# might pass the app to the separate API classes and they can initial the endpoints there.
-app.mount("/data-packets", data_packets_app)
+# Create service layer objects
+data_packet_service = DataPacketService(data_packet_store)
 
-# TODO: Initialise dummy storage layer and pass it to the API class(?)
+# Create API layer objects
+# this will set up the following endpoints for the app:
+# - POST /api/v1/data-packets
+# - GET /api/v1/data-packets/{data_packet_id}
+data_packet_api = DataPacketAPI(app, data_packet_service)
 
 # TODO: insert a basic preferences file to be read and written to by the API class
 
@@ -26,12 +39,6 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-async def root():
-    """Root endpoint returning a welcome message."""
-    return {"message": "Welcome to FIDU Local App"}
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -41,4 +48,8 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
 
+    print("Running on http://127.0.0.1:8000")
+    print("Docs: http://127.0.0.1:8000/docs")
+    print("Redoc: http://127.0.0.1:8000/redoc")
+    print("OpenAPI: http://127.0.0.1:8000/openapi.json")
     uvicorn.run(app, host="127.0.0.1", port=8000)
