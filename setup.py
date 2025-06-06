@@ -10,6 +10,7 @@ setup(
         "uvicorn>=0.24.0",
         "python-dotenv>=1.0.0",
         "pydantic>=2.4.2",
+        "email-validator>=2.1.0",  # Required for Pydantic email validation
     ],
     extras_require={
         "dev": [
