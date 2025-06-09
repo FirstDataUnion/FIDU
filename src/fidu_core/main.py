@@ -54,8 +54,8 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
 
-    print("Running on http://127.0.0.1:8000")
-    print("Docs: http://127.0.0.1:8000/docs")
-    print("Redoc: http://127.0.0.1:8000/redoc")
-    print("OpenAPI: http://127.0.0.1:8000/openapi.json")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    print("Running on http://127.0.0.1:4000")
+    print("Docs: http://127.0.0.1:4000/docs")
+    print("Redoc: http://127.0.0.1:4000/redoc")
+    print("OpenAPI: http://127.0.0.1:4000/openapi.json")
+    uvicorn.run(app, host="127.0.0.1", port=4000)
