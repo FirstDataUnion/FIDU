@@ -3,7 +3,7 @@ Service layer for data packets.
 """
 
 from typing import Any
-from .schema import DataPacket
+from .schema import DataPacket, DataPacketUpdateRequest
 
 
 class DataPacketService:
@@ -44,3 +44,16 @@ class DataPacketService:
             The data packet
         """
         return self.store.get_data_packet(data_packet_id)
+
+    def update_data_packet(
+        self, data_packet_update_request: DataPacketUpdateRequest
+    ) -> DataPacket:
+        """Update a data packet in the system.
+
+        Args:
+            data_packet_update_request: The request to update the data packet
+
+        Returns:
+            The updated data packet
+        """
+        return self.store.update_data_packet(data_packet_update_request)
