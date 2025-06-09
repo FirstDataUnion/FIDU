@@ -1,7 +1,7 @@
 """Data Packet submission endpoints for the FIDU API."""
 
-from fastapi import FastAPI
-from .schema import DataPacket, DataPacketSubmissionRequest
+from fastapi import FastAPI, HTTPException
+from .schema import DataPacket, DataPacketSubmissionRequest, DataPacketUpdateRequest
 from .service import DataPacketService
 
 
@@ -25,6 +25,13 @@ class DataPacketAPI:
             "/api/v1/data-packets",
             self.submit_data_packet,
             methods=["POST"],
+            response_model=DataPacket,
+            tags=["data-packets"],
+        )
+        self.app.add_api_route(
+            "/api/v1/data-packets/{data_packet_id}",
+            self.update_data_packet,
+            methods=["PUT"],
             response_model=DataPacket,
             tags=["data-packets"],
         )
@@ -57,6 +64,26 @@ class DataPacketAPI:
 
         return saved_data_packet
 
+    async def update_data_packet(
+        self, data_packet_update_request: DataPacketUpdateRequest
+    ) -> DataPacket:
+        """Update a data packet in the system.
+
+        Args:
+            data_packet_update_request: a request containing the data packet to be updated
+
+        Returns:
+            The updated data packet
+        """
+
+        try:
+            updated_data_packet = self.service.update_data_packet(
+                data_packet_update_request
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return updated_data_packet
+
     async def get_data_packet(self, data_packet_id: str) -> DataPacket:
         """Get a data packet from the system by its ID.
 
@@ -66,5 +93,8 @@ class DataPacketAPI:
         Returns:
             The data packet
         """
-        data_packet = self.service.get_data_packet(data_packet_id)
+        try:
+            data_packet = self.service.get_data_packet(data_packet_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
         return data_packet
