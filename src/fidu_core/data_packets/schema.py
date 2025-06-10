@@ -3,7 +3,7 @@
 from typing import Optional, Union, Dict, Any, Literal, Set, List
 from datetime import datetime
 import uuid
-from pydantic import UUID4, BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class NameInfo(BaseModel):
@@ -123,9 +123,7 @@ class DataPacket(BaseModel):
 class DataPacketSubmissionRequest(BaseModel):
     """Request model for data Packet submission."""
 
-    request_id: UUID4 = Field(
-        frozen=True  # This field cannot be modified after creation
-    )
+    request_id: str = Field(frozen=True)  # This field cannot be modified after creation
     data_packet: DataPacket  # The data packet to be submitted
 
 
@@ -188,3 +186,24 @@ class DataPacketUpdateRequest(BaseModel):
             result = self._update_nested_field(result, path_parts, value)
 
         return result
+
+
+class DataPacketQueryParams(BaseModel):
+    """Query parameters for filtering data packets."""
+
+    tags: Optional[List[str]] = Field(None, description="Filter by tags")
+    user_id: Optional[str] = Field(None, description="Filter by user ID")
+    from_timestamp: Optional[datetime] = Field(
+        None, description="Filter by start timestamp"
+    )
+    to_timestamp: Optional[datetime] = Field(
+        None, description="Filter by end timestamp"
+    )
+    packet_type: Optional[str] = Field(
+        None, description="Filter by packet type (structured/unstructured)"
+    )
+    limit: int = Field(
+        default=50, ge=1, le=100, description="Number of results to return"
+    )
+    offset: int = Field(default=0, ge=0, description="Number of results to skip")
+    sort_order: str = Field(default="desc", description="Sort order (asc/desc)")

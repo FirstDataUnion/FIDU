@@ -2,8 +2,8 @@
 Service layer for data packets.
 """
 
-from typing import Any
-from .schema import DataPacket, DataPacketUpdateRequest
+from typing import Any, List
+from .schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
 
 
 class DataPacketService:
@@ -57,3 +57,24 @@ class DataPacketService:
             The updated data packet
         """
         return self.store.update_data_packet(data_packet_update_request)
+
+    def list_data_packets(
+        self, data_packet_query_params: DataPacketQueryParams
+    ) -> List[DataPacket]:
+        """List data packets from the system.
+
+        Args:
+            data_packet_query_params: The query parameters for listing data packets
+
+        Returns:
+            The list of data packets
+        """
+        return self.store.list_data_packets(data_packet_query_params)
+
+    def delete_data_packet(self, data_packet_id: str) -> None:
+        """Delete a data packet from the system.
+
+        Args:
+            data_packet_id: the ID of the data packet to be deleted
+        """
+        self.store.delete_data_packet(data_packet_id)
