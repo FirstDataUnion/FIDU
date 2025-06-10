@@ -1,7 +1,13 @@
 """Data Packet submission endpoints for the FIDU API."""
 
-from fastapi import FastAPI, HTTPException
-from .schema import DataPacket, DataPacketSubmissionRequest, DataPacketUpdateRequest
+from typing import List
+from fastapi import FastAPI, HTTPException, Depends
+from .schema import (
+    DataPacket,
+    DataPacketSubmissionRequest,
+    DataPacketUpdateRequest,
+    DataPacketQueryParams,
+)
 from .service import DataPacketService
 
 
@@ -40,6 +46,19 @@ class DataPacketAPI:
             self.get_data_packet,
             methods=["GET"],
             response_model=DataPacket,
+            tags=["data-packets"],
+        )
+        self.app.add_api_route(
+            "/api/v1/data-packets",
+            self.list_data_packets,
+            methods=["GET"],
+            response_model=List[DataPacket],
+            tags=["data-packets"],
+        )
+        self.app.add_api_route(
+            "/api/v1/data-packets/{data_packet_id}",
+            self.delete_data_packet,
+            methods=["DELETE"],
             tags=["data-packets"],
         )
 
@@ -84,6 +103,14 @@ class DataPacketAPI:
             raise HTTPException(status_code=404, detail=str(e)) from e
         return updated_data_packet
 
+    async def delete_data_packet(self, data_packet_id: str) -> None:
+        """Delete a data packet from the system.
+
+        Args:
+            data_packet_id: the ID of the data packet to be deleted
+        """
+        self.service.delete_data_packet(data_packet_id)
+
     async def get_data_packet(self, data_packet_id: str) -> DataPacket:
         """Get a data packet from the system by its ID.
 
@@ -98,3 +125,9 @@ class DataPacketAPI:
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         return data_packet
+
+    async def list_data_packets(
+        self, query: DataPacketQueryParams = Depends(DataPacketQueryParams)
+    ) -> List[DataPacket]:
+        """List data packets with filtering and pagination."""
+        return self.service.list_data_packets(query)

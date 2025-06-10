@@ -18,6 +18,18 @@ console.log('Current URL:', window.location.href);
 // Suppress connector errors
 suppressConnectorErrors();
 
+// Create a deterministic URL-safe ID from a URL
+function generateUrlSafeId(url) {
+  // Convert URL to base64 and make it URL safe by replacing non-URL safe chars
+  const base64 = btoa(url)
+    .replace(/\+/g, '-') // Convert + to -
+    .replace(/\//g, '_') // Convert / to _
+    .replace(/=+$/, ''); // Remove trailing =
+    
+  return base64;
+}
+
+
 // Global variables
 let chatbotType = null;
 let currentConversation = {
@@ -204,8 +216,8 @@ function captureEntireConversation() {
   currentConversation.interactions = [];
   
   // Ensure we have a current conversation
-  if (!currentConversation.id) {
-    currentConversation.id = generateUniqueId();
+  if (!currentConversation.id) { // TODO: Need to think about conversations IDs, maybe we should use the URL as the ID. 
+    currentConversation.id = generateUrlSafeId(window.location.href);
     currentConversation.timestamp = new Date().toISOString();
     console.log('Created new conversation with ID:', currentConversation.id);
   }
@@ -767,21 +779,22 @@ function saveCurrentConversation() {
   updateStatusIndicator(`Saving ${currentConversation.interactions.length} messages`);
   
   // First check if we already have a conversation with this URL
+  const expectedId = generateUrlSafeId(currentConversation.conversationUrl);
   chrome.runtime.sendMessage(
     { 
       action: 'findConversationByUrl', 
-      url: currentConversation.conversationUrl 
+      url: expectedId
     },
     response => {
       if (response && response.success && response.conversation) {
-        console.log('Found existing conversation with same URL, updating instead of creating new:', response.conversation.id);
+        console.log('Found existing conversation with same URL, updating instead of creating new:', response.conversation);
         
         // Use the existing ID but update the content
-        currentConversation.id = response.conversation.id;
+        currentConversation.id = expectedId;
         
         // Delete the old version first
         chrome.runtime.sendMessage(
-          { action: 'deleteACM', id: response.conversation.id },
+          { action: 'deleteACM', id: expectedId },
           deleteResponse => {
             if (deleteResponse && deleteResponse.success) {
               // Now save the updated version
@@ -978,7 +991,7 @@ function captureGeminiConversation() {
   
   // Ensure we have a current conversation
   if (!currentConversation.id) {
-    currentConversation.id = generateUniqueId();
+    currentConversation.id = generateUrlSafeId(window.location.href);
     currentConversation.timestamp = new Date().toISOString();
     console.log('Created new conversation with ID:', currentConversation.id);
   }
