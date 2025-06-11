@@ -1,7 +1,7 @@
-"""Service layer for users."""
+"""Service layer for user management."""
 
 from typing import List
-from .schema import User
+from .schema import UserInternal
 from .store import UserStore
 
 
@@ -16,7 +16,7 @@ class UserService:
         """
         self.store = store
 
-    def create_user(self, user: User) -> User:
+    def create_user(self, user: UserInternal) -> UserInternal:
         """Create a new user.
 
         Args:
@@ -25,10 +25,9 @@ class UserService:
         Returns:
             The created user
         """
-        # TODO: Add validation logic here
         return self.store.store_user(user)
 
-    def get_user(self, user_id: str) -> User:
+    def get_user(self, user_id: str) -> UserInternal:
         """Get a user by their ID.
 
         Args:
@@ -39,7 +38,7 @@ class UserService:
         """
         return self.store.get_user(user_id)
 
-    def get_user_by_email(self, email: str) -> User:
+    def get_user_by_email(self, email: str) -> UserInternal:
         """Get a user by their email.
 
         Args:
@@ -50,7 +49,7 @@ class UserService:
         """
         return self.store.get_user_by_email(email)
 
-    def list_users(self) -> List[User]:
+    def list_users(self) -> List[UserInternal]:
         """List all users.
 
         Returns:
