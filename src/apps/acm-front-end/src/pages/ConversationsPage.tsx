@@ -5,37 +5,25 @@ import {
   Card, 
   CardContent, 
   Chip, 
-  Grid, 
   CircularProgress, 
   Alert,
   Button,
   Stack,
   TextField,
   InputAdornment,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Checkbox,
   FormControlLabel,
-  FormGroup,
   Paper,
-  Divider,
   IconButton,
   Badge,
-  Fab,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
   Autocomplete
 } from '@mui/material';
 import { 
@@ -45,12 +33,7 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
-  ExpandMore as ExpandMoreIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Share as ShareIcon,
   Add as AddIcon,
-  DragIndicator as DragIcon,
   ContentCopy as CopyIcon,
   GetApp as ExportIcon,
   Check as CheckIcon,
@@ -58,9 +41,10 @@ import {
   Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { fetchConversations } from '../store/slices/conversationsSlice';
+import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchTags } from '../store/slices/tagsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
+import ConversationViewer from '../components/conversations/ConversationViewer';
 
 const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -75,7 +59,6 @@ const ConversationsPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showArchived, setShowArchived] = useState(false);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   
   // Context Selection State
   const [selectedForContext, setSelectedForContext] = useState<string[]>([]);
@@ -95,6 +78,12 @@ const ConversationsPage: React.FC = () => {
 
   const handleRefresh = () => {
     dispatch(fetchConversations());
+  };
+
+  // Handle conversation selection for viewing
+  const handleConversationSelect = (conversation: Conversation) => {
+    dispatch(fetchConversationMessages(conversation.id));
+    setSelectedConversation(conversation);
   };
 
   // Filter conversations based on search and filters
@@ -204,22 +193,24 @@ const ConversationsPage: React.FC = () => {
   const allPlatforms = [...new Set(conversations.map((c: Conversation) => c.platform))];
 
   const ConversationCard: React.FC<{ conversation: Conversation }> = ({ conversation }) => {
-    const isSelected = selectedForContext.includes(conversation.id);
+    const isSelectedForContext = selectedForContext.includes(conversation.id);
+    const isCurrentlyViewing = selectedConversation?.id === conversation.id;
     
     return (
       <Card 
         sx={{ 
           height: '100%', 
           cursor: 'pointer',
-          border: isSelected ? 2 : 1,
-          borderColor: isSelected ? 'primary.main' : 'divider',
+          border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
+          borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
+          backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
           '&:hover': { 
             boxShadow: 3,
             transform: 'translateY(-2px)',
             transition: 'all 0.2s ease-in-out'
           }
         }}
-        onClick={() => handleContextSelection(conversation.id)}
+        onClick={() => handleConversationSelect(conversation)}
       >
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
@@ -227,7 +218,8 @@ const ConversationsPage: React.FC = () => {
               {conversation.title}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              {isSelected && <CheckIcon color="primary" fontSize="small" />}
+              {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
+              {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
               {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
               {conversation.isArchived && <ArchiveIcon color="action" fontSize="small" />}
               <IconButton 
@@ -237,8 +229,16 @@ const ConversationsPage: React.FC = () => {
               >
                 <TagIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); }}>
-                <EditIcon fontSize="small" />
+              <IconButton 
+                size="small" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  handleContextSelection(conversation.id);
+                }}
+                title="Add to Context"
+                color={isSelectedForContext ? 'primary' : 'default'}
+              >
+                <AddIcon fontSize="small" />
               </IconButton>
             </Box>
           </Box>
@@ -510,57 +510,138 @@ const ConversationsPage: React.FC = () => {
         </Paper>
       )}
 
-      {/* Conversations Grid */}
-      {filteredConversations.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
-                ? 'No conversations match your filters' 
-                : 'No conversations found'
-              }
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
-                ? 'Try adjusting your search terms or filters'
-                : 'Your AI conversations will appear here once you have some data.'
-              }
-            </Typography>
-            <Stack direction="row" spacing={2} justifyContent="center">
-              {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedPlatforms([]);
-                    setSelectedTags([]);
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-              <Button variant="outlined" href="/settings">
-                Load Sample Data
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : (
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { 
-            xs: '1fr', 
-            sm: 'repeat(2, 1fr)', 
-            md: 'repeat(3, 1fr)' 
-          }, 
-          gap: 3 
+      {/* Main Content Area - Two Panel Layout */}
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 2, 
+        height: 'calc(100vh - 240px)', // Adjust based on header height
+        minHeight: '600px' 
+      }}>
+        {/* Left Panel - Conversations List */}
+        <Paper sx={{ 
+          flex: selectedConversation ? '0 0 400px' : '1 1 auto', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}>
-          {filteredConversations.map((conversation: Conversation) => (
-            <ConversationCard key={conversation.id} conversation={conversation} />
-          ))}
-        </Box>
-      )}
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6">
+              Conversations ({filteredConversations.length})
+            </Typography>
+          </Box>
+          
+          <Box sx={{ 
+            flex: 1, 
+            overflow: 'auto',
+            p: 2,
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              background: '#555',
+            },
+          }}>
+            {filteredConversations.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
+                    ? 'No conversations match your filters' 
+                    : 'No conversations found'
+                  }
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
+                    ? 'Try adjusting your search terms or filters'
+                    : 'Your AI conversations will appear here once you have some data.'
+                  }
+                </Typography>
+                <Stack direction="row" spacing={2} justifyContent="center">
+                  {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
+                    <Button 
+                      variant="outlined" 
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedPlatforms([]);
+                        setSelectedTags([]);
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                  <Button variant="outlined" href="/settings">
+                    Load Sample Data
+                  </Button>
+                </Stack>
+              </Box>
+            ) : (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: 2 
+              }}>
+                {filteredConversations.map((conversation: Conversation) => (
+                  <ConversationCard key={conversation.id} conversation={conversation} />
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Paper>
+
+        {/* Right Panel - Conversation Viewer */}
+        {selectedConversation && (
+          <Paper sx={{ 
+            flex: '1 1 auto', 
+            display: 'flex', 
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">
+                Conversation Details
+              </Typography>
+              <IconButton 
+                onClick={() => setSelectedConversation(null)}
+                title="Close conversation view"
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            
+            <Box sx={{ flex: 1, overflow: 'hidden', p: 2 }}>
+              <ConversationViewer conversation={selectedConversation} />
+            </Box>
+          </Paper>
+        )}
+
+        {/* Placeholder when no conversation is selected */}
+        {!selectedConversation && (
+          <Paper sx={{ 
+            flex: '1 1 auto', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            bgcolor: 'grey.50'
+          }}>
+            <Box sx={{ textAlign: 'center', p: 4 }}>
+              <ChatIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h5" gutterBottom color="text.secondary">
+                Select a conversation to view
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Click on any conversation from the list to see its messages
+              </Typography>
+            </Box>
+          </Paper>
+        )}
+      </Box>
 
       {/* Context Builder Dialog */}
       <Dialog 
@@ -625,7 +706,7 @@ const ConversationsPage: React.FC = () => {
           <Autocomplete
             multiple
             value={editedTags}
-            onChange={(event, newValue) => {
+            onChange={(_, newValue) => {
               setEditedTags(newValue);
             }}
             options={allTags}
