@@ -180,6 +180,8 @@ export interface ConversationsState {
   loading: boolean;
   error: string | null;
   currentConversation: Conversation | null;
+  currentMessages: Message[];
+  messagesLoading: boolean;
   filters: FilterOptions;
   pagination: {
     page: number;

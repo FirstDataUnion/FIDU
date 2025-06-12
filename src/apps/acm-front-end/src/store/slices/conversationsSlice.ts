@@ -16,6 +16,13 @@ export const fetchConversation = createAsyncThunk(
   }
 );
 
+export const fetchConversationMessages = createAsyncThunk(
+  'conversations/fetchConversationMessages',
+  async (conversationId: string) => {
+    return await dbService.getMessages(conversationId);
+  }
+);
+
 export const saveConversation = createAsyncThunk(
   'conversations/saveConversation',
   async (conversation: Conversation) => {
@@ -35,6 +42,8 @@ export const deleteConversation = createAsyncThunk(
 const initialState: ConversationsState = {
   items: [],
   currentConversation: null,
+  currentMessages: [],
+  messagesLoading: false,
   loading: false,
   error: null,
   filters: {
@@ -111,6 +120,19 @@ const conversationsSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch conversation';
       })
+      // Fetch conversation messages
+      .addCase(fetchConversationMessages.pending, (state) => {
+        state.messagesLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchConversationMessages.fulfilled, (state, action) => {
+        state.messagesLoading = false;
+        state.currentMessages = action.payload;
+      })
+      .addCase(fetchConversationMessages.rejected, (state, action) => {
+        state.messagesLoading = false;
+        state.error = action.error.message || 'Failed to fetch messages';
+      })
       // Save conversation
       .addCase(saveConversation.pending, (state) => {
         state.loading = true;
@@ -142,6 +164,7 @@ const conversationsSlice = createSlice({
         state.items = state.items.filter((c: Conversation) => c.id !== action.payload);
         if (state.currentConversation?.id === action.payload) {
           state.currentConversation = null;
+          state.currentMessages = [];
         }
       })
       .addCase(deleteConversation.rejected, (state, action) => {
