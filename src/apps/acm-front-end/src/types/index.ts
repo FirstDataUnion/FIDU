@@ -3,8 +3,8 @@ export interface Conversation {
   id: string;
   title: string;
   platform: 'chatgpt' | 'claude' | 'gemini' | 'other';
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   lastMessage?: string;
   messageCount: number;
   tags: string[];
@@ -144,6 +144,17 @@ export interface FilterOptions {
   searchQuery?: string;
   sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'messageCount';
   sortOrder?: 'asc' | 'desc';
+}
+
+export interface DataPacketQueryParams {
+  tags?: string[];
+  user_id?: string;
+  from_timestamp?: Date;
+  to_timestamp?: Date;
+  packet_type?: string;
+  limit?: number;
+  offset?: number;
+  sort_order?: string;
 }
 
 export interface AnalyticsData {

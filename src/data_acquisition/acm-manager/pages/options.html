@@ -150,6 +150,15 @@
       
       <div class="option-row">
         <div class="option-label">
+          <label for="captureFrequency">Capture Frequency (seconds)</label>
+        </div>
+        <div class="option-control">
+          <input type="number" id="captureFrequency" min="10" max="300" value="60">
+        </div>
+      </div>
+      
+      <div class="option-row">
+        <div class="option-label">
           <label for="showCaptureIndicator">Show capture indicator on page</label>
         </div>
         <div class="option-control">
@@ -163,6 +172,15 @@
         </div>
         <div class="option-control">
           <input type="checkbox" id="highlightCapturedMessages">
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <label for="useFiduCore">Use FIDU Core Backend</label>
+        </div>
+        <div class="option-control">
+          <input type="checkbox" id="useFiduCore">
         </div>
       </div>
     </div>

@@ -7,6 +7,146 @@
  * - Managing storage operations
  */
 
+class FiduCoreAPI {
+  constructor() {
+    this.baseUrl = 'http://127.0.0.1:4000/api/v1';
+  }
+
+  async saveACM(acm) {
+    console.log('Background: Saving ACM to Fidu Core');
+    try {
+      // Generate deterministic IDs
+      const requestId = acm.id+acm.timestamp;
+
+      const response = await fetch(`${this.baseUrl}/data-packets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          data_packet: {
+            user_id: "123456789", // User's aren't implemented yet
+            id: acm.id,
+            timestamp: acm.timestamp,
+            packet: {
+              type: "unstructured",
+              tags: ["ACM"], 
+              data: {
+                sourceChatbot: acm.sourceChatbot,
+                interactions: acm.interactions,
+                originalACMsUsed: acm.originalACMsUsed,
+                targetModelRequested: acm.targetModelRequested,
+                conversationUrl: acm.conversationUrl
+              }
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // TODO: Maybe catch an "Already Exists" error and update the data packet instead 
+      // once FIDU core actually has a way to return this error. 
+
+      const result = await response.json();
+      return {
+        success: true,
+        id: result.id,
+        data: result
+      };
+    } catch (error) {
+      console.error('Error saving ACM to Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async deleteACM(id) {
+    try {
+      const response = await fetch(`${this.baseUrl}/data-packets/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.error('Error deleting ACM from Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async getACMByUrl(url) {
+    try {
+      const response = await fetch(`${this.baseUrl}/data-packets/${url}`);
+      const result = await response.json();
+      if (response.status === 404) {
+        console.log('No conversation found with URL:', url);
+        return {
+          success: false,
+          error: 'No conversation found with URL: ' + url
+        };
+      }
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      console.error('Error getting ACM by URL from Fidu Core:', error);
+    }
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+
+  async getAllACMs() {
+    try {
+      const response = await fetch(`${this.baseUrl}/data-packets`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        data: {
+          id: result.id,
+          sourceChatbot: result.source,
+          timestamp: result.metadata.timestamp,
+          conversationUrl: result.metadata.url,
+          targetModelRequested: result.metadata.targetModel,
+          interactions: result.content.interactions,
+          originalACMsUsed: result.content.originalACMsUsed
+        }
+      };
+    } catch (error) {
+      console.error('Error getting ACM from Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  setBaseUrl(url) {
+    this.baseUrl = url;
+  }
+}
+
+// Create a singleton instance
+const fiduCoreAPI = new FiduCoreAPI();
+
 // Initialize the extension
 chrome.runtime.onInstalled.addListener(() => {
   console.log('ACM Manager installed');
@@ -20,82 +160,126 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Background script received message:', message);
   
-  if (message.action === 'saveACM') {
-    saveACMToDatabase(message.data)
-      .then(result => {
+  // Check if we should use Fidu Core
+  chrome.storage.sync.get('settings', async (result) => {
+    const useFiduCore = result.settings?.useFiduCore ?? false;
+    
+    if (useFiduCore) {
+      console.log('Background: Using Fidu Core');
+    } else {
+      console.log('Background: Using Database');
+    }
+
+    if (message.action === 'saveACM') {
+      try {
+        let result;
+        if (useFiduCore) {
+          result = await fiduCoreAPI.saveACM(message.data);
+        } else {
+          result = await saveACMToDatabase(message.data);
+        }
         console.log('ACM saved successfully:', result);
-        sendResponse({ success: true, id: result });
-      })
-      .catch(error => {
+        sendResponse({ success: true, id: result.id || result });
+      } catch (error) {
         console.error('Error saving ACM:', error);
         sendResponse({ success: false, error: error.message });
-      });
-    return true; // Indicates we will send a response asynchronously
-  }
-  
-  if (message.action === 'getACMs') {
-    getACMsFromDatabase(message.query)
-      .then(acms => {
+      }
+      return true;
+    }
+    
+    if (message.action === 'getACMs') {
+      try {
+        let acms;
+        if (useFiduCore) {
+          const result = await fiduCoreAPI.getAllACMs();
+          acms = result.data;
+        } else {
+          acms = await getACMsFromDatabase(message.query);
+        }
         sendResponse({ success: true, acms });
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error retrieving ACMs:', error);
         sendResponse({ success: false, error: error.message });
-      });
-    return true;
-  }
-  
-  if (message.action === 'deleteACM') {
-    deleteACMFromDatabase(message.id)
-      .then(() => {
+      }
+      return true;
+    }
+    
+    if (message.action === 'deleteACM') {
+      try {
+        if (useFiduCore) {
+          await fiduCoreAPI.deleteACM(message.id);
+        } else {
+          await deleteACMFromDatabase(message.id);
+        }
         sendResponse({ success: true });
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error deleting ACM:', error);
         sendResponse({ success: false, error: error.message });
-      });
-    return true;
-  }
-  
-  if (message.action === 'findConversationByUrl') {
-    findConversationByUrl(message.url)
-      .then(conversation => {
-        sendResponse({ success: true, conversation });
-      })
-      .catch(error => {
+      }
+      return true;
+    }
+    
+    if (message.action === 'findConversationByUrl') {
+      try {
+        let conversation;
+        if (useFiduCore) {
+          const result = await fiduCoreAPI.getACMByUrl(message.url);
+          if (result.success) {
+            conversation = result.data;
+          } else {
+            console.log('Background: No conversation found with URL:', message.url);
+            conversation = null;
+          }
+        } else {
+          conversation = await findConversationByUrl(message.url);
+        }
+        sendResponse({ success: conversation !== null, conversation });
+      } catch (error) {
         console.error('Error finding conversation by URL:', error);
         sendResponse({ success: false, error: error.message });
-      });
-    return true;
-  }
-  
-  if (message.action === 'clearAllACMs') {
-    clearAllACMsFromDatabase()
-      .then(() => {
+      }
+      return true;
+    }
+    
+    if (message.action === 'clearAllACMs') {
+      try {
+        if (useFiduCore) {
+          // TODO: Implement clear all in Fidu Core API
+          throw new Error('Clear all not yet implemented in Fidu Core');
+        } else {
+          await clearAllACMsFromDatabase();
+        }
         sendResponse({ success: true });
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error clearing all ACMs:', error);
         sendResponse({ success: false, error: error.message });
-      });
-    return true;
-  }
-  
-  if (message.action === 'settingsUpdated') {
-    // Broadcast the settings update to all tabs with content scripts
-    chrome.tabs.query({}, tabs => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, { action: 'settingsUpdated', settings: message.settings })
-          .catch(error => {
-            // Ignore errors for tabs where content script is not running
-            console.log('Could not send settings update to tab:', tab.id);
-          });
-      });
-    });
+      }
+      return true;
+    }
     
-    sendResponse({ success: true });
-    return true;
-  }
+    if (message.action === 'settingsUpdated') {
+      // Update Fidu Core API base URL if provided
+      if (message.settings.fiduCoreApiUrl) {
+        fiduCoreAPI.setBaseUrl(message.settings.fiduCoreApiUrl);
+      }
+      
+      // Broadcast the settings update to all tabs with content scripts
+      chrome.tabs.query({}, tabs => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, { action: 'settingsUpdated', settings: message.settings })
+            .catch(error => {
+              // Ignore errors for tabs where content script is not running
+              console.log('Could not send settings update to tab:', tab.id);
+            });
+        });
+      });
+      
+      sendResponse({ success: true });
+      return true;
+    }
+  });
+  
+  return true; // Indicates we will send a response asynchronously
 });
 
 /**
@@ -177,11 +361,6 @@ async function saveACMToDatabase(acmData) {
   try {
     console.log('Background: Saving ACM to database', acmData);
     
-    // Ensure the ACM has a unique ID
-    if (!acmData.id) {
-      acmData.id = generateUniqueId();
-    }
-    
     // Make sure timestamp is set
     if (!acmData.timestamp) {
       acmData.timestamp = new Date().toISOString();
@@ -191,6 +370,11 @@ async function saveACMToDatabase(acmData) {
     if (!acmData.conversationUrl) {
       console.log('Background: No conversation URL provided, using generic identifier');
       acmData.conversationUrl = `generic-${acmData.sourceChatbot}-${Date.now()}`;
+    }
+
+    // Ensure the ACM has a unique ID
+    if (!acmData.id) {
+      acmData.id = acmData.conversationUrl;
     }
     
     // Add current timestamp to each interaction if not present

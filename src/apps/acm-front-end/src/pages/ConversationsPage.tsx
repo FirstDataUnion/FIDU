@@ -72,12 +72,26 @@ const ConversationsPage: React.FC = () => {
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
   useEffect(() => {
-    dispatch(fetchConversations());
+    dispatch(fetchConversations({ 
+      filters: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc'
+      },
+      page: 1,
+      limit: 20
+    }));
     dispatch(fetchTags());
   }, [dispatch]);
 
   const handleRefresh = () => {
-    dispatch(fetchConversations());
+    dispatch(fetchConversations({ 
+      filters: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc'
+      },
+      page: 1,
+      limit: 20
+    }));
   };
 
   // Handle conversation selection for viewing
