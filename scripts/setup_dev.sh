@@ -40,6 +40,10 @@ pip install --upgrade pip
 echo "📚 Installing package with development dependencies..."
 pip install -e ".[dev]"
 
+# Install mypy type stubs
+echo "📝 Installing mypy type stubs..."
+mypy --install-types
+
 # Install pre-commit hooks
 echo "🔧 Installing pre-commit hooks..."
 pre-commit install

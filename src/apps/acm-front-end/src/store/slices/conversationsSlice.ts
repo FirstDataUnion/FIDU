@@ -1,18 +1,19 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Conversation, FilterOptions, ConversationsState } from '../../types';
-import { dbService } from '../../services/database';
+import { conversationsApi } from '../../services/api/conversations';
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
-  async (filters?: FilterOptions) => {
-    return await dbService.getConversations(filters);
+  async ({ filters, page, limit }: { filters?: FilterOptions; page?: number; limit?: number }) => {
+    const response = await conversationsApi.getAll(filters, page, limit);
+    return response;
   }
 );
 
 export const fetchConversation = createAsyncThunk(
   'conversations/fetchConversation',
   async (id: string) => {
-    return await dbService.getConversation(id);
+    return await conversationsApi.getById(id);
   }
 );
 
@@ -26,16 +27,40 @@ export const fetchConversationMessages = createAsyncThunk(
 export const saveConversation = createAsyncThunk(
   'conversations/saveConversation',
   async (conversation: Conversation) => {
-    await dbService.saveConversation(conversation);
-    return conversation;
+    if (conversation.id) {
+      return await conversationsApi.update(conversation.id, conversation);
+    } else {
+      return await conversationsApi.create(conversation);
+    }
   }
 );
 
 export const deleteConversation = createAsyncThunk(
   'conversations/deleteConversation',
   async (id: string) => {
-    await dbService.deleteConversation(id);
+    await conversationsApi.delete(id);
     return id;
+  }
+);
+
+export const archiveConversation = createAsyncThunk(
+  'conversations/archiveConversation',
+  async (id: string) => {
+    return await conversationsApi.archive(id);
+  }
+);
+
+export const unarchiveConversation = createAsyncThunk(
+  'conversations/unarchiveConversation',
+  async (id: string) => {
+    return await conversationsApi.unarchive(id);
+  }
+);
+
+export const toggleFavoriteConversation = createAsyncThunk(
+  'conversations/toggleFavorite',
+  async (id: string) => {
+    return await conversationsApi.toggleFavorite(id);
   }
 );
 
@@ -100,8 +125,12 @@ const conversationsSlice = createSlice({
       })
       .addCase(fetchConversations.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload;
-        state.pagination.total = action.payload.length;
+        state.items = action.payload.conversations;
+        state.pagination = {
+          page: action.payload.page,
+          limit: action.payload.limit,
+          total: action.payload.total
+        };
       })
       .addCase(fetchConversations.rejected, (state, action) => {
         state.loading = false;
@@ -170,6 +199,36 @@ const conversationsSlice = createSlice({
       .addCase(deleteConversation.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to delete conversation';
+      })
+      // Archive conversation
+      .addCase(archiveConversation.fulfilled, (state, action) => {
+        const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+        if (state.currentConversation?.id === action.payload.id) {
+          state.currentConversation = action.payload;
+        }
+      })
+      // Unarchive conversation
+      .addCase(unarchiveConversation.fulfilled, (state, action) => {
+        const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+        if (state.currentConversation?.id === action.payload.id) {
+          state.currentConversation = action.payload;
+        }
+      })
+      // Toggle favorite
+      .addCase(toggleFavoriteConversation.fulfilled, (state, action) => {
+        const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+        if (state.currentConversation?.id === action.payload.id) {
+          state.currentConversation = action.payload;
+        }
       });
   }
 });
