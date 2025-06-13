@@ -1,15 +1,23 @@
-<form hx-post="/login" hx-target="#response" hx-swap="innerHTML">
-    <input type="text" name="email" placeholder="email">
-    <input type="password" name="password" placeholder="Password">
-    <button type="submit">Login</button>
-    <div id="response">
-        response
+<div id="login-container">
+    {% if message %}
+        <div class="success-response">
+            {{ message }}
+        </div>
+    {% endif %}
+    <form hx-post="/login" hx-target="#login-container" hx-swap="outerHTML">
+        <input type="text" name="email" placeholder="email" value="{{ email }}">
+        <input type="password" name="password" placeholder="Password" value="{{ password }}">
+        <button type="submit">Login</button>
+        {% if error_message %}
+            <div class="failure-response">
+                {{ error_message }}
+            </div>
+        {% endif %}
+    </form>
+    <div>
+        <button hx-get="/open_signup" hx-target="#login-container" hx-swap="innerHTML">Create Account</button>
     </div>
-</form>
-<div>
-    <button hx-get="/signup" hx-target="#response" hx-swap="innerHTML">Create Account</button>
 </div>
-
 <style>
     .failure-response {
         color: #dc2626;
@@ -17,5 +25,12 @@
         padding: 0.5rem;
         border-radius: 0.25rem;
         background-color: #fee2e2;
+    }
+    .success-response {
+        color: #16a34a;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        background-color: #d1fae5;
     }
 </style>

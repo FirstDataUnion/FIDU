@@ -3,12 +3,13 @@ This file is used to serve the front end of the application, handling htmx inter
 and passing requests to the main APIs when required.
 """
 
+import uuid
 from typing import Annotated
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fidu_core.users import UserAPI
-from fidu_core.users.schema import LoginRequest
+from fidu_core.users.schema import LoginRequest, CreateUserRequest, UserBase
 
 templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
 
@@ -55,9 +56,26 @@ class FrontEndAPI:
             response_class=HTMLResponse,
             tags=["front_end"],
         )
+        self.app.add_api_route(
+            "/open_signup",
+            self.open_signup,
+            methods=["GET"],
+            response_class=HTMLResponse,
+            tags=["front_end"],
+        )
+        self.app.add_api_route(
+            "/signup",
+            self.signup,
+            methods=["POST"],
+            response_class=HTMLResponse,
+            tags=["front_end"],
+        )
 
     async def login(
-        self, email: Annotated[str, Form()], password: Annotated[str, Form()]
+        self,
+        request: Request,
+        email: Annotated[str, Form()],
+        password: Annotated[str, Form()],
     ):
         """Handle user login requests and return appropriate HTML response."""
         try:
@@ -78,15 +96,89 @@ class FrontEndAPI:
             return HTMLResponse(content=html_content, status_code=200)
         except HTTPException as e:
             if e.status_code == 401:
-                return HTMLResponse(
-                    content="<div class='failure-response'>Incorrect email or password</div>",
-                    status_code=200,
+                return templates.TemplateResponse(
+                    "login.html",
+                    {
+                        "request": request,
+                        "error_message": "Incorrect email or password",
+                        "email": email,
+                        "password": password,
+                    },
                 )
 
             return HTMLResponse(
                 content=f"<div class='failure-response'>Error: {e.detail}</div>",
                 status_code=e.status_code,
             )
+
+    async def open_signup(self, request: Request):
+        """Handle signup requests and return appropriate HTML response."""
+        return templates.TemplateResponse("sign_up.html", {"request": request})
+
+    # Need to disable the linter for this one as there's no way to avoid
+    # lots of args being passed from the form.
+    # pylint: disable=too-many-positional-arguments
+    # pylint: disable=too-many-arguments
+    async def signup(
+        self,
+        request: Request,
+        first_name: Annotated[str, Form()],
+        last_name: Annotated[str, Form()],
+        email: Annotated[str, Form()],
+        password: Annotated[str, Form()],
+        confirm_password: Annotated[str, Form()],
+    ):
+        """Handle signup requests and return appropriate HTML response."""
+
+        # Dict of variables used to recreate the signup form if needed.
+        template_context = {
+            "request": request,
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "password": password,
+            "confirm_password": confirm_password,
+        }
+
+        if password != confirm_password:
+            return templates.TemplateResponse(
+                "sign_up.html",
+                {
+                    "request": request,
+                    "password_error_message": "Passwords do not match",
+                    **template_context,
+                },
+            )
+
+        create_user_request = CreateUserRequest(
+            request_id=str(uuid.uuid4()),
+            password=password,
+            user=UserBase(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+            ),
+        )
+
+        try:
+            create_user_response = await self.user_api.create_user(create_user_request)
+        except HTTPException as e:
+            if e.status_code == 400:
+                return templates.TemplateResponse(
+                    "sign_up.html",
+                    {
+                        "request": request,
+                        "email_error_message": "User already exists",
+                        **template_context,
+                    },
+                )
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "message": f"Account created successfully, ID: {create_user_response.id}",
+            },
+        )
 
     async def auth(self, request: Request):
         """Handle authentication requests and return appropriate HTML response."""

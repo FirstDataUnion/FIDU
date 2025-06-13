@@ -1,0 +1,97 @@
+<div id="signup-container">
+    <form id="signup-form" hx-post="/signup" hx-target="#signup-container" hx-swap="outerHTML">
+        <h2>Create an Account</h2>
+        
+        <div class="form-group">
+            <label for="first_name">First Name</label>
+            <input type="text" id="first_name" name="first_name" value="{{ first_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="last_name">Last Name</label>
+            <input type="text" id="last_name" name="last_name" value="{{ last_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ email }}" required>
+        </div>
+
+        {% if email_error_message %}
+            <div class="failure-response">
+                {{ email_error_message }}
+            </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" value="{{ password }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm-password" name="confirm_password" value="{{ confirm_password }}" required>
+        </div>
+
+        {% if password_error_message %}
+            <div class="failure-response">
+                {{ password_error_message }}
+            </div>
+        {% endif %}
+
+        <button type="submit">Sign Up</button>
+    </form>
+</div>
+
+<style>
+    #signup-container {
+        max-width: 400px;
+        margin: 40px auto;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 8px;
+    }
+
+    #signup-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    label {
+        font-weight: 500;
+    }
+
+    input {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+
+    button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+</style>
