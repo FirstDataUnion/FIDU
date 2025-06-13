@@ -24,7 +24,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Autocomplete
+  Autocomplete,
+  Switch
 } from '@mui/material';
 import { 
   Chat as ChatIcon,
@@ -41,15 +42,15 @@ import {
   Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
+import { fetchConversations, fetchConversationMessages, toggleDataSource } from '../store/slices/conversationsSlice';
 import { fetchTags } from '../store/slices/tagsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
 
 const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { items: conversations, loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
-  const { items: tags } = useAppSelector((state) => state.tags as any);
+  const { items: conversations = [], loading, error, useApi } = useAppSelector((state) => state.conversations as ConversationsState);
+  const { items: tags = [] } = useAppSelector((state) => state.tags as any);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +85,19 @@ const ConversationsPage: React.FC = () => {
   }, [dispatch]);
 
   const handleRefresh = () => {
+    dispatch(fetchConversations({ 
+      filters: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc'
+      },
+      page: 1,
+      limit: 20
+    }));
+  };
+
+  const handleDataSourceToggle = () => {
+    dispatch(toggleDataSource());
+    // Refresh conversations with the new data source
     dispatch(fetchConversations({ 
       filters: {
         sortBy: 'updatedAt',
@@ -378,7 +392,17 @@ const ConversationsPage: React.FC = () => {
           <Typography variant="h4">
             Conversations ({filteredConversations.length})
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={useApi}
+                  onChange={handleDataSourceToggle}
+                  color="primary"
+                />
+              }
+              label={useApi ? "Using API" : "Using Local DB"}
+            />
             <Button
               variant="outlined"
               onClick={handleRefresh}

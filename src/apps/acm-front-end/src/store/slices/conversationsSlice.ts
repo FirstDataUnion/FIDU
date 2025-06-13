@@ -1,19 +1,39 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Conversation, FilterOptions, ConversationsState } from '../../types';
 import { conversationsApi } from '../../services/api/conversations';
+import { dbService } from '../../services/database';
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
-  async ({ filters, page, limit }: { filters?: FilterOptions; page?: number; limit?: number }) => {
-    const response = await conversationsApi.getAll(filters, page, limit);
-    return response;
+  async ({ filters, page, limit }: { filters?: FilterOptions; page?: number; limit?: number }, { getState }) => {
+    const state = getState() as { conversations: ConversationsState };
+    const useApi = state.conversations.useApi;
+
+    if (useApi) {
+      return await conversationsApi.getAll(filters, page, limit);
+    } else {
+      const conversations = await dbService.getConversations(filters);
+      return {
+        conversations,
+        total: conversations.length,
+        page: page || 1,
+        limit: limit || 20
+      };
+    }
   }
 );
 
 export const fetchConversation = createAsyncThunk(
   'conversations/fetchConversation',
-  async (id: string) => {
-    return await conversationsApi.getById(id);
+  async (id: string, { getState }) => {
+    const state = getState() as { conversations: ConversationsState };
+    const useApi = state.conversations.useApi;
+
+    if (useApi) {
+      return await conversationsApi.getById(id);
+    } else {
+      return await dbService.getConversation(id);
+    }
   }
 );
 
@@ -26,19 +46,34 @@ export const fetchConversationMessages = createAsyncThunk(
 
 export const saveConversation = createAsyncThunk(
   'conversations/saveConversation',
-  async (conversation: Conversation) => {
-    if (conversation.id) {
-      return await conversationsApi.update(conversation.id, conversation);
+  async (conversation: Conversation, { getState }) => {
+    const state = getState() as { conversations: ConversationsState };
+    const useApi = state.conversations.useApi;
+
+    if (useApi) {
+      if (conversation.id) {
+        return await conversationsApi.update(conversation.id, conversation);
+      } else {
+        return await conversationsApi.create(conversation);
+      }
     } else {
-      return await conversationsApi.create(conversation);
+      await dbService.saveConversation(conversation);
+      return conversation;
     }
   }
 );
 
 export const deleteConversation = createAsyncThunk(
   'conversations/deleteConversation',
-  async (id: string) => {
-    await conversationsApi.delete(id);
+  async (id: string, { getState }) => {
+    const state = getState() as { conversations: ConversationsState };
+    const useApi = state.conversations.useApi;
+
+    if (useApi) {
+      await conversationsApi.delete(id);
+    } else {
+      await dbService.deleteConversation(id);      
+    }
     return id;
   }
 );
@@ -71,6 +106,7 @@ const initialState: ConversationsState = {
   messagesLoading: false,
   loading: false,
   error: null,
+  useApi: false,
   filters: {
     searchQuery: '',
     platforms: [],
@@ -114,6 +150,9 @@ const conversationsSlice = createSlice({
       if (state.currentConversation?.id === action.payload.id) {
         state.currentConversation = action.payload;
       }
+    },
+    toggleDataSource: (state) => {
+      state.useApi = !state.useApi;
     }
   },
   extraReducers: (builder) => {
@@ -239,7 +278,8 @@ export const {
   setPagination,
   clearCurrentConversation,
   clearError,
-  updateConversationLocally
+  updateConversationLocally,
+  toggleDataSource
 } = conversationsSlice.actions;
 
 export default conversationsSlice.reducer; 

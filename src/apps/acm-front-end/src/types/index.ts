@@ -193,6 +193,7 @@ export interface ConversationsState {
   currentConversation: Conversation | null;
   currentMessages: Message[];
   messagesLoading: boolean;
+  useApi: boolean;
   filters: FilterOptions;
   pagination: {
     page: number;

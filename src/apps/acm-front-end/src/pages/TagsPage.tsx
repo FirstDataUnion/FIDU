@@ -174,7 +174,7 @@ const TagsPage: React.FC = () => {
       return acc;
     }, {}),
     averageUsage: tags.reduce((sum: number, t: Tag) => sum + (t.usageCount || 0), 0) / Math.max(tags.length, 1),
-    mostUsed: tags.sort((a: Tag, b: Tag) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5)
+    mostUsed: [...tags].sort((a: Tag, b: Tag) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5)
   };
 
   const handleCreateTag = () => {
