@@ -82,8 +82,8 @@ class CreateUserRequest(BaseModel):
 class LoginRequest(BaseModel):
     """Request model for user login."""
 
-    email: EmailStr = Field(..., description="User's email address")
-    password: str = Field(..., min_length=8, description="User's password")
+    email: str = Field(..., description="User's email address")
+    password: str = Field(..., description="User's password")
 
     model_config = ConfigDict(
         json_schema_extra={

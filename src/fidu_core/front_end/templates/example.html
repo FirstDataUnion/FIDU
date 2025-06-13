@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>Welcome to {{ title }}</h1>
+    
+    <!-- Accessing a simple variable -->
+    <p>Current user: {{ user.name }} ({{ user.role }})</p>
+    
+    <!-- Using a loop to iterate over items -->
+    <h2>Items List:</h2>
+    <ul>
+    {% for item in items %}
+        <li>{{ item }}</li>
+    {% endfor %}
+    </ul>
+    
+    <!-- Using conditional statements -->
+    {% if user.role == "Admin" %}
+        <p>You have admin privileges!</p>
+    {% else %}
+        <p>You have regular user privileges.</p>
+    {% endif %}
+</body>
+</html> 

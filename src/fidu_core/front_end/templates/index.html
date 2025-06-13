@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDU Core</title>
+    <!-- Include HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
+    <script src='https://unpkg.com/htmx.org/dist/ext/response-targets.js'></script>
+</head>
+<body>
+    <h1>Welcome to FIDU</h1>
+    <div id="account-container" hx-get="/auth" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
+        <div id="login-container"></div>
+    </div>
+    <div id="content">
+        <!-- This is where HTMX will load dynamic content -->
+    </div>
+</body>
+
+<script>
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        const accessToken = evt.detail.target.querySelector('div').getAttribute('access_token');
+        
+        // Set cookie instead of localStorage
+        document.cookie = `access_token=bearer ${accessToken}; path=/; max-age=300`; 
+        
+        console.log('Login successful, token stored in cookie');
+    });
+
+</script>
+
+</html> 
