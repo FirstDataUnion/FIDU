@@ -10,6 +10,7 @@ import tagsSlice from './slices/tagsSlice';
 import contextsSlice from './slices/contextsSlice';
 import promptLabSlice from './slices/promptLabSlice';
 import personasSlice from './slices/personasSlice';
+import searchSlice from './slices/searchSlice';
 
 export const store = configureStore({
   reducer: {
@@ -21,6 +22,7 @@ export const store = configureStore({
     contexts: contextsSlice,
     promptLab: promptLabSlice,
     personas: personasSlice,
+    search: searchSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
