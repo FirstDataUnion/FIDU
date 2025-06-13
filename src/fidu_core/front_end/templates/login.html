@@ -1,0 +1,18 @@
+<form hx-post="/login" hx-target="#response" hx-swap="innerHTML">
+    <input type="text" name="email" placeholder="email">
+    <input type="password" name="password" placeholder="Password">
+    <button type="submit">Login</button>
+    <div id="response">
+        response
+    </div>
+</form>
+
+<style>
+    .failure-response {
+        color: #dc2626;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        background-color: #fee2e2;
+    }
+</style>
