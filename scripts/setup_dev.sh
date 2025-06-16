@@ -54,6 +54,12 @@ if [ ! -f ".env" ]; then
     cp .env.example .env 2>/dev/null || echo "# Add your environment variables here" > .env
 fi
 
+# Install npm dependencies for acm-front-end
+echo "Installing npm dependencies for acm-front-end..."
+cd src/apps/acm-front-end
+npm install --legacy-peer-deps
+cd ../../..
+
 echo """
 🍰 Preparing development incentive...
 
