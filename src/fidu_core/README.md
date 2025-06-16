@@ -2,11 +2,15 @@
 
 First, set up your dev environment and virtual python env with the setup script using the following command:
 
-`./scripts/setup_dev.sh`
+`source scripts/setup_dev.sh`
 
 next, from the top level directory, you can start up the FIDU Core app by running it as such:
 
 `.venv/bin/python src/fidu_core/main.py`
+
+or to use with uvicorn's hot reloading:
+
+`uvicorn src.fidu_core.main:app --port 4000 --reload`
 
 This will run the app, and also display the URLS that contain the API docs for reference. 
 
