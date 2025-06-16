@@ -36,13 +36,17 @@ source .venv/bin/activate
 echo "⬆️  Upgrading pip..."
 pip install --upgrade pip
 
+# Install requirements
+echo "📚 Installing requirements..."
+pip install -r requirements.txt
+
 # Install the package in development mode with all dev dependencies
 echo "📚 Installing package with development dependencies..."
 pip install -e ".[dev]"
 
 # Install mypy type stubs
 echo "📝 Installing mypy type stubs..."
-mypy --install-types
+mypy --install-types src/
 
 # Install pre-commit hooks
 echo "🔧 Installing pre-commit hooks..."
@@ -85,4 +89,13 @@ M###################@%=           =+@MH%
               ,.:=-.                    
 
 ✅ Development environment setup complete!
+
+If you didn't run this script using the command 'source scripts/setup_dev.sh', 
+you will need to activate the virtual environment manually:
+
+source .venv/bin/activate
+
+Then you can run the server with:
+
+uvicorn src.fidu_core.main:app --reload
 """ 
