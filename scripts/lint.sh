@@ -13,6 +13,12 @@
 # Exit on any error
 set -e
 
+# Check if virtual environment exists and activate it if it does
+if [ -d ".venv" ]; then
+    echo "🔌 Activating virtual environment for code checks..."
+    source .venv/bin/activate
+fi
+
 echo "🔍 Running code quality checks..."
 
 # Run black formatter
