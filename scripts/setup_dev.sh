@@ -6,10 +6,16 @@
 # - create a .env file if it doesn't exist
 # - install the pre-commit hooks
 #
-# run with './scripts/setup_dev.sh'
+# IMPORTANT: This script must be run using 'source scripts/setup_dev.sh'
+# Running it with './scripts/setup_dev.sh' will not work activate the 
+# virtual environment correctly. 
 
-# Exit on any error
-set -e
+# Check if script is being sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "❌ This script must be run using 'source scripts/setup_dev.sh'"
+    echo "❌ Running it with './scripts/setup_dev.sh' will not work correctly"
+    exit 1
+fi
 
 echo "🚀 Setting up development environment..."
 
@@ -44,10 +50,6 @@ pip install -r requirements.txt
 echo "📚 Installing package with development dependencies..."
 pip install -e ".[dev]"
 
-# Install mypy type stubs
-echo "📝 Installing mypy type stubs..."
-mypy --install-types src/
-
 # Install pre-commit hooks
 echo "🔧 Installing pre-commit hooks..."
 pre-commit install
@@ -63,6 +65,14 @@ echo "Installing npm dependencies for acm-front-end..."
 cd src/apps/acm-front-end
 npm install --legacy-peer-deps
 cd ../../..
+
+# Install mypy type stubs
+echo "📝 Installing mypy type stubs..."
+if ! mypy --install-types --non-interactive src/; then
+    mypy_failed=true
+else
+    mypy_failed=false
+fi
 
 echo """
 🍰 Preparing development incentive...
@@ -90,12 +100,18 @@ M###################@%=           =+@MH%
 
 ✅ Development environment setup complete!
 
-If you didn't run this script using the command 'source scripts/setup_dev.sh', 
-you will need to activate the virtual environment manually:
-
-source .venv/bin/activate
-
-Then you can run the server with:
+The virtual environment has been activated automatically.
+You can now run the server with:
 
 uvicorn src.fidu_core.main:app --reload
-""" 
+"""
+
+if [ "$mypy_failed" = true ]; then
+    echo """
+⚠️  Warning: The mypy type stub installation failed. 
+    This command sometimes requires multiple attempts to complete.
+    Rerunning the same command again or manually running:
+    mypy --install-types src/
+    will fix the issues. 
+"""
+fi
