@@ -21,7 +21,7 @@ setup(
             "pycodestyle>=2.11.1",  # PEP 8 style guide checker
             "pylint>=3.0.3",  # Python linter
             "black>=24.1.1",  # Code formatter
-            "mypy>=1.8.0",  # Static type checker
+            "mypy>=1.16.0",  # Static type checker
             "pytest>=8.0.0",  # Testing framework
             "pytest-cov>=4.1.0",  # Coverage reporting
             "pre-commit>=4.2.0",  # Git hooks manager
