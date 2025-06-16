@@ -103,7 +103,8 @@ M###################@%=           =+@MH%
 The virtual environment has been activated automatically.
 You can now run the server with:
 
-uvicorn src.fidu_core.main:app --reload
+uvicorn src.fidu_core.main:app --port 4000 --reload
+
 """
 
 if [ "$mypy_failed" = true ]; then
