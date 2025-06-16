@@ -21,7 +21,11 @@ black .
 
 # Run pylint
 echo "🔎 Running pylint..."
-pylint src/ --output-format=colorized
+if ! pylint src/ --output-format=colorized; then
+    echo "❌ Pylint found issues in your code. Please fix them before committing."
+    echo "NOTE: make sure you are running this within your virtual environment."
+    exit 1
+fi
 
 # Run mypy type checker
 echo "📊 Running mypy type checker..."
