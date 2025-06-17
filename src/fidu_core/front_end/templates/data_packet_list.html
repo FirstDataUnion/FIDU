@@ -1,0 +1,101 @@
+{% if data_packets %}
+    <div class="stats-bar">
+        <div class="stats-info">
+            <div class="stat-item">
+                <div class="stat-number">{{ total_count }}</div>
+                <div class="stat-label">Total Packets</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ filters.limit }}</div>
+                <div class="stat-label">Per Page</div>
+            </div>
+        </div>
+        <div class="filter-summary">
+            {% if filters.tags or filters.user_id or filters.packet_type %}
+                <small>Filters applied</small>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="data-packets-container">
+        {% for packet in data_packets %}
+            <div class="packet-card">
+                <div class="packet-header">
+                    <div class="packet-id">Packet ID: {{ packet.id }}</div>
+                    <div class="packet-type {{ packet.packet.type }}">
+                        {{ packet.packet.type }}
+                    </div>
+                </div>
+                
+                <div class="packet-timestamp">
+                    {{ packet.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                </div>
+                
+                <div class="packet-content">
+                    {% if packet.packet.type == "structured" %}
+                        {% if packet.packet.personal_data %}
+                            <strong>Personal Data:</strong>
+                            {% if packet.packet.personal_data.name.given_name or packet.packet.personal_data.name.family_name %}
+                                <br>Name: {{ packet.packet.personal_data.name.given_name or '' }} {{ packet.packet.personal_data.name.family_name or '' }}
+                            {% endif %}
+                            {% if packet.packet.personal_data.contact.email %}
+                                <br>Email: {{ packet.packet.personal_data.contact.email }}
+                            {% endif %}
+                            {% if packet.packet.personal_data.professional.job_title %}
+                                <br>Job: {{ packet.packet.personal_data.professional.job_title }}
+                            {% endif %}
+                        {% endif %}
+                        
+                        {% if packet.packet.browsing_data %}
+                            <br><strong>Browsing Data:</strong>
+                            {% if packet.packet.browsing_data.url %}
+                                <br>URL: {{ packet.packet.browsing_data.url }}
+                            {% endif %}
+                            {% if packet.packet.browsing_data.title %}
+                                <br>Title: {{ packet.packet.browsing_data.title }}
+                            {% endif %}
+                        {% endif %}
+                    {% else %}
+                        <strong>Unstructured Data:</strong>
+                        <br>{{ packet.packet.data | tojson(indent=2) }}
+                    {% endif %}
+                </div>
+                
+                {% if packet.packet.type == "unstructured" and packet.packet.tags %}
+                    <div class="packet-tags">
+                        {% for tag in packet.packet.tags %}
+                            <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if total_count > filters.limit %}
+        <div class="pagination">
+            {% if filters.offset > 0 %}
+                <button hx-get="/api/data-packets/list?offset={{ filters.offset - filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
+                        hx-target="#data-packets-content"
+                        hx-indicator="#loading-indicator">
+                    Previous
+                </button>
+            {% endif %}
+            
+            <button class="current">{{ (filters.offset // filters.limit) + 1 }}</button>
+            
+            {% if filters.offset + filters.limit < total_count %}
+                <button hx-get="/api/data-packets/list?offset={{ filters.offset + filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
+                        hx-target="#data-packets-content"
+                        hx-indicator="#loading-indicator">
+                    Next
+                </button>
+            {% endif %}
+        </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">
+        <h3>No data packets found</h3>
+        <p>Try adjusting your filters or check if there are any data packets in the system.</p>
+    </div>
+{% endif %} 

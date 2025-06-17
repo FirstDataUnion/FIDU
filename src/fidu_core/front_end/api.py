@@ -4,12 +4,15 @@ and passing requests to the main APIs when required.
 """
 
 import uuid
-from typing import Annotated
-from fastapi import FastAPI, Request, Form, HTTPException
+from typing import Annotated, Optional
+from datetime import datetime
+from fastapi import FastAPI, Request, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fidu_core.users import UserAPI
 from fidu_core.users.schema import LoginRequest, CreateUserRequest, UserBase
+from fidu_core.data_packets import DataPacketService
+from fidu_core.data_packets.schema import DataPacketQueryParams
 
 templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
 
@@ -20,10 +23,13 @@ class FrontEndAPI:
     It is responsible for serving the login page and the profile page.
     """
 
-    def __init__(self, app: FastAPI, user_api: UserAPI):
+    def __init__(
+        self, app: FastAPI, user_api: UserAPI, data_packet_service: DataPacketService
+    ):
         """Initialize the front end API with FastAPI app and user API instances."""
         self.app = app
         self.user_api = user_api
+        self.data_packet_service = data_packet_service
         self._setup_routes()
 
     def _setup_routes(self) -> None:
@@ -50,8 +56,8 @@ class FrontEndAPI:
             tags=["front_end"],
         )
         self.app.add_api_route(
-            "/example",
-            self.example_template,
+            "/api/data-packets/list",
+            self.list_data_packets_htmx,
             methods=["GET"],
             response_class=HTMLResponse,
             tags=["front_end"],
@@ -90,7 +96,7 @@ class FrontEndAPI:
             hx-target='#content' 
             hx-trigger='load' 
             hx-swap='innerHTML'>
-                Welcome {user_name}! Loading your data...
+                Welcome back {user_name}!
             </div>
             """
             return HTMLResponse(content=html_content, status_code=200)
@@ -221,15 +227,78 @@ class FrontEndAPI:
             "data_packet_viewer.html", {"request": request}
         )
 
-    async def example_template(self, request: Request):
-        """Render an example template with various context variables."""
-        # Create a context dictionary with the variables you want to pass to the template
-        context = {
-            "request": request,  # Always include the request object
-            "title": "Example Page",
-            "items": ["Item 1", "Item 2", "Item 3"],
-            "user": {"name": "John Doe", "role": "Admin"},
-        }
+    # Need to disable the linter for this one as there's no way to avoid
+    # lots of args being passed from the form.
+    # pylint: disable=too-many-locals
+    async def list_data_packets_htmx(
+        self,
+        request: Request,
+        tags: Optional[str] = Query(None, description="Comma-separated list of tags"),
+        user_id: Optional[str] = Query(None, description="Filter by user ID"),
+        from_timestamp: Optional[str] = Query(
+            None, description="Filter by start timestamp (ISO format)"
+        ),
+        to_timestamp: Optional[str] = Query(
+            None, description="Filter by end timestamp (ISO format)"
+        ),
+        packet_type: Optional[str] = Query(
+            None, description="Filter by packet type (structured/unstructured)"
+        ),
+        limit: int = Query(50, ge=1, le=100, description="Number of results to return"),
+        offset: int = Query(0, ge=0, description="Number of results to skip"),
+        sort_order: str = Query("desc", description="Sort order (asc/desc)"),
+    ):
+        """HTMX endpoint for listing data packets with filtering."""
+        try:
+            # Parse tags from comma-separated string
+            tag_list = None
+            if tags:
+                tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
-        # Render the template with the context
-        return templates.TemplateResponse("example.html", context)
+            # Parse timestamps
+            from_dt = None
+            to_dt = None
+            if from_timestamp:
+                from_dt = datetime.fromisoformat(from_timestamp.replace("Z", "+00:00"))
+            if to_timestamp:
+                to_dt = datetime.fromisoformat(to_timestamp.replace("Z", "+00:00"))
+
+            # Create query parameters
+            query_params = DataPacketQueryParams(
+                tags=tag_list,
+                user_id=user_id,
+                from_timestamp=from_dt,
+                to_timestamp=to_dt,
+                packet_type=packet_type,
+                limit=limit,
+                offset=offset,
+                sort_order=sort_order,
+            )
+
+            # Get data packets from service
+            data_packets = self.data_packet_service.list_data_packets(query_params)
+
+            # Prepare context for template
+            context = {
+                "request": request,
+                "data_packets": data_packets,
+                "filters": {
+                    "tags": tags or "",
+                    "user_id": user_id or "",
+                    "from_timestamp": from_timestamp or "",
+                    "to_timestamp": to_timestamp or "",
+                    "packet_type": packet_type or "",
+                    "limit": limit,
+                    "offset": offset,
+                    "sort_order": sort_order,
+                },
+                "total_count": len(data_packets),
+            }
+
+            return templates.TemplateResponse("data_packet_list.html", context)
+
+        except HTTPException as e:
+            return HTMLResponse(
+                content=f"<div class='error'>Error loading data packets: {str(e)}</div>",
+                status_code=500,
+            )

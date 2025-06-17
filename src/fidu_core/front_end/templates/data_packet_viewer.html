@@ -1,4 +1,103 @@
-<div>
-    <h1>Data Packet Viewer</h1>
-    <p>This is the data packet viewer page.</p>
+<div class="data-packet-viewer">
+    <div class="container">
+        <div class="header">
+            <h1>Data Packet Viewer</h1>
+            <p>Explore and filter your data packets with real-time updates</p>
+        </div>
+
+        <div class="filters-section">
+            <form hx-get="/api/data-packets/list" 
+                  hx-target="#data-packets-content" 
+                  hx-trigger="change, submit"
+                  hx-indicator="#loading-indicator">
+                
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label for="tags">Tags (comma-separated)</label>
+                        <input type="text" id="tags" name="tags" placeholder="tag1, tag2, tag3">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="user_id">User ID</label>
+                        <input type="text" id="user_id" name="user_id" placeholder="Enter user ID">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="from_timestamp">From Date</label>
+                        <input type="datetime-local" id="from_timestamp" name="from_timestamp">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="to_timestamp">To Date</label>
+                        <input type="datetime-local" id="to_timestamp" name="to_timestamp">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="packet_type">Packet Type</label>
+                        <select id="packet_type" name="packet_type">
+                            <option value="">All Types</option>
+                            <option value="structured">Structured</option>
+                            <option value="unstructured">Unstructured</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="limit">Results per page</label>
+                        <select id="limit" name="limit">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">
+                        Apply Filters
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="clearFilters()">
+                        Clear Filters
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="refreshData()">
+                        Refresh
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="content-section">
+            <div id="data-packets-content" 
+                 hx-get="/api/data-packets/list" 
+                 hx-trigger="load"
+                 hx-indicator="#loading-indicator">
+                <div class="loading">Loading data packets...</div>
+            </div>
+            
+            <div id="loading-indicator" class="htmx-indicator">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    function clearFilters() {
+        document.getElementById('tags').value = '';
+        document.getElementById('user_id').value = '';
+        document.getElementById('from_timestamp').value = '';
+        document.getElementById('to_timestamp').value = '';
+        document.getElementById('packet_type').value = '';
+        document.getElementById('limit').value = '50';
+        
+        // Trigger refresh
+        refreshData();
+    }
+    
+    function refreshData() {
+        htmx.trigger('#data-packets-content', 'refresh');
+    }
+    
+    // Auto-refresh every 30 seconds
+    setInterval(refreshData, 30000);
+</script> 
