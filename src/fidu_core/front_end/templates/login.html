@@ -1,36 +1,42 @@
 <div id="login-container">
+    <div class="auth-header">
+        <h2 class="auth-title">Welcome Back</h2>
+        <p class="auth-subtitle">Sign in to your FIDU account</p>
+    </div>
+    
     {% if message %}
         <div class="success-response">
             {{ message }}
         </div>
     {% endif %}
-    <form hx-post="/login" hx-target="#login-container" hx-swap="outerHTML">
-        <input type="text" name="email" placeholder="email" value="{{ email }}">
-        <input type="password" name="password" placeholder="Password" value="{{ password }}">
-        <button type="submit">Login</button>
+    
+    <form id="login-form" hx-post="/login" hx-target="#login-container" hx-swap="outerHTML">
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="Enter your email" value="{{ email }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter your password" value="{{ password }}" required>
+        </div>
+
         {% if error_message %}
             <div class="failure-response">
                 {{ error_message }}
             </div>
         {% endif %}
+
+        <button type="submit" class="btn btn-primary">
+            Sign In
+        </button>
     </form>
-    <div>
-        <button hx-get="/open_signup" hx-target="#login-container" hx-swap="innerHTML">Create Account</button>
+    
+    <div class="auth-switch">
+        <p>Don't have an account? 
+            <button class="btn btn-outline" hx-get="/open_signup" hx-target="#login-container" hx-swap="innerHTML">
+                Create Account
+            </button>
+        </p>
     </div>
 </div>
-<style>
-    .failure-response {
-        color: #dc2626;
-        margin-top: 1rem;
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        background-color: #fee2e2;
-    }
-    .success-response {
-        color: #16a34a;
-        margin-top: 1rem;
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        background-color: #d1fae5;
-    }
-</style>

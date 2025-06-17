@@ -1,20 +1,23 @@
 <div id="signup-container">
+    <div class="auth-header">
+        <h2 class="auth-title">Create Account</h2>
+        <p class="auth-subtitle">Join FIDU and start managing your data</p>
+    </div>
+    
     <form id="signup-form" hx-post="/signup" hx-target="#signup-container" hx-swap="outerHTML">
-        <h2>Create an Account</h2>
-        
         <div class="form-group">
             <label for="first_name">First Name</label>
-            <input type="text" id="first_name" name="first_name" value="{{ first_name }}" required>
+            <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" value="{{ first_name }}" required>
         </div>
 
         <div class="form-group">
             <label for="last_name">Last Name</label>
-            <input type="text" id="last_name" name="last_name" value="{{ last_name }}" required>
+            <input type="text" id="last_name" name="last_name" placeholder="Enter your last name" value="{{ last_name }}" required>
         </div>
 
         <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" value="{{ email }}" required>
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="Enter your email" value="{{ email }}" required>
         </div>
 
         {% if email_error_message %}
@@ -25,12 +28,12 @@
 
         <div class="form-group">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" value="{{ password }}" required>
+            <input type="password" id="password" name="password" placeholder="Create a password" value="{{ password }}" required>
         </div>
 
         <div class="form-group">
             <label for="confirm_password">Confirm Password</label>
-            <input type="password" id="confirm-password" name="confirm_password" value="{{ confirm_password }}" required>
+            <input type="password" id="confirm-password" name="confirm_password" placeholder="Confirm your password" value="{{ confirm_password }}" required>
         </div>
 
         {% if password_error_message %}
@@ -39,59 +42,16 @@
             </div>
         {% endif %}
 
-        <button type="submit">Sign Up</button>
+        <button type="submit" class="btn btn-primary">
+            Create Account
+        </button>
     </form>
+    
+    <div class="auth-switch">
+        <p>Already have an account? 
+            <button class="btn btn-outline" hx-get="/auth" hx-target="#signup-container" hx-swap="innerHTML">
+                Sign In
+            </button>
+        </p>
+    </div>
 </div>
-
-<style>
-    #signup-container {
-        max-width: 400px;
-        margin: 40px auto;
-        padding: 20px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        border-radius: 8px;
-    }
-
-    #signup-form {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-    }
-
-    label {
-        font-weight: 500;
-    }
-
-    input {
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 16px;
-    }
-
-    button {
-        background-color: #007bff;
-        color: white;
-        padding: 10px;
-        border: none;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    button:hover {
-        background-color: #0056b3;
-    }
-
-    h2 {
-        text-align: center;
-        margin-bottom: 20px;
-    }
-</style>
