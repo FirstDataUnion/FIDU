@@ -2,13 +2,13 @@
 
 from typing import List
 from .schema import UserInternal
-from .store import UserStore
+from .store import UserStoreInterface
 
 
 class UserService:
     """Service layer for user operations."""
 
-    def __init__(self, store: UserStore) -> None:
+    def __init__(self, store: UserStoreInterface) -> None:
         """Initialize the service layer.
 
         Args:

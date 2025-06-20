@@ -1,11 +1,12 @@
-"""Storage layer for users."""
+"""In-memory non-persistent storage for users. testing only."""
 
 from typing import Dict, List
 from datetime import datetime
-from .schema import UserInternal
+from .store import UserStoreInterface
+from ..schema import UserInternal
 
 
-class UserStore:
+class InMemoryUserStore(UserStoreInterface):
     """In-memory storage for users."""
 
     def __init__(self) -> None:

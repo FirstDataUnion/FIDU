@@ -1,23 +1,19 @@
-"""
-Storage layer for data packets.
-"""
+"""In-memory storage for data packets."""
 
 from typing import Dict, List
-from .schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
+from .store import DataPacketStoreInterface
+from ..schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
 
 
-class DataPacketStore:
-    """Storage layer for data packets."""
+class InMemoryDataPacketStore(DataPacketStoreInterface):
+    """In-memory storage for data packets."""
 
     def __init__(self) -> None:
         """Initialize the storage layer."""
-
-        # For now we will be using an in memory store
         self.data_packet_store: Dict[str, DataPacket] = {}
 
     def store_data_packet(self, data_packet: DataPacket) -> DataPacket:
         """Submit a data packet to the system to be stored."""
-
         self.data_packet_store[data_packet.id] = data_packet
         return data_packet
 
@@ -25,7 +21,6 @@ class DataPacketStore:
         self, data_packet_update_request: DataPacketUpdateRequest
     ) -> DataPacket:
         """Update a data packet in the system."""
-
         if data_packet_update_request.data_packet.id not in self.data_packet_store:
             raise ValueError(
                 f"Data packet with ID {data_packet_update_request.data_packet.id} not found"
@@ -38,12 +33,10 @@ class DataPacketStore:
         )
         return updated_data_packet
 
-    def get_data_packet(self, data_packet_id: str) -> DataPacket | None:
+    def get_data_packet(self, data_packet_id: str) -> DataPacket:
         """Get a data packet from the system by its ID."""
-
         if data_packet_id not in self.data_packet_store:
             raise ValueError(f"Data packet with ID {data_packet_id} not found")
-
         return self.data_packet_store[data_packet_id]
 
     def contains_at_least_one_tag(
@@ -58,7 +51,6 @@ class DataPacketStore:
         self, data_packet_query_params: DataPacketQueryParams
     ) -> List[DataPacket]:
         """List data packets from the system."""
-
         results = []
 
         # Very naive implementation for now, no pagination or sorting
@@ -94,8 +86,6 @@ class DataPacketStore:
 
     def delete_data_packet(self, data_packet_id: str) -> None:
         """Delete a data packet from the system."""
-
         if data_packet_id not in self.data_packet_store:
             raise ValueError(f"Data packet with ID {data_packet_id} not found")
-
         del self.data_packet_store[data_packet_id]
