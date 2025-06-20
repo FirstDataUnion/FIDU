@@ -1,10 +1,11 @@
-"""Storage layer for profiles."""
+"""In-memory storage for profiles."""
 
 from typing import Dict, List
-from .schema import Profile
+from .store import ProfileStoreInterface
+from ..schema import Profile
 
 
-class ProfileStore:
+class InMemoryProfileStore(ProfileStoreInterface):
     """In-memory storage for profiles."""
 
     def __init__(self) -> None:
@@ -18,6 +19,8 @@ class ProfileStore:
 
     def get_profile(self, profile_id: str) -> Profile:
         """Get a profile from the system by its ID."""
+        if profile_id not in self.profile_store:
+            raise KeyError(f"No profile found with ID {profile_id}")
         return self.profile_store[profile_id]
 
     def get_profiles_by_user_id(self, user_id: str) -> List[Profile]:

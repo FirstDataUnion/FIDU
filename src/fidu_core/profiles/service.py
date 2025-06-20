@@ -2,13 +2,13 @@
 
 from typing import List
 from .schema import Profile
-from .store import ProfileStore
+from .store import ProfileStoreInterface
 
 
 class ProfileService:
     """Service layer for profile operations."""
 
-    def __init__(self, store: ProfileStore) -> None:
+    def __init__(self, store: ProfileStoreInterface) -> None:
         """Initialize the service layer.
 
         Args:
@@ -25,7 +25,6 @@ class ProfileService:
         Returns:
             The created profile
         """
-        # TODO: Add validation logic here
         return self.store.store_profile(profile)
 
     def get_profile(self, profile_id: str) -> Profile:

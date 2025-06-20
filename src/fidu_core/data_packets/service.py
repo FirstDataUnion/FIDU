@@ -2,14 +2,15 @@
 Service layer for data packets.
 """
 
-from typing import Any, List
+from typing import List
 from .schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
+from .store import DataPacketStoreInterface
 
 
 class DataPacketService:
     """Service layer for data packets."""
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: DataPacketStoreInterface) -> None:
         """Initialize the service layer.
 
         Args:
