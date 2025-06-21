@@ -264,6 +264,7 @@ export class DatabaseService {
 
   // Messages CRUD
   async getMessages(conversationId: string): Promise<Message[]> {
+    console.log('DatabaseService.getMessages called with conversationId:', conversationId);
     return this.transaction(STORES.MESSAGES, 'readonly', async (stores) => {
       const index = stores[STORES.MESSAGES].index('conversationId');
       const request = index.getAll(IDBKeyRange.only(conversationId));
@@ -271,18 +272,40 @@ export class DatabaseService {
       return new Promise((resolve, reject) => {
         request.onsuccess = () => {
           const messages = request.result as Message[];
+          console.log('DatabaseService.getMessages result:', messages);
+          // Convert Date objects to ISO strings for Redux serialization
+          const serializedMessages = messages.map(message => ({
+            ...message,
+            timestamp: message.timestamp instanceof Date 
+              ? message.timestamp.toISOString() 
+              : message.timestamp
+          }));
           // Sort by timestamp
-          messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          resolve(messages);
+          serializedMessages.sort((a, b) => {
+            const aTime = new Date(a.timestamp).getTime();
+            const bTime = new Date(b.timestamp).getTime();
+            return aTime - bTime;
+          });
+          resolve(serializedMessages);
         };
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+          console.error('DatabaseService.getMessages error:', request.error);
+          reject(request.error);
+        };
       });
     });
   }
 
   async saveMessage(message: Message): Promise<void> {
     return this.transaction(STORES.MESSAGES, 'readwrite', async (stores) => {
-      const request = stores[STORES.MESSAGES].put(message);
+      // Ensure timestamp is stored as Date object in database
+      const messageToSave = {
+        ...message,
+        timestamp: message.timestamp instanceof Date 
+          ? message.timestamp 
+          : new Date(message.timestamp)
+      };
+      const request = stores[STORES.MESSAGES].put(messageToSave);
       return new Promise((resolve, reject) => {
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
@@ -371,9 +394,16 @@ export class DatabaseService {
       return new Promise((resolve, reject) => {
         request.onsuccess = () => {
           const tags = request.result as Tag[];
+          // Convert Date objects to ISO strings for Redux serialization
+          const serializedTags = tags.map(tag => ({
+            ...tag,
+            createdAt: tag.createdAt instanceof Date 
+              ? tag.createdAt.toISOString() 
+              : tag.createdAt
+          }));
           // Sort by usage count (most used first)
-          tags.sort((a, b) => b.usageCount - a.usageCount);
-          resolve(tags);
+          serializedTags.sort((a, b) => b.usageCount - a.usageCount);
+          resolve(serializedTags);
         };
         request.onerror = () => reject(request.error);
       });

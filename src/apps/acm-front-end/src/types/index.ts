@@ -19,7 +19,7 @@ export interface Message {
   conversationId: string;
   content: string;
   role: 'user' | 'assistant' | 'system';
-  timestamp: Date;
+  timestamp: Date | string;
   platform: string;
   metadata?: Record<string, any>;
   attachments?: Attachment[];
@@ -64,7 +64,7 @@ export interface Tag {
   name: string;
   color: string;
   description?: string;
-  createdAt: Date;
+  createdAt: Date | string;
   usageCount: number;
   category?: string;
 }

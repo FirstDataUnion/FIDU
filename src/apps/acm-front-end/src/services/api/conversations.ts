@@ -144,55 +144,114 @@ export const conversationsApi = {
    * Create a new conversation
    */
   create: async (conversation: Partial<Conversation>) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Update an existing conversation
    */
   update: async (id: string, updates: Partial<Conversation>) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Delete a conversation
    */
   delete: async (id: string) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Archive a conversation
    */
   archive: async (id: string) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Unarchive a conversation
    */
   unarchive: async (id: string) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Toggle favorite status of a conversation
    */
   toggleFavorite: async (id: string) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
+  },
+
+  /**
+   * Get messages for a specific conversation
+   */
+  getMessages: async (conversationId: string) => {
+    try {
+      console.log('API getMessages called with conversationId:', conversationId);
+      const response = await apiClient.get<DataPacket>(`/data-packets/${conversationId}`);
+      console.log('API getMessages response:', response);
+      console.log('API getMessages response.data:', response.data);
+      console.log('API getMessages response.status:', response.status);
+      
+      if (response.status === 200 && response.data) {
+        const packet = response.data;
+        console.log('API getMessages packet:', packet);
+        console.log('API getMessages packet.packet:', packet.packet);
+        console.log('API getMessages packet.packet?.data:', packet.packet?.data);
+        console.log('API getMessages packet.packet?.data?.interactions:', packet.packet?.data?.interactions);
+        
+        if (!packet.packet?.data?.interactions) {
+          console.log('No interactions found in packet, returning empty array');
+          return [];
+        }
+        
+        // Transform interactions to Message format
+        const messages = packet.packet.data.interactions.map((interaction, index) => ({
+          id: `${conversationId}-${index}`,
+          conversationId: conversationId,
+          content: interaction.content,
+          role: interaction.actor.toLowerCase() as 'user' | 'assistant' | 'system',
+          timestamp: new Date(interaction.timestamp).toISOString(),
+          platform: packet.packet.data.sourceChatbot.toLowerCase(),
+          metadata: {
+            attachments: interaction.attachments || []
+          },
+          attachments: interaction.attachments?.map((attachment, attIndex) => ({
+            id: `${conversationId}-${index}-${attIndex}`,
+            name: attachment,
+            type: 'file' as const,
+            url: attachment
+          })) || [],
+          isEdited: false
+        }));
+        
+        console.log('API getMessages transformed messages:', messages);
+        return messages;
+      } else {
+        console.error('API getMessages failed - response structure:', {
+          status: response.status,
+          hasData: !!response.data,
+          responseMessage: response.message
+        });
+        throw new Error(response.message || "Failed to get conversation messages");
+      }
+    } catch (error) {
+      console.error('Error fetching conversation messages:', error);
+      throw error;
+    }
   },
 
   /**
    * Add tags to a conversation
    */
   addTags: async (id: string, tags: string[]) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 
   /**
    * Remove tags from a conversation
    */
   removeTags: async (id: string, tags: string[]) => {
-    return new Error("Not implemented");
+    throw new Error("Not implemented");
   },
 }; 
