@@ -39,8 +39,23 @@ export const fetchConversation = createAsyncThunk(
 
 export const fetchConversationMessages = createAsyncThunk(
   'conversations/fetchConversationMessages',
-  async (conversationId: string) => {
-    return await dbService.getMessages(conversationId);
+  async (conversationId: string, { getState }) => {
+    console.log('fetchConversationMessages called with conversationId:', conversationId);
+    const state = getState() as { conversations: ConversationsState };
+    const useApi = state.conversations.useApi;
+    console.log('Using API:', useApi, 'State useApi value:', state.conversations.useApi);
+
+    if (useApi) {
+      console.log('Fetching messages from API...');
+      const messages = await conversationsApi.getMessages(conversationId);
+      console.log('API messages result:', messages);
+      return messages;
+    } else {
+      console.log('Fetching messages from local database...');
+      const messages = await dbService.getMessages(conversationId);
+      console.log('Database messages result:', messages);
+      return messages;
+    }
   }
 );
 
