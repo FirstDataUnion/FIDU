@@ -76,6 +76,8 @@ class DataPacketAPI:
 
         # Pydantic does basic validation automatically, so no need for that here.
 
+        print(data_packet_submission_request)
+
         # Pass data packet to service layer to be processed and stored
         saved_data_packet = self.service.submit_data_packet(
             data_packet_submission_request.data_packet
@@ -127,7 +129,8 @@ class DataPacketAPI:
         return data_packet
 
     async def list_data_packets(
-        self, query: DataPacketQueryParams = Depends(DataPacketQueryParams)
+        self,
+        query: DataPacketQueryParams = Depends(DataPacketQueryParams.as_query_params),
     ) -> List[DataPacket]:
         """List data packets with filtering and pagination."""
         return self.service.list_data_packets(query)

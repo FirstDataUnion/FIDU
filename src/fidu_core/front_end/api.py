@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fidu_core.users import UserAPI
 from fidu_core.users.schema import LoginRequest, CreateUserRequest, UserBase
-from fidu_core.data_packets import DataPacketService
+from fidu_core.data_packets import DataPacketAPI
 from fidu_core.data_packets.schema import DataPacketQueryParams
 
 templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
@@ -23,13 +23,11 @@ class FrontEndAPI:
     It is responsible for serving the login page and the profile page.
     """
 
-    def __init__(
-        self, app: FastAPI, user_api: UserAPI, data_packet_service: DataPacketService
-    ):
+    def __init__(self, app: FastAPI, user_api: UserAPI, data_packet_api: DataPacketAPI):
         """Initialize the front end API with FastAPI app and user API instances."""
         self.app = app
         self.user_api = user_api
-        self.data_packet_service = data_packet_service
+        self.data_packet_api = data_packet_api
         self._setup_routes()
 
     def _setup_routes(self) -> None:
@@ -56,7 +54,7 @@ class FrontEndAPI:
             tags=["front_end"],
         )
         self.app.add_api_route(
-            "/api/data-packets/list",
+            "/data-packets/list",
             self.list_data_packets_htmx,
             methods=["GET"],
             response_class=HTMLResponse,
@@ -121,10 +119,6 @@ class FrontEndAPI:
         """Handle signup requests and return appropriate HTML response."""
         return templates.TemplateResponse("sign_up.html", {"request": request})
 
-    # Need to disable the linter for this one as there's no way to avoid
-    # lots of args being passed from the form.
-    # pylint: disable=too-many-positional-arguments
-    # pylint: disable=too-many-arguments
     async def signup(
         self,
         request: Request,
@@ -276,7 +270,7 @@ class FrontEndAPI:
             )
 
             # Get data packets from service
-            data_packets = self.data_packet_service.list_data_packets(query_params)
+            data_packets = await self.data_packet_api.list_data_packets(query_params)
 
             # Prepare context for template
             context = {
