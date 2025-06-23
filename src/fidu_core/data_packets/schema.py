@@ -128,6 +128,7 @@ class DataPacketSubmissionRequest(BaseModel):
     data_packet: DataPacket  # The data packet to be submitted
 
 
+# TODO: I don't like how this update works at all, rehaul the whole thing.
 class DataPacketUpdateRequest(BaseModel):
     """Model for updating a DataPacket with field masks."""
 
