@@ -224,8 +224,6 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
     ) -> List[DataPacket]:
         """List data packets from the system."""
 
-        print(f"data_packet_query_params: {data_packet_query_params}")
-
         # Build the query dynamically based on filters
         query_parts = [
             "SELECT DISTINCT dp.* FROM data_packets dp",
