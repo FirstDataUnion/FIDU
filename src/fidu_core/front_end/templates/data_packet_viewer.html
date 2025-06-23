@@ -6,7 +6,7 @@
         </div>
 
         <div class="filters-section">
-            <form hx-get="/api/data-packets/list" 
+            <form hx-get="/data-packets/list" 
                   hx-target="#data-packets-content" 
                   hx-trigger="change, submit"
                   hx-indicator="#loading-indicator">
@@ -68,7 +68,7 @@
 
         <div class="content-section">
             <div id="data-packets-content" 
-                 hx-get="/api/data-packets/list" 
+                 hx-get="/data-packets/list" 
                  hx-trigger="load"
                  hx-indicator="#loading-indicator">
                 <div class="loading">Loading data packets...</div>

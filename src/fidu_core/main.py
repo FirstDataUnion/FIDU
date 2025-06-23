@@ -54,7 +54,7 @@ with sqlite3.connect("fidu.db") as conn:
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
     # and a basic profile page
-    front_end_api = FrontEndAPI(app, user_api, data_packet_service)
+    front_end_api = FrontEndAPI(app, user_api, data_packet_api)
 
     # TODO: insert a basic preferences file to be read and written to by the API class
 

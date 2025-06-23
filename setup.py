@@ -25,6 +25,7 @@ setup(
             "pytest>=8.0.0",  # Testing framework
             "pytest-cov>=4.1.0",  # Coverage reporting
             "pre-commit>=4.2.0",  # Git hooks manager
+            "httpx>=0.27.0",  # HTTP client for testing
         ],
     },
     author="FirstDataUnion",

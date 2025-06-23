@@ -75,7 +75,7 @@
     {% if total_count > filters.limit %}
         <div class="pagination">
             {% if filters.offset > 0 %}
-                <button hx-get="/api/data-packets/list?offset={{ filters.offset - filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
+                <button hx-get="/data-packets/list?offset={{ filters.offset - filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
                         hx-target="#data-packets-content"
                         hx-indicator="#loading-indicator">
                     Previous
@@ -85,7 +85,7 @@
             <button class="current">{{ (filters.offset // filters.limit) + 1 }}</button>
             
             {% if filters.offset + filters.limit < total_count %}
-                <button hx-get="/api/data-packets/list?offset={{ filters.offset + filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
+                <button hx-get="/data-packets/list?offset={{ filters.offset + filters.limit }}&limit={{ filters.limit }}&tags={{ filters.tags }}&user_id={{ filters.user_id }}&packet_type={{ filters.packet_type }}&sort_order={{ filters.sort_order }}"
                         hx-target="#data-packets-content"
                         hx-indicator="#loading-indicator">
                     Next

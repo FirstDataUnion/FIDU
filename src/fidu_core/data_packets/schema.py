@@ -4,6 +4,7 @@ from typing import Optional, Union, Dict, Any, Literal, Set, List
 from datetime import datetime
 import uuid
 from pydantic import BaseModel, Field
+from fastapi import Query
 
 
 class NameInfo(BaseModel):
@@ -207,3 +208,49 @@ class DataPacketQueryParams(BaseModel):
     )
     offset: int = Field(default=0, ge=0, description="Number of results to skip")
     sort_order: str = Field(default="desc", description="Sort order (asc/desc)")
+
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
+    @classmethod
+    def as_query_params(
+        cls,
+        tags: Optional[List[str]] = Query(None, description="Filter by tags"),
+        user_id: Optional[str] = Query(None, description="Filter by user ID"),
+        from_timestamp: Optional[str] = Query(
+            None, description="Filter by start timestamp (ISO format)"
+        ),
+        to_timestamp: Optional[str] = Query(
+            None, description="Filter by end timestamp (ISO format)"
+        ),
+        packet_type: Optional[str] = Query(
+            None, description="Filter by packet type (structured/unstructured)"
+        ),
+        limit: int = Query(50, ge=1, le=100, description="Number of results to return"),
+        offset: int = Query(0, ge=0, description="Number of results to skip"),
+        sort_order: str = Query("desc", description="Sort order (asc/desc)"),
+    ) -> "DataPacketQueryParams":
+        """Create DataPacketQueryParams from query parameters.
+
+        This is a helper method to create a DataPacketQueryParams object using FastAPI's Query
+        function rather than Field, as Field is unable to automatically support complex fields
+        like tags in the context of HTTP query parameters. It is used in the API layer to play
+        nicely with the "Depends" function to support URL query parameters.
+        """
+        # Parse timestamps
+        from_dt = None
+        to_dt = None
+        if from_timestamp:
+            from_dt = datetime.fromisoformat(from_timestamp.replace("Z", "+00:00"))
+        if to_timestamp:
+            to_dt = datetime.fromisoformat(to_timestamp.replace("Z", "+00:00"))
+
+        return cls(
+            tags=tags,
+            user_id=user_id,
+            from_timestamp=from_dt,
+            to_timestamp=to_dt,
+            packet_type=packet_type,
+            limit=limit,
+            offset=offset,
+            sort_order=sort_order,
+        )

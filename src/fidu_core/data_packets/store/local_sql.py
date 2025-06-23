@@ -5,7 +5,7 @@ Local SQL storage for data packets.
 import sqlite3
 import json
 from datetime import datetime
-from typing import List, cast
+from typing import List, cast, Any
 from .store import DataPacketStoreInterface
 from ..schema import (
     DataPacket,
@@ -224,6 +224,8 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
     ) -> List[DataPacket]:
         """List data packets from the system."""
 
+        print(f"data_packet_query_params: {data_packet_query_params}")
+
         # Build the query dynamically based on filters
         query_parts = [
             "SELECT DISTINCT dp.* FROM data_packets dp",
@@ -236,7 +238,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         # a no-op, but makes adding the AND statements below easier.
         query_parts.append("WHERE 1=1")
 
-        params = []
+        params: List[Any] = []
 
         if data_packet_query_params.user_id:
             query_parts.append("AND dp.user_id = ?")
@@ -255,20 +257,11 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             params.append(data_packet_query_params.packet_type)
 
         if data_packet_query_params.tags:
-            # subquery to filter only data packets that have all given tags.
-            placeholders = ",".join(["?" for _ in data_packet_query_params.tags])
-            sub_query = f"""
-                AND dp.id IN (
-                    SELECT data_packet_id FROM data_packet_tags
-                    WHERE tag IN ({placeholders})
-                    GROUP BY data_packet_id
-                    HAVING COUNT(DISTINCT tag) = ?
+            for tag in data_packet_query_params.tags:
+                query_parts.append(
+                    "AND dp.id IN (SELECT data_packet_id FROM data_packet_tags WHERE tag = ?)"
                 )
-            """
-            query_parts.append(sub_query)
-
-            params.extend(data_packet_query_params.tags)
-            params.append(str(len(data_packet_query_params.tags)))
+                params.append(tag)
 
         # Add sorting
         sort_order = "DESC" if data_packet_query_params.sort_order == "desc" else "ASC"
@@ -277,7 +270,10 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         # Add pagination
         query_parts.append("LIMIT ? OFFSET ?")
         params.extend(
-            [str(data_packet_query_params.limit), str(data_packet_query_params.offset)]
+            [
+                data_packet_query_params.limit,
+                data_packet_query_params.offset,
+            ]
         )
 
         query = " ".join(query_parts)
@@ -285,9 +281,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         with get_cursor(self.db_conn) as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            data_packets = [self._row_to_data_packet(row, cursor) for row in rows]
-
-        return data_packets
+            return [self._row_to_data_packet(row, cursor) for row in rows]
 
     def delete_data_packet(self, data_packet_id: str) -> None:
         """Delete a data packet from the system."""
