@@ -114,7 +114,7 @@ export const sampleMessages: Message[] = [
     conversationId: sampleConversations[0].id,
     content: 'I need help building a React TypeScript frontend for managing AI conversation memories.',
     role: 'user',
-    timestamp: new Date('2024-05-30T10:00:00'),
+    timestamp: new Date('2024-05-30T10:00:00').toISOString(),
     platform: 'chatgpt',
     isEdited: false
   },
@@ -123,7 +123,7 @@ export const sampleMessages: Message[] = [
     conversationId: sampleConversations[0].id,
     content: 'I\'d be happy to help you build a React TypeScript frontend for managing AI conversation memories! This sounds like an interesting project. Let me break down what we\'ll need to create...',
     role: 'assistant',
-    timestamp: new Date('2024-05-30T10:01:00'),
+    timestamp: new Date('2024-05-30T10:01:00').toISOString(),
     platform: 'chatgpt',
     isEdited: false
   },
@@ -132,7 +132,7 @@ export const sampleMessages: Message[] = [
     conversationId: sampleConversations[1].id,
     content: 'What are the best practices for working with IndexedDB in a TypeScript application?',
     role: 'user',
-    timestamp: new Date('2024-05-29T14:30:00'),
+    timestamp: new Date('2024-05-29T14:30:00').toISOString(),
     platform: 'claude',
     isEdited: false
   },
@@ -141,7 +141,7 @@ export const sampleMessages: Message[] = [
     conversationId: sampleConversations[1].id,
     content: 'Here are the key best practices for working with IndexedDB in TypeScript applications...',
     role: 'assistant',
-    timestamp: new Date('2024-05-29T14:31:00'),
+    timestamp: new Date('2024-05-29T14:31:00').toISOString(),
     platform: 'claude',
     isEdited: false
   }

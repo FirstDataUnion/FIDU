@@ -27,6 +27,15 @@ interface ConversationViewerProps {
 const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation }) => {
   const { currentMessages, messagesLoading, error } = useAppSelector((state) => state.conversations);
 
+  // Add debugging
+  console.log('ConversationViewer render:', {
+    conversationId: conversation.id,
+    currentMessages: currentMessages,
+    messagesLoading: messagesLoading,
+    error: error,
+    messageCount: currentMessages.length
+  });
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'user':
@@ -53,8 +62,9 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
     }
   };
 
-  const formatTimestamp = (timestamp: Date) => {
-    return new Date(timestamp).toLocaleString('en-US', {
+  const formatTimestamp = (timestamp: Date | string) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -125,8 +135,8 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
           </Box>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Created: {formatTimestamp(conversation.createdAt)} • 
-          Updated: {formatTimestamp(conversation.updatedAt)}
+          Created: {formatTimestamp(new Date(conversation.createdAt))} • 
+          Updated: {formatTimestamp(new Date(conversation.updatedAt))}
         </Typography>
         {conversation.tags.length > 0 && (
           <Box sx={{ mt: 1 }}>
