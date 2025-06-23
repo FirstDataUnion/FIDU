@@ -209,8 +209,6 @@ class DataPacketQueryParams(BaseModel):
     offset: int = Field(default=0, ge=0, description="Number of results to skip")
     sort_order: str = Field(default="desc", description="Sort order (asc/desc)")
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-positional-arguments
     @classmethod
     def as_query_params(
         cls,
