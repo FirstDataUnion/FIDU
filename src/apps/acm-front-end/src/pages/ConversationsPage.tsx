@@ -110,6 +110,7 @@ const ConversationsPage: React.FC = () => {
 
   // Handle conversation selection for viewing
   const handleConversationSelect = (conversation: Conversation) => {
+    console.log('Selecting conversation:', conversation.id);
     dispatch(fetchConversationMessages(conversation.id));
     setSelectedConversation(conversation);
   };
@@ -323,7 +324,7 @@ const ConversationsPage: React.FC = () => {
           </Box>
 
           <Typography variant="caption" color="text.secondary">
-            Updated: {formatDate(conversation.updatedAt)}
+            Updated: {formatDate(new Date(conversation.updatedAt))}
           </Typography>
         </CardContent>
       </Card>
@@ -393,6 +394,9 @@ const ConversationsPage: React.FC = () => {
             Conversations ({filteredConversations.length})
           </Typography>
           <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: '80px' }}>
+              Mode: {useApi ? "API" : "Local DB"}
+            </Typography>
             <FormControlLabel
               control={
                 <Switch
