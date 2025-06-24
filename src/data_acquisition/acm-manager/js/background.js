@@ -26,19 +26,15 @@ class FiduCoreAPI {
         body: JSON.stringify({
           request_id: requestId,
           data_packet: {
-            user_id: "123456789", // User's aren't implemented yet
+            profile_id: "123456789", // User's aren't implemented yet
             id: acm.id,
-            timestamp: acm.timestamp,
-            packet: {
-              type: "unstructured",
-              tags: ["ACM"], 
-              data: {
-                sourceChatbot: acm.sourceChatbot,
-                interactions: acm.interactions,
-                originalACMsUsed: acm.originalACMsUsed,
-                targetModelRequested: acm.targetModelRequested,
-                conversationUrl: acm.conversationUrl
-              }
+            tags: ["ACM", "ACM-Manager-Plugin"], 
+            data: {
+              sourceChatbot: acm.sourceChatbot,
+              interactions: acm.interactions,
+              originalACMsUsed: acm.originalACMsUsed,
+              targetModelRequested: acm.targetModelRequested,
+              conversationUrl: acm.conversationUrl
             }
           }
         })
@@ -122,11 +118,11 @@ class FiduCoreAPI {
         success: true,
         data: {
           id: result.id,
-          sourceChatbot: result.source,
-          timestamp: result.metadata.timestamp,
-          conversationUrl: result.metadata.url,
-          targetModelRequested: result.metadata.targetModel,
-          interactions: result.content.interactions,
+          sourceChatbot: result.data.sourceChatbot,
+          timestamp: result.create_timestamp,
+          conversationUrl: result.data.conversationUrl,
+          targetModelRequested: result.data.targetModelRequested,
+          interactions: result.data.interactions,
           originalACMsUsed: result.content.originalACMsUsed
         }
       };
