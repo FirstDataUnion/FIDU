@@ -228,15 +228,12 @@ class FrontEndAPI:
         self,
         request: Request,
         tags: Optional[str] = Query(None, description="Comma-separated list of tags"),
-        user_id: Optional[str] = Query(None, description="Filter by user ID"),
+        profile_id: Optional[str] = Query(None, description="Filter by profile ID"),
         from_timestamp: Optional[str] = Query(
             None, description="Filter by start timestamp (ISO format)"
         ),
         to_timestamp: Optional[str] = Query(
             None, description="Filter by end timestamp (ISO format)"
-        ),
-        packet_type: Optional[str] = Query(
-            None, description="Filter by packet type (structured/unstructured)"
         ),
         limit: int = Query(50, ge=1, le=100, description="Number of results to return"),
         offset: int = Query(0, ge=0, description="Number of results to skip"),
@@ -260,10 +257,9 @@ class FrontEndAPI:
             # Create query parameters
             query_params = DataPacketQueryParams(
                 tags=tag_list,
-                user_id=user_id,
+                profile_id=profile_id,
                 from_timestamp=from_dt,
                 to_timestamp=to_dt,
-                packet_type=packet_type,
                 limit=limit,
                 offset=offset,
                 sort_order=sort_order,
@@ -278,10 +274,9 @@ class FrontEndAPI:
                 "data_packets": data_packets,
                 "filters": {
                     "tags": tags or "",
-                    "user_id": user_id or "",
+                    "profile_id": profile_id or "",
                     "from_timestamp": from_timestamp or "",
                     "to_timestamp": to_timestamp or "",
-                    "packet_type": packet_type or "",
                     "limit": limit,
                     "offset": offset,
                     "sort_order": sort_order,
