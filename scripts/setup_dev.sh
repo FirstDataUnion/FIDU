@@ -4,7 +4,7 @@
 # This script will:
 # - create a virtual environment and install the necessary dependencies
 # - create a .env file if it doesn't exist
-# - install the pre-commit hooks
+# - install the pre-push hooks
 #
 # IMPORTANT: This script must be run using 'source scripts/setup_dev.sh'
 # Running it with './scripts/setup_dev.sh' will not work activate the 
@@ -50,9 +50,17 @@ pip install -r requirements.txt
 echo "📚 Installing package with development dependencies..."
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-echo "🔧 Installing pre-commit hooks..."
-pre-commit install
+# Install pre-push hooks
+echo "🔧 Installing pre-push hooks..."
+# Ensure the pre-push hook is executable
+chmod +x .git/hooks/pre-push
+# Disable pre-commit hook if it exists
+if [ -f ".git/hooks/pre-commit" ]; then
+    mv .git/hooks/pre-commit .git/hooks/pre-commit.disabled
+    echo "✅ Pre-commit hook disabled, pre-push hook enabled"
+else
+    echo "✅ Pre-push hook enabled"
+fi
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
@@ -110,6 +118,9 @@ The virtual environment has been activated automatically.
 You can now run the server with:
 
 uvicorn src.fidu_core.main:app --port 4000 --reload
+
+Code quality checks will run automatically before each push.
+To manage hooks, use: ./scripts/manage_hooks.sh status
 
 """
 
