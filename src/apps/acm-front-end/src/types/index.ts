@@ -148,10 +148,9 @@ export interface FilterOptions {
 
 export interface DataPacketQueryParams {
   tags?: string[];
-  user_id?: string;
+  profile_id?: string;
   from_timestamp?: Date;
   to_timestamp?: Date;
-  packet_type?: string;
   limit?: number;
   offset?: number;
   sort_order?: string;

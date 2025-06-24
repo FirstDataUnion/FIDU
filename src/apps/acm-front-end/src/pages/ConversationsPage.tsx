@@ -51,6 +51,7 @@ const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { items: conversations = [], loading, error, useApi } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: tags = [] } = useAppSelector((state) => state.tags as any);
+  const { sidebarOpen } = useAppSelector((state) => state.ui);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -386,15 +387,35 @@ const ConversationsPage: React.FC = () => {
   }
 
   return (
-    <Box p={3}>
+    <Box sx={{ 
+      overflow: 'hidden',
+      width: '100%',
+      boxSizing: 'border-box'
+    }}>
       {/* Header with Search and Actions */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4">
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 2,
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
+          <Typography variant="h4" sx={{ minWidth: 0, flex: '1 1 auto' }}>
             Conversations ({filteredConversations.length})
           </Typography>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: '80px' }}>
+          <Stack 
+            direction="row" 
+            spacing={2} 
+            alignItems="center"
+            sx={{ 
+              flexShrink: 0,
+              minWidth: 0,
+              flexWrap: 'wrap'
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: '80px', flexShrink: 0 }}>
               Mode: {useApi ? "API" : "Local DB"}
             </Typography>
             <FormControlLabel
@@ -406,11 +427,20 @@ const ConversationsPage: React.FC = () => {
                 />
               }
               label={useApi ? "Using API" : "Using Local DB"}
+              sx={{ 
+                flexShrink: 0, 
+                minWidth: '120px', // Fixed width to prevent layout shifts
+                '& .MuiFormControlLabel-label': {
+                  width: '100px', // Fixed width for the label text
+                  textAlign: 'left'
+                }
+              }}
             />
             <Button
               variant="outlined"
               onClick={handleRefresh}
               startIcon={<RefreshIcon />}
+              sx={{ flexShrink: 0 }}
             >
               Refresh
             </Button>
@@ -419,6 +449,7 @@ const ConversationsPage: React.FC = () => {
                 variant="contained"
                 onClick={buildContextPreview}
                 startIcon={<AddIcon />}
+                sx={{ flexShrink: 0 }}
               >
                 Build Context ({selectedForContext.length})
               </Button>
@@ -556,15 +587,20 @@ const ConversationsPage: React.FC = () => {
       <Box sx={{ 
         display: 'flex', 
         gap: 2, 
-        height: 'calc(100vh - 240px)', // Adjust based on header height
-        minHeight: '600px' 
+        height: { xs: 'calc(100vh - 300px)', md: 'calc(100vh - 280px)' }, // More flexible height calculation
+        minHeight: '600px',
+        maxWidth: '100%', // Ensure we don't exceed viewport width
+        overflow: 'hidden', // Prevent horizontal scrolling
+        flexDirection: { xs: 'column', md: 'row' } // Stack vertically on small screens
       }}>
         {/* Left Panel - Conversations List */}
         <Paper sx={{ 
-          flex: selectedConversation ? '0 0 400px' : '1 1 auto', 
+          flex: selectedConversation ? '0 0 min(400px, 40%)' : '1 1 auto', 
           display: 'flex', 
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          minWidth: selectedConversation ? '300px' : 'auto', // Minimum width for readability
+          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' } // Responsive height
         }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6">
@@ -643,7 +679,9 @@ const ConversationsPage: React.FC = () => {
             flex: '1 1 auto', 
             display: 'flex', 
             flexDirection: 'column',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            minWidth: 0, // Allow flex item to shrink below content size
+            height: { xs: '60%', md: 'auto' } // Responsive height
           }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6">
@@ -657,7 +695,7 @@ const ConversationsPage: React.FC = () => {
               </IconButton>
             </Box>
             
-            <Box sx={{ flex: 1, overflow: 'hidden', p: 2 }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', p: 2, minWidth: 0 }}>
               <ConversationViewer conversation={selectedConversation} />
             </Box>
           </Paper>
@@ -670,7 +708,8 @@ const ConversationsPage: React.FC = () => {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            bgcolor: 'grey.50'
+            bgcolor: 'grey.50',
+            minWidth: 0 // Allow flex item to shrink below content size
           }}>
             <Box sx={{ textAlign: 'center', p: 4 }}>
               <ChatIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />

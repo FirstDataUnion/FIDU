@@ -3,28 +3,22 @@ import type { Conversation, FilterOptions, DataPacketQueryParams } from '../../t
 
 interface DataPacket {
   id: string;
-  user_id: string;
-  timestamp: string;
-  packet: {
-    tags: string[];
-    type: string;
-    data: {
-      sourceChatbot: string;
-      interactions: Array<{
-        actor: string;
-        timestamp: string;
-        content: string;
-        attachments: string[];
-      }>;
-      originalACMsUsed: string[];
-      targetModelRequested: string;
-      conversationUrl: string;
-    };
+  profile_id: string;
+  create_timestamp: string;
+  update_timestamp: string;
+  tags: string[];
+  data: {
+    sourceChatbot: string;
+    interactions: Array<{
+      actor: string;
+      timestamp: string;
+      content: string;
+      attachments: string[];
+    }>;
+    originalACMsUsed: string[];
+    targetModelRequested: string;
+    conversationUrl: string;
   };
-}
-
-interface DataPacketsResponse {
-  data_packets: DataPacket[];
 }
 
 export interface ConversationsResponse {
@@ -41,20 +35,21 @@ export interface ConversationResponse {
 // Transform API data packet to local Conversation type
 const transformDataPacketToConversation = (packet: DataPacket): Conversation => {
   // Add validation to ensure required fields exist
-  if (!packet.packet?.data?.interactions?.length) {
+  console.log('transformDataPacketToConversation packet:', packet);
+  if (!packet.data?.interactions?.length) {
     console.warn('Data packet missing required fields:', packet);
     throw new Error('Invalid data packet format');
   }
 
   return {
     id: packet.id,
-    title: packet.packet.data.conversationUrl,
-    platform: packet.packet.data.sourceChatbot.toLowerCase() as "chatgpt" | "claude" | "gemini" | "other",
-    createdAt: packet.timestamp, // Store as ISO string
-    updatedAt: packet.timestamp, // Store as ISO string
-    lastMessage: packet.packet.data.interactions[packet.packet.data.interactions.length - 1].content,
-    messageCount: packet.packet.data.interactions.length,
-    tags: packet.packet.tags || [],
+    title: packet.data.conversationUrl,
+    platform: packet.data.sourceChatbot.toLowerCase() as "chatgpt" | "claude" | "gemini" | "other",
+    createdAt: packet.create_timestamp, // Store as ISO string
+    updatedAt: packet.update_timestamp, // Store as ISO string
+    lastMessage: packet.data.interactions[packet.data.interactions.length - 1].content,
+    messageCount: packet.data.interactions.length,
+    tags: packet.tags || [],
     isArchived: false,
     isFavorite: false,
     participants: [],
@@ -69,18 +64,37 @@ export const conversationsApi = {
   getAll: async (filters?: FilterOptions, page = 1, limit = 20) => {
     const queryParams: DataPacketQueryParams = {
       tags: ["ACM", ...(filters?.tags || [])],
-      //user_id: filters?.user_id, We will need this eventually
+      //profile_id: filters?.profile_id, We will need this eventually
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
-      packet_type: "unstructured",
       limit: limit,
       offset: (page - 1) * limit,
       sort_order: "desc",
     };
 
     try {
-      const response = await apiClient.get<DataPacketsResponse>('/data-packets', {
+      const response = await apiClient.get<DataPacket[]>('/data-packets', {
         params: queryParams,
+        paramsSerializer: {
+          serialize: (params) => {
+            const searchParams = new URLSearchParams();
+            
+            Object.entries(params).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                if (Array.isArray(value)) {
+                  // Create multiple parameters with the same name for arrays
+                  value.forEach(item => {
+                    searchParams.append(key, String(item));
+                  });
+                } else {
+                  searchParams.append(key, String(value));
+                }
+              }
+            });
+            
+            return searchParams.toString();
+          }
+        }
       });
 
       // Log the response for debugging
@@ -97,9 +111,9 @@ export const conversationsApi = {
         };
       }
 
-      // Check if data_packets exists and is an array
+      // Check if response.data is an array
       if (!Array.isArray(response.data)) {
-        console.error('Invalid response format - data_packets is not an array:', response.data);
+        console.error('Invalid response format - response.data is not an array:', response.data);
         return {
           conversations: [],
           total: 0,
@@ -128,9 +142,9 @@ export const conversationsApi = {
    */
   getById: async (id: string) => {
     try {
-      const response = await apiClient.get<{ data_packet: DataPacket }>(`/data-packets/${id}`);
-      if (response.status === 200 && response.data?.data_packet) {
-        return transformDataPacketToConversation(response.data.data_packet);
+      const response = await apiClient.get<DataPacket>(`/data-packets/${id}`);
+      if (response.status === 200 && response.data) {
+        return transformDataPacketToConversation(response.data);
       } else {
         throw new Error(response.message || "Failed to get conversation");
       }
@@ -196,23 +210,22 @@ export const conversationsApi = {
       if (response.status === 200 && response.data) {
         const packet = response.data;
         console.log('API getMessages packet:', packet);
-        console.log('API getMessages packet.packet:', packet.packet);
-        console.log('API getMessages packet.packet?.data:', packet.packet?.data);
-        console.log('API getMessages packet.packet?.data?.interactions:', packet.packet?.data?.interactions);
+        console.log('API getMessages packet.data:', packet.data);
+        console.log('API getMessages packet.data?.interactions:', packet.data?.interactions);
         
-        if (!packet.packet?.data?.interactions) {
+        if (!packet.data?.interactions) {
           console.log('No interactions found in packet, returning empty array');
           return [];
         }
         
         // Transform interactions to Message format
-        const messages = packet.packet.data.interactions.map((interaction, index) => ({
+        const messages = packet.data.interactions.map((interaction, index) => ({
           id: `${conversationId}-${index}`,
           conversationId: conversationId,
           content: interaction.content,
           role: interaction.actor.toLowerCase() as 'user' | 'assistant' | 'system',
           timestamp: new Date(interaction.timestamp).toISOString(),
-          platform: packet.packet.data.sourceChatbot.toLowerCase(),
+          platform: packet.data.sourceChatbot.toLowerCase(),
           metadata: {
             attachments: interaction.attachments || []
           },
