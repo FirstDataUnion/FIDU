@@ -11,7 +11,7 @@
             </div>
         </div>
         <div class="filter-summary">
-            {% if filters.tags or filters.user_id or filters.packet_type %}
+            {% if filters.tags or filters.profile_id or filters.from_timestamp or filters.to_timestamp %}
                 <small>Filters applied</small>
             {% endif %}
         </div>
@@ -22,52 +22,23 @@
             <div class="packet-card">
                 <div class="packet-header">
                     <div class="packet-id">Packet ID: {{ packet.id }}</div>
-                    <div class="packet-type {{ packet.packet.type }}">
-                        {{ packet.packet.type }}
-                    </div>
                 </div>
                 
                 <div class="packet-timestamp">
-                    {{ packet.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                    created: {{ packet.create_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
                 </div>
-                
+                <div class="packet-timestamp">
+                    last updated: {{ packet.update_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                </div>
+                <div class="packet-tags">
+                    {% for tag in packet.tags %}
+                        <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                <div class="packet-data-header"><strong>Data:</strong></div>
                 <div class="packet-content">
-                    {% if packet.packet.type == "structured" %}
-                        {% if packet.packet.personal_data %}
-                            <strong>Personal Data:</strong>
-                            {% if packet.packet.personal_data.name.given_name or packet.packet.personal_data.name.family_name %}
-                                <br>Name: {{ packet.packet.personal_data.name.given_name or '' }} {{ packet.packet.personal_data.name.family_name or '' }}
-                            {% endif %}
-                            {% if packet.packet.personal_data.contact.email %}
-                                <br>Email: {{ packet.packet.personal_data.contact.email }}
-                            {% endif %}
-                            {% if packet.packet.personal_data.professional.job_title %}
-                                <br>Job: {{ packet.packet.personal_data.professional.job_title }}
-                            {% endif %}
-                        {% endif %}
-                        
-                        {% if packet.packet.browsing_data %}
-                            <br><strong>Browsing Data:</strong>
-                            {% if packet.packet.browsing_data.url %}
-                                <br>URL: {{ packet.packet.browsing_data.url }}
-                            {% endif %}
-                            {% if packet.packet.browsing_data.title %}
-                                <br>Title: {{ packet.packet.browsing_data.title }}
-                            {% endif %}
-                        {% endif %}
-                    {% else %}
-                        <strong>Unstructured Data:</strong>
-                        <br>{{ packet.packet.data | tojson(indent=2) }}
-                    {% endif %}
+                    <br>{{ packet.data | tojson(indent=2) }}
                 </div>
-                
-                {% if packet.packet.type == "unstructured" and packet.packet.tags %}
-                    <div class="packet-tags">
-                        {% for tag in packet.packet.tags %}
-                            <span class="tag">{{ tag }}</span>
-                        {% endfor %}
-                    </div>
-                {% endif %}
             </div>
         {% endfor %}
     </div>
