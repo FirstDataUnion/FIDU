@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# Pre-push hook to run code quality checks
+# This hook will run before every push and reject the push if checks fail
+
+echo "🔍 Running pre-push code quality checks..."
+
+# Run the pre-push lint script
+if ! ./scripts/pre_push_lint.sh; then
+    echo "❌ Pre-push checks failed. Push aborted."
+    exit 1
+fi
+
+echo "✅ Pre-push checks passed. Proceeding with push..." 
