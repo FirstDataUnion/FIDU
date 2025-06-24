@@ -52,9 +52,11 @@ pip install -e ".[dev]"
 
 # Install pre-push hooks
 echo "🔧 Installing pre-push hooks..."
+# 'install' the pre-push hook
+cp scripts/githooks/pre-push .git/hooks/pre-push
 # Ensure the pre-push hook is executable
 chmod +x .git/hooks/pre-push
-# Disable pre-commit hook if it exists
+# Disable pre-commit hook if it exists (migrating to pre-push)
 if [ -f ".git/hooks/pre-commit" ]; then
     mv .git/hooks/pre-commit .git/hooks/pre-commit.disabled
     echo "✅ Pre-commit hook disabled, pre-push hook enabled"
