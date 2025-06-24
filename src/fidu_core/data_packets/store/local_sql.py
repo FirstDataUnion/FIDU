@@ -5,15 +5,14 @@ Local SQL storage for data packets.
 import sqlite3
 import json
 from datetime import datetime
-from typing import List, cast, Any
+from typing import List, Any
 from .store import DataPacketStoreInterface
 from ..schema import (
-    DataPacket,
+    DataPacketInternal,
     DataPacketQueryParams,
     DataPacketUpdateRequest,
-    StructuredDataPacket,
-    UnstructuredDataPacket,
 )
+from ..exceptions import DataPacketNotFoundError, DataPacketError
 from ...utils.db import get_cursor
 
 
@@ -23,13 +22,12 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
     create_table_query = """
     CREATE TABLE IF NOT EXISTS data_packets (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        packet_type TEXT NOT NULL CHECK (packet_type IN ('structured', 'unstructured')),
-        tags TEXT,  -- JSON array for unstructured packets
-        structured_data TEXT,  -- JSON for structured packet data
-        unstructured_data TEXT,  -- JSON for unstructured packet data
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        profile_id TEXT NOT NULL,
+        create_timestamp TEXT NOT NULL,
+        update_timestamp TEXT NOT NULL,
+        tags TEXT,  -- JSON array for tags
+        data TEXT NOT NULL  -- JSON for data
+        -- FOREIGN KEY (profile_id) REFERENCES profiles (id) -- Add this back when we have profiles
     )
     """
 
@@ -53,16 +51,16 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             cursor.execute(self.create_tags_table_query)
             # Create indexes for efficient querying
             cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packets_user_id
-                ON data_packets(user_id)"""
+                """CREATE INDEX IF NOT EXISTS idx_data_packets_profile_id
+                ON data_packets(profile_id)"""
             )
             cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packets_timestamp
-                ON data_packets(timestamp)"""
+                """CREATE INDEX IF NOT EXISTS idx_data_packets_create_timestamp
+                ON data_packets(create_timestamp)"""
             )
             cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packets_packet_type
-                ON data_packets(packet_type)"""
+                """CREATE INDEX IF NOT EXISTS idx_data_packets_update_timestamp
+                ON data_packets(update_timestamp)"""
             )
             # Create indexes for tag queries
             cursor.execute(
@@ -74,7 +72,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                 ON data_packet_tags(data_packet_id)"""
             )
 
-    def _row_to_data_packet(self, row: tuple, cursor) -> DataPacket:
+    def _row_to_data_packet(self, row: tuple, cursor) -> DataPacketInternal:
         """Convert a database row tuple to a DataPacket object."""
         try:
             # Convert to dict using column names
@@ -82,44 +80,29 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             packet_dict = dict(zip(columns, row))
 
             # Handle datetime conversion
-            if packet_dict.get("timestamp"):
-                packet_dict["timestamp"] = datetime.fromisoformat(
-                    packet_dict["timestamp"]
+            if packet_dict.get("create_timestamp"):
+                packet_dict["create_timestamp"] = datetime.fromisoformat(
+                    packet_dict["create_timestamp"]
+                )
+            if packet_dict.get("update_timestamp"):
+                packet_dict["update_timestamp"] = datetime.fromisoformat(
+                    packet_dict["update_timestamp"]
                 )
 
-            # Reconstruct the packet based on type
-            packet_type = packet_dict["packet_type"]
+            # Parse tags and data from JSON
+            if packet_dict.get("tags"):
+                packet_dict["tags"] = json.loads(packet_dict["tags"])
+            else:
+                packet_dict["tags"] = []
 
-            if packet_type == "structured":
-                structured_data = (
-                    json.loads(packet_dict["structured_data"])
-                    if packet_dict["structured_data"]
-                    else {}
-                )
-                packet_dict["packet"] = StructuredDataPacket(**structured_data)
-            elif packet_type == "unstructured":
-                tags = json.loads(packet_dict["tags"]) if packet_dict["tags"] else []
-                unstructured_data = (
-                    json.loads(packet_dict["unstructured_data"])
-                    if packet_dict["unstructured_data"]
-                    else {}
-                )
-                packet_dict["packet"] = UnstructuredDataPacket(
-                    tags=tags, data=unstructured_data
-                )
+            if packet_dict.get("data"):
+                packet_dict["data"] = json.loads(packet_dict["data"])
+            else:
+                packet_dict["data"] = {}
 
-            # Remove database-specific fields
-            for field in [
-                "packet_type",
-                "tags",
-                "structured_data",
-                "unstructured_data",
-            ]:
-                packet_dict.pop(field, None)
-
-            return DataPacket(**packet_dict)
+            return DataPacketInternal(**packet_dict)
         except Exception as e:
-            raise ValueError(
+            raise DataPacketError(
                 f"Failed to convert database row to DataPacket: {e}"
             ) from e
 
@@ -142,86 +125,110 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                     tag_values,
                 )
 
-    def store_data_packet(self, data_packet: DataPacket) -> DataPacket:
+    def store_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
         """Submit a data packet to the system to be stored."""
         query = """
         INSERT INTO data_packets (
-            id, user_id, timestamp, packet_type, tags, structured_data, unstructured_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            id, profile_id, create_timestamp, update_timestamp, tags, data
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
 
-        # Prepare data based on packet type
-        packet_type = data_packet.packet.type
-        tags = None
-        structured_data = None
-        unstructured_data = None
-
-        if packet_type == "structured":
-            structured_data = json.dumps(data_packet.packet.model_dump())
-        elif packet_type == "unstructured":
-            unstructured_data_packet = cast(UnstructuredDataPacket, data_packet.packet)
-            tags = json.dumps(unstructured_data_packet.tags)
-            unstructured_data = json.dumps(unstructured_data_packet.data)
+        # Prepare data
+        tags_json = json.dumps(data_packet.tags) if data_packet.tags else None
+        data_json = json.dumps(data_packet.data) if data_packet.data else "{}"
 
         with get_cursor(self.db_conn) as cursor:
             cursor.execute(
                 query,
                 (
                     data_packet.id,
-                    data_packet.user_id,
-                    data_packet.timestamp.isoformat(),
-                    packet_type,
-                    tags,
-                    structured_data,
-                    unstructured_data,
+                    data_packet.profile_id,
+                    data_packet.create_timestamp.isoformat(),
+                    data_packet.update_timestamp.isoformat(),
+                    tags_json,
+                    data_json,
                 ),
             )
 
             # Sync tags to junction table for efficient querying
-            if packet_type == "unstructured":
-                # cast to UnstructuredDataPacket to ensure safe typing.
-                unstructured_data_packet = cast(
-                    UnstructuredDataPacket, data_packet.packet
-                )
-                if unstructured_data_packet.tags:
-                    self._sync_tags_to_junction_table(
-                        data_packet.id, unstructured_data_packet.tags
-                    )
+            if data_packet.tags:
+                self._sync_tags_to_junction_table(data_packet.id, data_packet.tags)
 
         return data_packet
 
     def update_data_packet(
-        self, data_packet_update_request: DataPacketUpdateRequest
-    ) -> DataPacket:
+        self, request_id: str, data_packet: DataPacketInternal
+    ) -> DataPacketInternal:
         """Update a data packet in the system."""
 
-        # TODO: Review this along with creation conflicts, as it's very haphazard.
+        # TODO: Add idempotency check
 
-        # First get the existing packet
-        existing_packet = self.get_data_packet(
-            data_packet_update_request.data_packet.id
-        )
+        # Update the database with transaction handling to avoid any race conditions
+        with get_cursor(self.db_conn) as cursor:
+            # First check if the packet exists
+            cursor.execute("SELECT id FROM data_packets WHERE id = ?", (data_packet.id,))
+            if cursor.fetchone() is None:
+                raise KeyError(f"Data packet with ID {data_packet.id} not found")
 
-        # Apply the update
-        updated_packet = data_packet_update_request.apply_update(existing_packet)
+            # Build the update query dynamically
+            query_parts = ["UPDATE data_packets SET update_timestamp = ?"]
+            params = [data_packet.update_timestamp.isoformat()]
 
-        # Store the updated packet
-        return self.store_data_packet(updated_packet)
+            # Handle tags - only update if explicitly provided (not None)
+            if data_packet.tags is not None:
+                query_parts.append(", tags = ?")
+                params.append(json.dumps(data_packet.tags))
 
-    def get_data_packet(self, data_packet_id: str) -> DataPacket:
+            # Handle data - only update if explicitly provided (not None)
+            if data_packet.data is not None:
+                query_parts.append(", data = ?")
+                params.append(json.dumps(data_packet.data))
+
+            query_parts.append(" WHERE id = ?")
+            params.append(data_packet.id)
+
+            # Execute the update
+            query = "".join(query_parts)
+            cursor.execute(query, params)
+
+            if cursor.rowcount == 0:
+                raise KeyError(f"Data packet with ID {data_packet.id} not found")
+
+            # Fetch the updated record (SQLite doesn't support RETURNING)
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (data_packet.id,))
+            row = cursor.fetchone()
+            if row is None:
+                raise ValueError(f"Updated data packet with ID {data_packet.id} not found in database")
+            
+            updated_data_packet = self._row_to_data_packet(row, cursor)
+
+            # Sync tags to junction table for efficient querying
+            if data_packet.tags is not None:
+                if data_packet.tags:
+                    self._sync_tags_to_junction_table(data_packet.id, data_packet.tags)
+                else:
+                    # Remove all tags if empty list provided
+                    cursor.execute(
+                        "DELETE FROM data_packet_tags WHERE data_packet_id = ?",
+                        (data_packet.id,),
+                    )
+
+            return updated_data_packet
+
+    def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID."""
         with get_cursor(self.db_conn) as cursor:
             cursor.execute("SELECT * FROM data_packets WHERE id = ?", (data_packet_id,))
             row = cursor.fetchone()
 
             if row is None:
-                raise ValueError(f"Data packet with ID {data_packet_id} not found")
+                raise DataPacketNotFoundError(f"Data packet with ID {data_packet_id} not found")
 
             return self._row_to_data_packet(row, cursor)
 
     def list_data_packets(
         self, data_packet_query_params: DataPacketQueryParams
-    ) -> List[DataPacket]:
+    ) -> List[DataPacketInternal]:
         """List data packets from the system."""
 
         # Build the query dynamically based on filters
@@ -238,21 +245,17 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
 
         params: List[Any] = []
 
-        if data_packet_query_params.user_id:
-            query_parts.append("AND dp.user_id = ?")
-            params.append(data_packet_query_params.user_id)
+        if data_packet_query_params.profile_id:
+            query_parts.append("AND dp.profile_id = ?")
+            params.append(data_packet_query_params.profile_id)
 
         if data_packet_query_params.from_timestamp:
-            query_parts.append("AND dp.timestamp >= ?")
+            query_parts.append("AND dp.create_timestamp >= ?")
             params.append(data_packet_query_params.from_timestamp.isoformat())
 
         if data_packet_query_params.to_timestamp:
-            query_parts.append("AND dp.timestamp <= ?")
+            query_parts.append("AND dp.create_timestamp <= ?")
             params.append(data_packet_query_params.to_timestamp.isoformat())
-
-        if data_packet_query_params.packet_type:
-            query_parts.append("AND dp.packet_type = ?")
-            params.append(data_packet_query_params.packet_type)
 
         if data_packet_query_params.tags:
             for tag in data_packet_query_params.tags:
@@ -263,7 +266,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
 
         # Add sorting
         sort_order = "DESC" if data_packet_query_params.sort_order == "desc" else "ASC"
-        query_parts.append(f"ORDER BY dp.timestamp {sort_order}")
+        query_parts.append(f"ORDER BY dp.create_timestamp {sort_order}")
 
         # Add pagination
         query_parts.append("LIMIT ? OFFSET ?")
@@ -286,8 +289,5 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         with get_cursor(self.db_conn) as cursor:
             cursor.execute("DELETE FROM data_packets WHERE id = ?", (data_packet_id,))
             if cursor.rowcount == 0:
-                raise ValueError(f"Data packet with ID {data_packet_id} not found")
-            cursor.execute(
-                "DELETE FROM data_packet_tags WHERE data_packet_id = ?",
-                (data_packet_id,),
-            )
+                raise DataPacketNotFoundError(f"Data packet with ID {data_packet_id} not found")
+            # Tags will be automatically deleted due to CASCADE
