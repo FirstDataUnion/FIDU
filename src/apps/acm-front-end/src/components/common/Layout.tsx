@@ -199,7 +199,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          width: { md: sidebarOpen ? `calc(100vw - ${drawerWidth}px)` : '100%' },
+          maxWidth: { md: sidebarOpen ? `calc(100vw - ${drawerWidth}px)` : '100%' },
+          overflow: 'hidden',
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,

@@ -156,14 +156,14 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
           width: '8px',
         },
         '&::-webkit-scrollbar-track': {
-          background: '#f1f1f1',
+          background: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#f1f1f1',
         },
         '&::-webkit-scrollbar-thumb': {
-          background: '#888',
+          background: (theme) => theme.palette.mode === 'dark' ? '#666' : '#888',
           borderRadius: '4px',
         },
         '&::-webkit-scrollbar-thumb:hover': {
-          background: '#555',
+          background: (theme) => theme.palette.mode === 'dark' ? '#888' : '#555',
         },
       }}>
         {currentMessages.map((message) => (
@@ -173,8 +173,22 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
             sx={{
               mb: 2,
               p: 2,
-              backgroundColor: message.role === 'user' ? '#f5f5f5' : '#ffffff',
-              border: `1px solid ${message.role === 'user' ? '#e0e0e0' : '#f0f0f0'}`
+              backgroundColor: (theme) => 
+                message.role === 'user' 
+                  ? theme.palette.mode === 'dark' 
+                    ? theme.palette.grey[800] 
+                    : theme.palette.grey[100]
+                  : theme.palette.background.paper,
+              border: (theme) => 
+                `1px solid ${
+                  message.role === 'user' 
+                    ? theme.palette.mode === 'dark' 
+                      ? theme.palette.grey[700] 
+                      : theme.palette.grey[300]
+                    : theme.palette.mode === 'dark' 
+                      ? theme.palette.grey[700] 
+                      : theme.palette.grey[200]
+                }`
             }}
           >
             <Box sx={{ display: 'flex', gap: 2 }}>
