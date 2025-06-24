@@ -2,7 +2,7 @@
 
 from abc import abstractmethod, ABCMeta
 from typing import List
-from ..schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
+from ..schema import DataPacketInternal, DataPacketQueryParams
 
 
 class DataPacketStoreInterface(metaclass=ABCMeta):
@@ -25,26 +25,24 @@ class DataPacketStoreInterface(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def store_data_packet(self, data_packet: DataPacket) -> DataPacket:
+    def store_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
         """Submit a data packet to the system to be stored."""
         raise NotImplementedError
 
     @abstractmethod
-    def update_data_packet(
-        self, data_packet_update_request: DataPacketUpdateRequest
-    ) -> DataPacket:
+    def update_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
         """Update a data packet in the system."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_data_packet(self, data_packet_id: str) -> DataPacket:
+    def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID."""
         raise NotImplementedError
 
     @abstractmethod
     def list_data_packets(
         self, data_packet_query_params: DataPacketQueryParams
-    ) -> List[DataPacket]:
+    ) -> List[DataPacketInternal]:
         """List data packets from the system."""
         raise NotImplementedError
 

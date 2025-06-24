@@ -3,7 +3,7 @@ Test the DataPacket API layer.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock
 from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -11,15 +11,21 @@ from fastapi.testclient import TestClient
 
 from ..api import DataPacketAPI
 from ..schema import (
-    DataPacket,
-    DataPacketSubmissionRequest,
+    DataPacketInternal,
+    DataPacketCreate,
+    DataPacketUpdate,
+    DataPacketCreateRequest,
     DataPacketUpdateRequest,
     DataPacketQueryParams,
-    StructuredDataPacket,
-    PersonalData,
-    NameInfo,
 )
 from ..service import DataPacketService
+from ..exceptions import (
+    DataPacketAlreadyExistsError,   
+    DataPacketNotFoundError,
+    DataPacketValidationError,
+    DataPacketPermissionError,
+    DataPacketError,
+)
 
 
 @pytest.fixture
@@ -49,257 +55,352 @@ def test_client(app):
     return TestClient(app)
 
 
+
 @pytest.fixture
-def sample_data_packet():
+def sample_data_packet_create():
+    """Create a sample data packet create model for testing."""
+    return DataPacketCreate(
+        id="test_packet_123",
+        profile_id="test_profile_123",
+        tags=["test", "sample"],
+        data={"name": "Falco Lombardi", "type": "character"}
+    )
+
+@pytest.fixture
+def sample_data_packet_internal():
     """Create a sample data packet for testing."""
-    return DataPacket(
-        user_id="test_user_123",
-        packet=StructuredDataPacket(
-            personal_data=PersonalData(
-                name=NameInfo(given_name="Falco", family_name="Lombardi")
-            )
-        ),
+    return DataPacketInternal(
+        id="test_packet_123",
+        profile_id="test_profile_123",
+        create_timestamp=datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
+        update_timestamp=datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
+        tags=["test", "sample"],
+        data={"name": "Falco Lombardi", "type": "character"}
     )
 
-
-def test_submit_data_packet_passes_request_to_service(
-    api,
-    test_client,
-    mock_service,
-    sample_data_packet,
-):
-    """Test that submit data packet passes the request to the service layer."""
-
-    # Prepare expected calls
-    request = DataPacketSubmissionRequest(
-        request_id="req_123", data_packet=sample_data_packet
+@pytest.fixture
+def sample_data_packet_update():
+    """Create a sample data packet update model for testing."""
+    return DataPacketUpdate(
+        id="test_packet_123",
+        tags=["test", "updated"],
+        data={"name": "Fox McCloud", "type": "character"}
     )
 
-    expected_saved_packet = DataPacket(
-        user_id="test_user_123",
-        id="saved_packet_id",
-        packet=StructuredDataPacket(
-            personal_data=PersonalData(
-                name=NameInfo(given_name="Falco", family_name="Lombardi")
-            )
-        ),
-    )
-    mock_service.submit_data_packet.return_value = expected_saved_packet
-
-    # Call submit data packet
-    json_compatible_request = jsonable_encoder(request)
-    response = test_client.post("/api/v1/data-packets", json=json_compatible_request)
-
-    # Assert expectations
-    mock_service.submit_data_packet.assert_called_once_with(sample_data_packet)
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(expected_saved_packet)
-
-
-def test_update_data_packet_passes_request_to_service(
-    api, test_client, mock_service, sample_data_packet
-):
-    """Test that update data packet passes the request to the service layer."""
-    # Prepare expected calls
-    update_request = DataPacketUpdateRequest(
-        data_packet=sample_data_packet,
-        update_mask={"packet.personal_data.name.given_name"},
-    )
-    expected_updated_packet = DataPacket(
-        user_id="test_user_123",
-        id="updated_packet_id",
-        packet=StructuredDataPacket(
-            personal_data=PersonalData(
-                name=NameInfo(given_name="Fox", family_name="McCloud")
-            )
-        ),
-    )
-    mock_service.update_data_packet.return_value = expected_updated_packet
-
-    # Call update data packet
-    json_compatible_request = jsonable_encoder(update_request)
-    response = test_client.put(
-        "/api/v1/data-packets/test_packet_id", json=json_compatible_request
+@pytest.fixture
+def sample_data_packet_internal_updated():
+    """Create a sample data packet for testing."""
+    return DataPacketInternal(
+        id="test_packet_123",
+        profile_id="test_profile_123",
+        create_timestamp=datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
+        update_timestamp=datetime(2025, 6, 25, 12, 0, 0, tzinfo=timezone.utc),
+        tags=["test", "updated"],
+        data={"name": "Fox McCloud", "type": "character"}
     )
 
-    # Assert expectations
-    mock_service.update_data_packet.assert_called_once_with(update_request)
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(expected_updated_packet)
+class TestExceptionHandlers:
+    """Test cases for exception handlers."""
+
+    def test_raises_404_if_data_packet_not_found(self, api, test_client, mock_service):
+        """Test that exception handler raises a 404 if the data packet is not found."""
+        mock_service.get_data_packet.side_effect = DataPacketNotFoundError("test_packet_id")
+        response = test_client.get("/api/v1/data-packets/test_packet_id")
+        assert response.status_code == 404
+
+    def test_raises_409_if_data_packet_already_exists(self, api, test_client, mock_service):
+        """Test that exception handler raises a 409 if the data packet already exists."""
+        mock_service.get_data_packet.side_effect = DataPacketAlreadyExistsError("Data packet already exists")
+        response = test_client.get("/api/v1/data-packets/test_packet_id")
+        assert response.status_code == 409
+
+    def test_raises_400_if_data_packet_validation_error(self, api, test_client, mock_service):
+        """Test that exception handler raises a 400 if the data packet validation error."""
+        mock_service.get_data_packet.side_effect = DataPacketValidationError("Data packet validation error")
+        response = test_client.get("/api/v1/data-packets/test_packet_id")
+        assert response.status_code == 400
+
+    def test_raises_403_if_data_packet_permission_error(self, api, test_client, mock_service):
+        """Test that exception handler raises a 403 if the data packet permission error."""
+        mock_service.get_data_packet.side_effect = DataPacketPermissionError(
+            data_packet_id="test_packet_id",
+            user_id="test_user_id"
+        )
+        response = test_client.get("/api/v1/data-packets/test_packet_id")
+        assert response.status_code == 403
+
+    def test_raises_500_if_data_packet_error(self, api, test_client, mock_service):
+        """Test that exception handler raises a 500 if the data packet error."""
+        mock_service.get_data_packet.side_effect = DataPacketError("Data packet error")
+        response = test_client.get("/api/v1/data-packets/test_packet_id")
+        assert response.status_code == 500
 
 
-def test_update_data_packet_raises_404_if_data_packet_not_found(
-    api, test_client, mock_service, sample_data_packet
-):
-    """Test that update data packet raises a 404 if the data packet is not found."""
-    # Prepare expected calls
-    update_request = DataPacketUpdateRequest(
-        data_packet=sample_data_packet,
-        update_mask={"packet.personal_data.name.given_name"},
-    )
-    mock_service.update_data_packet.side_effect = ValueError("Data packet not found")
 
-    # Call update data packet
-    json_compatible_request = jsonable_encoder(update_request)
-    response = test_client.put(
-        "/api/v1/data-packets/test_packet_id", json=json_compatible_request
-    )
+class TestCreateDataPacket:
+    """Test cases for creating data packets."""
 
-    # Assert expectations
-    assert response.status_code == 404
+    def test_passes_request_to_service(
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_data_packet_internal,
+        sample_data_packet_create,
+    ):
+        """Test that create data packet passes the request to the service layer."""
+        # Prepare expected calls
+        request = DataPacketCreateRequest(
+            request_id="req_123", data_packet=sample_data_packet_create
+        )
 
+        mock_service.create_data_packet.return_value = sample_data_packet_internal
 
-def test_delete_data_packet_passes_request_to_service(api, test_client, mock_service):
-    """Test that delete data packet passes the request to the service layer."""
-    # Prepare expected calls
-    data_packet_id = "test_packet_id"
-    mock_service.delete_data_packet.return_value = None
+        # Call create data packet
+        json_compatible_request = jsonable_encoder(request)
+        response = test_client.post("/api/v1/data-packets", json=json_compatible_request)
 
-    # Call delete data packet
-    response = test_client.delete(f"/api/v1/data-packets/{data_packet_id}")
+        # Assert expectations
 
-    # Assert expectations
-    mock_service.delete_data_packet.assert_called_once_with(data_packet_id)
-    assert response.status_code == 200
+        # Data Packet passed to service layer not expected to have create 
+        # or update timestamp set. 
+        expected_internal_data_packet = DataPacketInternal(
+            id=sample_data_packet_internal.id,
+            profile_id=sample_data_packet_internal.profile_id,
+            tags=sample_data_packet_internal.tags,
+            data=sample_data_packet_internal.data
+        )
+        mock_service.create_data_packet.assert_called_once_with(request.request_id, expected_internal_data_packet)
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder(sample_data_packet_internal)
 
+    def test_raises_422_if_request_id_is_missing(
+        self, api, test_client, mock_service, sample_data_packet_create
+    ):
+        """Test that create data packet raises a 422 if the request id is missing."""
+        # This will fail validation because request_id is required
+        request_data = {"data_packet": jsonable_encoder(sample_data_packet_create)}
+        response = test_client.post("/api/v1/data-packets", json=request_data)
+        assert response.status_code == 422
 
-def test_get_data_packet_passes_request_to_service(
-    api, test_client, mock_service, sample_data_packet
-):
-    """Test that get data packet passes the request to the service layer."""
-    # Prepare expected calls
-    data_packet_id = "test_packet_id"
-    mock_service.get_data_packet.return_value = sample_data_packet
+    def test_raises_422_if_data_packet_is_missing(
+        self, api, test_client, mock_service, sample_data_packet_create
+    ):
+        """Test that create data packet raises a 422 if the data packet is missing."""
+        # This will fail validation because data_packet is required
+        request_data = {"request_id": "req_123"}
+        response = test_client.post("/api/v1/data-packets", json=request_data)
+        assert response.status_code == 422
 
-    # Call get data packet
-    response = test_client.get(f"/api/v1/data-packets/{data_packet_id}")
-
-    # Assert expectations
-    mock_service.get_data_packet.assert_called_once_with(data_packet_id)
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(sample_data_packet)
-
-
-def test_get_data_packet_raises_404_if_data_packet_not_found(
-    api, test_client, mock_service
-):
-    """Test that get data packet raises a 404 if the data packet is not found."""
-    # Prepare expected calls
-    data_packet_id = "nonexistent_packet_id"
-    mock_service.get_data_packet.side_effect = ValueError("Data packet not found")
-
-    # Call get data packet
-    response = test_client.get(f"/api/v1/data-packets/{data_packet_id}")
-
-    # Assert expectations
-    assert response.status_code == 404
-
-
-def test_list_data_packets_passes_request_to_service(
-    api, test_client, mock_service, sample_data_packet
-):
-    """Test that list data packets passes the request to the service layer."""
-    # Prepare expected calls
-    query_params = DataPacketQueryParams(user_id="test_user_123", limit=10, offset=0)
-    expected_packets = [sample_data_packet]
-    mock_service.list_data_packets.return_value = expected_packets
-
-    # Call list data packets - only pass the specific params we want to test
-    response = test_client.get(
-        "/api/v1/data-packets",
-        params={
-            "user_id": "test_user_123",
-            "limit": 10,
-            "offset": 0,
-        },
-    )
-
-    # Assert expectations
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(expected_packets)
-    mock_service.list_data_packets.assert_called_once_with(query_params)
+    def test_raises_409_if_data_packet_already_exists_error_raised_from_service(
+        self, api, test_client, mock_service, sample_data_packet_create
+    ):
+        """Test that create data packet raises a 409 if the data packet already exists."""
+        request = DataPacketCreateRequest(
+            request_id="req_123", data_packet=sample_data_packet_create
+        )
+        mock_service.create_data_packet.side_effect = DataPacketAlreadyExistsError("Data packet already exists")
+        response = test_client.post("/api/v1/data-packets", json=jsonable_encoder(request))
+        assert response.status_code == 409
 
 
-def test_list_data_packets_passes_request_to_service_with_all_params(
-    api, test_client, mock_service, sample_data_packet
-):
-    """Test that list data packets passes the request to the service layer."""
-    # Prepare expected calls
-    query_params = DataPacketQueryParams(
-        user_id="test_user_123",
-        limit=10,
-        offset=0,
-        tags=["arwing", "wolfen"],
-        from_timestamp=datetime(2025, 1, 1),
-        to_timestamp=datetime(2025, 1, 2),
-        packet_type="unstructured",
-        sort_order="asc",
-    )
-    expected_packets = [sample_data_packet]
-    mock_service.list_data_packets.return_value = expected_packets
+class TestUpdateDataPacket:
+    """Test cases for updating data packets."""
 
-    # Call list data packets - pass tags as individual query parameters
-    response = test_client.get(
-        "/api/v1/data-packets",
-        params={
-            "tags": [
-                "arwing",
-                "wolfen",
-            ],  # FastAPI will handle this as repeated parameters
-            "user_id": "test_user_123",
-            "limit": 10,
-            "offset": 0,
-            "from_timestamp": "2025-01-01T00:00:00",
-            "to_timestamp": "2025-01-02T00:00:00",
-            "packet_type": "unstructured",
-            "sort_order": "asc",
-        },
-    )
+    def test_passes_request_to_service(
+        self, api, test_client, mock_service, sample_data_packet_internal_updated, sample_data_packet_update
+    ):
+        """Test that update data packet passes the request to the service layer."""
+        # Prepare expected calls
+        update_request = DataPacketUpdateRequest(
+            request_id="req_456",
+            data_packet=sample_data_packet_update,
+        )
+        mock_service.update_data_packet.return_value = sample_data_packet_internal_updated
 
-    # Assert expectations
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(expected_packets)
-    mock_service.list_data_packets.assert_called_once_with(query_params)
+        # Call update data packet
+        json_compatible_request = jsonable_encoder(update_request)
+        response = test_client.put(
+            "/api/v1/data-packets/test_packet_id", json=json_compatible_request
+        )
+
+        # Assert expectations
+        # Data Packet passed to service layer not expected to have create 
+        # or update timestamp set. 
+        expected_internal_data_packet = DataPacketInternal(
+            id=sample_data_packet_update.id,
+            tags=sample_data_packet_update.tags,
+            data=sample_data_packet_update.data
+        )
+        mock_service.update_data_packet.assert_called_once_with(update_request.request_id, expected_internal_data_packet)
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder(sample_data_packet_internal_updated)
+
+    def test_raises_404_if_data_packet_not_found(
+        self, api, test_client, mock_service, sample_data_packet_update
+    ):
+        """Test that update data packet raises a 404 if the data packet is not found."""
+        # Prepare expected calls
+        update_request = DataPacketUpdateRequest(
+            request_id="req_789",
+            data_packet=sample_data_packet_update,
+        )
+        mock_service.update_data_packet.side_effect = DataPacketNotFoundError("test_packet_id")
+
+        # Call update data packet
+        json_compatible_request = jsonable_encoder(update_request)
+        response = test_client.put(
+            "/api/v1/data-packets/test_packet_id", json=json_compatible_request
+        )
+
+        # Assert expectations
+        assert response.status_code == 404
+
+    def test_raises_422_if_request_id_is_missing(
+        self, api, test_client, mock_service, sample_data_packet_update
+    ):
+        """Test that update data packet raises a 422 if the request id is missing."""
+        # This will fail validation because request_id is required
+        request_data = {"data_packet": jsonable_encoder(sample_data_packet_update)}
+        response = test_client.put("/api/v1/data-packets/test_packet_id", json=request_data)
+        assert response.status_code == 422
+
+    def test_raises_422_if_data_packet_is_missing(
+        self, api, test_client, mock_service, sample_data_packet_update
+    ):
+        """Test that update data packet raises a 422 if the data packet is missing."""
+        # This will fail validation because data_packet is required
+        request_data = {"request_id": "req_789"}
+        response = test_client.put("/api/v1/data-packets/test_packet_id", json=request_data)
+        assert response.status_code == 422
+
+class TestDeleteDataPacket:
+    """Test cases for deleting data packets."""
+
+    def test_passes_request_to_service(self, api, test_client, mock_service):
+        """Test that delete data packet passes the request to the service layer."""
+        # Prepare expected calls
+        data_packet_id = "test_packet_id"
+        mock_service.delete_data_packet.return_value = None
+
+        # Call delete data packet
+        response = test_client.delete(f"/api/v1/data-packets/{data_packet_id}")
+
+        # Assert expectations
+        mock_service.delete_data_packet.assert_called_once_with(data_packet_id)
+        assert response.status_code == 200
 
 
-def test_list_data_packets_returns_multiple_expected_data_packets(
-    api, test_client, mock_service
-):
-    """Test that list data packets returns the expected data packets."""
-    # Prepare expected calls
-    query_params = DataPacketQueryParams(user_id="test_user_123", limit=5, offset=0)
+class TestGetDataPacket:
+    """Test cases for getting data packets."""
 
-    # Create multiple sample packets
-    packet1 = DataPacket(
-        user_id="test_user_123",
-        id="packet_1",
-        packet=StructuredDataPacket(
-            personal_data=PersonalData(
-                name=NameInfo(given_name="Falco", family_name="Lombardi")
-            )
-        ),
-    )
-    packet2 = DataPacket(
-        user_id="test_user_123",
-        id="packet_2",
-        packet=StructuredDataPacket(
-            personal_data=PersonalData(
-                name=NameInfo(given_name="Fox", family_name="McCloud")
-            )
-        ),
-    )
-    expected_packets = [packet1, packet2]
-    mock_service.list_data_packets.return_value = expected_packets
+    def test_passes_request_to_service(
+        self, api, test_client, mock_service, sample_data_packet_internal
+    ):
+        """Test that get data packet passes the request to the service layer."""
+        # Prepare expected calls
+        data_packet_id = "test_packet_id"
+        mock_service.get_data_packet.return_value = sample_data_packet_internal
 
-    # Call list data packets
-    json_compatible_query_params = jsonable_encoder(query_params)
-    response = test_client.get(
-        "/api/v1/data-packets", params=json_compatible_query_params
-    )
+        # Call get data packet
+        response = test_client.get(f"/api/v1/data-packets/{data_packet_id}")
 
-    # Assert expectations
-    assert response.status_code == 200
-    assert response.json() == jsonable_encoder(expected_packets)
-    assert len(response.json()) == 2
-    assert response.json()[0]["id"] == "packet_1"
-    assert response.json()[1]["id"] == "packet_2"
+        # Assert expectations
+        mock_service.get_data_packet.assert_called_once_with(data_packet_id)
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder(sample_data_packet_internal)
+
+    def test_raises_404_if_data_packet_not_found(
+        self, api, test_client, mock_service
+    ):
+        """Test that get data packet raises a 404 if the data packet is not found."""
+        # Prepare expected calls
+        data_packet_id = "nonexistent_packet_id"
+        mock_service.get_data_packet.side_effect = DataPacketNotFoundError(data_packet_id)
+
+        # Call get data packet
+        response = test_client.get(f"/api/v1/data-packets/{data_packet_id}")
+
+        # Assert expectations
+        assert response.status_code == 404
+
+
+class TestListDataPackets:
+    """Test cases for listing data packets."""
+
+    def test_passes_request_to_service(
+        self, api, test_client, mock_service, sample_data_packet_internal
+    ):
+        """Test that list data packets passes the request to the service layer."""
+        # Prepare expected calls
+        mock_service.list_data_packets.return_value = [sample_data_packet_internal]
+
+        # Call list data packets
+        response = test_client.get("/api/v1/data-packets")
+
+        # Assert expectations
+        mock_service.list_data_packets.assert_called_once()
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder([sample_data_packet_internal])
+
+    def test_passes_request_to_service_with_all_params(
+        self, api, test_client, mock_service, sample_data_packet_internal
+    ):
+        """Test that list data packets passes the request to the service layer with all params."""
+        # Prepare expected calls
+        mock_service.list_data_packets.return_value = [sample_data_packet_internal]
+
+        # Call list data packets with all parameters
+        response = test_client.get(
+            "/api/v1/data-packets",
+            params={
+                "tags": ["test", "sample"],
+                "profile_id": "test_profile_123",
+                "from_timestamp": "2023-01-01T00:00:00",
+                "to_timestamp": "2023-12-31T23:59:59",
+                "limit": 10,
+                "offset": 5,
+                "sort_order": "asc",
+            },
+        )
+
+        # Assert expectations
+        mock_service.list_data_packets.assert_called_once()
+        call_args = mock_service.list_data_packets.call_args[0][0]
+        assert call_args.tags == ["test", "sample"]
+        assert call_args.profile_id == "test_profile_123"
+        assert call_args.limit == 10
+        assert call_args.offset == 5
+        assert call_args.sort_order == "asc"
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder([sample_data_packet_internal])
+
+    def test_returns_multiple_expected_data_packets(
+        self, api, test_client, mock_service
+    ):
+        """Test that list data packets returns multiple expected data packets."""
+        # Prepare expected calls
+        data_packet_1 = DataPacketInternal(
+            id="packet_1",
+            profile_id="profile_1",
+            create_timestamp=datetime.now(timezone.utc),
+            update_timestamp=datetime.now(timezone.utc),
+            tags=["test"],
+            data={"name": "Falco Lombardi"}
+        )
+        data_packet_2 = DataPacketInternal(
+            id="packet_2",
+            profile_id="profile_2",
+            create_timestamp=datetime.now(timezone.utc),
+            update_timestamp=datetime.now(timezone.utc),
+            tags=["sample"],
+            data={"name": "Fox McCloud"}
+        )
+        mock_service.list_data_packets.return_value = [data_packet_1, data_packet_2]
+
+        # Call list data packets
+        response = test_client.get("/api/v1/data-packets")
+
+        # Assert expectations
+        assert response.status_code == 200
+        assert response.json() == jsonable_encoder([data_packet_1, data_packet_2])

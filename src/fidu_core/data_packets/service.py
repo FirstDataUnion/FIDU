@@ -2,9 +2,11 @@
 Service layer for data packets.
 """
 
+from datetime import datetime, timezone
 from typing import List
-from .schema import DataPacket, DataPacketQueryParams, DataPacketUpdateRequest
+from .schema import DataPacketInternal, DataPacketQueryParams
 from .store import DataPacketStoreInterface
+from .exceptions import DataPacketNotFoundError, DataPacketAlreadyExistsError
 
 
 class DataPacketService:
@@ -18,24 +20,51 @@ class DataPacketService:
         """
         self.store = store
 
-    def submit_data_packet(self, data_packet: DataPacket) -> DataPacket:
-        """Submit a data packet to the system to be stored.
+    def create_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
+        """Create a data packet in the system.
 
         Args:
-            data_packet: The data packet to be stored
+            request_id: The request ID for idempotency
+            data_packet: The data packet to be created
 
         Returns:
-            The submitted data packet
-        """
+            The created data packet
 
-        # TODO: Any Business logic for submitting a data packet will sit here, such as:
-        # - Ensuring profile exists
+        Raises:
+            DataPacketAlreadyExistsError: If a data packet with the same ID already exists
+        """
+        # TODO: Ensure profile exists
+
+        # Set timestamps 
+        data_packet.create_timestamp = self._get_current_timestamp()
+        data_packet.update_timestamp = self._get_current_timestamp()
 
         # Store the data packet in the storage layer
-        saved_data_packet = self.store.store_data_packet(data_packet)
+        saved_data_packet = self.store.store_data_packet(request_id, data_packet)
         return saved_data_packet
 
-    def get_data_packet(self, data_packet_id: str) -> DataPacket:
+    def update_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
+            """Update a data packet in the system.
+
+            Args:
+                request_id: The request ID for idempotency
+                data_packet: The data packet to be updated
+
+            Returns:
+                The updated data packet
+
+            Raises:
+                DataPacketNotFoundError: If the data packet is not found
+            """
+
+            # Set update timestamp
+            data_packet.update_timestamp = self._get_current_timestamp()
+
+            # Update the data packet in the storage layer
+            updated_data_packet = self.store.update_data_packet(request_id, data_packet)
+            return updated_data_packet
+
+    def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID.
 
         Args:
@@ -43,25 +72,16 @@ class DataPacketService:
 
         Returns:
             The data packet
+
+        Raises:
+            DataPacketNotFoundError: If the data packet is not found
         """
-        return self.store.get_data_packet(data_packet_id)
-
-    def update_data_packet(
-        self, data_packet_update_request: DataPacketUpdateRequest
-    ) -> DataPacket:
-        """Update a data packet in the system.
-
-        Args:
-            data_packet_update_request: The request to update the data packet
-
-        Returns:
-            The updated data packet
-        """
-        return self.store.update_data_packet(data_packet_update_request)
+        data_packet = self.store.get_data_packet(data_packet_id)
+        return data_packet
 
     def list_data_packets(
         self, data_packet_query_params: DataPacketQueryParams
-    ) -> List[DataPacket]:
+    ) -> List[DataPacketInternal]:
         """List data packets from the system.
 
         Args:
@@ -70,12 +90,22 @@ class DataPacketService:
         Returns:
             The list of data packets
         """
-        return self.store.list_data_packets(data_packet_query_params)
+        data_packets = self.store.list_data_packets(data_packet_query_params)
+        return data_packets
 
     def delete_data_packet(self, data_packet_id: str) -> None:
         """Delete a data packet from the system.
 
         Args:
             data_packet_id: the ID of the data packet to be deleted
+
+        Raises:
+            DataPacketNotFoundError: If the data packet is not found
         """
         self.store.delete_data_packet(data_packet_id)
+
+    def _get_current_timestamp(self) -> datetime:
+        """Get the current timestamp in UTC.
+        This helper is used to allow us to patch it in testing. 
+        """
+        return datetime.now(timezone.utc)
