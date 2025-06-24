@@ -2,7 +2,13 @@
 FIDU Core Data Packets Package
 """
 
-from .schema import DataPacketCreate, DataPacketUpdate, DataPacketResponse, DataPacketInternal, DataPacketQueryParams
+from .schema import (
+    DataPacketCreate,
+    DataPacketUpdate,
+    DataPacketResponse,
+    DataPacketInternal,
+    DataPacketQueryParams,
+)
 from .store import (
     DataPacketStoreInterface,
     LocalSqlDataPacketStore,

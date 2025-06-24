@@ -1,6 +1,6 @@
 """Data Packet models the various data packets that are handled by FIDU"""
 
-from typing import Optional, Union, Dict, Any, Literal, Set, List
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
 from pydantic import BaseModel, Field
@@ -9,17 +9,19 @@ from fastapi import Query
 
 class DataPacketCreate(BaseModel):
     """Model for creating a new data packet."""
-    
+
     id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
-        description="Unique identifier for the data packet. Optional on creation, will default to a UUID if not provided."
+        description="""Unique identifier for the data packet.
+        Optional on creation, will default to a UUID if not provided.""",
     )
     profile_id: str = Field(
         description="ID of the profile this data packet belongs to. Mandatory on creation."
     )
     tags: list[str] = Field(
         default_factory=list,
-        description="List of tags used to categorize and search for this data packet. Optional on creation. "
+        description="""List of tags used to categorize and search for this data packet.
+        Optional on creation. """,
     )
     data: Dict[str, Any] = Field(
         description="Flexible JSON object containing the actual data. Mandatory on creation."
@@ -28,26 +30,26 @@ class DataPacketCreate(BaseModel):
 
 class DataPacketUpdate(BaseModel):
     """Model for updating an existing data packet."""
-    
+
     id: str = Field(
         description="Unique identifier for the data packet. Mandatory on update."
     )
-    tags: list[str] = Field(
-        default=None,
-        description="List of tags used to categorize and search for this data packet. Optional on update. If left as None on update, no change will be made. If set, the whole tags object will be replaced."
+    tags: Optional[list[str]] = Field(
+        description="""List of tags used to categorize and search for this data packet.
+        Optional on update. If left as None on update, no change will be made.
+        If set, the whole tags object will be replaced.""",
     )
     data: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Flexible JSON object containing the actual data. Optional on update. If left as None on update, no change will be made. If set, the whole data object will be replaced."
+        description="""Flexible JSON object containing the actual data. Optional on update.
+        If left as None on update, no change will be made.
+        If set, the whole data object will be replaced.""",
     )
 
 
 class DataPacketResponse(BaseModel):
     """Model for data packet responses (full view of the resource)."""
-    
-    id: str = Field(
-        description="Unique identifier for the data packet."
-    )
+
+    id: str = Field(description="Unique identifier for the data packet.")
     profile_id: str = Field(
         description="ID of the profile this data packet belongs to."
     )
@@ -59,7 +61,7 @@ class DataPacketResponse(BaseModel):
     )
     tags: list[str] = Field(
         default_factory=list,
-        description="List of tags used to categorize and search for this data packet."
+        description="List of tags used to categorize and search for this data packet.",
     )
     data: Dict[str, Any] = Field(
         description="Flexible JSON object containing the actual data."
@@ -69,7 +71,9 @@ class DataPacketResponse(BaseModel):
 class DataPacketCreateRequest(BaseModel):
     """Request model for data packet creation."""
 
-    request_id: str = Field(frozen=True, description="ID of the request, used for idempotency")  
+    request_id: str = Field(
+        frozen=True, description="ID of the request, used for idempotency"
+    )
     data_packet: DataPacketCreate = Field(
         description="The data packet to be created. Mandatory."
     )
@@ -78,25 +82,42 @@ class DataPacketCreateRequest(BaseModel):
 class DataPacketUpdateRequest(BaseModel):
     """Request model for updating a DataPacket. Only supports full updates."""
 
-    request_id: str = Field(frozen=True, description="ID of the request, used for idempotency")  
+    request_id: str = Field(
+        frozen=True, description="ID of the request, used for idempotency"
+    )
     data_packet: DataPacketUpdate = Field(
         description="The updated data packet. Mandatory. Fully replaced on update."
     )
 
-# TODO: If we ever want to support partial updates, this should be a separate request type. 
-# It seems we could use something like https://pypi.org/project/pydantic-partial/ to get 
-# Pydantic to mostly handle it. However, uneeded for now. Idempotency here gets complicated. 
+
+# TODO: If we ever want to support partial updates, this should be a separate request type.
+# It seems we could use something like https://pypi.org/project/pydantic-partial/ to get
+# Pydantic to mostly handle it. However, uneeded for now. Idempotency here gets complicated.
+
 
 class DataPacketInternal(BaseModel):
     """Internal data packet model. This is the model that is used internally by the service layer.
     It includes no validation to make internal handling easier.
     """
-    id: Optional[str] = Field(default=None, description="Unique identifier for the data packet.")
-    profile_id: Optional[str] = Field(default=None, description="ID of the profile this data packet belongs to.")
-    create_timestamp: Optional[datetime] = Field(default=None, description="Timestamp of when the data packet was created.")
-    update_timestamp: Optional[datetime] = Field(default=None, description="Timestamp of when the data packet was last updated.")
-    tags: Optional[list[str]] = Field(default=None, description="List of tags used to categorize and search for this data packet.")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Flexible JSON object containing the actual data.")
+
+    id: str = Field(description="Unique identifier for the data packet.")
+    profile_id: Optional[str] = Field(
+        default=None, description="ID of the profile this data packet belongs to."
+    )
+    create_timestamp: Optional[datetime] = Field(
+        default=None, description="Timestamp of when the data packet was created."
+    )
+    update_timestamp: Optional[datetime] = Field(
+        default=None, description="Timestamp of when the data packet was last updated."
+    )
+    tags: Optional[list[str]] = Field(
+        default=None,
+        description="List of tags used to categorize and search for this data packet.",
+    )
+    data: Optional[Dict[str, Any]] = Field(
+        default=None, description="Flexible JSON object containing the actual data."
+    )
+
 
 class DataPacketQueryParams(BaseModel):
     """Query parameters for filtering data packets."""

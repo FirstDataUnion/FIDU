@@ -26,10 +26,12 @@ def service(mock_store):
     """Create a DataPacketService object for testing."""
     return DataPacketService(mock_store)
 
+
 @pytest.fixture
 def sample_timestamp():
     """Create a sample timestamp for testing."""
     return datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc)
+
 
 @pytest.fixture
 def sample_data_packet_internal():
@@ -38,18 +40,29 @@ def sample_data_packet_internal():
         id="test_packet_123",
         profile_id="test_profile_123",
         tags=["test", "sample"],
-        data={"name": "Falco Lombardi", "type": "character"}
+        data={"name": "Falco Lombardi", "type": "character"},
     )
+
 
 class TestCreateDataPacket:
     """Test cases for creating data packets."""
 
-    @patch.object(DataPacketService, '_get_current_timestamp')
-    def test_sets_timestamps_and_passes_to_store(self, mock_get_current_timestamp, service, mock_store, sample_data_packet_internal, sample_timestamp):
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_sets_timestamps_and_passes_to_store(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
         """Test that create data packet sets timestamps and passes to store."""
         # Prepare expected calls
         expected_data_packet = sample_data_packet_internal.model_copy(
-            update={"create_timestamp": sample_timestamp, "update_timestamp": sample_timestamp}
+            update={
+                "create_timestamp": sample_timestamp,
+                "update_timestamp": sample_timestamp,
+            }
         )
         mock_store.store_data_packet.return_value = expected_data_packet
         mock_get_current_timestamp.return_value = sample_timestamp
@@ -60,14 +73,25 @@ class TestCreateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
-        mock_store.store_data_packet.assert_called_once_with(request_id, expected_data_packet)
+        mock_store.store_data_packet.assert_called_once_with(
+            request_id, expected_data_packet
+        )
         assert result == expected_data_packet
 
-    @patch.object(DataPacketService, '_get_current_timestamp')
-    def test_raises_already_exists_error_when_store_raises_key_error(self, mock_get_current_timestamp, service, mock_store, sample_data_packet_internal, sample_timestamp):
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_raises_already_exists_error_when_store_raises_key_error(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
         """Test that create data packet raises DataPacketAlreadyExistsError when store raises KeyError."""
         # Prepare expected calls
-        mock_store.store_data_packet.side_effect = DataPacketAlreadyExistsError("Data packet already exists")
+        mock_store.store_data_packet.side_effect = DataPacketAlreadyExistsError(
+            "Data packet already exists"
+        )
         mock_get_current_timestamp.return_value = sample_timestamp
         request_id = "req_123"
 
@@ -78,16 +102,28 @@ class TestCreateDataPacket:
         # Assert expectations
         mock_get_current_timestamp.assert_called()
         expected_data_packet = sample_data_packet_internal.model_copy(
-            update={"create_timestamp": sample_timestamp, "update_timestamp": sample_timestamp}
+            update={
+                "create_timestamp": sample_timestamp,
+                "update_timestamp": sample_timestamp,
+            }
         )
-        mock_store.store_data_packet.assert_called_once_with(request_id, expected_data_packet)
+        mock_store.store_data_packet.assert_called_once_with(
+            request_id, expected_data_packet
+        )
 
 
 class TestUpdateDataPacket:
     """Test cases for updating data packets."""
 
-    @patch.object(DataPacketService, '_get_current_timestamp')
-    def test_sets_update_timestamp_and_passes_to_store(self, mock_get_current_timestamp, service, mock_store, sample_data_packet_internal, sample_timestamp):
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_sets_update_timestamp_and_passes_to_store(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
         """Test that update data packet sets update timestamp and passes to store."""
         # Prepare expected calls
         request_id = "req_123"
@@ -102,16 +138,27 @@ class TestUpdateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
-        mock_store.update_data_packet.assert_called_once_with(request_id, expected_updated_packet)
+        mock_store.update_data_packet.assert_called_once_with(
+            request_id, expected_updated_packet
+        )
         assert result == expected_updated_packet
 
-    @patch.object(DataPacketService, '_get_current_timestamp')
-    def test_raises_not_found_error_when_store_raises_key_error(self, mock_get_current_timestamp, service, mock_store, sample_data_packet_internal, sample_timestamp):
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_raises_not_found_error_when_store_raises_key_error(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
         """Test that update data packet raises DataPacketNotFoundError when store raises KeyError."""
         # Prepare expected calls
         request_id = "req_123"
         mock_get_current_timestamp.return_value = sample_timestamp
-        mock_store.update_data_packet.side_effect = DataPacketNotFoundError("Data packet not found")
+        mock_store.update_data_packet.side_effect = DataPacketNotFoundError(
+            "Data packet not found"
+        )
 
         # Call update data packet and expect exception
         with pytest.raises(DataPacketNotFoundError):
@@ -122,7 +169,9 @@ class TestUpdateDataPacket:
         expected_updated_packet = sample_data_packet_internal.model_copy(
             update={"update_timestamp": sample_timestamp}
         )
-        mock_store.update_data_packet.assert_called_once_with(request_id, expected_updated_packet)
+        mock_store.update_data_packet.assert_called_once_with(
+            request_id, expected_updated_packet
+        )
 
 
 class TestGetDataPacket:
@@ -141,11 +190,15 @@ class TestGetDataPacket:
         mock_store.get_data_packet.assert_called_once_with(data_packet_id)
         assert result == sample_data_packet_internal
 
-    def test_raises_not_found_error_when_store_raises_key_error(self, service, mock_store):
+    def test_raises_not_found_error_when_store_raises_key_error(
+        self, service, mock_store
+    ):
         """Test that get data packet raises DataPacketNotFoundError when store raises KeyError."""
         # Prepare expected calls
         data_packet_id = "nonexistent_packet_id"
-        mock_store.get_data_packet.side_effect = DataPacketNotFoundError("Data packet not found")
+        mock_store.get_data_packet.side_effect = DataPacketNotFoundError(
+            "Data packet not found"
+        )
 
         # Call get data packet and expect exception
         with pytest.raises(DataPacketNotFoundError):
@@ -210,11 +263,15 @@ class TestDeleteDataPacket:
         # Assert expectations
         mock_store.delete_data_packet.assert_called_once_with(data_packet_id)
 
-    def test_raises_not_found_error_when_store_raises_key_error(self, service, mock_store):
+    def test_raises_not_found_error_when_store_raises_key_error(
+        self, service, mock_store
+    ):
         """Test that delete data packet raises DataPacketNotFoundError when store raises KeyError."""
         # Prepare expected calls
         data_packet_id = "nonexistent_packet_id"
-        mock_store.delete_data_packet.side_effect = DataPacketNotFoundError("Data packet not found")
+        mock_store.delete_data_packet.side_effect = DataPacketNotFoundError(
+            "Data packet not found"
+        )
 
         # Call delete data packet and expect exception
         with pytest.raises(DataPacketNotFoundError):
