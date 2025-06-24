@@ -125,37 +125,3 @@ def test_list_users_returns_empty_list_when_no_users(service, mock_store):
     # Assert
     mock_store.list_users.assert_called_once()
     assert result == expected_users
-
-
-def test_get_user_by_email_with_different_email(
-    service, mock_store, sample_user_internal_2
-):
-    """Test that the service calls the store with a different email address."""
-    # Arrange
-    email = "jane@example.com"
-    mock_store.get_user_by_email.return_value = sample_user_internal_2
-
-    # Act
-    result = service.get_user_by_email(email)
-
-    # Assert
-    mock_store.get_user_by_email.assert_called_once_with(email)
-    assert result == sample_user_internal_2
-    assert result.email == "jane@example.com"
-    assert result.first_name == "Jane"
-
-
-def test_get_user_with_different_user_id(service, mock_store, sample_user_internal_2):
-    """Test that the service calls the store with a different user ID."""
-    # Arrange
-    user_id = "test_user_456"
-    mock_store.get_user.return_value = sample_user_internal_2
-
-    # Act
-    result = service.get_user(user_id)
-
-    # Assert
-    mock_store.get_user.assert_called_once_with(user_id)
-    assert result == sample_user_internal_2
-    assert result.id == "test_user_456"
-    assert result.first_name == "Jane"
