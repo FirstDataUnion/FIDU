@@ -25,12 +25,16 @@ class DataPacketStoreInterface(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def store_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
+    def store_data_packet(
+        self, request_id: str, data_packet: DataPacketInternal
+    ) -> DataPacketInternal:
         """Submit a data packet to the system to be stored."""
         raise NotImplementedError
 
     @abstractmethod
-    def update_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
+    def update_data_packet(
+        self, request_id: str, data_packet: DataPacketInternal
+    ) -> DataPacketInternal:
         """Update a data packet in the system."""
         raise NotImplementedError
 

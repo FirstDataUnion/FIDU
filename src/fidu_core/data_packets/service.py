@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import List
 from .schema import DataPacketInternal, DataPacketQueryParams
 from .store import DataPacketStoreInterface
-from .exceptions import DataPacketNotFoundError, DataPacketAlreadyExistsError
 
 
 class DataPacketService:
@@ -20,7 +19,9 @@ class DataPacketService:
         """
         self.store = store
 
-    def create_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
+    def create_data_packet(
+        self, request_id: str, data_packet: DataPacketInternal
+    ) -> DataPacketInternal:
         """Create a data packet in the system.
 
         Args:
@@ -35,7 +36,7 @@ class DataPacketService:
         """
         # TODO: Ensure profile exists
 
-        # Set timestamps 
+        # Set timestamps
         data_packet.create_timestamp = self._get_current_timestamp()
         data_packet.update_timestamp = self._get_current_timestamp()
 
@@ -43,26 +44,28 @@ class DataPacketService:
         saved_data_packet = self.store.store_data_packet(request_id, data_packet)
         return saved_data_packet
 
-    def update_data_packet(self, request_id: str, data_packet: DataPacketInternal) -> DataPacketInternal:
-            """Update a data packet in the system.
+    def update_data_packet(
+        self, request_id: str, data_packet: DataPacketInternal
+    ) -> DataPacketInternal:
+        """Update a data packet in the system.
 
-            Args:
-                request_id: The request ID for idempotency
-                data_packet: The data packet to be updated
+        Args:
+            request_id: The request ID for idempotency
+            data_packet: The data packet to be updated
 
-            Returns:
-                The updated data packet
+        Returns:
+            The updated data packet
 
-            Raises:
-                DataPacketNotFoundError: If the data packet is not found
-            """
+        Raises:
+            DataPacketNotFoundError: If the data packet is not found
+        """
 
-            # Set update timestamp
-            data_packet.update_timestamp = self._get_current_timestamp()
+        # Set update timestamp
+        data_packet.update_timestamp = self._get_current_timestamp()
 
-            # Update the data packet in the storage layer
-            updated_data_packet = self.store.update_data_packet(request_id, data_packet)
-            return updated_data_packet
+        # Update the data packet in the storage layer
+        updated_data_packet = self.store.update_data_packet(request_id, data_packet)
+        return updated_data_packet
 
     def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID.
@@ -106,6 +109,6 @@ class DataPacketService:
 
     def _get_current_timestamp(self) -> datetime:
         """Get the current timestamp in UTC.
-        This helper is used to allow us to patch it in testing. 
+        This helper is used to allow us to patch it in testing.
         """
         return datetime.now(timezone.utc)
