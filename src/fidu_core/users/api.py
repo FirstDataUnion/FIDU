@@ -7,6 +7,13 @@ from fastapi.security import OAuth2PasswordBearer
 from fidu_core.security import PasswordHasher, JWTManager
 from .schema import User, CreateUserRequest, UserInternal, LoginRequest, LoginResponse
 from .service import UserService
+from .exceptions import (
+    UserNotFoundError,
+    UserAlreadyExistsError,
+    UserValidationError,
+    UserPermissionError,
+    UserError,
+)
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
@@ -27,6 +34,7 @@ class UserAPI:
         self._setup_routes()
         self.password_hasher = PasswordHasher()
         self.jwt_manager = JWTManager()
+        self._setup_exception_handlers()
 
     def _setup_routes(self) -> None:
         """Set up the API routes."""
@@ -65,6 +73,36 @@ class UserAPI:
             response_model=List[User],
             tags=["users"],
         )
+
+    def _setup_exception_handlers(self) -> None:
+        """Set up exception handlers for converting service exceptions to HTTP responses."""
+
+        @self.app.exception_handler(UserNotFoundError)
+        async def handle_user_not_found(request, exc: UserNotFoundError):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+        @self.app.exception_handler(UserAlreadyExistsError)
+        async def handle_user_already_exists(request, exc: UserAlreadyExistsError):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+        @self.app.exception_handler(UserValidationError)
+        async def handle_user_validation_error(request, exc: UserValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            )
+
+        @self.app.exception_handler(UserPermissionError)
+        async def handle_user_permission_error(request, exc: UserPermissionError):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+        @self.app.exception_handler(UserError)
+        # pylint: disable=unused-argument
+        async def handle_user_error(request, exc: UserError):
+            print(f"User error: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred while processing the user",
+            )
 
     async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> User:
         """Get the current authenticated user.
@@ -123,11 +161,12 @@ class UserAPI:
             id=str(uuid.uuid4()),
             password_hash=self.password_hasher.hash_password(
                 create_user_request.password
-            )
+            ),
         )
 
         # Create the user in service layer
-        internal_user = self.service.create_user(internal_user)
+        request_id = create_user_request.request_id
+        internal_user = self.service.create_user(request_id, internal_user)
 
         # Convert to public user model
         user = User(**internal_user.model_dump())
@@ -149,7 +188,7 @@ class UserAPI:
 
         try:
             internal_user = self.service.get_user_by_email(login_request.email)
-        except KeyError as exc:
+        except UserNotFoundError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",

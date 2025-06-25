@@ -16,7 +16,7 @@ class UserService:
         """
         self.store = store
 
-    def create_user(self, user: UserInternal) -> UserInternal:
+    def create_user(self, request_id: str, user: UserInternal) -> UserInternal:
         """Create a new user.
 
         Args:
@@ -25,7 +25,7 @@ class UserService:
         Returns:
             The created user
         """
-        return self.store.store_user(user)
+        return self.store.store_user(request_id, user)
 
     def get_user(self, user_id: str) -> UserInternal:
         """Get a user by their ID.

@@ -21,7 +21,7 @@ class UserStoreInterface(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def store_user(self, user: UserInternal) -> UserInternal:
+    def store_user(self, request_id: str, user: UserInternal) -> UserInternal:
         """Store a user in the system."""
         raise NotImplementedError
 
