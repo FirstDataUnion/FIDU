@@ -144,7 +144,7 @@ class TestExceptionHandlers:
         assert response.status_code == 403
 
     def test_raises_500_if_data_packet_error(self, api, test_client, mock_service):
-        """Test that exception handler raises a 500 if the data packet error."""
+        """Test that exception handler raises a 500 if a general data packet error occurs."""
         mock_service.get_data_packet.side_effect = DataPacketError("Data packet error")
         response = test_client.get("/api/v1/data-packets/test_packet_id")
         assert response.status_code == 500

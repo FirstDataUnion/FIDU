@@ -22,10 +22,10 @@ class UserID(BaseModel):
 class User(UserBase, UserID):
     """User model publically exposed fields."""
 
-    created_at: Optional[datetime] = Field(
+    create_timestamp: Optional[datetime] = Field(
         default=None, description="Creation timestamp. Read Only"
     )
-    updated_at: Optional[datetime] = Field(
+    update_timestamp: Optional[datetime] = Field(
         default=None, description="Last updated timestamp. Read Only"
     )
 
@@ -37,8 +37,8 @@ class User(UserBase, UserID):
                 "email": "user@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-01T00:00:00",
+                "create_timestamp": "2024-01-01T00:00:00",
+                "update_timestamp": "2024-01-01T00:00:00",
             }
         },
     )
@@ -109,8 +109,8 @@ class LoginResponse(BaseModel):
                     "email": "user@example.com",
                     "first_name": "John",
                     "last_name": "Doe",
-                    "created_at": "2024-01-01T00:00:00",
-                    "updated_at": "2024-01-01T00:00:00",
+                    "create_timestamp": "2024-01-01T00:00:00",
+                    "update_timestamp": "2024-01-01T00:00:00",
                 },
             }
         }
