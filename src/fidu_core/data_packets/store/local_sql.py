@@ -12,7 +12,11 @@ from ..schema import (
     DataPacketInternal,
     DataPacketQueryParams,
 )
-from ..exceptions import DataPacketNotFoundError, DataPacketError, DataPacketAlreadyExistsError
+from ..exceptions import (
+    DataPacketNotFoundError,
+    DataPacketError,
+    DataPacketAlreadyExistsError,
+)
 from ...utils.db import get_cursor
 
 logger = logging.getLogger(__name__)
@@ -155,10 +159,10 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
     ) -> DataPacketInternal:
         """Submit a data packet to the system to be stored."""
 
-        # Idempotent requests are caught by the ON CONFLICT clause doing nothing, 
+        # Idempotent requests are caught by the ON CONFLICT clause doing nothing,
         # and a check to see if no rows were inserted afterwards. This is differentiated
         # from ID conflicts, which raise an exception. SQLite has no RETURNING clause,
-        # so this is the best approach it supports. 
+        # so this is the best approach it supports.
         query = """
         INSERT INTO data_packets (
             id, create_request_id, profile_id, create_timestamp, update_timestamp, tags, data
@@ -195,30 +199,33 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                         data_json,
                     ),
                 )
-                
+
                 # Check if the insert actually happened (no request ID conflict)
                 if cursor.rowcount > 0:
                     # New row was inserted, sync tags and return the packet
                     if data_packet.tags:
-                        self._sync_tags_to_junction_table(data_packet.id, data_packet.tags)
-                    return data_packet
-                else:
-                    # Request ID conflict occurred, fetch the existing row
-                    # (Request ID is the only thing we can conflict on that won't raise an exception)
-                    cursor.execute(
-                        "SELECT * FROM data_packets WHERE create_request_id = ?",
-                        (request_id,)
-                    )
-                    row = cursor.fetchone()
-                    if row is None:
-                        # This shouldn't happen, but handle it gracefully
-                        raise DataPacketError(
-                            f"Request ID {request_id} conflict detected but no existing row found"
+                        self._sync_tags_to_junction_table(
+                            data_packet.id, data_packet.tags
                         )
-                    
-                    # Return the existing data packet
-                    return self._row_to_data_packet(row, cursor)
-                    
+                    return data_packet
+
+                # Request ID conflict occurred, fetch the existing row
+                # (Request ID is the only thing we can conflict on that
+                # won't raise an exception)
+                cursor.execute(
+                    "SELECT * FROM data_packets WHERE create_request_id = ?",
+                    (request_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    # This shouldn't happen, but handle it gracefully
+                    raise DataPacketError(
+                        f"Request ID {request_id} conflict detected but no existing row found"
+                    )
+
+                # Return the existing data packet
+                return self._row_to_data_packet(row, cursor)
+
             except sqlite3.IntegrityError as e:
                 # Check if this is a primary key constraint violation (duplicate ID)
                 if "UNIQUE constraint failed" in str(e) and "data_packets.id" in str(e):
@@ -226,15 +233,13 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                         f"Data packet with ID {data_packet.id} already exists"
                     ) from e
                 # Re-raise other integrity errors as they might be different constraint violations
-                raise DataPacketError(
-                    f"Failed to store data packet: {e}"
-                ) from e
+                raise DataPacketError(f"Failed to store data packet: {e}") from e
 
     def update_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
     ) -> DataPacketInternal:
         """Update a data packet in the system.
-        Currently supports partial idempotency, where the same request ID will return the most 
+        Currently supports partial idempotency, where the same request ID will return the most
         recent version of the packet.
         """
 
@@ -245,7 +250,9 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                 "SELECT id FROM data_packets WHERE id = ?", (data_packet.id,)
             )
             if cursor.fetchone() is None:
-                raise DataPacketNotFoundError(f"Data packet with ID {data_packet.id} not found")
+                raise DataPacketNotFoundError(
+                    f"Data packet with ID {data_packet.id} not found"
+                )
 
             # Check if the request ID already exists in the updates table
             cursor.execute(
@@ -253,26 +260,38 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             )
             row = cursor.fetchone()
             if row is not None:
-                # Request ID already exists, update has already been completed. Return most 
+                # Request ID already exists, update has already been completed. Return most
                 # recent version of the packet.
                 packet_id = row[1]
-                logger.info(f"Update request ID {request_id} already exists, returning most recent version of packet {packet_id}")
+                logger.info(
+                    """Update request ID %s already exists, returning most recent 
+                    version of packet %s""",
+                    request_id,
+                    packet_id,
+                )
                 try:
                     return self.get_data_packet(packet_id)
-                except DataPacketNotFoundError:
+                except DataPacketNotFoundError as e:
                     # The packet was deleted after the update request was made.
                     # This is a rare edge case, but it's possible.
-                    logger.warning(f"Data packet with ID {packet_id} not found after update request {request_id} was made")
-                    raise DataPacketNotFoundError(f"Data packet with ID {packet_id} not found after update request {request_id} was made")
+                    logger.warning(
+                        "Data packet with ID %s not found after update request %s was made",
+                        packet_id,
+                        request_id,
+                    )
+                    raise DataPacketNotFoundError(
+                        f"""Data packet with ID {packet_id} not found after update request
+                         {request_id} was made""",
+                    ) from e
+
+            # Set update timestamp if not provided
+            if data_packet.update_timestamp is None:
+                data_packet.update_timestamp = self._get_current_timestamp()
 
             # Build the update query dynamically
             query_parts = ["UPDATE data_packets SET update_timestamp = ?"]
             params = [
-                (
-                    data_packet.update_timestamp.isoformat()
-                    if data_packet.update_timestamp
-                    else self._get_current_timestamp().isoformat()
-                )
+                data_packet.update_timestamp.isoformat(),
             ]
 
             # Handle tags - only update if explicitly provided (not None)
@@ -293,20 +312,29 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             cursor.execute(query, params)
 
             if cursor.rowcount == 0:
-                logger.error(f"Updated data packet with ID {data_packet.id} not found in database exists check passed")
-                raise DataPacketNotFoundError(f"Data packet with ID {data_packet.id} not found")
+                logger.error(
+                    "Updated data packet with ID %s not found in database exists check passed",
+                    data_packet.id,
+                )
+                raise DataPacketNotFoundError(
+                    f"Data packet with ID {data_packet.id} not found in database"
+                )
 
             # update the updates table
             cursor.execute(
-                "INSERT INTO data_packet_updates (request_id, data_packet_id, update_timestamp) VALUES (?, ?, ?)",
-                (request_id, data_packet.id, data_packet.update_timestamp.isoformat())
+                """INSERT INTO data_packet_updates (request_id, data_packet_id, update_timestamp) 
+                VALUES (?, ?, ?)""",
+                (request_id, data_packet.id, data_packet.update_timestamp.isoformat()),
             )
 
             # Fetch the updated record (SQLite doesn't support RETURNING)
             cursor.execute("SELECT * FROM data_packets WHERE id = ?", (data_packet.id,))
             row = cursor.fetchone()
             if row is None:
-                logger.error(f"Updated data packet with ID {data_packet.id} not found in database after update")
+                logger.error(
+                    "Updated data packet with ID %s not found in database after update",
+                    data_packet.id,
+                )
                 raise DataPacketNotFoundError(
                     f"Updated data packet with ID {data_packet.id} not found in database"
                 )
