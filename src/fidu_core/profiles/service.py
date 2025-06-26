@@ -1,7 +1,7 @@
 """Service layer for profiles."""
 
 from typing import List
-from .schema import Profile
+from .schema import ProfileQueryParamsInternal, ProfileInternal
 from .store import ProfileStoreInterface
 
 
@@ -16,7 +16,9 @@ class ProfileService:
         """
         self.store = store
 
-    def create_profile(self, profile: Profile) -> Profile:
+    def create_profile(
+        self, request_id: str, profile: ProfileInternal
+    ) -> ProfileInternal:
         """Create a new profile.
 
         Args:
@@ -25,9 +27,9 @@ class ProfileService:
         Returns:
             The created profile
         """
-        return self.store.store_profile(profile)
+        return self.store.store_profile(request_id, profile)
 
-    def get_profile(self, profile_id: str) -> Profile:
+    def get_profile(self, profile_id: str) -> ProfileInternal:
         """Get a profile by its ID.
 
         Args:
@@ -38,21 +40,12 @@ class ProfileService:
         """
         return self.store.get_profile(profile_id)
 
-    def get_profiles_by_user_id(self, user_id: str) -> List[Profile]:
-        """Get all profiles for a specific user.
-
-        Args:
-            user_id: The ID of the user whose profiles to retrieve
-
-        Returns:
-            A list of profiles for the specified user
-        """
-        return self.store.get_profiles_by_user_id(user_id)
-
-    def list_profiles(self) -> List[Profile]:
+    def list_profiles(
+        self, query_params: ProfileQueryParamsInternal
+    ) -> List[ProfileInternal]:
         """List all profiles.
 
         Returns:
             A list of all profiles
         """
-        return self.store.list_profiles()
+        return self.store.list_profiles(query_params)
