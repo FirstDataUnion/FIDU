@@ -35,15 +35,6 @@ def store(db_connection):
 
 
 @pytest.fixture
-def populated_store(store, sample_data_packets):
-    """Create a store with sample data packets already inserted."""
-    # Insert all sample data packets
-    for packet in sample_data_packets:
-        store.store_data_packet(str(uuid.uuid4()), packet)
-    return store
-
-
-@pytest.fixture
 def sample_data_packet_minimal():
     """Create a minimal sample data packet for testing."""
     return DataPacketInternal(
@@ -213,19 +204,6 @@ class TestInfrastructure:
         """
         )
         assert cursor.fetchone() is not None
-
-    def test_populated_store_has_data(self, populated_store, sample_data_packets):
-        """Test that the populated store fixture works correctly."""
-        # List all packets to verify they were stored
-        query_params = DataPacketQueryParams()
-        stored_packets = populated_store.list_data_packets(query_params)
-
-        assert len(stored_packets) == len(sample_data_packets)
-
-        # Verify each packet was stored correctly
-        stored_ids = {packet.id for packet in stored_packets}
-        expected_ids = {packet.id for packet in sample_data_packets}
-        assert stored_ids == expected_ids
 
 
 class TestRowToDataPacket:
@@ -573,7 +551,7 @@ class TestStoreDataPacket:
         with pytest.raises(DataPacketAlreadyExistsError):
             store.store_data_packet(str(uuid.uuid4()), packet)
 
-    def test_returns_existing_packet_on_request_id_collision(
+    def test_returns_existing_packet_on_request_id_collision_with_same_profile_id(
         self, store, sample_data_packet_minimal
     ):
         """Test that idempotency works - same request_id returns existing packet."""
@@ -590,7 +568,7 @@ class TestStoreDataPacket:
         # Try to store the same packet with the same request_id
         duplicate_packet = DataPacketInternal(
             id="different_id_456",  # Different ID to show it's ignored
-            profile_id="different_profile",
+            profile_id=packet.profile_id,
             create_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             update_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             tags=["different", "tags"],
@@ -616,6 +594,34 @@ class TestStoreDataPacket:
         )
         count = cursor.fetchone()[0]
         assert count == 1
+
+    def test_raises_exception_on_request_id_collision_with_different_profile_id(
+        self, store, sample_data_packet_minimal
+    ):
+        """Test that idempotency works - same request_id returns existing packet."""
+        # Create a data packet and store it
+        packet = sample_data_packet_minimal
+        request_id = "test_request_123"
+
+        # Store the packet
+        stored_packet = store.store_data_packet(request_id, packet)
+
+        # Verify the packet was stored
+        assert stored_packet.id == packet.id
+
+        # Try to store the same packet with the same request_id
+        duplicate_packet = DataPacketInternal(
+            id="different_id_456",  # Different ID to show it's ignored
+            profile_id="different_profile_id",
+            create_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
+            update_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
+            tags=["different", "tags"],
+            data={"different": "data"},
+        )
+
+        # This should raise an exception to avoid leaking data packets from other users/profiles.
+        with pytest.raises(DataPacketError):
+            store.store_data_packet(request_id, duplicate_packet)
 
 
 class TestUpdateDataPacket:

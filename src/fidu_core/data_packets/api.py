@@ -3,7 +3,7 @@
 from typing import List
 from fastapi import FastAPI, HTTPException, Depends, status
 from .schema import (
-    DataPacketResponse,
+    DataPacket,
     DataPacketCreateRequest,
     DataPacketUpdateRequest,
     DataPacketQueryParams,
@@ -40,28 +40,28 @@ class DataPacketAPI:
             "/api/v1/data-packets",
             self.create_data_packet,
             methods=["POST"],
-            response_model=DataPacketResponse,
+            response_model=DataPacket,
             tags=["data-packets"],
         )
         self.app.add_api_route(
             "/api/v1/data-packets/{data_packet_id}",
             self.update_data_packet,
             methods=["PUT"],
-            response_model=DataPacketResponse,
+            response_model=DataPacket,
             tags=["data-packets"],
         )
         self.app.add_api_route(
             "/api/v1/data-packets/{data_packet_id}",
             self.get_data_packet,
             methods=["GET"],
-            response_model=DataPacketResponse,
+            response_model=DataPacket,
             tags=["data-packets"],
         )
         self.app.add_api_route(
             "/api/v1/data-packets",
             self.list_data_packets,
             methods=["GET"],
-            response_model=List[DataPacketResponse],
+            response_model=List[DataPacket],
             tags=["data-packets"],
         )
         self.app.add_api_route(
@@ -109,7 +109,7 @@ class DataPacketAPI:
 
     async def create_data_packet(
         self, data_packet_create_request: DataPacketCreateRequest
-    ) -> DataPacketResponse:
+    ) -> DataPacket:
         """Create a data packet in the system.
 
         Args:
@@ -130,13 +130,13 @@ class DataPacketAPI:
         )
 
         # Convert to response model
-        response_data_packet = DataPacketResponse(**created_data_packet.model_dump())
+        response_data_packet = DataPacket(**created_data_packet.model_dump())
 
         return response_data_packet
 
     async def update_data_packet(
         self, data_packet_update_request: DataPacketUpdateRequest
-    ) -> DataPacketResponse:
+    ) -> DataPacket:
         """Update a data packet in the system.
 
         Args:
@@ -157,7 +157,7 @@ class DataPacketAPI:
         )
 
         # Convert to response model
-        response_data_packet = DataPacketResponse(**saved_data_packet.model_dump())
+        response_data_packet = DataPacket(**saved_data_packet.model_dump())
 
         return response_data_packet
 
@@ -170,7 +170,7 @@ class DataPacketAPI:
         # Service layer will handle all error cases and raise appropriate exceptions
         self.service.delete_data_packet(data_packet_id)
 
-    async def get_data_packet(self, data_packet_id: str) -> DataPacketResponse:
+    async def get_data_packet(self, data_packet_id: str) -> DataPacket:
         """Get a data packet from the system by its ID.
 
         Args:
@@ -183,14 +183,14 @@ class DataPacketAPI:
         data_packet = self.service.get_data_packet(data_packet_id)
 
         # Convert to response model
-        return DataPacketResponse(**data_packet.model_dump())
+        return DataPacket(**data_packet.model_dump())
 
     async def list_data_packets(
         self,
         query: DataPacketQueryParams = Depends(DataPacketQueryParams.as_query_params),
-    ) -> List[DataPacketResponse]:
+    ) -> List[DataPacket]:
         """List data packets with filtering and pagination."""
         data_packets = self.service.list_data_packets(query)
 
         # Convert to response models
-        return [DataPacketResponse(**dp.model_dump()) for dp in data_packets]
+        return [DataPacket(**dp.model_dump()) for dp in data_packets]

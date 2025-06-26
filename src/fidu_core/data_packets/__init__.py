@@ -5,7 +5,7 @@ FIDU Core Data Packets Package
 from .schema import (
     DataPacketCreate,
     DataPacketUpdate,
-    DataPacketResponse,
+    DataPacket,
     DataPacketInternal,
     DataPacketQueryParams,
 )
@@ -19,7 +19,7 @@ from .api import DataPacketAPI
 __all__ = [
     "DataPacketCreate",
     "DataPacketUpdate",
-    "DataPacketResponse",
+    "DataPacket",
     "DataPacketInternal",
     "DataPacketQueryParams",
     "DataPacketStoreInterface",

@@ -1,6 +1,7 @@
 """API endpoints for user management."""
 
 import uuid
+import logging
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,6 +15,9 @@ from .exceptions import (
     UserPermissionError,
     UserError,
 )
+
+
+logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
@@ -98,7 +102,7 @@ class UserAPI:
         @self.app.exception_handler(UserError)
         # pylint: disable=unused-argument
         async def handle_user_error(request, exc: UserError):
-            print(f"User error: {exc}")
+            logger.error("User error: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred while processing the user",

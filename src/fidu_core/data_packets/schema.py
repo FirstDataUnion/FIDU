@@ -46,7 +46,7 @@ class DataPacketUpdate(BaseModel):
     )
 
 
-class DataPacketResponse(BaseModel):
+class DataPacket(BaseModel):
     """Model for data packet responses (full view of the resource)."""
 
     id: str = Field(description="Unique identifier for the data packet.")

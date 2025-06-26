@@ -223,8 +223,16 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                         f"Request ID {request_id} conflict detected but no existing row found"
                     )
 
+                # Check that the profile ID matches the one in the request.
+                # We don't want to return a packet for a different profile.
+                existing_data_packet = self._row_to_data_packet(row, cursor)
+                if existing_data_packet.profile_id != data_packet.profile_id:
+                    raise DataPacketError(
+                        f"Request ID {request_id} conflict detected but profile ID mismatch"
+                    )
+
                 # Return the existing data packet
-                return self._row_to_data_packet(row, cursor)
+                return existing_data_packet
 
             except sqlite3.IntegrityError as e:
                 # Check if this is a primary key constraint violation (duplicate ID)
