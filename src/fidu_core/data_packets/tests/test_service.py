@@ -9,10 +9,16 @@ from unittest.mock import Mock, patch
 from ..service import DataPacketService
 from ..schema import (
     DataPacketInternal,
-    DataPacketQueryParams,
+    DataPacketQueryParamsInternal,
 )
 from ..store import DataPacketStoreInterface
-from ..exceptions import DataPacketNotFoundError, DataPacketAlreadyExistsError
+from ..exceptions import (
+    DataPacketNotFoundError,
+    DataPacketAlreadyExistsError,
+    DataPacketPermissionError,
+)
+from ...profiles.service import ProfileService
+from ...profiles.schema import ProfileInternal
 
 
 @pytest.fixture
@@ -22,9 +28,15 @@ def mock_store():
 
 
 @pytest.fixture
-def service(mock_store):
+def mock_profile_service():
+    """Create a mock profile service object for testing."""
+    return Mock(spec=ProfileService)
+
+
+@pytest.fixture
+def service(mock_store, mock_profile_service):
     """Create a DataPacketService object for testing."""
-    return DataPacketService(mock_store)
+    return DataPacketService(mock_store, mock_profile_service)
 
 
 @pytest.fixture
@@ -34,11 +46,23 @@ def sample_timestamp():
 
 
 @pytest.fixture
+def sample_profile():
+    """Create a sample profile for testing."""
+    return ProfileInternal(
+        id="test_profile_123",
+        user_id="test_user_123",
+        name="Test Profile",
+        description="A test profile",
+    )
+
+
+@pytest.fixture
 def sample_data_packet_internal():
     """Create a sample data packet for testing."""
     return DataPacketInternal(
         id="test_packet_123",
         profile_id="test_profile_123",
+        user_id="test_user_123",
         tags=["test", "sample"],
         data={"name": "Falco Lombardi", "type": "character"},
     )
@@ -53,7 +77,9 @@ class TestCreateDataPacket:
         mock_get_current_timestamp,
         service,
         mock_store,
+        mock_profile_service,
         sample_data_packet_internal,
+        sample_profile,
         sample_timestamp,
     ):
         """Test that create data packet sets timestamps and passes to store."""
@@ -66,6 +92,7 @@ class TestCreateDataPacket:
         )
         mock_store.store_data_packet.return_value = expected_data_packet
         mock_get_current_timestamp.return_value = sample_timestamp
+        mock_profile_service.get_profile.return_value = sample_profile
         request_id = "req_123"
 
         # Call create data packet
@@ -73,6 +100,7 @@ class TestCreateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
+        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
         mock_store.store_data_packet.assert_called_once_with(
             request_id, expected_data_packet
         )
@@ -84,15 +112,18 @@ class TestCreateDataPacket:
         mock_get_current_timestamp,
         service,
         mock_store,
+        mock_profile_service,
         sample_data_packet_internal,
+        sample_profile,
         sample_timestamp,
     ):
         """Test that create data packet raises DataPacketAlreadyExistsError when store raises KeyError."""
         # Prepare expected calls
         mock_store.store_data_packet.side_effect = DataPacketAlreadyExistsError(
-            "Data packet already exists"
+            "test_packet_123"
         )
         mock_get_current_timestamp.return_value = sample_timestamp
+        mock_profile_service.get_profile.return_value = sample_profile
         request_id = "req_123"
 
         # Call create data packet and expect exception
@@ -101,6 +132,7 @@ class TestCreateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
+        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
         expected_data_packet = sample_data_packet_internal.model_copy(
             update={
                 "create_timestamp": sample_timestamp,
@@ -110,6 +142,36 @@ class TestCreateDataPacket:
         mock_store.store_data_packet.assert_called_once_with(
             request_id, expected_data_packet
         )
+
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_raises_permission_error_when_profile_belongs_to_different_user(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        mock_profile_service,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
+        """Test that create data packet raises DataPacketPermissionError when profile belongs to different user."""
+        # Prepare expected calls
+        different_user_profile = ProfileInternal(
+            id="test_profile_123",
+            user_id="different_user_456",
+            name="Test Profile",
+            description="A test profile",
+        )
+        mock_get_current_timestamp.return_value = sample_timestamp
+        mock_profile_service.get_profile.return_value = different_user_profile
+        request_id = "req_123"
+
+        # Call create data packet and expect exception
+        with pytest.raises(DataPacketPermissionError):
+            service.create_data_packet(request_id, sample_data_packet_internal)
+
+        # Assert expectations
+        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
+        mock_store.store_data_packet.assert_not_called()
 
 
 class TestUpdateDataPacket:
@@ -127,10 +189,12 @@ class TestUpdateDataPacket:
         """Test that update data packet sets update timestamp and passes to store."""
         # Prepare expected calls
         request_id = "req_123"
+        existing_data_packet = sample_data_packet_internal.model_copy()
         expected_updated_packet = sample_data_packet_internal.model_copy(
             update={"update_timestamp": sample_timestamp}
         )
         mock_get_current_timestamp.return_value = sample_timestamp
+        mock_store.get_data_packet.return_value = existing_data_packet
         mock_store.update_data_packet.return_value = expected_updated_packet
 
         # Call update data packet
@@ -138,6 +202,7 @@ class TestUpdateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
+        mock_store.get_data_packet.assert_called_once_with("test_packet_123")
         mock_store.update_data_packet.assert_called_once_with(
             request_id, expected_updated_packet
         )
@@ -156,8 +221,8 @@ class TestUpdateDataPacket:
         # Prepare expected calls
         request_id = "req_123"
         mock_get_current_timestamp.return_value = sample_timestamp
-        mock_store.update_data_packet.side_effect = DataPacketNotFoundError(
-            "Data packet not found"
+        mock_store.get_data_packet.side_effect = DataPacketNotFoundError(
+            "test_packet_123"
         )
 
         # Call update data packet and expect exception
@@ -165,13 +230,34 @@ class TestUpdateDataPacket:
             service.update_data_packet(request_id, sample_data_packet_internal)
 
         # Assert expectations
-        mock_get_current_timestamp.assert_called()
-        expected_updated_packet = sample_data_packet_internal.model_copy(
-            update={"update_timestamp": sample_timestamp}
+        mock_store.get_data_packet.assert_called_once_with("test_packet_123")
+        mock_store.update_data_packet.assert_not_called()
+
+    @patch.object(DataPacketService, "_get_current_timestamp")
+    def test_raises_permission_error_when_data_packet_belongs_to_different_user(
+        self,
+        mock_get_current_timestamp,
+        service,
+        mock_store,
+        sample_data_packet_internal,
+        sample_timestamp,
+    ):
+        """Test that update data packet raises DataPacketPermissionError when data packet belongs to different user."""
+        # Prepare expected calls
+        request_id = "req_123"
+        different_user_packet = sample_data_packet_internal.model_copy(
+            update={"user_id": "different_user_456"}
         )
-        mock_store.update_data_packet.assert_called_once_with(
-            request_id, expected_updated_packet
-        )
+        mock_get_current_timestamp.return_value = sample_timestamp
+        mock_store.get_data_packet.return_value = different_user_packet
+
+        # Call update data packet and expect exception
+        with pytest.raises(DataPacketPermissionError):
+            service.update_data_packet(request_id, sample_data_packet_internal)
+
+        # Assert expectations
+        mock_store.get_data_packet.assert_called_once_with("test_packet_123")
+        mock_store.update_data_packet.assert_not_called()
 
 
 class TestGetDataPacket:
@@ -181,10 +267,11 @@ class TestGetDataPacket:
         """Test that get data packet passes the ID to the store."""
         # Prepare expected calls
         data_packet_id = "test_packet_id"
+        user_id = "test_user_123"
         mock_store.get_data_packet.return_value = sample_data_packet_internal
 
         # Call get data packet
-        result = service.get_data_packet(data_packet_id)
+        result = service.get_data_packet(user_id, data_packet_id)
 
         # Assert expectations
         mock_store.get_data_packet.assert_called_once_with(data_packet_id)
@@ -196,13 +283,31 @@ class TestGetDataPacket:
         """Test that get data packet raises DataPacketNotFoundError when store raises KeyError."""
         # Prepare expected calls
         data_packet_id = "nonexistent_packet_id"
-        mock_store.get_data_packet.side_effect = DataPacketNotFoundError(
-            "Data packet not found"
-        )
+        user_id = "test_user_123"
+        mock_store.get_data_packet.side_effect = DataPacketNotFoundError(data_packet_id)
 
         # Call get data packet and expect exception
         with pytest.raises(DataPacketNotFoundError):
-            service.get_data_packet(data_packet_id)
+            service.get_data_packet(user_id, data_packet_id)
+
+        # Assert expectations
+        mock_store.get_data_packet.assert_called_once_with(data_packet_id)
+
+    def test_raises_permission_error_when_data_packet_belongs_to_different_user(
+        self, service, mock_store, sample_data_packet_internal
+    ):
+        """Test that get data packet raises DataPacketPermissionError when data packet belongs to different user."""
+        # Prepare expected calls
+        data_packet_id = "test_packet_id"
+        user_id = "test_user_123"
+        different_user_packet = sample_data_packet_internal.model_copy(
+            update={"user_id": "different_user_456"}
+        )
+        mock_store.get_data_packet.return_value = different_user_packet
+
+        # Call get data packet and expect exception
+        with pytest.raises(DataPacketPermissionError):
+            service.get_data_packet(user_id, data_packet_id)
 
         # Assert expectations
         mock_store.get_data_packet.assert_called_once_with(data_packet_id)
@@ -214,7 +319,8 @@ class TestListDataPackets:
     def test_passes_to_store(self, service, mock_store, sample_data_packet_internal):
         """Test that list data packets passes the query params to the store."""
         # Prepare expected calls
-        query_params = DataPacketQueryParams(
+        query_params = DataPacketQueryParamsInternal(
+            user_id="test_user_123",
             profile_id="test_profile_123",
             tags=["test"],
             limit=10,
@@ -233,7 +339,8 @@ class TestListDataPackets:
     def test_returns_empty_list_when_store_returns_empty(self, service, mock_store):
         """Test that list data packets returns empty list when store returns empty."""
         # Prepare expected calls
-        query_params = DataPacketQueryParams(
+        query_params = DataPacketQueryParamsInternal(
+            user_id="test_user_123",
             profile_id="test_profile_123",
             limit=10,
             offset=0,
@@ -251,16 +358,19 @@ class TestListDataPackets:
 class TestDeleteDataPacket:
     """Test cases for deleting data packets."""
 
-    def test_passes_to_store(self, service, mock_store):
+    def test_passes_to_store(self, service, mock_store, sample_data_packet_internal):
         """Test that delete data packet passes the ID to the store."""
         # Prepare expected calls
         data_packet_id = "test_packet_id"
+        user_id = "test_user_123"
+        mock_store.get_data_packet.return_value = sample_data_packet_internal
         mock_store.delete_data_packet.return_value = None
 
         # Call delete data packet
-        service.delete_data_packet(data_packet_id)
+        service.delete_data_packet(user_id, data_packet_id)
 
         # Assert expectations
+        mock_store.get_data_packet.assert_called_once_with(data_packet_id)
         mock_store.delete_data_packet.assert_called_once_with(data_packet_id)
 
     def test_raises_not_found_error_when_store_raises_key_error(
@@ -269,13 +379,33 @@ class TestDeleteDataPacket:
         """Test that delete data packet raises DataPacketNotFoundError when store raises KeyError."""
         # Prepare expected calls
         data_packet_id = "nonexistent_packet_id"
-        mock_store.delete_data_packet.side_effect = DataPacketNotFoundError(
-            "Data packet not found"
-        )
+        user_id = "test_user_123"
+        mock_store.get_data_packet.side_effect = DataPacketNotFoundError(data_packet_id)
 
         # Call delete data packet and expect exception
         with pytest.raises(DataPacketNotFoundError):
-            service.delete_data_packet(data_packet_id)
+            service.delete_data_packet(user_id, data_packet_id)
 
         # Assert expectations
-        mock_store.delete_data_packet.assert_called_once_with(data_packet_id)
+        mock_store.get_data_packet.assert_called_once_with(data_packet_id)
+        mock_store.delete_data_packet.assert_not_called()
+
+    def test_raises_permission_error_when_data_packet_belongs_to_different_user(
+        self, service, mock_store, sample_data_packet_internal
+    ):
+        """Test that delete data packet raises DataPacketPermissionError when data packet belongs to different user."""
+        # Prepare expected calls
+        data_packet_id = "test_packet_id"
+        user_id = "test_user_123"
+        different_user_packet = sample_data_packet_internal.model_copy(
+            update={"user_id": "different_user_456"}
+        )
+        mock_store.get_data_packet.return_value = different_user_packet
+
+        # Call delete data packet and expect exception
+        with pytest.raises(DataPacketPermissionError):
+            service.delete_data_packet(user_id, data_packet_id)
+
+        # Assert expectations
+        mock_store.get_data_packet.assert_called_once_with(data_packet_id)
+        mock_store.delete_data_packet.assert_not_called()

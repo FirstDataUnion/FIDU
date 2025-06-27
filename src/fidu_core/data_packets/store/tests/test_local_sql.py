@@ -11,27 +11,22 @@ from typing import List, Dict, Any
 import uuid
 
 from ..local_sql import LocalSqlDataPacketStore
-from ...schema import DataPacketInternal, DataPacketQueryParams
+from ...schema import DataPacketInternal, DataPacketQueryParamsInternal
 from ...exceptions import (
     DataPacketAlreadyExistsError,
     DataPacketNotFoundError,
     DataPacketError,
+)   
+from fidu_core.utils.db import get_cursor
+from fidu_core.utils.test_helpers import (
+    setup_test_db,
 )
 
 
-@pytest.fixture
-def db_connection():
-    """Create a fresh SQLite database connection for each test."""
-    # Use in-memory database for fast, isolated tests
-    conn = sqlite3.connect(":memory:")
-    yield conn
-    conn.close()
-
-
-@pytest.fixture
-def store(db_connection):
+@pytest.fixture 
+def store():
     """Create a LocalSqlDataPacketStore instance with a fresh database."""
-    return LocalSqlDataPacketStore(db_connection)
+    return LocalSqlDataPacketStore()
 
 
 @pytest.fixture
@@ -40,6 +35,7 @@ def sample_data_packet_minimal():
     return DataPacketInternal(
         id="test_packet_001",
         profile_id="test_profile_001",
+        user_id="test_user_001",
         create_timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         update_timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         tags=None,
@@ -53,6 +49,7 @@ def sample_data_packet_with_tags():
     return DataPacketInternal(
         id="test_packet_002",
         profile_id="test_profile_001",
+        user_id="test_user_001",
         create_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
         update_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
         tags=["important", "work", "project-a"],
@@ -66,6 +63,7 @@ def sample_data_packet_with_data():
     return DataPacketInternal(
         id="test_packet_003",
         profile_id="test_profile_002",
+        user_id="test_user_001",
         create_timestamp=datetime(2024, 1, 3, 12, 0, 0, tzinfo=timezone.utc),
         update_timestamp=datetime(2024, 1, 3, 12, 0, 0, tzinfo=timezone.utc),
         tags=None,
@@ -83,6 +81,7 @@ def sample_data_packet_complete():
     return DataPacketInternal(
         id="test_packet_004",
         profile_id="test_profile_002",
+        user_id="test_user_001",
         create_timestamp=datetime(2024, 1, 4, 12, 0, 0, tzinfo=timezone.utc),
         update_timestamp=datetime(2024, 1, 4, 12, 0, 0, tzinfo=timezone.utc),
         tags=["important", "urgent", "personal", "finance"],
@@ -115,7 +114,7 @@ def sample_data_packets(
 @pytest.fixture
 def sample_query_params():
     """Create sample query parameters for testing."""
-    return DataPacketQueryParams(
+    return DataPacketQueryParamsInternal(
         tags=None,
         profile_id=None,
         from_timestamp=None,
@@ -133,27 +132,6 @@ def sample_timestamp():
 
 
 # Utility functions for testing
-def get_database_state(db_connection) -> Dict[str, List[Dict[str, Any]]]:
-    """Get the current state of the database for inspection."""
-    cursor = db_connection.cursor()
-
-    # Get data_packets table
-    cursor.execute("SELECT * FROM data_packets")
-    data_packets = []
-    for row in cursor.fetchall():
-        columns = [description[0] for description in cursor.description]
-        data_packets.append(dict(zip(columns, row)))
-
-    # Get data_packet_tags table
-    cursor.execute("SELECT * FROM data_packet_tags")
-    tags = []
-    for row in cursor.fetchall():
-        columns = [description[0] for description in cursor.description]
-        tags.append(dict(zip(columns, row)))
-
-    return {"data_packets": data_packets, "tags": tags}
-
-
 def assert_data_packets_equal(
     packet1: DataPacketInternal,
     packet2: DataPacketInternal,
@@ -183,27 +161,26 @@ class TestInfrastructure:
         assert store is not None
         assert isinstance(store, LocalSqlDataPacketStore)
 
-    def test_database_tables_created(self, store, db_connection):
+    def test_database_tables_created(self, store):
         """Test that the required database tables are created."""
-        cursor = db_connection.cursor()
-
-        # Check that data_packets table exists
-        cursor.execute(
+        with get_cursor() as cursor:
+            # Check that data_packets table exists
+            cursor.execute(
+                """
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='data_packets'
             """
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name='data_packets'
-        """
-        )
-        assert cursor.fetchone() is not None
+            )
+            assert cursor.fetchone() is not None
 
-        # Check that data_packet_tags table exists
-        cursor.execute(
+            # Check that data_packet_tags table exists
+            cursor.execute(
+                """
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='data_packet_tags'
             """
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name='data_packet_tags'
-        """
-        )
-        assert cursor.fetchone() is not None
+            )
+            assert cursor.fetchone() is not None
 
 
 class TestRowToDataPacket:
@@ -214,6 +191,7 @@ class TestRowToDataPacket:
             "test_id_123",  # id
             "request_id_123",  # create_request_id
             "test_profile_456",  # profile_id
+            "test_user_001",  # user_id
             "2024-01-15T10:30:00+00:00",  # create_timestamp
             "2024-01-15T10:30:00+00:00",  # update_timestamp
             None,  # tags (JSON)
@@ -225,6 +203,7 @@ class TestRowToDataPacket:
             ("id", None, None, None, None, None, None),
             ("create_request_id", None, None, None, None, None, None),
             ("profile_id", None, None, None, None, None, None),
+            ("user_id", None, None, None, None, None, None),
             ("create_timestamp", None, None, None, None, None, None),
             ("update_timestamp", None, None, None, None, None, None),
             ("tags", None, None, None, None, None, None),
@@ -236,13 +215,14 @@ class TestRowToDataPacket:
         mock_cursor.description = cursor_description
 
         # Convert row to dict and then to DataPacket
-        store = LocalSqlDataPacketStore(Mock())
+        store = LocalSqlDataPacketStore()
         packet = store._row_to_data_packet(row, mock_cursor)
 
         # Verify conversion
         assert isinstance(packet, DataPacketInternal)
         assert packet.id == "test_id_123"
         assert packet.profile_id == "test_profile_456"
+        assert packet.user_id == "test_user_001"
         assert packet.create_timestamp == datetime(
             2024, 1, 15, 10, 30, tzinfo=timezone.utc
         )
@@ -259,6 +239,7 @@ class TestRowToDataPacket:
             "test_id_123",  # id
             "request_id_123",  # create_request_id
             "test_profile_456",  # profile_id
+            "test_user_001",  # user_id
             "2024-01-15T10:30:00+00:00",  # create_timestamp
             "2024-01-15T10:30:00+00:00",  # update_timestamp
             '["tag1", "tag2"]',  # tags (JSON)
@@ -270,6 +251,7 @@ class TestRowToDataPacket:
             ("id", None, None, None, None, None, None),
             ("create_request_id", None, None, None, None, None, None),
             ("profile_id", None, None, None, None, None, None),
+            ("user_id", None, None, None, None, None, None),
             ("create_timestamp", None, None, None, None, None, None),
             ("update_timestamp", None, None, None, None, None, None),
             ("tags", None, None, None, None, None, None),
@@ -281,13 +263,14 @@ class TestRowToDataPacket:
         mock_cursor.description = cursor_description
 
         # Convert row to dict and then to DataPacket
-        store = LocalSqlDataPacketStore(Mock())
+        store = LocalSqlDataPacketStore()
         packet = store._row_to_data_packet(row, mock_cursor)
 
         # Verify conversion
         assert isinstance(packet, DataPacketInternal)
         assert packet.id == "test_id_123"
         assert packet.profile_id == "test_profile_456"
+        assert packet.user_id == "test_user_001"
         assert packet.create_timestamp == datetime(
             2024, 1, 15, 10, 30, tzinfo=timezone.utc
         )
@@ -303,6 +286,7 @@ class TestRowToDataPacket:
             "test_id_123",  # id
             "request_id_123",  # create_request_id
             "test_profile_456",  # profile_id
+            "test_user_001",  # user_id
             "2024-01-15T10:30:00+00:00",  # create_timestamp
             "2024-01-15T10:30:00+00:00",  # update_timestamp
             None,  # tags (JSON)
@@ -314,6 +298,7 @@ class TestRowToDataPacket:
             ("id", None, None, None, None, None, None),
             ("create_request_id", None, None, None, None, None, None),
             ("profile_id", None, None, None, None, None, None),
+            ("user_id", None, None, None, None, None, None),
             ("create_timestamp", None, None, None, None, None, None),
             ("update_timestamp", None, None, None, None, None, None),
             ("tags", None, None, None, None, None, None),
@@ -325,13 +310,14 @@ class TestRowToDataPacket:
         mock_cursor.description = cursor_description
 
         # Convert row to dict and then to DataPacket
-        store = LocalSqlDataPacketStore(Mock())
+        store = LocalSqlDataPacketStore()
         packet = store._row_to_data_packet(row, mock_cursor)
 
         # Verify conversion
         assert isinstance(packet, DataPacketInternal)
         assert packet.id == "test_id_123"
         assert packet.profile_id == "test_profile_456"
+        assert packet.user_id == "test_user_001"
         assert packet.create_timestamp == datetime(
             2024, 1, 15, 10, 30, tzinfo=timezone.utc
         )
@@ -347,6 +333,7 @@ class TestRowToDataPacket:
             "test_id_123",  # id
             "request_id_123",  # create_request_id
             "test_profile_456",  # profile_id
+            "test_user_001",  # user_id
             "2024-01-15T10:30:00+00:00",  # create_timestamp
             "2024-01-15T10:30:00+00:00",  # update_timestamp
             '["tag1", "tag2"]',  # tags (JSON)
@@ -358,6 +345,7 @@ class TestRowToDataPacket:
             ("id", None, None, None, None, None, None),
             ("create_request_id", None, None, None, None, None, None),
             ("profile_id", None, None, None, None, None, None),
+            ("user_id", None, None, None, None, None, None),
             ("create_timestamp", None, None, None, None, None, None),
             ("update_timestamp", None, None, None, None, None, None),
             ("tags", None, None, None, None, None, None),
@@ -369,13 +357,14 @@ class TestRowToDataPacket:
         mock_cursor.description = cursor_description
 
         # Convert row to dict and then to DataPacket
-        store = LocalSqlDataPacketStore(Mock())
+        store = LocalSqlDataPacketStore()
         packet = store._row_to_data_packet(row, mock_cursor)
 
         # Verify conversion
         assert isinstance(packet, DataPacketInternal)
         assert packet.id == "test_id_123"
         assert packet.profile_id == "test_profile_456"
+        assert packet.user_id == "test_user_001"
         assert packet.create_timestamp == datetime(
             2024, 1, 15, 10, 30, tzinfo=timezone.utc
         )
@@ -395,6 +384,7 @@ class TestSyncTagsToJunctionTable:
             DataPacketInternal(
                 id="test_id_123",
                 profile_id="test_profile_456",
+                user_id="test_user_001",
                 create_timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
                 update_timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
                 tags=["tag1", "tag2"],
@@ -405,11 +395,11 @@ class TestSyncTagsToJunctionTable:
         store._sync_tags_to_junction_table("test_id_123", [])
 
         # Verify that the tags were removed
-        cursor = store.db_conn.cursor()
-        cursor.execute(
-            "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
-        )
-        assert cursor.fetchone() is None
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
+            )
+            assert cursor.fetchone() is None
 
     def test_inserts_new_tags(self, store):
         # Add a data packet to the database with no tags
@@ -418,6 +408,7 @@ class TestSyncTagsToJunctionTable:
             DataPacketInternal(
                 id="test_id_123",
                 profile_id="test_profile_456",
+                user_id="test_user_001",
                 create_timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
                 update_timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
                 tags=None,
@@ -428,12 +419,12 @@ class TestSyncTagsToJunctionTable:
         store._sync_tags_to_junction_table("test_id_123", ["tag1", "tag2"])
 
         # Verify that the tags were inserted
-        cursor = store.db_conn.cursor()
-        cursor.execute(
-            "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
-        )
-        assert cursor.fetchone() == ("test_id_123", "tag1")
-        assert cursor.fetchone() == ("test_id_123", "tag2")
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
+            )
+            assert cursor.fetchone() == ("test_id_123", "tag1")
+            assert cursor.fetchone() == ("test_id_123", "tag2")
 
 
 class TestStoreDataPacket:
@@ -446,16 +437,17 @@ class TestStoreDataPacket:
         stored_packet = store.store_data_packet(request_id, packet)
 
         # Verify that the packet was stored correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == packet.update_timestamp.isoformat()  # update_timestamp
-        assert row[5] is None  # tags
-        assert row[6] == "{}"  # data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == packet.update_timestamp.isoformat()  # update_timestamp
+            assert row[6] is None  # tags
+            assert row[7] == "{}"  # data
 
         # Verify that the packet was returned correctly
         assert_data_packets_equal(stored_packet, packet)
@@ -471,16 +463,17 @@ class TestStoreDataPacket:
         store.store_data_packet(request_id, packet)
 
         # Verify that the packet was stored correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == packet.update_timestamp.isoformat()  # update_timestamp
-        assert row[5] == json.dumps(packet.tags)  # tags
-        assert row[6] == "{}"  # data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == packet.update_timestamp.isoformat()  # update_timestamp
+            assert row[6] == json.dumps(packet.tags)  # tags
+            assert row[7] == "{}"  # data
 
     def test_stores_packet_with_data_correctly(
         self, store, sample_data_packet_with_data
@@ -493,16 +486,17 @@ class TestStoreDataPacket:
         store.store_data_packet(request_id, packet)
 
         # Verify that the packet was stored correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == packet.update_timestamp.isoformat()  # update_timestamp
-        assert row[5] is None  # tags
-        assert row[6] == json.dumps(packet.data)  # data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == packet.update_timestamp.isoformat()  # update_timestamp
+            assert row[6] is None  # tags
+            assert row[7] == json.dumps(packet.data)  # data
 
     @patch.object(LocalSqlDataPacketStore, "_get_current_timestamp")
     def test_creates_timestamps_if_not_provided(
@@ -527,16 +521,17 @@ class TestStoreDataPacket:
         store.store_data_packet(request_id, packet)
 
         # Verify that the packet was stored correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == sample_timestamp.isoformat()  # create_timestamp
-        assert row[4] == sample_timestamp.isoformat()  # update_timestamp
-        assert row[5] is None  # tags
-        assert row[6] == "{}"  # data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == sample_timestamp.isoformat()  # create_timestamp
+            assert row[5] == sample_timestamp.isoformat()  # update_timestamp
+            assert row[6] is None  # tags
+            assert row[7] == "{}"  # data
 
     def test_returns_packet_already_exists_exception_on_duplicate_id(
         self, store, sample_data_packet_minimal
@@ -569,6 +564,7 @@ class TestStoreDataPacket:
         duplicate_packet = DataPacketInternal(
             id="different_id_456",  # Different ID to show it's ignored
             profile_id=packet.profile_id,
+            user_id=packet.user_id,
             create_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             update_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             tags=["different", "tags"],
@@ -587,13 +583,13 @@ class TestStoreDataPacket:
         assert returned_packet.data == packet.data
 
         # Verify only one row exists in the database
-        cursor = store.db_conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM data_packets WHERE create_request_id = ?",
-            (request_id,),
-        )
-        count = cursor.fetchone()[0]
-        assert count == 1
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM data_packets WHERE create_request_id = ?",
+                (request_id,),
+            )
+            count = cursor.fetchone()[0]
+            assert count == 1
 
     def test_raises_exception_on_request_id_collision_with_different_profile_id(
         self, store, sample_data_packet_minimal
@@ -613,6 +609,7 @@ class TestStoreDataPacket:
         duplicate_packet = DataPacketInternal(
             id="different_id_456",  # Different ID to show it's ignored
             profile_id="different_profile_id",
+            user_id="different_user_id",
             create_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             update_timestamp=datetime(2024, 1, 20, 12, 0, 0, tzinfo=timezone.utc),
             tags=["different", "tags"],
@@ -647,16 +644,17 @@ class TestUpdateDataPacket:
         updated_packet = store.update_data_packet(update_request_id, packet_update)
 
         # Verify that the packet was updated correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == update_timestamp.isoformat()  # new update_timestamp
-        assert row[5] == json.dumps(packet_update.tags)  # new tags
-        assert row[6] == json.dumps(packet.data)  # data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == update_timestamp.isoformat()  # new update_timestamp
+            assert row[6] == json.dumps(packet_update.tags)  # new tags
+            assert row[7] == json.dumps(packet.data)  # data
 
         assert updated_packet.id == packet.id
         assert updated_packet.profile_id == packet.profile_id
@@ -686,16 +684,17 @@ class TestUpdateDataPacket:
         updated_packet = store.update_data_packet(update_request_id, packet_update)
 
         # Verify that the packet was updated correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == update_timestamp.isoformat()  # new update_timestamp
-        assert row[5] == json.dumps(packet.tags)  # tags
-        assert row[6] == json.dumps(packet_update.data)  # new data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == update_timestamp.isoformat()  # new update_timestamp
+            assert row[6] == json.dumps(packet.tags)  # tags
+            assert row[7] == json.dumps(packet_update.data)  # new data
 
     def test_updates_packet_with_tags_and_data_correctly(
         self, store, sample_data_packet_complete
@@ -719,16 +718,17 @@ class TestUpdateDataPacket:
         updated_packet = store.update_data_packet(update_request_id, packet_update)
 
         # Verify that the packet was updated correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert row[4] == update_timestamp.isoformat()  # new update_timestamp
-        assert row[5] == json.dumps(packet_update.tags)  # new tags
-        assert row[6] == json.dumps(packet_update.data)  # new data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert row[5] == update_timestamp.isoformat()  # new update_timestamp
+            assert row[6] == json.dumps(packet_update.tags)  # new tags
+            assert row[7] == json.dumps(packet_update.data)  # new data
 
         assert updated_packet.id == packet.id
         assert updated_packet.profile_id == packet.profile_id
@@ -811,18 +811,19 @@ class TestUpdateDataPacket:
         assert_data_packets_equal(second_updated_packet, updated_packet)
 
         # Verify that the packet was only updated with the first request.
-        cursor = store.db_conn.cursor()
-        cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
-        row = cursor.fetchone()
-        assert row[0] == packet.id  # id
-        assert row[1] == request_id  # create_request_id
-        assert row[2] == packet.profile_id  # profile_id
-        assert row[3] == packet.create_timestamp.isoformat()  # create_timestamp
-        assert (
-            row[4] == updated_packet.update_timestamp.isoformat()
-        )  # new update_timestamp
-        assert row[5] == json.dumps(updated_packet.tags)  # new tags
-        assert row[6] == json.dumps(updated_packet.data)  # new data
+        with get_cursor() as cursor:
+            cursor.execute("SELECT * FROM data_packets WHERE id = ?", (packet.id,))
+            row = cursor.fetchone()
+            assert row[0] == packet.id  # id
+            assert row[1] == request_id  # create_request_id
+            assert row[2] == packet.profile_id  # profile_id
+            assert row[3] == packet.user_id  # user_id
+            assert row[4] == packet.create_timestamp.isoformat()  # create_timestamp
+            assert (
+                row[5] == updated_packet.update_timestamp.isoformat()
+            )  # new update_timestamp
+            assert row[6] == json.dumps(updated_packet.tags)  # new tags
+            assert row[7] == json.dumps(updated_packet.data)  # new data
 
     def test_returns_latest_packet_on_idempotent_request(
         self, store, sample_data_packet_complete
@@ -888,7 +889,9 @@ class TestListDataPackets:
             store.store_data_packet(request_id, packet)
 
         # List the packets
-        retrieved_packets = store.list_data_packets(DataPacketQueryParams())
+        retrieved_packets = store.list_data_packets(
+            DataPacketQueryParamsInternal(user_id="test_user_001")
+        )
 
         # Assert the number of packets returned is the same as the number of packets stored
         assert len(retrieved_packets) == len(sample_data_packets)
@@ -904,7 +907,25 @@ class TestListDataPackets:
 
     def test_returns_empty_list_if_no_packets_found(self, store):
         # List the packets
-        retrieved_packets = store.list_data_packets(DataPacketQueryParams())
+        retrieved_packets = store.list_data_packets(
+            DataPacketQueryParamsInternal(user_id="test_user_001")
+        )
+
+        # Assert the number of packets returned is 0
+        assert len(retrieved_packets) == 0
+
+    def test_returns_empty_list_if_no_packets_found_for_user(
+        self, store, sample_data_packets
+    ):
+        # Store the packets
+        for packet in sample_data_packets:
+            request_id = str(uuid.uuid4())
+            store.store_data_packet(request_id, packet)
+
+        # List the packets
+        retrieved_packets = store.list_data_packets(
+            DataPacketQueryParamsInternal(user_id="different_user_id")
+        )
 
         # Assert the number of packets returned is 0
         assert len(retrieved_packets) == 0
@@ -923,7 +944,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(profile_id="test_profile_001")
+            DataPacketQueryParamsInternal(
+                profile_id="test_profile_001", user_id="test_user_001"
+            )
         )
 
         assert len(retrieved_packets) == 2
@@ -944,8 +967,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(
-                from_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+            DataPacketQueryParamsInternal(
+                from_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
+                user_id="test_user_001",
             )
         )
 
@@ -965,8 +989,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(
-                to_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+            DataPacketQueryParamsInternal(
+                to_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
+                user_id="test_user_001",
             )
         )
 
@@ -986,7 +1011,7 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(tags=["work"])
+            DataPacketQueryParamsInternal(tags=["work"], user_id="test_user_001")
         )
 
         assert len(retrieved_packets) == 1
@@ -1006,7 +1031,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(tags=["important", "personal"])
+            DataPacketQueryParamsInternal(
+                tags=["important", "personal"], user_id="test_user_001"
+            )
         )
 
         assert len(retrieved_packets) == 1
@@ -1024,11 +1051,12 @@ class TestListDataPackets:
             store.store_data_packet(request_id, packet)
 
         # Create query to retrieve a single specific packet
-        query_params = DataPacketQueryParams(
+        query_params = DataPacketQueryParamsInternal(
             profile_id="test_profile_001",
             from_timestamp=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
             to_timestamp=datetime(2024, 1, 3, 12, 0, 0, tzinfo=timezone.utc),
             tags=["important", "work", "project-a"],
+            user_id="test_user_001",
         )
         retrieved_packets = store.list_data_packets(query_params)
 
@@ -1041,7 +1069,9 @@ class TestListDataPackets:
             store.store_data_packet(request_id, packet)
 
         # List the packets
-        retrieved_packets = store.list_data_packets(DataPacketQueryParams(limit=1))
+        retrieved_packets = store.list_data_packets(
+            DataPacketQueryParamsInternal(limit=1, user_id="test_user_001")
+        )
         assert len(retrieved_packets) == 1
 
     def test_offsets_results(self, store, sample_data_packets):
@@ -1051,12 +1081,14 @@ class TestListDataPackets:
             store.store_data_packet(request_id, packet)
 
         # List the packets
-        retrieved_packets = store.list_data_packets(DataPacketQueryParams(limit=1))
+        retrieved_packets = store.list_data_packets(
+            DataPacketQueryParamsInternal(limit=1, user_id="test_user_001")
+        )
         packet_1_id = retrieved_packets[0].id
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(limit=1, offset=1)
+            DataPacketQueryParamsInternal(limit=1, offset=1, user_id="test_user_001")
         )
         packet_2_id = retrieved_packets[0].id
 
@@ -1072,7 +1104,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(sort_by="create_timestamp", sort_order="asc")
+            DataPacketQueryParamsInternal(
+                sort_by="create_timestamp", sort_order="asc", user_id="test_user_001"
+            )
         )
         assert retrieved_packets[0].create_timestamp == min(
             packet.create_timestamp for packet in sample_data_packets
@@ -1091,7 +1125,9 @@ class TestListDataPackets:
 
         # List the packets
         retrieved_packets = store.list_data_packets(
-            DataPacketQueryParams(sort_by="create_timestamp", sort_order="desc")
+            DataPacketQueryParamsInternal(
+                sort_by="create_timestamp", sort_order="desc", user_id="test_user_001"
+            )
         )
         assert retrieved_packets[0].create_timestamp == max(
             packet.create_timestamp for packet in sample_data_packets
@@ -1111,13 +1147,13 @@ class TestDeleteDataPacket:
         # Delete the packet
         store.delete_data_packet(sample_data_packets[0].id)
 
-        # Verify that the packet was deleted     correctly
-        cursor = store.db_conn.cursor()
-        cursor.execute(
-            "SELECT * FROM data_packets WHERE id = ?", (sample_data_packets[0].id,)
-        )
-        row = cursor.fetchone()
-        assert row is None
+        # Verify that the packet was deleted correctly
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM data_packets WHERE id = ?", (sample_data_packets[0].id,)
+            )
+            row = cursor.fetchone()
+            assert row is None
 
     def test_returns_packet_not_found_exception_on_missing_packet(self, store):
         # Delete a non-existent packet

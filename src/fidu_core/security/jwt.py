@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from pydantic import BaseModel
+from fastapi import HTTPException, status
 
 # Configuration
 SECRET_KEY = "your-secret-key-here"  # TODO: Move to environment variable for prod.
@@ -21,7 +22,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Token data model."""
 
-    user_id: Optional[str] = None
+    user_id: str
 
 
 class JWTManager:
@@ -67,3 +68,33 @@ class JWTManager:
             return TokenData(user_id=user_id)
         except JWTError:
             return None
+
+    def verify_token_or_raise(self, token: str) -> TokenData:
+        """
+        Verify and decode a JWT token, raising HTTPException if invalid.
+
+        Args:
+            token: The JWT token to verify
+
+        Returns:
+            The decoded token data if valid
+
+        Raises:
+            HTTPException: If the token is invalid or user_id is missing
+        """
+        token_data = self.verify_token(token)
+        if token_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if token_data.user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return token_data

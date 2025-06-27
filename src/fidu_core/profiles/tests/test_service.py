@@ -73,7 +73,9 @@ class TestCreateProfile:
         result = service.create_profile(request_id, sample_profile_internal)
 
         # Assert
-        mock_store.store_profile.assert_called_once_with(request_id, sample_profile_internal)
+        mock_store.store_profile.assert_called_once_with(
+            request_id, sample_profile_internal
+        )
         assert result == sample_profile_internal
 
     def test_returns_created_profile_from_store(
@@ -113,6 +115,7 @@ class TestGetProfile:
         # Assert
         mock_store.get_profile.assert_called_once_with(profile_id)
         assert result == sample_profile_internal
+
 
 class TestListProfiles:
     """Test cases for listing profiles."""
@@ -157,7 +160,7 @@ class TestListProfiles:
             name="Test Profile",
             limit=5,
             offset=10,
-            sort_order="asc"
+            sort_order="asc",
         )
         expected_profiles = [sample_profile_internal]
         mock_store.list_profiles.return_value = expected_profiles

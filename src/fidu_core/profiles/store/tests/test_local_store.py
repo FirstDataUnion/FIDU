@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch
-from typing import List, Dict, Any
+from fidu_core.users.schema import UserInternal
 
 from ..local_sql import LocalSqlProfileStore
 from ...schema import Profile, ProfileInternal, ProfileQueryParamsInternal
@@ -15,21 +15,45 @@ from ...exceptions import (
     ProfileUserAlreadyHasProfileError,
     ProfileError,
 )
-
-
-@pytest.fixture
-def db_connection():
-    """Create a fresh SQLite database connection for each test."""
-    # Use in-memory database for fast, isolated tests
-    conn = sqlite3.connect(":memory:")
-    yield conn
-    conn.close()
-
+from fidu_core.users.store.local_sql import LocalSqlUserStore
+from fidu_core.utils.db import get_cursor
+from fidu_core.utils.test_helpers import setup_test_db
 
 @pytest.fixture
-def store(db_connection):
+def user_store():
+    """Create a LocalSqlUserStore instance with a fresh database."""
+    return LocalSqlUserStore()
+
+@pytest.fixture
+def store():
     """Create a LocalSqlProfileStore instance with a fresh database."""
-    return LocalSqlProfileStore(db_connection)
+    return LocalSqlProfileStore()
+
+@pytest.fixture
+def sample_user():
+    """Create a sample user for testing."""
+    return UserInternal(
+        id="user_001",
+        create_request_id="req_001",
+        first_name="John",
+        last_name="Doe",
+        password_hash="password_hash",
+        email="user_001@example.com",
+        create_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+    )
+
+@pytest.fixture
+def sample_alternative_user():
+    """Create a sample user for testing."""
+    return UserInternal(
+        id="user_002",
+        create_request_id="req_002",
+        first_name="Jane",
+        last_name="Doe",
+        password_hash="password_hash",
+        email="user_002@example.com",
+        create_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+    )
 
 
 @pytest.fixture
@@ -121,49 +145,49 @@ def assert_profiles_equal(
 class TestInfrastructure:
     """Test that our test infrastructure is working correctly."""
 
-    def test_store_initialization(self, store):
+    def test_store_initialization(self, user_store, store):
         """Test that the store can be initialized correctly."""
         assert store is not None
         assert isinstance(store, LocalSqlProfileStore)
 
-    def test_database_tables_created(self, store, db_connection):
+    def test_database_tables_created(self, user_store, store):
         """Test that the required database tables are created."""
-        cursor = db_connection.cursor()
+        with get_cursor() as cursor:
 
-        # Check that profiles table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='profiles'"
-        )
-        result = cursor.fetchone()
-        assert result is not None
-        assert result[0] == "profiles"
+            # Check that profiles table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='profiles'"
+            )
+            result = cursor.fetchone()
+            assert result is not None
+            assert result[0] == "profiles"
 
-        # Check that profiles table has the correct columns
-        cursor.execute("PRAGMA table_info(profiles)")
-        columns = [row[1] for row in cursor.fetchall()]
-        expected_columns = [
-            "id",
-            "create_request_id",
-            "user_id",
-            "name",
-            "create_timestamp",
-            "update_timestamp",
-        ]
-        assert set(columns) == set(expected_columns)
+            # Check that profiles table has the correct columns
+            cursor.execute("PRAGMA table_info(profiles)")
+            columns = [row[1] for row in cursor.fetchall()]
+            expected_columns = [
+                "id",
+                "create_request_id",
+                "user_id",
+                "name",
+                "create_timestamp",
+                "update_timestamp",
+            ]
+            assert set(columns) == set(expected_columns)
 
-        # Check that the unique index exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_user_id_name'"
-        )
-        index_result = cursor.fetchone()
-        assert index_result is not None
-        assert index_result[0] == "idx_user_id_name"
+            # Check that the unique index exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_user_id_name'"
+            )
+            index_result = cursor.fetchone()
+            assert index_result is not None
+            assert index_result[0] == "idx_user_id_name"
 
 
 class TestRowToProfile:
     """Test the _row_to_profile method."""
 
-    def test_row_converts_to_profile_correctly(self, store):
+    def test_row_converts_to_profile_correctly(self, user_store, store):
         """Test that a database row converts to a profile correctly."""
         # Create a mock database row as a tuple, matching the order of columns in profiles table
         row = (
@@ -219,8 +243,12 @@ class TestRowToProfile:
 class TestStoreProfile:
     """Test the store_profile method."""
 
-    def test_stores_profile_correctly(self, store, sample_profile_minimal):
+    def test_stores_profile_correctly(self, user_store, sample_user, store, sample_profile_minimal):
         """Test that a profile is stored correctly."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         # Store the profile
         request_id = "req_001"
         result = store.store_profile(request_id, sample_profile_minimal)
@@ -235,25 +263,32 @@ class TestStoreProfile:
         )
 
         # Verify the profile is in the database
-        row = store.db_conn.execute(
-            "SELECT * FROM profiles WHERE id = ?", (sample_profile_minimal.id,)
-        ).fetchone()
-        assert row is not None
-        assert row[0] == sample_profile_minimal.id
-        assert row[1] == request_id
-        assert row[2] == sample_profile_minimal.user_id
-        assert row[3] == sample_profile_minimal.name
-        assert row[4] == sample_profile_minimal.create_timestamp.isoformat()
-        assert row[5] == sample_profile_minimal.update_timestamp.isoformat()
+        with get_cursor() as cursor:
+            row = cursor.execute(
+                "SELECT * FROM profiles WHERE id = ?", (sample_profile_minimal.id,)
+            ).fetchone()
+            assert row is not None
+            assert row[0] == sample_profile_minimal.id
+            assert row[1] == request_id
+            assert row[2] == sample_profile_minimal.user_id
+            assert row[3] == sample_profile_minimal.name
+            assert row[4] == sample_profile_minimal.create_timestamp.isoformat()
+            assert row[5] == sample_profile_minimal.update_timestamp.isoformat()
 
     @patch.object(LocalSqlProfileStore, "_get_current_timestamp")
     def test_creates_timestamps_if_not_provided(
         self,
         mock_get_current_timestamp,
+        user_store,
+        sample_user,
         store,
         sample_timestamp,
     ):
         """Test that timestamps are created if not provided."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         # Create a profile without timestamps using ProfileInternal
         profile_without_timestamps = ProfileInternal(
             id="test_profile_timestamp",
@@ -275,9 +310,13 @@ class TestStoreProfile:
         assert result.update_timestamp == sample_timestamp
 
     def test_returns_existing_profile_on_request_id_collision(
-        self, store, sample_profile_minimal
+        self, user_store, sample_user, store, sample_profile_minimal
     ):
         """Test that store_profile returns existing profile on request_id collision."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         # Store the profile first time
         request_id = "req_collision"
         first_result = store.store_profile(request_id, sample_profile_minimal)
@@ -296,9 +335,14 @@ class TestStoreProfile:
         assert len(stored_profiles) == 1
 
     def test_raises_profile_error_on_request_id_collision_with_different_profile_data(
-        self, store, sample_profile_minimal
+        self, user_store, sample_user, sample_alternative_user, store, sample_profile_minimal
     ):
         """Test that store_profile returns existing profile on request_id collision with different profile data."""
+
+        # Store the users to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
+
         # Store the profile first time
         request_id = "req_collision_diff"
         first_result = store.store_profile(request_id, sample_profile_minimal)
@@ -329,9 +373,13 @@ class TestStoreProfile:
         assert len(stored_profiles) == 1
 
     def test_raises_profile_user_already_has_profile_error_on_duplicate_name_same_user(
-        self, store, sample_profile_minimal
+        self, user_store, sample_user, store, sample_profile_minimal
     ):
         """Test that store_profile raises ProfileUserAlreadyHasProfileError on duplicate name for same user."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         # Store the profile first time
         request_id_1 = "req_duplicate_1"
         store.store_profile(request_id_1, sample_profile_minimal)
@@ -354,9 +402,14 @@ class TestStoreProfile:
         assert sample_profile_minimal.name in str(exc_info.value)
 
     def test_allows_same_name_for_different_users(
-        self, store, sample_profile_minimal, sample_profile_another_user
+        self, user_store, sample_user, sample_alternative_user, store, sample_profile_minimal, sample_profile_another_user
     ):
         """Test that the same profile name is allowed for different users."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
+
         # Store the first profile
         request_id_1 = "req_same_name_1"
         store.store_profile(request_id_1, sample_profile_minimal)
@@ -384,8 +437,12 @@ class TestStoreProfile:
 class TestGetProfile:
     """Test the get_profile method."""
 
-    def test_returns_profile_correctly(self, store, sample_profile_minimal):
+    def test_returns_profile_correctly(self, user_store, sample_user, store, sample_profile_minimal):
         """Test that get_profile returns the correct profile."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         # Store the profile
         request_id = "req_get"
         store.store_profile(request_id, sample_profile_minimal)
@@ -396,8 +453,12 @@ class TestGetProfile:
         # Verify the result
         assert_profiles_equal(result, sample_profile_minimal, ignore_timestamps=True)
 
-    def test_returns_profile_not_found_error_on_missing_profile(self, store):
+    def test_returns_profile_not_found_error_on_missing_profile(self, user_store, sample_user, store):
         """Test that get_profile raises ProfileNotFoundError on missing profile."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         with pytest.raises(ProfileNotFoundError) as exc_info:
             store.get_profile("nonexistent_profile")
 
@@ -407,8 +468,15 @@ class TestGetProfile:
 class TestListProfiles:
     """Test the list_profiles method."""
 
-    def test_returns_all_profiles_for_user_correctly(self, store, sample_profiles):
+    def test_returns_all_profiles_for_user_correctly(
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
+    ):
         """Test that list_profiles returns all profiles for a user correctly."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
+
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_list_{i}", profile)
@@ -425,14 +493,24 @@ class TestListProfiles:
         expected_names = {"Work Profile", "Personal Profile", "Gaming Profile"}
         assert result_names == expected_names
 
-    def test_returns_empty_list_if_no_profiles_found_for_user(self, store):
+    def test_returns_empty_list_if_no_profiles_found_for_user(self, user_store, sample_user, store):
         """Test that list_profiles returns an empty list if no profiles found for user."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+
         query_params = ProfileQueryParamsInternal(user_id="nonexistent_user")
         result = store.list_profiles(query_params)
         assert result == []
 
-    def test_filters_by_name_correctly(self, store, sample_profiles):
+    def test_filters_by_name_correctly(
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
+    ):
         """Test that list_profiles filters by name correctly."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_filter_{i}", profile)
@@ -448,8 +526,15 @@ class TestListProfiles:
         assert result[0].name == "Work Profile"
         assert result[0].user_id == "user_001"
 
-    def test_respects_limit_and_offset(self, store, sample_profiles):
+    def test_respects_limit_and_offset(
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
+    ):
         """Test that list_profiles respects limit and offset parameters."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
+
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_limit_{i}", profile)
@@ -461,8 +546,12 @@ class TestListProfiles:
         # Verify the result
         assert len(result) == 2
 
-    def test_respects_sort_order_asc(self, store, sample_profiles):
+    def test_respects_sort_order_asc(self, user_store, sample_user, sample_alternative_user, store, sample_profiles):
         """Test that list_profiles respects ascending sort order."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_sort_{i}", profile)
@@ -476,8 +565,12 @@ class TestListProfiles:
         timestamps = [profile.create_timestamp for profile in result]
         assert timestamps == sorted(timestamps)
 
-    def test_respects_sort_order_desc(self, store, sample_profiles):
+    def test_respects_sort_order_desc(self, user_store, sample_user, sample_alternative_user, store, sample_profiles):
         """Test that list_profiles respects descending sort order."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_sort_{i}", profile)
@@ -492,9 +585,13 @@ class TestListProfiles:
         assert timestamps == sorted(timestamps, reverse=True)
 
     def test_returns_profiles_for_different_users_separately(
-        self, store, sample_profiles
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
     ):
         """Test that list_profiles returns profiles for different users separately."""
+
+        # Store the user to satisfy foreign key constraints
+        user_store.store_user(f"req_001", sample_user)
+        user_store.store_user(f"req_002", sample_alternative_user)
         # Store the profiles
         for i, profile in enumerate(sample_profiles):
             store.store_profile(f"req_users_{i}", profile)

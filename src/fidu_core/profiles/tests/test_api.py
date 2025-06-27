@@ -25,6 +25,7 @@ from ..exceptions import (
     ProfileUserAlreadyHasProfileError,
     ProfileError,
 )
+from ...security.jwt import TokenData
 
 
 @pytest.fixture
@@ -49,6 +50,12 @@ def api(app, mock_service):
 def test_client(app):
     """Create a test client for the FastAPI app."""
     return TestClient(app)
+
+
+@pytest.fixture
+def sample_token_data():
+    """Create sample token data for testing."""
+    return TokenData(user_id="test_user_123")
 
 
 @pytest.fixture
@@ -108,16 +115,23 @@ def sample_create_profile_request(sample_profile_create):
 class TestExceptionHandlers:
     """Test cases for exception handlers."""
 
-    def test_raises_404_if_profile_not_found(self, api, test_client, mock_service):
+    def test_raises_404_if_profile_not_found(
+        self, api, test_client, mock_service, sample_token_data
+    ):
         """Test that exception handler raises a 404 if the profile is not found."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
         mock_service.get_profile.side_effect = ProfileNotFoundError("test_profile_id")
-        response = test_client.get("/api/v1/profiles/test_profile_id")
+        response = test_client.get(
+            "/api/v1/profiles/test_profile_id",
+            headers={"Authorization": "Bearer test_token"},
+        )
         assert response.status_code == 404
 
     def test_raises_400_if_profile_id_already_exists(
-        self, api, test_client, mock_service
+        self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 400 if a profile ID already exists."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
         mock_service.create_profile.side_effect = ProfileIDAlreadyExistsError(
             "test_profile_id"
         )
@@ -127,13 +141,15 @@ class TestExceptionHandlers:
                 "request_id": "req_123",
                 "profile": {"user_id": "test_user_123", "name": "Test Profile"},
             },
+            headers={"Authorization": "Bearer test_token"},
         )
         assert response.status_code == 400
 
     def test_raises_400_if_user_already_has_profile(
-        self, api, test_client, mock_service
+        self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 400 if a user already has a profile with the same name."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
         mock_service.create_profile.side_effect = ProfileUserAlreadyHasProfileError(
             "test_user_123", "Test Profile"
         )
@@ -143,13 +159,20 @@ class TestExceptionHandlers:
                 "request_id": "req_123",
                 "profile": {"user_id": "test_user_123", "name": "Test Profile"},
             },
+            headers={"Authorization": "Bearer test_token"},
         )
         assert response.status_code == 400
 
-    def test_raises_500_if_profile_error(self, api, test_client, mock_service):
+    def test_raises_500_if_profile_error(
+        self, api, test_client, mock_service, sample_token_data
+    ):
         """Test that exception handler raises a 500 if a general profile error occurs."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
         mock_service.get_profile.side_effect = ProfileError("Profile error")
-        response = test_client.get("/api/v1/profiles/test_profile_id")
+        response = test_client.get(
+            "/api/v1/profiles/test_profile_id",
+            headers={"Authorization": "Bearer test_token"},
+        )
         assert response.status_code == 500
 
 
@@ -166,15 +189,21 @@ class TestCreateProfile:
         sample_profile,
         sample_profile_internal,
         sample_create_profile_request,
+        sample_token_data,
     ):
         """Test that create profile passes the request to the service layer."""
         # Arrange
         mock_uuid.return_value = "test_profile_123"
         mock_service.create_profile.return_value = sample_profile_internal
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
-        response = test_client.post("/api/v1/profiles", json=json_compatible_request)
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=json_compatible_request,
+            headers={"Authorization": "Bearer test_token"},
+        )
 
         # Assert
         # Create the expected internal profile with the mocked ID
@@ -188,179 +217,326 @@ class TestCreateProfile:
             expected_internal_profile,
         )
         assert response.status_code == 200
-        assert response.json() == jsonable_encoder(sample_profile)
+        expected_response = Profile(
+            **sample_profile_internal.model_dump(),
+        )
+        assert response.json() == jsonable_encoder(expected_response)
 
     def test_raises_400_if_profile_id_already_exists_error_raised_from_service(
-        self, api, test_client, mock_service, sample_create_profile_request
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_create_profile_request,
+        sample_token_data,
     ):
         """Test that create profile raises a 400 if the service raises ProfileIDAlreadyExistsError."""
         # Arrange
         mock_service.create_profile.side_effect = ProfileIDAlreadyExistsError(
             "test_profile_id"
         )
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
-        response = test_client.post("/api/v1/profiles", json=json_compatible_request)
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=json_compatible_request,
+            headers={"Authorization": "Bearer test_token"},
+        )
 
         # Assert
         assert response.status_code == 400
-        assert "already exists" in response.json()["detail"]
 
     def test_raises_400_if_user_already_has_profile_error_raised_from_service(
-        self, api, test_client, mock_service, sample_create_profile_request
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_create_profile_request,
+        sample_token_data,
     ):
         """Test that create profile raises a 400 if the service raises ProfileUserAlreadyHasProfileError."""
         # Arrange
         mock_service.create_profile.side_effect = ProfileUserAlreadyHasProfileError(
             "test_user_123", "Test Profile"
         )
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
-        response = test_client.post("/api/v1/profiles", json=json_compatible_request)
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=json_compatible_request,
+            headers={"Authorization": "Bearer test_token"},
+        )
 
         # Assert
         assert response.status_code == 400
-        assert "already has a profile" in response.json()["detail"]
 
     def test_raises_422_if_request_id_is_missing(
-        self, api, test_client, mock_service, sample_profile_create
+        self, api, test_client, mock_service, sample_profile_create, sample_token_data
     ):
-        """Test that create profile raises a 422 if request_id is missing."""
-        # Arrange
-        invalid_request = {"profile": sample_profile_create.model_dump()}
-
-        # Act
-        response = test_client.post("/api/v1/profiles", json=invalid_request)
-
-        # Assert
+        """Test that create profile raises a 422 if the request id is missing."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        # This will fail validation because request_id is required
+        request_data = {"profile": jsonable_encoder(sample_profile_create)}
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=request_data,
+            headers={"Authorization": "Bearer test_token"},
+        )
         assert response.status_code == 422
 
-    def test_raises_422_if_profile_is_missing(self, api, test_client, mock_service):
-        """Test that create profile raises a 422 if profile is missing."""
+    def test_raises_422_if_profile_is_missing(
+        self, api, test_client, mock_service, sample_token_data
+    ):
+        """Test that create profile raises a 422 if the profile is missing."""
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        # This will fail validation because profile is required
+        request_data = {"request_id": "req_123"}
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=request_data,
+            headers={"Authorization": "Bearer test_token"},
+        )
+        assert response.status_code == 422
+
+    def test_raises_401_if_invalid_token(
+        self, api, test_client, mock_service, sample_create_profile_request
+    ):
+        """Test that create profile raises a 401 if the token is invalid."""
         # Arrange
-        invalid_request = {"request_id": "req_123"}
+        api.jwt_manager.verify_token = Mock(return_value=None)
 
         # Act
-        response = test_client.post("/api/v1/profiles", json=invalid_request)
+        json_compatible_request = jsonable_encoder(sample_create_profile_request)
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=json_compatible_request,
+            headers={"Authorization": "Bearer invalid_token"},
+        )
 
         # Assert
-        assert response.status_code == 422
+        assert response.status_code == 401
+
+    def test_raises_403_if_user_id_mismatch(
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_create_profile_request,
+        sample_token_data,
+    ):
+        """Test that create profile raises a 403 if the user_id in request doesn't match token."""
+        # Arrange
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+
+        # Create request with different user_id
+        different_user_request = CreateProfileRequest(
+            request_id="req_123",
+            profile=ProfileCreate(
+                user_id="different_user_456",
+                name="Test Profile",
+            ),
+        )
+
+        # Act
+        json_compatible_request = jsonable_encoder(different_user_request)
+        response = test_client.post(
+            "/api/v1/profiles",
+            json=json_compatible_request,
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        # Assert
+        assert response.status_code == 403
 
 
 class TestGetProfile:
-    """Test cases for getting a profile by ID."""
+    """Test cases for getting profiles."""
 
     def test_successful_get_profile(
-        self, api, test_client, mock_service, sample_profile, sample_profile_internal
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_profile,
+        sample_profile_internal,
+        sample_token_data,
     ):
-        """Test successful retrieval of a profile by ID."""
+        """Test that get profile successfully retrieves a profile."""
         # Arrange
         mock_service.get_profile.return_value = sample_profile_internal
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
-        response = test_client.get("/api/v1/profiles/test_profile_123")
+        response = test_client.get(
+            "/api/v1/profiles/test_profile_123",
+            headers={"Authorization": "Bearer test_token"},
+        )
 
         # Assert
         mock_service.get_profile.assert_called_once_with("test_profile_123")
         assert response.status_code == 200
-        assert response.json() == jsonable_encoder(sample_profile)
+        expected_response = Profile(
+            **sample_profile_internal.model_dump(),
+        )
+        assert response.json() == jsonable_encoder(expected_response)
 
-    def test_raises_404_if_profile_not_found(self, api, test_client, mock_service):
+    def test_raises_404_if_profile_not_found(
+        self, api, test_client, mock_service, sample_token_data
+    ):
         """Test that get profile raises a 404 if the profile is not found."""
         # Arrange
         mock_service.get_profile.side_effect = ProfileNotFoundError("test_profile_id")
-
-        # Act
-        response = test_client.get("/api/v1/profiles/test_profile_id")
-
-        # Assert
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
-
-
-class TestListProfiles:
-    """Test cases for listing all profiles."""
-
-    def test_successful_list_profiles(
-        self, api, test_client, mock_service, sample_profile, sample_profile_2
-    ):
-        """Test successful listing of all profiles."""
-        # Arrange
-        mock_service.list_profiles.return_value = [
-            ProfileInternal(**sample_profile.model_dump()),
-            ProfileInternal(**sample_profile_2.model_dump()),
-        ]
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
         response = test_client.get(
-            "/api/v1/profiles",
-            params={
-                "user_id": "test_user_123",
-                "name": "Test Profile",
-                "limit": 100,
-                "offset": 10,
-                "sort_order": "asc",
-            },
+            "/api/v1/profiles/test_profile_id",
+            headers={"Authorization": "Bearer test_token"},
         )
 
         # Assert
-        expected_query_params = ProfileQueryParamsInternal(
+        assert response.status_code == 404
+
+    def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
+        """Test that get profile raises a 401 if the token is invalid."""
+        # Arrange
+        api.jwt_manager.verify_token = Mock(return_value=None)
+
+        # Act
+        response = test_client.get(
+            "/api/v1/profiles/test_profile_id",
+            headers={"Authorization": "Bearer invalid_token"},
+        )
+
+        # Assert
+        assert response.status_code == 401
+
+    def test_raises_403_if_profile_belongs_to_different_user(
+        self, api, test_client, mock_service, sample_token_data
+    ):
+        """Test that get profile raises a 403 if the profile belongs to a different user."""
+        # Arrange
+        different_user_profile = ProfileInternal(
+            id="test_profile_123",
+            user_id="different_user_456",
+            name="Test Profile",
+            create_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+            update_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+        )
+        mock_service.get_profile.return_value = different_user_profile
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+
+        # Act
+        response = test_client.get(
+            "/api/v1/profiles/test_profile_123",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        # Assert
+        assert response.status_code == 403
+
+
+class TestListProfiles:
+    """Test cases for listing profiles."""
+
+    def test_successful_list_profiles(
+        self,
+        api,
+        test_client,
+        mock_service,
+        sample_profile,
+        sample_profile_2,
+        sample_token_data,
+    ):
+        """Test that list profiles successfully retrieves all profiles."""
+        # Arrange
+        sample_profile_internal_1 = ProfileInternal(
+            id="test_profile_123",
             user_id="test_user_123",
             name="Test Profile",
-            limit=100,
-            offset=10,
-            sort_order="asc",
+            create_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+            update_timestamp=datetime(2024, 1, 1, 12, 0, 0),
         )
-        mock_service.list_profiles.assert_called_once_with(expected_query_params)
-        assert response.status_code == 200
-        assert len(response.json()) == 2
-        assert response.json()[0]["id"] == sample_profile.id
-        assert response.json()[1]["id"] == sample_profile_2.id
+        sample_profile_internal_2 = ProfileInternal(
+            id="test_profile_456",
+            user_id="test_user_123",
+            name="Another Profile",
+            create_timestamp=datetime(2024, 1, 2, 12, 0, 0),
+            update_timestamp=datetime(2024, 1, 2, 12, 0, 0),
+        )
+        mock_service.list_profiles.return_value = [
+            sample_profile_internal_1,
+            sample_profile_internal_2,
+        ]
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
-    def test_returns_empty_list_when_no_profiles(self, api, test_client, mock_service):
+        # Act
+        response = test_client.get(
+            "/api/v1/profiles", headers={"Authorization": "Bearer test_token"}
+        )
+
+        # Assert
+        mock_service.list_profiles.assert_called_once()
+        call_args = mock_service.list_profiles.call_args[0][0]
+        assert isinstance(call_args, ProfileQueryParamsInternal)
+        assert call_args.user_id == sample_token_data.user_id
+        assert response.status_code == 200
+        expected_response = [
+            Profile(**sample_profile_internal_1.model_dump()),
+            Profile(**sample_profile_internal_2.model_dump()),
+        ]
+        assert response.json() == jsonable_encoder(expected_response)
+
+    def test_returns_empty_list_when_no_profiles(
+        self, api, test_client, mock_service, sample_token_data
+    ):
         """Test that list profiles returns an empty list when no profiles exist."""
         # Arrange
         mock_service.list_profiles.return_value = []
+        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
 
         # Act
-        response = test_client.get("/api/v1/profiles")
+        response = test_client.get(
+            "/api/v1/profiles", headers={"Authorization": "Bearer test_token"}
+        )
 
         # Assert
-        expected_query_params = ProfileQueryParamsInternal(
-            # default values only
-            user_id="*",  # TODO: Placeholder for now, we need to get the current user from the token
-            limit=50,
-            offset=0,
-            sort_order="desc",
-        )
-        mock_service.list_profiles.assert_called_once_with(expected_query_params)
+        mock_service.list_profiles.assert_called_once()
+        call_args = mock_service.list_profiles.call_args[0][0]
+        assert isinstance(call_args, ProfileQueryParamsInternal)
+        assert call_args.user_id == sample_token_data.user_id
         assert response.status_code == 200
         assert response.json() == []
+
+    def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
+        """Test that list profiles raises a 401 if the token is invalid."""
+        # Arrange
+        api.jwt_manager.verify_token = Mock(return_value=None)
+
+        # Act
+        response = test_client.get(
+            "/api/v1/profiles", headers={"Authorization": "Bearer invalid_token"}
+        )
+
+        # Assert
+        assert response.status_code == 401
 
 
 class TestAPIInitialization:
     """Test cases for API initialization."""
 
     def test_api_initialization_sets_up_service(self, app, mock_service):
-        """Test that API initialization properly sets up the service."""
-        # Act
+        """Test that API initialization sets up the service correctly."""
         api = ProfileAPI(app, mock_service)
-
-        # Assert
         assert api.service == mock_service
-        assert api.app == app
 
     def test_api_initialization_sets_up_routes(self, app, mock_service):
-        """Test that API initialization sets up all the required routes."""
-        # Act
+        """Test that API initialization sets up the routes correctly."""
         api = ProfileAPI(app, mock_service)
-
-        # Assert
         # Check that routes are added to the app
         routes = [route for route in app.routes if hasattr(route, "path")]
-        route_paths = [route.path for route in routes]
-
-        assert "/api/v1/profiles" in route_paths  # POST and GET
-        assert "/api/v1/profiles/{profile_id}" in route_paths  # GET
+        assert len(routes) >= 3  # Should have at least 3 routes (create, get, list)

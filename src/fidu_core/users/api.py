@@ -120,21 +120,8 @@ class UserAPI:
         Raises:
             HTTPException: If the token is invalid or the user is not found
         """
-        token_data = self.jwt_manager.verify_token(token)
-        if token_data is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
+        token_data = self.jwt_manager.verify_token_or_raise(token)
         user_id = token_data.user_id
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
 
         try:
             user = self.service.get_user(user_id)
@@ -144,7 +131,11 @@ class UserAPI:
                 detail="User not found",
                 headers={"WWW-Authenticate": "Bearer"},
             ) from exc
-        return user
+
+        # Convert to public user model
+        public_user = User(**user.model_dump())
+
+        return public_user
 
     async def create_user(self, create_user_request: CreateUserRequest) -> User:
         """Create a new user.
@@ -219,7 +210,9 @@ class UserAPI:
             access_token=access_token, token_type="bearer", user=public_user
         )
 
-    async def get_user(self, user_id: str) -> User:
+    # TODO: Given it only makes sense to get your own user resource,
+    # this is the same as get_current_user. pending removal.
+    async def get_user(self, user_id: str, token: str = Depends(oauth2_scheme)) -> User:
         """Get a user by their ID.
 
         Args:
@@ -229,10 +222,20 @@ class UserAPI:
             The requested user
         """
 
-        internal_user = self.service.get_user(user_id)
+        token_data = self.jwt_manager.verify_token_or_raise(token)
+        user_id_from_token = token_data.user_id
 
+        if user_id_from_token != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to access this resource",
+            )
+
+        internal_user = self.service.get_user(user_id)
         return User(**internal_user.model_dump())
 
+    # TODO: I don't think there's use case for this endpoint.
+    # pending removal.
     async def list_users(self) -> List[User]:
         """List all users.
 

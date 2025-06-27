@@ -104,6 +104,9 @@ class DataPacketInternal(BaseModel):
     profile_id: Optional[str] = Field(
         default=None, description="ID of the profile this data packet belongs to."
     )
+    user_id: Optional[str] = Field(
+        default=None, description="ID of the user this data packet belongs to."
+    )
     create_timestamp: Optional[datetime] = Field(
         default=None, description="Timestamp of when the data packet was created."
     )
@@ -175,3 +178,22 @@ class DataPacketQueryParams(BaseModel):
             offset=offset,
             sort_order=sort_order,
         )
+
+
+class DataPacketQueryParamsInternal(BaseModel):
+    """Internal query parameters for filtering data packets."""
+
+    user_id: str = Field(description="Filter by user ID, must always be set")
+    tags: Optional[List[str]] = Field(None, description="Filter by tags")
+    profile_id: Optional[str] = Field(None, description="Filter by profile ID")
+    from_timestamp: Optional[datetime] = Field(
+        None, description="Filter by start timestamp. Filters by create_timestamp."
+    )
+    to_timestamp: Optional[datetime] = Field(
+        None, description="Filter by end timestamp. Filters by create_timestamp."
+    )
+    limit: int = Field(
+        default=50, ge=1, le=100, description="Number of results to return"
+    )
+    offset: int = Field(default=0, ge=0, description="Number of results to skip")
+    sort_order: str = Field(default="desc", description="Sort order (asc/desc)")

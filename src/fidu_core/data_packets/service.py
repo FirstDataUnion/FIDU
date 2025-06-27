@@ -4,20 +4,29 @@ Service layer for data packets.
 
 from datetime import datetime, timezone
 from typing import List
-from .schema import DataPacketInternal, DataPacketQueryParams
+from .schema import DataPacketInternal, DataPacketQueryParamsInternal
 from .store import DataPacketStoreInterface
+from ..profiles.service import ProfileService
+from .exceptions import (
+    DataPacketPermissionError,
+    DataPacketNotFoundError,
+    DataPacketValidationError,
+)
 
 
 class DataPacketService:
     """Service layer for data packets."""
 
-    def __init__(self, store: DataPacketStoreInterface) -> None:
+    def __init__(
+        self, store: DataPacketStoreInterface, profile_service: ProfileService
+    ) -> None:
         """Initialize the service layer.
 
         Args:
             store: The storage layer object to use for storing and retrieving data packets
         """
         self.store = store
+        self.profile_service = profile_service
 
     def create_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
@@ -33,8 +42,26 @@ class DataPacketService:
 
         Raises:
             DataPacketAlreadyExistsError: If a data packet with the same ID already exists
+            DataPacketPermissionError: If the profile does not belong to the user
+            ProfileNotFoundError: If the profile does not exist
         """
-        # TODO: Ensure profile exists
+
+        user_id = data_packet.user_id
+        if user_id is None:
+            raise DataPacketValidationError(
+                "User ID is required to create a data packet"
+            )
+
+        profile_id = data_packet.profile_id
+        if profile_id is None:
+            raise DataPacketValidationError(
+                "Profile ID is required to create a data packet"
+            )
+
+        # Will also raise an exception if the profile does not exist
+        profile = self.profile_service.get_profile(profile_id)
+        if profile.user_id != user_id:
+            raise DataPacketPermissionError(data_packet.id, user_id)
 
         # Set timestamps
         data_packet.create_timestamp = self._get_current_timestamp()
@@ -58,7 +85,17 @@ class DataPacketService:
 
         Raises:
             DataPacketNotFoundError: If the data packet is not found
+            DataPacketPermissionError: If the data packet does not belong to the user
         """
+
+        # query the data packet to ensure it exists and check permissions
+        # will correctly raise an exception if the data packet does not exist
+        existing_data_packet = self.store.get_data_packet(data_packet.id)
+        if existing_data_packet.user_id != data_packet.user_id:
+            raise DataPacketPermissionError(
+                data_packet.id,
+                data_packet.user_id if data_packet.user_id else "unknown",
+            )
 
         # Set update timestamp
         data_packet.update_timestamp = self._get_current_timestamp()
@@ -67,7 +104,7 @@ class DataPacketService:
         updated_data_packet = self.store.update_data_packet(request_id, data_packet)
         return updated_data_packet
 
-    def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
+    def get_data_packet(self, user_id: str, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID.
 
         Args:
@@ -78,12 +115,19 @@ class DataPacketService:
 
         Raises:
             DataPacketNotFoundError: If the data packet is not found
+            DataPacketPermissionError: If the data packet does not belong to the user
         """
         data_packet = self.store.get_data_packet(data_packet_id)
+        if data_packet is None:
+            raise DataPacketNotFoundError(f"Data packet {data_packet_id} not found")
+
+        if data_packet.user_id != user_id:
+            raise DataPacketPermissionError(data_packet_id, user_id)
+
         return data_packet
 
     def list_data_packets(
-        self, data_packet_query_params: DataPacketQueryParams
+        self, data_packet_query_params: DataPacketQueryParamsInternal
     ) -> List[DataPacketInternal]:
         """List data packets from the system.
 
@@ -96,15 +140,24 @@ class DataPacketService:
         data_packets = self.store.list_data_packets(data_packet_query_params)
         return data_packets
 
-    def delete_data_packet(self, data_packet_id: str) -> None:
+    def delete_data_packet(self, user_id: str, data_packet_id: str) -> None:
         """Delete a data packet from the system.
 
         Args:
             data_packet_id: the ID of the data packet to be deleted
+            user_id: the ID of the user deleting the data packet
 
         Raises:
             DataPacketNotFoundError: If the data packet is not found
+            DataPacketPermissionError: If the data packet does not belong to the user
         """
+
+        # query the data packet to ensure it exists and check permissions
+        # will correctly raise an exception if the data packet does not exist
+        existing_data_packet = self.store.get_data_packet(data_packet_id)
+        if existing_data_packet.user_id != user_id:
+            raise DataPacketPermissionError(data_packet_id, user_id)
+
         self.store.delete_data_packet(data_packet_id)
 
     def _get_current_timestamp(self) -> datetime:
