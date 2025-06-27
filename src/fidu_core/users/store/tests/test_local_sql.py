@@ -15,21 +15,14 @@ from ...exceptions import (
     UserAlreadyExistsError,
     UserError,
 )
+from fidu_core.utils.db import get_cursor
+from fidu_core.utils.test_helpers import setup_test_db
 
 
 @pytest.fixture
-def db_connection():
-    """Create a fresh SQLite database connection for each test."""
-    # Use in-memory database for fast, isolated tests
-    conn = sqlite3.connect(":memory:")
-    yield conn
-    conn.close()
-
-
-@pytest.fixture
-def store(db_connection):
+def store():
     """Create a LocalSqlUserStore instance with a fresh database."""
-    return LocalSqlUserStore(db_connection)
+    return LocalSqlUserStore()
 
 
 @pytest.fixture
@@ -120,20 +113,6 @@ def sample_timestamp():
 
 
 # Utility functions for testing
-def get_database_state(db_connection) -> Dict[str, List[Dict[str, Any]]]:
-    """Get the current state of the database for inspection."""
-    cursor = db_connection.cursor()
-
-    # Get users table
-    cursor.execute("SELECT * FROM users")
-    users = []
-    for row in cursor.fetchall():
-        columns = [description[0] for description in cursor.description]
-        users.append(dict(zip(columns, row)))
-
-    return {"users": users}
-
-
 def assert_users_equal(
     user1: UserInternal,
     user2: UserInternal,
@@ -159,32 +138,31 @@ class TestInfrastructure:
         assert store is not None
         assert isinstance(store, LocalSqlUserStore)
 
-    def test_database_tables_created(self, store, db_connection):
+    def test_database_tables_created(self, store):
         """Test that the required database tables are created."""
-        cursor = db_connection.cursor()
+        with get_cursor() as cursor:
+            # Check that users table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+            )
+            result = cursor.fetchone()
+            assert result is not None
+            assert result[0] == "users"
 
-        # Check that users table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-        )
-        result = cursor.fetchone()
-        assert result is not None
-        assert result[0] == "users"
-
-        # Check that users table has the correct columns
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [row[1] for row in cursor.fetchall()]
-        expected_columns = [
-            "id",
-            "email",
-            "create_request_id",
-            "first_name",
-            "last_name",
-            "password_hash",
-            "create_timestamp",
-            "update_timestamp",
-        ]
-        assert set(columns) == set(expected_columns)
+            # Check that users table has the correct columns
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [row[1] for row in cursor.fetchall()]
+            expected_columns = [
+                "id",
+                "email",
+                "create_request_id",
+                "first_name",
+                "last_name",
+                "password_hash",
+                "create_timestamp",
+                "update_timestamp",
+            ]
+            assert set(columns) == set(expected_columns)
 
     def test_populated_store_has_data(self, populated_store, sample_users):
         """Test that the populated store fixture works correctly."""
@@ -315,9 +293,11 @@ class TestStoreUser:
         assert_users_equal(stored_user, sample_user_minimal, ignore_timestamps=True)
 
         # Verify the request_id is stored
-        db_state = get_database_state(store.db_conn)
-        assert len(db_state["users"]) == 1
-        assert db_state["users"][0]["create_request_id"] == request_id
+        with get_cursor() as cursor:
+            cursor.execute("SELECT create_request_id FROM users WHERE id = ?", (sample_user_minimal.id,))
+            result = cursor.fetchone()
+            assert result is not None
+            assert result[0] == request_id
 
     def test_stores_user_with_names_correctly(self, store, sample_user_with_names):
         """Test that a user with names is stored correctly."""

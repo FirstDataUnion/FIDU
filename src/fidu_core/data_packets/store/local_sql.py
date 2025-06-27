@@ -10,7 +10,7 @@ from typing import List, Any
 from .store import DataPacketStoreInterface
 from ..schema import (
     DataPacketInternal,
-    DataPacketQueryParams,
+    DataPacketQueryParamsInternal,
 )
 from ..exceptions import (
     DataPacketNotFoundError,
@@ -30,6 +30,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         id TEXT PRIMARY KEY,
         create_request_id TEXT UNIQUE NOT NULL,
         profile_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
         create_timestamp TEXT NOT NULL,
         update_timestamp TEXT NOT NULL,
         tags TEXT,  -- JSON array for tags
@@ -58,12 +59,14 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
     )
     """
 
-    def __init__(self, db_conn: sqlite3.Connection) -> None:
+    def __init__(self) -> None:
         """Initialize the storage layer."""
-        self.db_conn = db_conn
+        # Initialize tables on first use
+        self._ensure_tables_exist()
 
-        # Executing these in line for now, but we should use a migration system eventually.
-        with get_cursor(self.db_conn) as cursor:
+    def _ensure_tables_exist(self) -> None:
+        """Ensure that the required tables exist."""
+        with get_cursor() as cursor:
             cursor.execute(self.create_table_query)
             cursor.execute(self.create_tags_table_query)
             cursor.execute(self.create_updates_table_query)
@@ -133,7 +136,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         self, data_packet_id: str, tags: List[str]
     ) -> None:
         """Sync tags from JSON to junction table for efficient querying."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             # Remove existing tags for this packet
             cursor.execute(
                 "DELETE FROM data_packet_tags WHERE data_packet_id = ?",
@@ -165,8 +168,8 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         # so this is the best approach it supports.
         query = """
         INSERT INTO data_packets (
-            id, create_request_id, profile_id, create_timestamp, update_timestamp, tags, data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, tags, data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(create_request_id) DO NOTHING
         """
 
@@ -185,7 +188,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             else self._get_current_timestamp().isoformat()
         )
 
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             try:
                 cursor.execute(
                     query,
@@ -193,6 +196,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                         data_packet.id,
                         request_id,
                         data_packet.profile_id,
+                        data_packet.user_id,
                         create_timestamp_iso,
                         update_timestamp_iso,
                         tags_json,
@@ -252,16 +256,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
         """
 
         # Update the database with transaction handling to avoid any race conditions
-        with get_cursor(self.db_conn) as cursor:
-            # First check if the packet exists
-            cursor.execute(
-                "SELECT id FROM data_packets WHERE id = ?", (data_packet.id,)
-            )
-            if cursor.fetchone() is None:
-                raise DataPacketNotFoundError(
-                    f"Data packet with ID {data_packet.id} not found"
-                )
-
+        with get_cursor() as cursor:
             # Check if the request ID already exists in the updates table
             cursor.execute(
                 "SELECT * FROM data_packet_updates WHERE request_id = ?", (request_id,)
@@ -320,12 +315,8 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             cursor.execute(query, params)
 
             if cursor.rowcount == 0:
-                logger.error(
-                    "Updated data packet with ID %s not found in database exists check passed",
-                    data_packet.id,
-                )
                 raise DataPacketNotFoundError(
-                    f"Data packet with ID {data_packet.id} not found in database"
+                    f"Data packet with ID {data_packet.id} not found"
                 )
 
             # update the updates table
@@ -364,7 +355,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
 
     def get_data_packet(self, data_packet_id: str) -> DataPacketInternal:
         """Get a data packet from the system by its ID."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("SELECT * FROM data_packets WHERE id = ?", (data_packet_id,))
             row = cursor.fetchone()
 
@@ -376,7 +367,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             return self._row_to_data_packet(row, cursor)
 
     def list_data_packets(
-        self, data_packet_query_params: DataPacketQueryParams
+        self, data_packet_query_params: DataPacketQueryParamsInternal
     ) -> List[DataPacketInternal]:
         """List data packets from the system."""
 
@@ -389,10 +380,11 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                 "JOIN data_packet_tags dpt ON dp.id = dpt.data_packet_id",
             )
 
-        # a no-op, but makes adding the AND statements below easier.
-        query_parts.append("WHERE 1=1")
-
         params: List[Any] = []
+
+        # Always filter by user ID to ensure users can only see their own data packets
+        query_parts.append("WHERE dp.user_id = ?")
+        params.append(data_packet_query_params.user_id)
 
         if data_packet_query_params.profile_id:
             query_parts.append("AND dp.profile_id = ?")
@@ -428,14 +420,14 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
 
         query = " ".join(query_parts)
 
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             return [self._row_to_data_packet(row, cursor) for row in rows]
 
     def delete_data_packet(self, data_packet_id: str) -> None:
         """Delete a data packet from the system."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("DELETE FROM data_packets WHERE id = ?", (data_packet_id,))
             if cursor.rowcount == 0:
                 raise DataPacketNotFoundError(

@@ -2,7 +2,7 @@
 
 from abc import abstractmethod, ABCMeta
 from typing import List
-from ..schema import DataPacketInternal, DataPacketQueryParams
+from ..schema import DataPacketInternal, DataPacketQueryParamsInternal
 
 
 class DataPacketStoreInterface(metaclass=ABCMeta):
@@ -45,7 +45,7 @@ class DataPacketStoreInterface(metaclass=ABCMeta):
 
     @abstractmethod
     def list_data_packets(
-        self, data_packet_query_params: DataPacketQueryParams
+        self, data_packet_query_params: DataPacketQueryParamsInternal
     ) -> List[DataPacketInternal]:
         """List data packets from the system."""
         raise NotImplementedError

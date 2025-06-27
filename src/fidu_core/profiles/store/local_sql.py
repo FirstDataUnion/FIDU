@@ -30,11 +30,14 @@ class LocalSqlProfileStore(ProfileStoreInterface):
     )
     """
 
-    def __init__(self, db_conn: sqlite3.Connection) -> None:
+    def __init__(self) -> None:
         """Initialize the profile storage layer."""
-        self.db_conn = db_conn
+        # Initialize tables on first use
+        self._ensure_tables_exist()
 
-        with get_cursor(self.db_conn) as cursor:
+    def _ensure_tables_exist(self) -> None:
+        """Ensure that the required tables exist."""
+        with get_cursor() as cursor:
             cursor.execute(self.create_table_query)
 
             # Create unique constraints on user_id + name
@@ -82,7 +85,7 @@ class LocalSqlProfileStore(ProfileStoreInterface):
         create_timestamp_iso = profile.create_timestamp.isoformat()
         update_timestamp_iso = profile.update_timestamp.isoformat()
 
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             try:
                 cursor.execute(
                     query,
@@ -139,7 +142,7 @@ class LocalSqlProfileStore(ProfileStoreInterface):
 
     def get_profile(self, profile_id: str) -> ProfileInternal:
         """Get a profile from the system by its ID."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,))
             row = cursor.fetchone()
 
@@ -169,7 +172,7 @@ class LocalSqlProfileStore(ProfileStoreInterface):
         query += " LIMIT ? OFFSET ?"
         params.extend([query_params.limit, query_params.offset])
 
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             return [self._row_to_profile(row, cursor) for row in rows]

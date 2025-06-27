@@ -25,12 +25,14 @@ class LocalSqlUserStore(UserStoreInterface):
     )
     """
 
-    def __init__(self, db_conn: sqlite3.Connection) -> None:
+    def __init__(self) -> None:
         """Initialize the user object storage layer."""
-        self.db_conn = db_conn
+        # Initialize tables on first use
+        self._ensure_tables_exist()
 
-        # Executing these in line for now, but we should use a migration system eventually.
-        with get_cursor(self.db_conn) as cursor:
+    def _ensure_tables_exist(self) -> None:
+        """Ensure that the required tables exist."""
+        with get_cursor() as cursor:
             cursor.execute(self.create_table_query)
 
     def _row_to_user_internal(self, row: tuple, cursor) -> UserInternal:
@@ -74,7 +76,7 @@ class LocalSqlUserStore(UserStoreInterface):
         create_timestamp_iso = user.create_timestamp.isoformat()
         update_timestamp_iso = user.update_timestamp.isoformat()
 
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             try:
                 cursor.execute(
                     query,
@@ -110,7 +112,7 @@ class LocalSqlUserStore(UserStoreInterface):
 
     def get_user(self, user_id: str) -> UserInternal:
         """Get a user from the system by their ID."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
 
@@ -121,7 +123,7 @@ class LocalSqlUserStore(UserStoreInterface):
 
     def get_user_by_email(self, email: str) -> UserInternal:
         """Get a user from the system by their email."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
             row = cursor.fetchone()
 
@@ -132,7 +134,7 @@ class LocalSqlUserStore(UserStoreInterface):
 
     def list_users(self) -> List[UserInternal]:
         """List all users in the system."""
-        with get_cursor(self.db_conn) as cursor:
+        with get_cursor() as cursor:
             cursor.execute("SELECT * FROM users")
             rows = cursor.fetchall()
             return [self._row_to_user_internal(row, cursor) for row in rows]
