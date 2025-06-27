@@ -73,9 +73,7 @@ class TestCreateProfile:
         result = service.create_profile(request_id, sample_profile_internal)
 
         # Assert
-        mock_store.store_profile.assert_called_once_with(
-            request_id, sample_profile_internal
-        )
+        mock_store.store_profile.assert_called_once_with(request_id, sample_profile_internal)
         assert result == sample_profile_internal
 
     def test_returns_created_profile_from_store(
@@ -116,24 +114,6 @@ class TestGetProfile:
         mock_store.get_profile.assert_called_once_with(profile_id)
         assert result == sample_profile_internal
 
-    def test_returns_profile_from_store(
-        self, service, mock_store, sample_profile_internal_2
-    ):
-        """Test that the service returns the profile retrieved from the store."""
-        # Arrange
-        profile_id = "test_profile_456"
-        mock_store.get_profile.return_value = sample_profile_internal_2
-
-        # Act
-        result = service.get_profile(profile_id)
-
-        # Assert
-        assert result == sample_profile_internal_2
-        assert result.id == "test_profile_456"
-        assert result.user_id == "test_user_456"
-        assert result.name == "Another Test Profile"
-
-
 class TestListProfiles:
     """Test cases for listing profiles."""
 
@@ -151,24 +131,6 @@ class TestListProfiles:
         # Assert
         mock_store.list_profiles.assert_called_once_with(sample_query_params)
         assert result == expected_profiles
-
-    def test_returns_profiles_from_store(
-        self, service, mock_store, sample_profile_internal, sample_profile_internal_2
-    ):
-        """Test that the service returns the profiles retrieved from the store."""
-        # Arrange
-        query_params = ProfileQueryParamsInternal(user_id="*")
-        expected_profiles = [sample_profile_internal, sample_profile_internal_2]
-        mock_store.list_profiles.return_value = expected_profiles
-
-        # Act
-        result = service.list_profiles(query_params)
-
-        # Assert
-        assert result == expected_profiles
-        assert len(result) == 2
-        assert result[0].id == "test_profile_123"
-        assert result[1].id == "test_profile_456"
 
     def test_returns_empty_list_when_no_profiles(self, service, mock_store):
         """Test that the service returns an empty list when no profiles exist."""
@@ -195,7 +157,7 @@ class TestListProfiles:
             name="Test Profile",
             limit=5,
             offset=10,
-            sort_order="asc",
+            sort_order="asc"
         )
         expected_profiles = [sample_profile_internal]
         mock_store.list_profiles.return_value = expected_profiles
