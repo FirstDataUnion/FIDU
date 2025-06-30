@@ -16,14 +16,12 @@ from ...exceptions import (
     DataPacketAlreadyExistsError,
     DataPacketNotFoundError,
     DataPacketError,
-)   
-from fidu_core.utils.db import get_cursor
-from fidu_core.utils.test_helpers import (
-    setup_test_db,
 )
+from fidu_core.utils.db import get_cursor
+from fidu_core.utils.test_helpers import setup_test_db
 
 
-@pytest.fixture 
+@pytest.fixture
 def store():
     """Create a LocalSqlDataPacketStore instance with a fresh database."""
     return LocalSqlDataPacketStore()
@@ -397,7 +395,8 @@ class TestSyncTagsToJunctionTable:
         # Verify that the tags were removed
         with get_cursor() as cursor:
             cursor.execute(
-                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
+                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?",
+                ("test_id_123",),
             )
             assert cursor.fetchone() is None
 
@@ -421,7 +420,8 @@ class TestSyncTagsToJunctionTable:
         # Verify that the tags were inserted
         with get_cursor() as cursor:
             cursor.execute(
-                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?", ("test_id_123",)
+                "SELECT * FROM data_packet_tags WHERE data_packet_id = ?",
+                ("test_id_123",),
             )
             assert cursor.fetchone() == ("test_id_123", "tag1")
             assert cursor.fetchone() == ("test_id_123", "tag2")

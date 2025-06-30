@@ -14,33 +14,33 @@ from typing import Generator
 _thread_local = threading.local()
 
 # Global variable to override database path for testing
-_test_db_path = None
+_TEST_DB_PATH = None
 
 
 def get_db_path() -> str:
     """Get the database file path."""
-    if _test_db_path is not None:
-        return _test_db_path
+    if _TEST_DB_PATH is not None:
+        return _TEST_DB_PATH
     return "fidu.db"
 
 
 def set_test_db_path(path: str) -> None:
     """Set the database path for testing purposes.
-    
+
     This function allows tests to use in-memory databases or specific test files.
     Call this before creating any store instances in your tests.
-    
+
     Args:
         path: The database path to use (e.g., ":memory:" for in-memory database)
     """
-    global _test_db_path
-    _test_db_path = path
+    global _TEST_DB_PATH  # pylint: disable=global-statement
+    _TEST_DB_PATH = path
 
 
 def reset_db_path() -> None:
     """Reset the database path to the default for production use."""
-    global _test_db_path
-    _test_db_path = None
+    global _TEST_DB_PATH  # pylint: disable=global-statement
+    _TEST_DB_PATH = None
 
 
 def get_connection() -> sqlite3.Connection:
@@ -70,9 +70,7 @@ def close_connection() -> None:
 
 
 @contextmanager
-def get_cursor(
-    db_conn: sqlite3.Connection = None,
-) -> Generator[sqlite3.Cursor, None, None]:
+def get_cursor() -> Generator[sqlite3.Cursor, None, None]:
     """
     Context manager for SQLite cursor operations with automatic transaction management.
 
@@ -100,9 +98,8 @@ def get_cursor(
     Raises:
         Exception: Any exception that occurs during cursor operations
     """
-    if db_conn is None:
-        db_conn = get_connection()
 
+    db_conn = get_connection()
     cursor = db_conn.cursor()
     try:
         yield cursor

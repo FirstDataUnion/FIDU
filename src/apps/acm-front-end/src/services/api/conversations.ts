@@ -61,10 +61,10 @@ export const conversationsApi = {
   /**
    * Get all conversations with optional filtering and pagination
    */
-  getAll: async (filters?: FilterOptions, page = 1, limit = 20) => {
+  getAll: async (filters?: FilterOptions, page = 1, limit = 20, profileId?: string) => {
     const queryParams: DataPacketQueryParams = {
       tags: ["ACM", ...(filters?.tags || [])],
-      //profile_id: filters?.profile_id, We will need this eventually
+      profile_id: profileId, // Include profile_id for authenticated requests
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
       limit: limit,

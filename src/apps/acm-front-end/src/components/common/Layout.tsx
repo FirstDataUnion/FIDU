@@ -14,6 +14,16 @@ import {
   useTheme,
   useMediaQuery,
   Divider,
+  Avatar,
+  Menu,
+  MenuItem,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -24,10 +34,16 @@ import {
   Science as PromptLabIcon,
   Psychology as PersonaIcon,
   LocalOffer as TagIcon,
+  Logout as LogoutIcon,
+  AccountCircle as AccountIcon,
+  Add as AddIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch } from '../../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
+import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
+import type { Profile } from '../../types';
 
 const drawerWidth = 240;
 
@@ -42,6 +58,56 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { sidebarOpen } = useAppSelector((state) => state.ui);
+  const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
+  
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [profileMenuAnchorEl, setProfileMenuAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [showCreateProfileDialog, setShowCreateProfileDialog] = React.useState(false);
+  const [newProfileName, setNewProfileName] = React.useState('');
+
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleProfileSwitcherOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setProfileMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileSwitcherClose = () => {
+    setProfileMenuAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    handleProfileMenuClose();
+  };
+
+  const handleProfileSwitch = (profile: Profile) => {
+    dispatch(setCurrentProfile(profile));
+    handleProfileSwitcherClose();
+  };
+
+  const handleCreateProfile = async () => {
+    if (!newProfileName.trim()) return;
+    
+    const result = await dispatch(createProfile({
+      profile: {
+        user_id: '', // Will be set by backend
+        name: newProfileName.trim(),
+      },
+    }));
+    
+    if (createProfile.fulfilled.match(result)) {
+      setShowCreateProfileDialog(false);
+      setNewProfileName('');
+      // Automatically switch to the newly created profile
+      dispatch(setCurrentProfile(result.payload));
+    }
+  };
 
   const mainMenuItems = [
     { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
@@ -166,11 +232,140 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             AI Conversation Memory Lab
           </Typography>
+          
+          {/* Profile and Logout */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {currentProfile && (
+              <Chip
+                label={currentProfile.name}
+                size="small"
+                color="secondary"
+                variant="outlined"
+                onClick={handleProfileSwitcherOpen}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+              />
+            )}
+            <IconButton
+              color="inherit"
+              onClick={handleProfileMenuOpen}
+              sx={{ ml: 1 }}
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                {user?.first_name?.[0] || user?.email?.[0] || <AccountIcon />}
+              </Avatar>
+            </IconButton>
+            
+            {/* Profile Switcher Menu */}
+            <Menu
+              anchorEl={profileMenuAnchorEl}
+              open={Boolean(profileMenuAnchorEl)}
+              onClose={handleProfileSwitcherClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  Switch Profile
+                </Typography>
+              </MenuItem>
+              <Divider />
+              {profiles.map((profile) => (
+                <MenuItem 
+                  key={profile.id} 
+                  onClick={() => handleProfileSwitch(profile)}
+                  selected={currentProfile?.id === profile.id}
+                >
+                  <ListItemIcon>
+                    {currentProfile?.id === profile.id ? (
+                      <CheckIcon fontSize="small" color="primary" />
+                    ) : (
+                      <AccountIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={profile.name}
+                    secondary={currentProfile?.id === profile.id ? 'Active' : undefined}
+                  />
+                </MenuItem>
+              ))}
+              <Divider />
+              <MenuItem onClick={() => setShowCreateProfileDialog(true)}>
+                <ListItemIcon>
+                  <AddIcon fontSize="small" />
+                </ListItemIcon>
+                Create New Profile
+              </MenuItem>
+            </Menu>
+            
+            {/* User Menu */}
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleProfileMenuClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  {user?.email}
+                </Typography>
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
+
+      {/* Create Profile Dialog */}
+      <Dialog open={showCreateProfileDialog} onClose={() => setShowCreateProfileDialog(false)}>
+        <DialogTitle>Create New Profile</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Profile Name"
+            fullWidth
+            variant="outlined"
+            value={newProfileName}
+            onChange={(e) => setNewProfileName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleCreateProfile();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCreateProfileDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCreateProfile} 
+            variant="contained"
+            disabled={!newProfileName.trim()}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Box
         component="nav"

@@ -19,15 +19,18 @@ from fidu_core.users.store.local_sql import LocalSqlUserStore
 from fidu_core.utils.db import get_cursor
 from fidu_core.utils.test_helpers import setup_test_db
 
+
 @pytest.fixture
 def user_store():
     """Create a LocalSqlUserStore instance with a fresh database."""
     return LocalSqlUserStore()
 
+
 @pytest.fixture
 def store():
     """Create a LocalSqlProfileStore instance with a fresh database."""
     return LocalSqlProfileStore()
+
 
 @pytest.fixture
 def sample_user():
@@ -41,6 +44,7 @@ def sample_user():
         email="user_001@example.com",
         create_timestamp=datetime(2024, 1, 1, 12, 0, 0),
     )
+
 
 @pytest.fixture
 def sample_alternative_user():
@@ -243,7 +247,9 @@ class TestRowToProfile:
 class TestStoreProfile:
     """Test the store_profile method."""
 
-    def test_stores_profile_correctly(self, user_store, sample_user, store, sample_profile_minimal):
+    def test_stores_profile_correctly(
+        self, user_store, sample_user, store, sample_profile_minimal
+    ):
         """Test that a profile is stored correctly."""
 
         # Store the user to satisfy foreign key constraints
@@ -335,7 +341,12 @@ class TestStoreProfile:
         assert len(stored_profiles) == 1
 
     def test_raises_profile_error_on_request_id_collision_with_different_profile_data(
-        self, user_store, sample_user, sample_alternative_user, store, sample_profile_minimal
+        self,
+        user_store,
+        sample_user,
+        sample_alternative_user,
+        store,
+        sample_profile_minimal,
     ):
         """Test that store_profile returns existing profile on request_id collision with different profile data."""
 
@@ -402,7 +413,13 @@ class TestStoreProfile:
         assert sample_profile_minimal.name in str(exc_info.value)
 
     def test_allows_same_name_for_different_users(
-        self, user_store, sample_user, sample_alternative_user, store, sample_profile_minimal, sample_profile_another_user
+        self,
+        user_store,
+        sample_user,
+        sample_alternative_user,
+        store,
+        sample_profile_minimal,
+        sample_profile_another_user,
     ):
         """Test that the same profile name is allowed for different users."""
 
@@ -437,7 +454,9 @@ class TestStoreProfile:
 class TestGetProfile:
     """Test the get_profile method."""
 
-    def test_returns_profile_correctly(self, user_store, sample_user, store, sample_profile_minimal):
+    def test_returns_profile_correctly(
+        self, user_store, sample_user, store, sample_profile_minimal
+    ):
         """Test that get_profile returns the correct profile."""
 
         # Store the user to satisfy foreign key constraints
@@ -453,7 +472,9 @@ class TestGetProfile:
         # Verify the result
         assert_profiles_equal(result, sample_profile_minimal, ignore_timestamps=True)
 
-    def test_returns_profile_not_found_error_on_missing_profile(self, user_store, sample_user, store):
+    def test_returns_profile_not_found_error_on_missing_profile(
+        self, user_store, sample_user, store
+    ):
         """Test that get_profile raises ProfileNotFoundError on missing profile."""
 
         # Store the user to satisfy foreign key constraints
@@ -493,7 +514,9 @@ class TestListProfiles:
         expected_names = {"Work Profile", "Personal Profile", "Gaming Profile"}
         assert result_names == expected_names
 
-    def test_returns_empty_list_if_no_profiles_found_for_user(self, user_store, sample_user, store):
+    def test_returns_empty_list_if_no_profiles_found_for_user(
+        self, user_store, sample_user, store
+    ):
         """Test that list_profiles returns an empty list if no profiles found for user."""
 
         # Store the user to satisfy foreign key constraints
@@ -546,7 +569,9 @@ class TestListProfiles:
         # Verify the result
         assert len(result) == 2
 
-    def test_respects_sort_order_asc(self, user_store, sample_user, sample_alternative_user, store, sample_profiles):
+    def test_respects_sort_order_asc(
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
+    ):
         """Test that list_profiles respects ascending sort order."""
 
         # Store the user to satisfy foreign key constraints
@@ -565,7 +590,9 @@ class TestListProfiles:
         timestamps = [profile.create_timestamp for profile in result]
         assert timestamps == sorted(timestamps)
 
-    def test_respects_sort_order_desc(self, user_store, sample_user, sample_alternative_user, store, sample_profiles):
+    def test_respects_sort_order_desc(
+        self, user_store, sample_user, sample_alternative_user, store, sample_profiles
+    ):
         """Test that list_profiles respects descending sort order."""
 
         # Store the user to satisfy foreign key constraints
