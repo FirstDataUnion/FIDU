@@ -14,6 +14,53 @@ export interface Conversation {
   status: 'active' | 'archived' | 'deleted';
 }
 
+// Authentication Types
+export interface User {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  create_timestamp?: string;
+  update_timestamp?: string;
+}
+
+export interface Profile {
+  id: string;
+  user_id: string;
+  name: string;
+  create_timestamp: string;
+  update_timestamp: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface RegisterRequest {
+  request_id: string;
+  password: string;
+  user: {
+    email: string;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+export interface CreateProfileRequest {
+  request_id: string;
+  profile: {
+    user_id: string;
+    name: string;
+  };
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -183,6 +230,18 @@ export interface RootState {
   search: SearchState;
   settings: SettingsState;
   ui: UIState;
+  auth: AuthState;
+}
+
+export interface AuthState {
+  user: User | null;
+  currentProfile: Profile | null;
+  profiles: Profile[];
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  isInitialized: boolean;
 }
 
 export interface ConversationsState {

@@ -12,9 +12,41 @@ class FiduCoreAPI {
     this.baseUrl = 'http://127.0.0.1:4000/api/v1';
   }
 
+  async getAuthToken() {
+    try {
+      const result = await chrome.storage.local.get(['fidu_auth_token']);
+      return result.fidu_auth_token || null;
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
+  }
+
+  async getSelectedProfileId() {
+    try {
+      const result = await chrome.storage.local.get(['selectedProfileId']);
+      return result.selectedProfileId || null;
+    } catch (error) {
+      console.error('Error getting selected profile ID:', error);
+      return null;
+    }
+  }
+
   async saveACM(acm) {
     console.log('Background: Saving ACM to Fidu Core');
     try {
+      // Get authentication token
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get selected profile ID
+      const selectedProfileId = await this.getSelectedProfileId();
+      if (!selectedProfileId) {
+        throw new Error('No profile selected. Please select a profile in the extension popup.');
+      }
+
       // Generate deterministic IDs
       const requestId = acm.id+acm.timestamp;
 
@@ -22,11 +54,12 @@ class FiduCoreAPI {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           request_id: requestId,
           data_packet: {
-            profile_id: "123456789", // User's aren't implemented yet
+            profile_id: selectedProfileId,
             id: acm.id,
             tags: ["ACM", "ACM-Manager-Plugin"], 
             data: {
@@ -40,8 +73,13 @@ class FiduCoreAPI {
         })
       });
 
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
       // TODO: Maybe catch an "Already Exists" error and update the data packet instead 
@@ -64,9 +102,27 @@ class FiduCoreAPI {
 
   async deleteACM(id) {
     try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
       const response = await fetch(`${this.baseUrl}/data-packets/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Error deleting ACM from Fidu Core:', error);
       return {
@@ -78,8 +134,21 @@ class FiduCoreAPI {
 
   async getACMByUrl(url) {
     try {
-      const response = await fetch(`${this.baseUrl}/data-packets/${url}`);
-      const result = await response.json();
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/data-packets/${url}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
       if (response.status === 404) {
         console.log('No conversation found with URL:', url);
         return {
@@ -87,27 +156,43 @@ class FiduCoreAPI {
           error: 'No conversation found with URL: ' + url
         };
       }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
       return {
         success: true,
         data: result
       };
     } catch (error) {
       console.error('Error getting ACM by URL from Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
-    return {
-      success: false,
-      error: error.message
-    };
   }
 
   async getAllACMs() {
     try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
       const response = await fetch(`${this.baseUrl}/data-packets`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -202,12 +287,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     if (message.action === 'deleteACM') {
       try {
+        let result;
         if (useFiduCore) {
-          await fiduCoreAPI.deleteACM(message.id);
+          result = await fiduCoreAPI.deleteACM(message.id);
         } else {
-          await deleteACMFromDatabase(message.id);
+          result = await deleteACMFromDatabase(message.id);
         }
-        sendResponse({ success: true });
+        sendResponse({ success: true, result });
       } catch (error) {
         console.error('Error deleting ACM:', error);
         sendResponse({ success: false, error: error.message });
@@ -215,39 +301,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
     
-    if (message.action === 'findConversationByUrl') {
+    if (message.action === 'clearAllACMs') {
       try {
-        let conversation;
+        let result;
         if (useFiduCore) {
-          const result = await fiduCoreAPI.getACMByUrl(message.url);
-          if (result.success) {
-            conversation = result.data;
-          } else {
-            console.log('Background: No conversation found with URL:', message.url);
-            conversation = null;
-          }
+          // For Fidu Core, we might need to implement a bulk delete or get all and delete individually
+          result = { success: true, message: 'Bulk delete not implemented for Fidu Core' };
         } else {
-          conversation = await findConversationByUrl(message.url);
+          result = await clearAllACMsFromDatabase();
         }
-        sendResponse({ success: conversation !== null, conversation });
+        sendResponse({ success: true, result });
       } catch (error) {
-        console.error('Error finding conversation by URL:', error);
+        console.error('Error clearing all ACMs:', error);
         sendResponse({ success: false, error: error.message });
       }
       return true;
     }
     
-    if (message.action === 'clearAllACMs') {
+    if (message.action === 'findConversationByUrl') {
       try {
+        let result;
         if (useFiduCore) {
-          // TODO: Implement clear all in Fidu Core API
-          throw new Error('Clear all not yet implemented in Fidu Core');
+          result = await fiduCoreAPI.getACMByUrl(message.url);
         } else {
-          await clearAllACMsFromDatabase();
+          result = await findConversationByUrl(message.url);
         }
-        sendResponse({ success: true });
+        sendResponse({ success: true, result });
       } catch (error) {
-        console.error('Error clearing all ACMs:', error);
+        console.error('Error finding conversation by URL:', error);
         sendResponse({ success: false, error: error.message });
       }
       return true;

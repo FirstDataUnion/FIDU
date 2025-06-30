@@ -52,6 +52,7 @@ const ConversationsPage: React.FC = () => {
   const { items: conversations = [], loading, error, useApi } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: tags = [] } = useAppSelector((state) => state.tags as any);
   const { sidebarOpen } = useAppSelector((state) => state.ui);
+  const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +75,11 @@ const ConversationsPage: React.FC = () => {
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
   useEffect(() => {
+    // If authenticated and has a profile, use API by default
+    if (isAuthenticated && currentProfile && !useApi) {
+      dispatch(toggleDataSource());
+    }
+    
     dispatch(fetchConversations({ 
       filters: {
         sortBy: 'updatedAt',
@@ -83,7 +89,7 @@ const ConversationsPage: React.FC = () => {
       limit: 20
     }));
     dispatch(fetchTags());
-  }, [dispatch]);
+  }, [dispatch, isAuthenticated, currentProfile, useApi]);
 
   const handleRefresh = () => {
     dispatch(fetchConversations({ 

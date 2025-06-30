@@ -5,6 +5,7 @@
  * - Loading user preferences
  * - Saving user preferences
  * - Handling options page interactions
+ * - Managing FIDU Core authentication settings
  */
 
 // Suppress connector errors that might be logged to the console
@@ -18,6 +19,11 @@ const defaultSettings = {
   highlightCapturedMessages: false,
   captureFrequency: 60, // Default capture frequency in seconds
   useFiduCore: false, // Default to not using Fidu Core backend
+  
+  // FIDU Core settings
+  fiduCoreUrl: 'http://127.0.0.1:4000/api/v1',
+  requireAuth: true,
+  autoLogin: false,
   
   // Supported chatbots
   enabledChatbots: {
@@ -42,6 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const highlightCapturedMessagesEl = document.getElementById('highlightCapturedMessages');
   const captureFrequencyEl = document.getElementById('captureFrequency');
   const useFiduCoreEl = document.getElementById('useFiduCore');
+
+  // FIDU Core settings
+  const fiduCoreUrlEl = document.getElementById('fiduCoreUrl');
+  const requireAuthEl = document.getElementById('requireAuth');
+  const autoLoginEl = document.getElementById('autoLogin');
 
   const enableChatGPTEl = document.getElementById('enableChatGPT');
   const enableClaudeEl = document.getElementById('enableClaude');
@@ -76,6 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
       captureFrequencyEl.value = settings.captureFrequency || 60;
       useFiduCoreEl.checked = settings.useFiduCore ?? false;
       
+      // FIDU Core settings
+      fiduCoreUrlEl.value = settings.fiduCoreUrl || defaultSettings.fiduCoreUrl;
+      requireAuthEl.checked = settings.requireAuth ?? true;
+      autoLoginEl.checked = settings.autoLogin ?? false;
+      
       enableChatGPTEl.checked = settings.enabledChatbots?.ChatGPT ?? true;
       enableClaudeEl.checked = settings.enabledChatbots?.Claude ?? true;
       enableBardEl.checked = settings.enabledChatbots?.Bard ?? true;
@@ -98,6 +114,11 @@ document.addEventListener('DOMContentLoaded', () => {
       captureFrequency: parseInt(captureFrequencyEl.value, 10) || 60,
       useFiduCore: useFiduCoreEl.checked,
       
+      // FIDU Core settings
+      fiduCoreUrl: fiduCoreUrlEl.value.trim() || defaultSettings.fiduCoreUrl,
+      requireAuth: requireAuthEl.checked,
+      autoLogin: autoLoginEl.checked,
+      
       // Supported chatbots
       enabledChatbots: {
         'ChatGPT': enableChatGPTEl.checked,
@@ -115,6 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Save to Chrome storage
     chrome.storage.sync.set({ settings }, () => {
+      // Update auth service base URL if it exists
+      if (typeof authService !== 'undefined') {
+        authService.setBaseUrl(settings.fiduCoreUrl);
+      }
+      
       // Show success message
       statusMessageEl.textContent = 'Settings saved successfully!';
       statusMessageEl.classList.remove('error');
@@ -139,6 +165,11 @@ document.addEventListener('DOMContentLoaded', () => {
       highlightCapturedMessagesEl.checked = defaultSettings.highlightCapturedMessages;
       captureFrequencyEl.value = defaultSettings.captureFrequency;
       useFiduCoreEl.checked = defaultSettings.useFiduCore;
+      
+      // FIDU Core settings
+      fiduCoreUrlEl.value = defaultSettings.fiduCoreUrl;
+      requireAuthEl.checked = defaultSettings.requireAuth;
+      autoLoginEl.checked = defaultSettings.autoLogin;
       
       enableChatGPTEl.checked = defaultSettings.enabledChatbots.ChatGPT;
       enableClaudeEl.checked = defaultSettings.enabledChatbots.Claude;

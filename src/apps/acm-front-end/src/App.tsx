@@ -6,6 +6,8 @@ import { store } from './store';
 import { useDatabase } from './hooks/useDatabase';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
+import { initializeAuth } from './store/slices/authSlice';
+import AuthWrapper from './components/auth/AuthWrapper';
 
 // Import pages (we'll create these next)
 import ConversationsPage from './pages/ConversationsPage';
@@ -23,10 +25,12 @@ const AppContent: React.FC<AppContentProps> = () => {
   const { isInitialized, isLoading, error } = useDatabase();
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
+  const { isInitialized: authInitialized, isLoading: authLoading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     if (isInitialized) {
       dispatch(fetchSettings());
+      dispatch(initializeAuth());
     }
   }, [isInitialized, dispatch]);
 
@@ -70,7 +74,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <Box 
         display="flex" 
@@ -121,20 +125,23 @@ const AppContent: React.FC<AppContentProps> = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/conversations" replace />} />
-            <Route path="/conversations" element={<ConversationsPage />} />
-            <Route path="/conversations/:id" element={<ConversationsPage />} />
-            <Route path="/contexts" element={<ContextsPage />} />
-            <Route path="/prompt-lab" element={<PromptLabPage />} />
-            <Route path="/personas" element={<PersonasPage />} />
-            <Route path="/memories" element={<MemoriesPage />} />
-            <Route path="/tags" element={<TagsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/conversations" replace />} />
-          </Routes>
-        </Layout>
+        <AuthWrapper />
+        {authInitialized && (
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/conversations" replace />} />
+              <Route path="/conversations" element={<ConversationsPage />} />
+              <Route path="/conversations/:id" element={<ConversationsPage />} />
+              <Route path="/contexts" element={<ContextsPage />} />
+              <Route path="/prompt-lab" element={<PromptLabPage />} />
+              <Route path="/personas" element={<PersonasPage />} />
+              <Route path="/memories" element={<MemoriesPage />} />
+              <Route path="/tags" element={<TagsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/conversations" replace />} />
+            </Routes>
+          </Layout>
+        )}
       </Router>
     </ThemeProvider>
   );

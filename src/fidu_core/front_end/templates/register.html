@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}FIDU Core - Sign In{% endblock %}
+{% block title %}FIDU Core - Create Account{% endblock %}
 
 {% block content %}
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
     <div class="max-w-md w-full space-y-8 p-8">
         <div class="text-center">
             <h1 class="text-4xl font-bold text-gray-900 mb-2">FIDU Core</h1>
-            <p class="text-gray-600">Sign in to your account</p>
+            <p class="text-gray-600">Create your account</p>
         </div>
         
         <div class="bg-white rounded-lg shadow-lg p-8 space-y-6">
@@ -26,7 +26,7 @@
             </div>
             {% endif %}
             
-            <form method="POST" action="/login" class="space-y-6">
+            <form method="POST" action="/register" class="space-y-6">
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700">
                         Email address
@@ -37,6 +37,28 @@
                                placeholder="Enter your email">
                     </div>
                 </div>
+
+                <div>
+                    <label for="first_name" class="block text-sm font-medium text-gray-700">
+                        First name
+                    </label>
+                    <div class="mt-1">
+                        <input id="first_name" name="first_name" type="text" required
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="Enter your first name">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="last_name" class="block text-sm font-medium text-gray-700">
+                        Last name
+                    </label>
+                    <div class="mt-1">
+                        <input id="last_name" name="last_name" type="text" required
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="Enter your last name">
+                    </div>
+                </div>
                 
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">
@@ -45,7 +67,18 @@
                     <div class="mt-1">
                         <input id="password" name="password" type="password" required
                                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                               placeholder="Enter your password">
+                               placeholder="Create a password">
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="confirm_password" class="block text-sm font-medium text-gray-700">
+                        Confirm Password
+                    </label>
+                    <div class="mt-1">
+                        <input id="confirm_password" name="confirm_password" type="password" required
+                               class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                               placeholder="Confirm your password">
                     </div>
                 </div>
                 
@@ -54,19 +87,19 @@
                             class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                         <span class="absolute left-0 inset-y-0 flex items-center pl-3">
                             <svg class="h-5 w-5 text-blue-500 group-hover:text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
                             </svg>
                         </span>
-                        Sign in
+                        Create Account
                     </button>
                 </div>
             </form>
             
             <div class="text-center">
                 <p class="text-sm text-gray-600">
-                    Don't have an account?
-                    <a href="/register" class="font-medium text-blue-600 hover:text-blue-500">
-                        Create one here
+                    Already have an account?
+                    <a href="/login" class="font-medium text-blue-600 hover:text-blue-500">
+                        Sign in here
                     </a>
                 </p>
             </div>

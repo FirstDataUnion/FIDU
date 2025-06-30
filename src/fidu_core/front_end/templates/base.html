@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FIDU Core{% endblock %}</title>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1
+        }
+        
+        /* Custom animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+    </style>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% block content %}{% endblock %}
+    
+    <!-- Loading indicator - positioned to avoid interfering with navigation -->
+    <div class="htmx-indicator fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+        <div class="flex items-center space-x-2">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>Loading...</span>
+        </div>
+    </div>
+    
+    <!-- Custom JavaScript -->
+    <script src="/static/js/main.js"></script>
+    
+    <script>
+        // Hide loading indicator after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide any visible loading indicators after a short delay
+            setTimeout(function() {
+                const indicators = document.querySelectorAll('.htmx-indicator');
+                indicators.forEach(function(indicator) {
+                    indicator.style.opacity = '0';
+                });
+            }, 500);
+        });
+        
+        // Hide loading indicator when HTMX requests complete
+        document.addEventListener('htmx:afterRequest', function() {
+            setTimeout(function() {
+                const indicators = document.querySelectorAll('.htmx-indicator');
+                indicators.forEach(function(indicator) {
+                    indicator.style.opacity = '0';
+                });
+            }, 200);
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

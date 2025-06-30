@@ -294,7 +294,10 @@ class TestStoreUser:
 
         # Verify the request_id is stored
         with get_cursor() as cursor:
-            cursor.execute("SELECT create_request_id FROM users WHERE id = ?", (sample_user_minimal.id,))
+            cursor.execute(
+                "SELECT create_request_id FROM users WHERE id = ?",
+                (sample_user_minimal.id,),
+            )
             result = cursor.fetchone()
             assert result is not None
             assert result[0] == request_id

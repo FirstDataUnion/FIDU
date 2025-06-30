@@ -71,6 +71,22 @@ export class ApiClient {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
+          
+          // Handle authentication errors
+          if (error.response.status === 401) {
+            // Clear auth data and redirect to login
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('current_profile');
+            // Reload the page to trigger auth flow
+            window.location.reload();
+            return Promise.reject(new ApiError(
+              error.response.status,
+              'Authentication required. Please log in.',
+              error.response.data
+            ));
+          }
+          
           throw new ApiError(
             error.response.status,
             error.response.data?.message || 'An error occurred',

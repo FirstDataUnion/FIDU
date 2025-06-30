@@ -11,6 +11,7 @@ import contextsSlice from './slices/contextsSlice';
 import promptLabSlice from './slices/promptLabSlice';
 import personasSlice from './slices/personasSlice';
 import searchSlice from './slices/searchSlice';
+import authSlice from './slices/authSlice';
 
 export const store = configureStore({
   reducer: {
@@ -23,6 +24,7 @@ export const store = configureStore({
     promptLab: promptLabSlice,
     personas: personasSlice,
     search: searchSlice,
+    auth: authSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

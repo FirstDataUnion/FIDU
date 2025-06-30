@@ -64,8 +64,6 @@ user_api = UserAPI(app, user_service)
 # and a basic profile page - now using service layers directly
 front_end_api = FrontEndAPI(app, user_service, data_packet_service, profile_service)
 
-# TODO: insert a basic preferences file to be read and written to by the API class
-
 # Configure CORS for local development
 app.add_middleware(
     CORSMiddleware,
@@ -77,13 +75,6 @@ app.add_middleware(
 
 # Add database cleanup middleware
 app.add_middleware(DatabaseCleanupMiddleware)
-
-
-# TODO move this to frontend api file
-@app.get("/")
-async def home(request: Request):
-    """Serve the home page."""
-    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/health")

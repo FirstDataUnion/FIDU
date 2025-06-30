@@ -45,7 +45,14 @@ const SettingsPage: React.FC = () => {
       
       // Refresh all data in Redux store
       await Promise.all([
-        dispatch(fetchConversations()),
+        dispatch(fetchConversations({ 
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc'
+          },
+          page: 1,
+          limit: 20
+        })),
         dispatch(fetchMemories()),
         dispatch(fetchTags()),
         dispatch(fetchSettings())
@@ -75,7 +82,14 @@ const SettingsPage: React.FC = () => {
       
       // Refresh all data in Redux store
       await Promise.all([
-        dispatch(fetchConversations()),
+        dispatch(fetchConversations({ 
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc'
+          },
+          page: 1,
+          limit: 20
+        })),
         dispatch(fetchMemories()),
         dispatch(fetchTags()),
         dispatch(fetchSettings())
@@ -103,7 +117,14 @@ const SettingsPage: React.FC = () => {
     try {
       // Refresh all data in Redux store
       await Promise.all([
-        dispatch(fetchConversations()),
+        dispatch(fetchConversations({ 
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc'
+          },
+          page: 1,
+          limit: 20
+        })),
         dispatch(fetchMemories()),
         dispatch(fetchTags()),
         dispatch(fetchSettings())

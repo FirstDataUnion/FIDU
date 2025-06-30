@@ -1,127 +1,111 @@
-# FIDU Frontend
+# FIDU Core Frontend
 
-A modern, responsive web interface for the FIDU data management platform built with HTMX and Tailwind CSS.
+A modern, lightweight HTMX-based frontend for the FIDU Core application.
 
 ## Features
 
-### Authentication
-- **Automatic Login Detection**: Users with valid tokens are automatically logged in
-- **Seamless Account Creation**: New users are immediately logged in after account creation
-- **Secure Token Management**: JWT tokens stored in HTTP-only cookies
-- **Clean Login/Signup Forms**: Modern, accessible forms with proper validation
+- **Modern UI**: Built with Tailwind CSS for a clean, responsive design
+- **HTMX Integration**: Dynamic content loading without full page refreshes
+- **Authentication**: User login/registration with JWT token management
+- **Data Management**: View and manage data packets with filtering
+- **Profile Management**: Create and manage user profiles
+- **Responsive Design**: Works on desktop and mobile devices
 
-### Navigation
-- **Responsive Navigation Bar**: Clean header with user info and logout button
-- **Tab-based Navigation**: Easy switching between Data Packet Viewer and Profiles
-- **Active State Indicators**: Clear visual feedback for current section
-
-### Data Packet Viewer
-- **Advanced Filtering**: Filter by tags, profile ID, date ranges, and more
-- **Real-time Updates**: Auto-refresh every 30 seconds
-- **Modern Card Layout**: Clean, organized display of data packets
-- **Interactive Actions**: View details and delete packets with confirmation
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-
-### Profiles Management
-- **Profile Creation**: Modal-based profile creation with validation
-- **Profile Editing**: Inline editing with modal forms
-- **Profile Deletion**: Confirmation-based deletion
-- **Grid Layout**: Responsive grid display of user profiles
-- **Empty State Handling**: Helpful guidance when no profiles exist
-
-## Technical Stack
-
-- **HTMX 2.0**: For dynamic content loading and interactions
-- **Tailwind CSS**: For modern, responsive styling
-- **FastAPI**: Backend API with Jinja2 templating
-- **JWT Authentication**: Secure token-based authentication
-- **SQLite**: Local data storage
-
-## File Structure
+## Structure
 
 ```
 front_end/
-├── templates/
-│   ├── index.html              # Main application layout
-│   ├── login.html              # Login form
-│   ├── sign_up.html            # Signup form
-│   ├── data_packet_viewer.html # Data packet viewer interface
-│   ├── data_packet_list.html   # Data packet list display
-│   ├── profiles.html           # Profiles management interface
-│   └── profiles_list.html      # Profiles list display
-├── static/
-│   └── styles.css              # Custom CSS styles
-└── api.py                      # Frontend API endpoints
+├── api.py              # Frontend API routes and handlers
+├── templates/          # Jinja2 HTML templates
+│   ├── base.html       # Base template with common layout
+│   ├── home.html       # Welcome page
+│   ├── login.html      # Login form
+│   ├── register.html   # Registration form
+│   ├── dashboard.html  # Main dashboard
+│   ├── data_packets.html      # Data packets page
+│   ├── data_packets_list.html # Data packets list (HTMX partial)
+│   ├── profiles.html          # Profiles page
+│   └── profiles_list.html     # Profiles list (HTMX partial)
+└── static/            # Static assets
+    ├── css/
+    │   └── main.css   # Custom CSS styles
+    └── js/
+        └── main.js    # Custom JavaScript
 ```
 
-## Usage
+## Routes
 
-### Starting the Application
+### Authentication
+- `GET /` - Home page (redirects to dashboard if logged in)
+- `GET /login` - Login page
+- `POST /login` - Handle login
+- `GET /register` - Registration page
+- `POST /register` - Handle registration
+- `POST /logout` - Handle logout
 
-```bash
-cd /path/to/fidu
-python -m src.fidu_core.main
-```
+### Main Application
+- `GET /dashboard` - Main dashboard
+- `GET /data-packets` - Data packets page
+- `GET /data-packets/list` - Data packets list (HTMX endpoint)
+- `GET /profiles` - Profiles page
+- `GET /profiles/list` - Profiles list (HTMX endpoint)
+- `POST /profiles/create` - Create new profile (HTMX endpoint)
 
-The application will be available at `http://127.0.0.1:4000`
+## HTMX Features
 
-### User Flow
+The frontend uses HTMX for dynamic content loading:
 
-1. **First Visit**: Users see a clean login form
-2. **Account Creation**: New users can create accounts and are immediately logged in
-3. **Authentication**: Users with valid tokens are automatically redirected to the dashboard
-4. **Navigation**: Users can switch between Data Packet Viewer and Profiles
-5. **Data Management**: Full CRUD operations for both data packets and profiles
+- **Automatic Loading**: Lists load automatically when pages are visited
+- **Form Submissions**: Forms submit via HTMX for seamless updates
+- **Filtering**: Real-time filtering of data packets and profiles
+- **Loading States**: Built-in loading indicators during requests
+- **Error Handling**: Graceful error handling with user feedback
 
-### Key Features
+## Styling
 
-#### Automatic Authentication
-- The frontend checks for existing authentication tokens on page load
-- Users with valid tokens are automatically logged in
-- Invalid or expired tokens redirect to login
+- **Tailwind CSS**: Utility-first CSS framework for rapid styling
+- **Custom CSS**: Additional styles for HTMX interactions and animations
+- **Responsive**: Mobile-first design that works on all screen sizes
+- **Dark Mode Ready**: CSS structure supports future dark mode implementation
 
-#### Responsive Design
-- Mobile-first design approach
-- Responsive navigation and layouts
-- Touch-friendly interactions
+## JavaScript Features
 
-#### Modern UX Patterns
-- Loading states with spinners
-- Success/error message handling
-- Modal dialogs for focused interactions
-- Confirmation dialogs for destructive actions
+- **Form Validation**: Client-side validation with visual feedback
+- **Error Notifications**: Toast-style error and success messages
+- **Loading States**: Button loading states during form submissions
+- **Smooth Animations**: CSS transitions and animations for better UX
 
-#### HTMX Best Practices
-- Progressive enhancement
-- Minimal JavaScript
-- Server-side rendering
-- Real-time updates
+## Security
+
+- **JWT Tokens**: Secure authentication using JWT tokens stored in cookies
+- **CSRF Protection**: Built-in CSRF protection through FastAPI
+- **Input Validation**: Server-side validation of all inputs
+- **Secure Headers**: Proper security headers configured
 
 ## Development
 
-### Adding New Features
+To run the frontend locally:
 
-1. **New Templates**: Add Jinja2 templates in the `templates/` directory
-2. **API Endpoints**: Add new routes in `api.py`
-3. **Styling**: Use Tailwind CSS classes or add custom styles to `styles.css`
+1. Start the main application:
+   ```bash
+   python -m src.fidu_core.main
+   ```
 
-### Customization
+2. Visit http://127.0.0.1:4000 in your browser
 
-The frontend uses Tailwind CSS for styling, making it easy to customize:
-- Colors: Modify the blue theme by changing color classes
-- Layout: Adjust spacing and grid layouts
-- Components: Extend or modify existing components
+3. Create an account or log in to access the dashboard
 
-### Browser Support
+## Browser Support
 
 - Modern browsers with ES6+ support
-- HTMX 2.0 compatibility
-- CSS Grid and Flexbox support
+- HTMX 1.9.10+
+- Tailwind CSS 3.x
 
-## Security Features
+## Future Enhancements
 
-- HTTP-only cookies for token storage
-- CSRF protection through HTMX headers
-- Input validation and sanitization
-- Secure authentication flow
-- User permission checks on all operations 
+- Dark mode toggle
+- Advanced filtering options
+- Bulk operations for data packets
+- Export functionality
+- Real-time notifications
+- Offline support with service workers 

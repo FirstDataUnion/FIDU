@@ -32,13 +32,29 @@ Once pulling the repo, run the following script before you start work:
 `/scripts/setup_dev.sh`
 
 this will install all requirements, including dev only tools (linters, formatters etc.), 
-create a virtual env, and set up the precommit hook to run all linters/testers on every commit. 
+create a virtual env, activate the virtual env, and set up the precommit hook to run all linters/testers on every commit. 
 
-Linters can be run manually via the command './scripts/lint.sh'
+Linters/tests can be run manually via the command './scripts/lint.sh'
 
 ## Usage
 
-Coming Soon: Example guide of firing up browser plugin, setting preferences, collecting some data, and observing it. Windows/Unix usage differences.  
+The core App can be started up with:
+`uvicorn src.fidu_core.main:app --port 4000 --reload`
+
+This will run it with an auto-reload mechanism, where any changes made will be automatically detected and cause a hot-reload to allow for quick development cycles. 
+
+The FIDU Core backend can then be accessed by going to 
+
+`http://127.0.0.1:4000`
+
+API docs can be viewed at
+
+`http://127.0.0.1:4000/docs`
+
+Once this is running, the ACM-Capture chrome plugin and ACM-Lab front end can be used along with it. These have separate README files in their respective directories. 
+
+All these apps share the same identity system, and creating an account in one allows you to log into all 3. 
+
 
 ## What’s (currently) in the box
 

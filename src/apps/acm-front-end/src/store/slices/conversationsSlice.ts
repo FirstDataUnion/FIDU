@@ -6,11 +6,15 @@ import { dbService } from '../../services/database';
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
   async ({ filters, page, limit }: { filters?: FilterOptions; page?: number; limit?: number }, { getState }) => {
-    const state = getState() as { conversations: ConversationsState };
+    const state = getState() as { conversations: ConversationsState; auth: { currentProfile: { id: string } | null } };
     const useApi = state.conversations.useApi;
 
     if (useApi) {
-      return await conversationsApi.getAll(filters, page, limit);
+      const profileId = state.auth.currentProfile?.id;
+      if (!profileId) {
+        throw new Error('No profile selected. Please select a profile to continue.');
+      }
+      return await conversationsApi.getAll(filters, page, limit, profileId);
     } else {
       const conversations = await dbService.getConversations(filters);
       return {

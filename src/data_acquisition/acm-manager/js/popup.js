@@ -5,6 +5,7 @@
  * - Displaying the status of the extension
  * - Showing basic statistics about captured ACMs
  * - Providing controls for managing the extension
+ * - Handling user authentication
  */
 
 // Suppress connector errors that might be logged to the console
@@ -22,9 +23,48 @@ const exportBtnEl = document.getElementById('exportBtn');
 const clearBtnEl = document.getElementById('clearBtn');
 const optionsLinkEl = document.getElementById('optionsLink');
 
+// Authentication DOM elements
+const authStatusEl = document.getElementById('authStatus');
+const authStatusTextEl = document.getElementById('authStatusText');
+const toggleAuthBtnEl = document.getElementById('toggleAuthBtn');
+const userInfoEl = document.getElementById('userInfo');
+const userEmailEl = document.getElementById('userEmail');
+const userNameEl = document.getElementById('userName');
+const loginFormEl = document.getElementById('loginForm');
+const registerFormEl = document.getElementById('registerForm');
+const loginEmailEl = document.getElementById('loginEmail');
+const loginPasswordEl = document.getElementById('loginPassword');
+const registerEmailEl = document.getElementById('registerEmail');
+const registerPasswordEl = document.getElementById('registerPassword');
+const registerFirstNameEl = document.getElementById('registerFirstName');
+const registerLastNameEl = document.getElementById('registerLastName');
+const loginBtnEl = document.getElementById('loginBtn');
+const registerBtnEl = document.getElementById('registerBtn');
+const showRegisterBtnEl = document.getElementById('showRegisterBtn');
+const showLoginBtnEl = document.getElementById('showLoginBtn');
+const loginErrorEl = document.getElementById('loginError');
+const registerErrorEl = document.getElementById('registerError');
+const registerSuccessEl = document.getElementById('registerSuccess');
+
+// Profile DOM elements
+const profileSectionEl = document.getElementById('profileSection');
+const selectedProfileNameEl = document.getElementById('selectedProfileName');
+const manageProfilesBtnEl = document.getElementById('manageProfilesBtn');
+const profileModalEl = document.getElementById('profileModal');
+const closeProfileModalEl = document.getElementById('closeProfileModal');
+const newProfileNameEl = document.getElementById('newProfileName');
+const createProfileBtnEl = document.getElementById('createProfileBtn');
+const createProfileErrorEl = document.getElementById('createProfileError');
+const createProfileSuccessEl = document.getElementById('createProfileSuccess');
+const profilesListEl = document.getElementById('profilesList');
+
 // State variables
 let captureEnabled = true;
 let sessionCount = 0;
+let isAuthenticated = false;
+let currentUser = null;
+let userProfiles = [];
+let selectedProfile = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -32,6 +72,9 @@ document.addEventListener('DOMContentLoaded', initializePopup);
 function initializePopup() {
   // Load current state
   loadState();
+  
+  // Check authentication status
+  checkAuthenticationStatus();
   
   // Update statistics
   updateStatistics();
@@ -42,6 +85,361 @@ function initializePopup() {
   exportBtnEl.addEventListener('click', exportAcms);
   clearBtnEl.addEventListener('click', clearAllAcms);
   optionsLinkEl.addEventListener('click', openOptions);
+  
+  // Add authentication event listeners
+  toggleAuthBtnEl.addEventListener('click', toggleAuthForm);
+  loginBtnEl.addEventListener('click', handleLogin);
+  registerBtnEl.addEventListener('click', handleRegister);
+  showRegisterBtnEl.addEventListener('click', showRegisterForm);
+  showLoginBtnEl.addEventListener('click', showLoginForm);
+  
+  // Add profile management event listeners
+  manageProfilesBtnEl.addEventListener('click', openProfileModal);
+  closeProfileModalEl.addEventListener('click', closeProfileModal);
+  createProfileBtnEl.addEventListener('click', handleCreateProfile);
+  
+  // Close modal when clicking outside
+  profileModalEl.addEventListener('click', (e) => {
+    if (e.target === profileModalEl) {
+      closeProfileModal();
+    }
+  });
+  
+  // Event delegation for profile selection
+  profilesListEl.addEventListener('click', handleProfileListClick);
+}
+
+// Authentication functions
+async function checkAuthenticationStatus() {
+  try {
+    isAuthenticated = await authService.isAuthenticated();
+    currentUser = await authService.getCurrentUser();
+    updateAuthUI();
+    
+    if (isAuthenticated) {
+      // Load profiles and selected profile
+      await loadUserProfiles();
+      await loadSelectedProfile();
+      updateProfileUI();
+    }
+  } catch (error) {
+    console.error('Error checking authentication status:', error);
+    isAuthenticated = false;
+    currentUser = null;
+    updateAuthUI();
+  }
+}
+
+function updateAuthUI() {
+  if (isAuthenticated && currentUser) {
+    // User is authenticated
+    authStatusEl.className = 'auth-status authenticated';
+    authStatusTextEl.textContent = 'Authenticated';
+    toggleAuthBtnEl.textContent = 'Logout';
+    
+    // Show user info
+    userInfoEl.style.display = 'block';
+    userEmailEl.textContent = currentUser.email;
+    userNameEl.textContent = `${currentUser.first_name} ${currentUser.last_name}`;
+    
+    // Show profile section
+    profileSectionEl.style.display = 'block';
+    
+    // Hide forms
+    loginFormEl.classList.remove('show');
+    registerFormEl.classList.remove('show');
+  } else {
+    // User is not authenticated
+    authStatusEl.className = 'auth-status not-authenticated';
+    authStatusTextEl.textContent = 'Not authenticated';
+    toggleAuthBtnEl.textContent = 'Login';
+    
+    // Hide user info and profile section
+    userInfoEl.style.display = 'none';
+    profileSectionEl.style.display = 'none';
+    
+    // Show login form by default
+    showLoginForm();
+  }
+}
+
+function toggleAuthForm() {
+  if (isAuthenticated) {
+    // Logout
+    handleLogout();
+  } else {
+    // Toggle between login and register forms
+    if (loginFormEl.classList.contains('show')) {
+      showRegisterForm();
+    } else {
+      showLoginForm();
+    }
+  }
+}
+
+function showLoginForm() {
+  loginFormEl.classList.add('show');
+  registerFormEl.classList.remove('show');
+  clearAuthMessages();
+}
+
+function showRegisterForm() {
+  registerFormEl.classList.add('show');
+  loginFormEl.classList.remove('show');
+  clearAuthMessages();
+}
+
+function clearAuthMessages() {
+  loginErrorEl.textContent = '';
+  registerErrorEl.textContent = '';
+  registerSuccessEl.textContent = '';
+}
+
+async function handleLogin() {
+  const email = loginEmailEl.value.trim();
+  const password = loginPasswordEl.value;
+  
+  if (!email || !password) {
+    loginErrorEl.textContent = 'Please enter both email and password';
+    return;
+  }
+  
+  try {
+    loginBtnEl.disabled = true;
+    loginBtnEl.textContent = 'Logging in...';
+    
+    const result = await authService.login(email, password);
+    
+    if (result.success) {
+      isAuthenticated = true;
+      currentUser = result.user;
+      updateAuthUI();
+      clearAuthMessages();
+    } else {
+      loginErrorEl.textContent = result.error || 'Login failed';
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    loginErrorEl.textContent = 'An error occurred during login';
+  } finally {
+    loginBtnEl.disabled = false;
+    loginBtnEl.textContent = 'Login';
+  }
+}
+
+async function handleRegister() {
+  const email = registerEmailEl.value.trim();
+  const password = registerPasswordEl.value;
+  const firstName = registerFirstNameEl.value.trim();
+  const lastName = registerLastNameEl.value.trim();
+  
+  if (!email || !password || !firstName || !lastName) {
+    registerErrorEl.textContent = 'Please fill in all fields';
+    return;
+  }
+  
+  if (password.length < 6) {
+    registerErrorEl.textContent = 'Password must be at least 6 characters long';
+    return;
+  }
+  
+  try {
+    registerBtnEl.disabled = true;
+    registerBtnEl.textContent = 'Registering...';
+    
+    const result = await authService.register(email, password, firstName, lastName);
+    
+    if (result.success) {
+      registerSuccessEl.textContent = 'Registration successful! You can now login.';
+      registerErrorEl.textContent = '';
+      
+      // Clear form
+      registerEmailEl.value = '';
+      registerPasswordEl.value = '';
+      registerFirstNameEl.value = '';
+      registerLastNameEl.value = '';
+      
+      // Switch to login form after a short delay
+      setTimeout(() => {
+        showLoginForm();
+        loginEmailEl.value = email;
+      }, 2000);
+    } else {
+      registerErrorEl.textContent = result.error || 'Registration failed';
+      registerSuccessEl.textContent = '';
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    registerErrorEl.textContent = 'An error occurred during registration';
+    registerSuccessEl.textContent = '';
+  } finally {
+    registerBtnEl.disabled = false;
+    registerBtnEl.textContent = 'Register';
+  }
+}
+
+async function handleLogout() {
+  try {
+    const result = await authService.logout();
+    if (result.success) {
+      isAuthenticated = false;
+      currentUser = null;
+      userProfiles = [];
+      selectedProfile = null;
+      updateAuthUI();
+    } else {
+      console.error('Logout error:', result.error);
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+}
+
+// Profile management functions
+async function loadUserProfiles() {
+  try {
+    const result = await authService.getProfiles();
+    if (result.success) {
+      userProfiles = result.profiles;
+    } else {
+      console.error('Error loading profiles:', result.error);
+      userProfiles = [];
+    }
+  } catch (error) {
+    console.error('Error loading profiles:', error);
+    userProfiles = [];
+  }
+}
+
+async function loadSelectedProfile() {
+  try {
+    selectedProfile = await authService.getSelectedProfile();
+  } catch (error) {
+    console.error('Error loading selected profile:', error);
+    selectedProfile = null;
+  }
+}
+
+function updateProfileUI() {
+  if (selectedProfile) {
+    selectedProfileNameEl.textContent = selectedProfile.name;
+  } else {
+    selectedProfileNameEl.textContent = 'No profile selected';
+  }
+}
+
+function openProfileModal() {
+  profileModalEl.style.display = 'block';
+  loadProfilesInModal();
+}
+
+function closeProfileModal() {
+  profileModalEl.style.display = 'none';
+  clearProfileModalMessages();
+}
+
+function clearProfileModalMessages() {
+  createProfileErrorEl.textContent = '';
+  createProfileSuccessEl.textContent = '';
+  newProfileNameEl.value = '';
+}
+
+async function loadProfilesInModal() {
+  try {
+    // Reload profiles to get latest data
+    await loadUserProfiles();
+    
+    if (userProfiles.length === 0) {
+      profilesListEl.innerHTML = '<div class="no-profiles">No profiles found. Create your first profile above.</div>';
+      return;
+    }
+    
+    const profilesHtml = userProfiles.map(profile => {
+      const isSelected = selectedProfile && selectedProfile.id === profile.id;
+      const createDate = new Date(profile.create_timestamp).toLocaleDateString();
+      
+      return `
+        <div class="profile-item ${isSelected ? 'selected' : ''}" data-profile-id="${profile.id}">
+          <div class="profile-item-info">
+            <div class="profile-item-name">${profile.name}</div>
+            <div class="profile-item-date">Created: ${createDate}</div>
+          </div>
+          <div class="profile-item-actions">
+            ${!isSelected ? `<button class="select-profile-btn secondary" data-profile-id="${profile.id}">Select</button>` : '<span style="color: #2196f3; font-size: 11px;">Selected</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    profilesListEl.innerHTML = profilesHtml;
+  } catch (error) {
+    console.error('Error loading profiles in modal:', error);
+    profilesListEl.innerHTML = '<div class="error-message">Error loading profiles</div>';
+  }
+}
+
+async function selectProfile(profileId) {
+  try {
+    const profile = userProfiles.find(p => p.id === profileId);
+    if (profile) {
+      await authService.setSelectedProfile(profile);
+      selectedProfile = profile;
+      updateProfileUI();
+      closeProfileModal();
+    }
+  } catch (error) {
+    console.error('Error selecting profile:', error);
+  }
+}
+
+// Event delegation handler for profile list clicks
+function handleProfileListClick(event) {
+  // Check if the clicked element is a select profile button
+  if (event.target.classList.contains('select-profile-btn')) {
+    const profileId = event.target.getAttribute('data-profile-id');
+    if (profileId) {
+      selectProfile(profileId);
+    }
+  }
+}
+
+async function handleCreateProfile() {
+  const name = newProfileNameEl.value.trim();
+  
+  if (!name) {
+    createProfileErrorEl.textContent = 'Please enter a profile name';
+    return;
+  }
+  
+  try {
+    createProfileBtnEl.disabled = true;
+    createProfileBtnEl.textContent = 'Creating...';
+    
+    const result = await authService.createProfile(name);
+    
+    if (result.success) {
+      createProfileSuccessEl.textContent = 'Profile created successfully!';
+      createProfileErrorEl.textContent = '';
+      newProfileNameEl.value = '';
+      
+      // Reload profiles and select the new one
+      await loadUserProfiles();
+      await selectProfile(result.profile.id);
+      
+      // Refresh the modal
+      loadProfilesInModal();
+    } else {
+      createProfileErrorEl.textContent = result.error || 'Failed to create profile';
+      createProfileSuccessEl.textContent = '';
+    }
+  } catch (error) {
+    console.error('Create profile error:', error);
+    createProfileErrorEl.textContent = 'An error occurred while creating the profile';
+    createProfileSuccessEl.textContent = '';
+  } finally {
+    createProfileBtnEl.disabled = false;
+    createProfileBtnEl.textContent = 'Create Profile';
+  }
 }
 
 // Load extension state
@@ -200,29 +598,13 @@ function clearAllAcms() {
   }
 }
 
-// Open the options page
+// Open options page
 function openOptions() {
   chrome.runtime.openOptionsPage();
 }
 
-// Function to suppress connector errors that might be logged to the console
+// Suppress connector errors
 function suppressConnectorErrors() {
-  // Store the original console.error function
-  const originalConsoleError = console.error;
-  
-  // Override console.error to filter out specific error messages
-  console.error = function(...args) {
-    // Check if this is a connector error we want to suppress
-    if (args.length > 0 && typeof args[0] === 'string') {
-      if (args[0].includes('Error fetching connectors') ||
-          args[0].includes('Error fetching connector connections') ||
-          args[0].includes('Failed to fetch')) {
-        // Ignore these specific errors
-        return;
-      }
-    }
-    
-    // For all other errors, use the original console.error
-    originalConsoleError.apply(console, args);
-  };
+  // This function suppresses connector errors that might be logged to the console
+  // It's a placeholder for now, but could be expanded if needed
 } 
