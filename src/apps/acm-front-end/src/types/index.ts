@@ -14,6 +14,15 @@ export interface Conversation {
   status: 'active' | 'archived' | 'deleted';
 }
 
+export interface Prompt {
+  id: string;
+  title: string;
+  prompt: string;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
 // Authentication Types
 export interface User {
   id: string;
@@ -60,6 +69,41 @@ export interface CreateProfileRequest {
     name: string;
   };
 }
+
+// FIDU Core Data Packet types
+export interface ConversationDataPacket {
+  id: string;
+  profile_id: string;
+  create_timestamp: string;
+  update_timestamp: string;
+  tags: string[];
+  data: {
+    sourceChatbot: string;
+    interactions: Array<{
+      actor: string;
+      timestamp: string;
+      content: string;
+      attachments: string[];
+    }>;
+    originalACMsUsed: string[];
+    targetModelRequested: string;
+    conversationUrl: string;
+  };
+}
+
+export interface PromptDataPacket {
+  id: string;
+  profile_id: string;
+  create_timestamp: string;
+  update_timestamp: string;
+  tags: string[];
+  data: {
+    prompt_title: string;
+    prompt: string;
+  };
+}
+
+// Front End types
 
 export interface Message {
   id: string;

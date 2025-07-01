@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -57,9 +57,12 @@ import {
   Minimize as MinimizeIcon,
   Fullscreen as FullscreenIcon,
   Terminal as TerminalIcon,
-  DataObject as TokenIcon
+  DataObject as TokenIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
+import { promptsApi } from '../services/api/prompts';
+import type { DataPacketQueryParams } from '../types';
 // import { fetchPromptLabData, executePrompt, generateContextSuggestions } from '../store/slices/promptLabSlice';
 
 interface TabPanelProps {
@@ -92,27 +95,26 @@ export default function PromptLabPage() {
   const dispatch = useAppDispatch();
   const { 
     systemPrompts, 
-    promptTemplates, 
     executions, 
     contextSuggestions,
     currentPrompt,
     selectedSystemPrompts,
     selectedModels,
-    isExecuting,
     loading, 
     error 
   } = useAppSelector((state) => state.promptLab || {
     systemPrompts: [],
-    promptTemplates: [],
     executions: [],
     contextSuggestions: [],
     currentPrompt: '',
     selectedSystemPrompts: [],
     selectedModels: [],
-    isExecuting: false,
     loading: false,
     error: null
   });
+
+  // Get auth state for profile ID
+  const { currentProfile } = useAppSelector((state) => state.auth);
 
   // Ensure arrays are always defined
   const safeSelectedSystemPrompts = selectedSystemPrompts || [];
@@ -121,19 +123,310 @@ export default function PromptLabPage() {
   // UI State
   const [activeTab, setActiveTab] = useState(0);
   const [promptText, setPromptText] = useState('');
+  const [debouncedPromptText, setDebouncedPromptText] = useState('');
   const [stackExpanded, setStackExpanded] = useState(true);
   const [stackMinimized, setStackMinimized] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<any>(null);
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [selectedContext, setSelectedContext] = useState<any>(null);
+  const [localSelectedModels, setLocalSelectedModels] = useState<string[]>([]);
   
-  // Dialog states
-  const [saveTemplateDialog, setSaveTemplateDialog] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
+  // Save dialog states
+  const [savePromptDialog, setSavePromptDialog] = useState(false);
+  const [promptTitle, setPromptTitle] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [existingPrompt, setExistingPrompt] = useState<any>(null);
+
+  // Real saved prompts state
+  const [savedPrompts, setSavedPrompts] = useState<any[]>([]);
+  const [loadingSavedPrompts, setLoadingSavedPrompts] = useState(false);
+  const [savedPromptsError, setSavedPromptsError] = useState<string | null>(null);
+
+  // Execution state
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+
+  // Execution history state
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     // dispatch(fetchPromptLabData());
   }, [dispatch]);
+
+  // Debounce prompt text changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPromptText(promptText);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [promptText]);
+
+  // Function to immediately update debounced prompt when user clicks elsewhere
+  const handlePromptBlur = () => {
+    setDebouncedPromptText(promptText);
+  };
+
+  // Generate a hash-based ID for deduplication
+  const generatePromptId = (title: string, profileId: string): string => {
+    const content = `${title}-${profileId}`;
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return `prompt-${Math.abs(hash).toString(36)}`;
+  };
+
+  // Handle save button click
+  const handleSaveClick = () => {
+    if (!promptText.trim()) {
+      setSaveError('Please enter a prompt before saving');
+      return;
+    }
+    
+    if (!currentProfile) {
+      setSaveError('Please select a profile before saving');
+      return;
+    }
+
+    // Generate a default title if none provided
+    const defaultTitle = promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '');
+    setPromptTitle(defaultTitle);
+    
+    // Generate ID and check for existing prompt
+    const promptId = generatePromptId(defaultTitle, currentProfile.id);
+    
+    // For now, we'll assume no existing prompt (in a real implementation, you'd check the API)
+    // TODO: Add check for existing prompt + update
+    setExistingPrompt(null);
+    setSaveError(null);
+    setSavePromptDialog(true);
+  };
+
+  // Handle save confirmation
+  const handleSaveConfirm = async () => {
+    if (!promptText.trim() || !promptTitle.trim() || !currentProfile) {
+      setSaveError('Please fill in all required fields');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      const promptId = generatePromptId(promptTitle, currentProfile.id);
+      
+      const promptData = {
+        id: promptId,
+        title: promptTitle,
+        prompt: promptText,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: []
+      };
+
+      const savedPrompt = await promptsApi.savePrompt(promptData, currentProfile.id);
+      
+      // Show success message
+      setSaveSuccess('Prompt saved successfully!');
+      setIsSaving(false);
+      
+      // Auto-close dialog after 2 seconds
+      setTimeout(() => {
+        handleSaveDialogClose();
+      }, 2000);
+      
+      // Refresh saved prompts list
+      await fetchSavedPrompts();
+
+      // You could dispatch an action to update the saved prompts list here
+      console.log('Prompt saved successfully:', savedPrompt);
+      
+    } catch (error: any) {
+      console.error('Error saving prompt:', error);
+      setSaveError(error.message || 'Failed to save prompt');
+      setIsSaving(false);
+    }
+  };
+
+  // Handle save dialog close
+  const handleSaveDialogClose = () => {
+    setSavePromptDialog(false);
+    setPromptTitle('');
+    setSaveError(null);
+    setSaveSuccess(null);
+    setExistingPrompt(null);
+    setIsSaving(false);
+  };
+
+  // Fetch saved prompts from API
+  const fetchSavedPrompts = async () => {
+    if (!currentProfile) {
+      setSavedPromptsError('No profile selected');
+      return;
+    }
+
+    setLoadingSavedPrompts(true);
+    setSavedPromptsError(null);
+
+    try {
+      const queryParams: DataPacketQueryParams = {
+        tags: ["ACM", "ACM-LAB-Prompt", "Saved-Prompt"],
+        profile_id: currentProfile.id,
+        limit: 100,
+        offset: 0,
+        sort_order: "desc"
+      };
+      const response = await promptsApi.getAll(queryParams);
+      
+      // Check if response has prompts property (PromptsResponse)
+      if ('prompts' in response) {
+        setSavedPrompts(response.prompts);
+      } else {
+        // Handle error response
+        setSavedPrompts([]);
+        setSavedPromptsError('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Error fetching saved prompts:', error);
+      setSavedPromptsError(error.message || 'Failed to fetch saved prompts');
+      setSavedPrompts([]);
+    } finally {
+      setLoadingSavedPrompts(false);
+    }
+  };
+
+  // Load saved prompts when profile changes or component mounts
+  useEffect(() => {
+    if (currentProfile) {
+      fetchSavedPrompts();
+    }
+  }, [currentProfile]);
+
+  // Handle using a saved prompt
+  const handleUsePrompt = (prompt: any) => {
+    setPromptText(prompt.prompt);
+    setActiveTab(0); // Switch to compose tab
+  };
+
+  // Handle copying a saved prompt
+  const handleCopyPrompt = async (prompt: any) => {
+    try {
+      await navigator.clipboard.writeText(prompt.prompt);
+      // You could add a toast notification here
+      console.log('Prompt copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
+    }
+  };
+
+  // Handle executing the prompt
+  const handleExecute = async () => {
+    if (!promptText.trim()) {
+      setExecutionError('Please enter a prompt before executing');
+      return;
+    }
+
+    if (!currentProfile) {
+      setExecutionError('Please select a profile before executing');
+      return;
+    }
+
+    if (localSelectedModels.length === 0) {
+      setExecutionError('Please select at least one model before executing');
+      return;
+    }
+
+    setIsExecuting(true);
+    setExecutionError(null);
+
+    try {
+      // First, save the prompt to history
+      const promptId = generatePromptId(`Execution-${Date.now()}`, currentProfile.id);
+      const promptData = {
+        id: promptId,
+        title: `Execution - ${new Date().toLocaleString()}`,
+        prompt: promptText,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['Prompt-History']
+      };
+
+      await promptsApi.savePrompt(promptData, currentProfile.id);
+
+      // Then execute the prompt
+      const executionResult = await promptsApi.executePrompt(
+        selectedContext,
+        promptText,
+        localSelectedModels,
+        currentProfile.id
+      );
+
+      console.log('Execution completed:', executionResult);
+      
+      // Refresh execution history
+      await fetchExecutionHistory();
+      
+      // TODO: Handle the execution result (e.g., show responses, update history)
+      
+    } catch (error: any) {
+      console.error('Error executing prompt:', error);
+      setExecutionError(error.message || 'Failed to execute prompt');
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Fetch execution history from API
+  const fetchExecutionHistory = async () => {
+    if (!currentProfile) {
+      setHistoryError('No profile selected');
+      return;
+    }
+
+    setLoadingHistory(true);
+    setHistoryError(null);
+
+    try {
+      const queryParams: DataPacketQueryParams = {
+        tags: ["ACM", "ACM-LAB-Prompt", "Prompt-History"],
+        profile_id: currentProfile.id,
+        limit: 100,
+        offset: 0,
+        sort_order: "desc"
+      };
+      const response = await promptsApi.getAll(queryParams);
+      
+      // Check if response has prompts property (PromptsResponse)
+      if ('prompts' in response) {
+        setExecutionHistory(response.prompts);
+      } else {
+        // Handle error response
+        setExecutionHistory([]);
+        setHistoryError('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Error fetching execution history:', error);
+      setHistoryError(error.message || 'Failed to fetch execution history');
+      setExecutionHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Load execution history when profile changes or component mounts
+  useEffect(() => {
+    if (currentProfile) {
+      fetchExecutionHistory();
+    }
+  }, [currentProfile]);
 
   // Mock data for development
   const mockSystemPrompts = [
@@ -183,20 +476,63 @@ export default function PromptLabPage() {
     { id: 'gemini-ultra', name: 'Gemini Ultra', provider: 'Google', maxTokens: 32000 }
   ];
 
+  // Mock saved prompts data
+  const mockSavedPrompts = [
+    {
+      id: 'saved-1',
+      name: 'Code Review Assistant',
+      description: 'Helps review code for best practices and potential issues',
+      prompt: 'Please review this code for best practices, potential bugs, and areas for improvement...',
+      tokenCount: 45,
+      tags: ['code', 'review', 'best-practices'],
+      createdAt: new Date('2024-01-15'),
+      lastUsed: new Date('2024-01-20')
+    },
+    {
+      id: 'saved-2',
+      name: 'API Documentation Generator',
+      description: 'Generates comprehensive API documentation from code comments',
+      prompt: 'Generate comprehensive API documentation for the following endpoints...',
+      tokenCount: 32,
+      tags: ['api', 'documentation', 'generator'],
+      createdAt: new Date('2024-01-12'),
+      lastUsed: new Date('2024-01-18')
+    },
+    {
+      id: 'saved-3',
+      name: 'Error Analysis Helper',
+      description: 'Analyzes error messages and suggests solutions',
+      prompt: 'Analyze this error message and provide a detailed explanation with potential solutions...',
+      tokenCount: 28,
+      tags: ['debugging', 'errors', 'troubleshooting'],
+      createdAt: new Date('2024-01-10'),
+      lastUsed: new Date('2024-01-16')
+    }
+  ];
+
   const calculateTokenCount = (text: string) => {
     // Simple approximation: ~4 characters per token
     return Math.ceil(text.length / 4);
   };
 
-  const getTotalTokens = () => {
+  // Memoized total tokens calculation to prevent expensive operations on every render
+  const totalTokens = useMemo(() => {
     let total = 0;
     safeSelectedSystemPrompts.forEach((id: string) => {
       const prompt = mockSystemPrompts.find(p => p.id === id);
       if (prompt) total += prompt.tokenCount;
     });
-    total += calculateTokenCount(promptText);
+    total += calculateTokenCount(debouncedPromptText);
+    if (selectedContext) {
+      total += selectedContext.tokenCount;
+    }
     return total;
-  };
+  }, [safeSelectedSystemPrompts, debouncedPromptText, selectedContext]);
+
+  // Memoized debounced prompt token count
+  const debouncedPromptTokens = useMemo(() => {
+    return calculateTokenCount(debouncedPromptText);
+  }, [debouncedPromptText]);
 
   const PromptStack = () => {
     if (stackMinimized) {
@@ -216,7 +552,7 @@ export default function PromptLabPage() {
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TerminalIcon />
-            <Typography variant="body2">Prompt Stack ({getTotalTokens()} tokens)</Typography>
+            <Typography variant="body2">Prompt Stack ({totalTokens} tokens)</Typography>
           </Box>
         </Paper>
       );
@@ -242,7 +578,7 @@ export default function PromptLabPage() {
             Prompt Stack
           </Typography>
           <Chip 
-            label={`${getTotalTokens()} tokens`} 
+            label={`${totalTokens} tokens`} 
             size="small" 
             color="primary"
           />
@@ -261,12 +597,12 @@ export default function PromptLabPage() {
             {safeSelectedSystemPrompts.length > 0 && (
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  System Prompts
+                  Recent Prompts
                 </Typography>
                 {safeSelectedSystemPrompts.map((id: string) => {
                   const prompt = mockSystemPrompts.find(p => p.id === id);
                   return prompt ? (
-                    <Box key={id} sx={{ mb: 1, p: 1, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                    <Box key={id} sx={{ mb: 1, p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                         <Typography variant="caption" sx={{ fontWeight: 600 }}>
                           {prompt.name}
@@ -274,7 +610,10 @@ export default function PromptLabPage() {
                         <Chip label={`${prompt.tokenCount}t`} size="small" variant="outlined" />
                       </Box>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {prompt.content.substring(0, 100)}...
+                        {prompt.content.length > 80 
+                          ? `${prompt.content.substring(0, 80)}...` 
+                          : prompt.content
+                        }
                       </Typography>
                     </Box>
                   ) : null;
@@ -283,46 +622,112 @@ export default function PromptLabPage() {
             )}
 
             {/* Current Prompt */}
-            {promptText && (
+            {debouncedPromptText && (
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    User Prompt
+                    Current Prompt
                   </Typography>
                   <Chip 
-                    label={`${calculateTokenCount(promptText)}t`} 
+                    label={`${debouncedPromptTokens}t`} 
                     size="small" 
                     variant="outlined" 
                   />
                 </Box>
                 <Typography variant="caption" color="text.secondary">
-                  {promptText.substring(0, 150)}...
+                  {debouncedPromptText.length > 150 
+                    ? `${debouncedPromptText.substring(0, 150)}...` 
+                    : debouncedPromptText
+                  }
                 </Typography>
               </Box>
             )}
 
-            {/* Context Suggestions */}
-            {mockContextSuggestions.length > 0 && (
-              <Box sx={{ p: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Suggested Contexts
-                </Typography>
-                {mockContextSuggestions.slice(0, 3).map((suggestion) => (
-                  <Box key={suggestion.id} sx={{ mb: 1, p: 1, backgroundColor: 'grey.50', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        {suggestion.title}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Chip label={`${suggestion.relevanceScore * 100}%`} size="small" color="success" />
-                        <Chip label={`${suggestion.tokenCount}t`} size="small" variant="outlined" />
-                      </Box>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {suggestion.description}
+            {/* Selected Context */}
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Selected Context
+              </Typography>
+              {selectedContext ? (
+                <Box sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      {selectedContext.title}
                     </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Chip label={`${selectedContext.relevanceScore * 100}%`} size="small" color="success" />
+                      <Chip label={`${selectedContext.tokenCount}t`} size="small" variant="outlined" />
+                    </Box>
                   </Box>
-                ))}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    {selectedContext.description}
+                  </Typography>
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    startIcon={<CloseIcon />}
+                    onClick={() => setSelectedContext(null)}
+                    sx={{ mt: 0.5 }}
+                  >
+                    Remove Context
+                  </Button>
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  p: 2, 
+                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', 
+                  borderRadius: 1, 
+                  textAlign: 'center',
+                  border: '2px dashed',
+                  borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'grey.300'
+                }}>
+                  <Typography variant="caption" color="text.secondary">
+                    No context selected
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Select a context from the suggestions panel
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
+            {/* Selected Model */}
+            {localSelectedModels.length > 0 && (
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                  Selected Model
+                </Typography>
+                {localSelectedModels.map((modelId: string) => {
+                  const model = mockModels.find(m => m.id === modelId);
+                  return model ? (
+                    <Box key={modelId} sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                          {model.name}
+                        </Typography>
+                        <Chip label={model.provider} size="small" color="primary" />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                        Max tokens: {model.maxTokens.toLocaleString()}
+                      </Typography>
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        startIcon={<CloseIcon />}
+                        onClick={() => {
+                          setLocalSelectedModels(prev => 
+                            prev.includes(model.id) 
+                              ? prev.filter(id => id !== model.id)
+                              : [...prev, model.id]
+                          );
+                        }}
+                        sx={{ mt: 0.5 }}
+                      >
+                        Remove Model
+                      </Button>
+                    </Box>
+                  ) : null;
+                })}
               </Box>
             )}
           </Box>
@@ -333,17 +738,23 @@ export default function PromptLabPage() {
           <Stack direction="row" spacing={1}>
             <Button 
               variant="contained" 
-              startIcon={<PlayIcon />}
+              startIcon={isExecuting ? <CircularProgress size={16} /> : <PlayIcon />}
               size="small"
               fullWidth
-              disabled={!promptText || getTotalTokens() === 0}
+              disabled={!promptText || totalTokens === 0 || isExecuting}
+              onClick={handleExecute}
             >
-              Execute
+              {isExecuting ? 'Executing...' : 'Execute'}
             </Button>
-            <IconButton size="small">
+            <IconButton size="small" onClick={handleSaveClick}>
               <SaveIcon />
             </IconButton>
           </Stack>
+          {executionError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {executionError}
+            </Alert>
+          )}
         </Box>
       </Paper>
     );
@@ -374,7 +785,7 @@ export default function PromptLabPage() {
               {/* Tabs */}
               <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
                 <Tab label="Compose" icon={<CodeIcon />} />
-                <Tab label="Templates" icon={<BookmarkIcon />} />
+                <Tab label="Saved" icon={<BookmarkIcon />} />
                 <Tab label="History" icon={<HistoryIcon />} />
               </Tabs>
 
@@ -397,8 +808,8 @@ export default function PromptLabPage() {
                           variant="outlined"
                           sx={{ 
                             cursor: 'pointer',
-                            border: safeSelectedSystemPrompts.includes(prompt.id) ? 2 : 1,
-                            borderColor: safeSelectedSystemPrompts.includes(prompt.id) ? 'primary.main' : 'divider'
+                            border: localSelectedModels.includes(prompt.id) ? 2 : 1,
+                            borderColor: localSelectedModels.includes(prompt.id) ? 'primary.main' : 'divider'
                           }}
                           onClick={() => {
                             // Toggle selection logic would go here
@@ -419,7 +830,10 @@ export default function PromptLabPage() {
                               {prompt.description}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {prompt.content.substring(0, 80)}...
+                              {prompt.content.length > 80 
+                                ? `${prompt.content.substring(0, 80)}...` 
+                                : prompt.content
+                              }
                             </Typography>
                           </CardContent>
                         </Card>
@@ -438,7 +852,8 @@ export default function PromptLabPage() {
                       rows={8}
                       placeholder="Enter your prompt here..."
                       value={promptText}
-                      onChange={(e) => setPromptText(e.target.value)}
+                      // TODO: This is mega laggy cos it rerenders everything on each press. Need to optimise whole page a lot. 
+                      onChange={(e) => setPromptText(e.target.value)} 
                       variant="outlined"
                       sx={{ 
                         '& .MuiOutlinedInput-root': {
@@ -446,17 +861,15 @@ export default function PromptLabPage() {
                           fontSize: '0.9rem'
                         }
                       }}
+                      onBlur={handlePromptBlur}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                       <Typography variant="caption" color="text.secondary">
-                        {calculateTokenCount(promptText)} tokens
+                        {debouncedPromptTokens} tokens
                       </Typography>
                       <Stack direction="row" spacing={1}>
-                        <Button size="small" variant="outlined" startIcon={<SaveIcon />}>
-                          Save Template
-                        </Button>
-                        <Button size="small" variant="outlined" startIcon={<AutoAwesomeIcon />}>
-                          Optimize
+                        <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={handleSaveClick}>
+                          Save Prompt
                         </Button>
                       </Stack>
                     </Box>
@@ -478,8 +891,15 @@ export default function PromptLabPage() {
                           variant="outlined"
                           sx={{ 
                             cursor: 'pointer',
-                            border: safeSelectedModels.includes(model.id) ? 2 : 1,
-                            borderColor: safeSelectedModels.includes(model.id) ? 'primary.main' : 'divider'
+                            border: localSelectedModels.includes(model.id) ? 2 : 1,
+                            borderColor: localSelectedModels.includes(model.id) ? 'primary.main' : 'divider'
+                          }}
+                          onClick={() => {
+                            setLocalSelectedModels(prev => 
+                              prev.includes(model.id) 
+                                ? prev.filter(id => id !== model.id)
+                                : [...prev, model.id]
+                            );
                           }}
                         >
                           <CardContent sx={{ p: 2, textAlign: 'center' }}>
@@ -502,50 +922,96 @@ export default function PromptLabPage() {
                 </Stack>
               </TabPanel>
 
-              {/* Templates Tab */}
+              {/* Saved Tab */}
               <TabPanel value={activeTab} index={1}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6">
-                    Prompt Templates
+                    Saved Prompts
                   </Typography>
-                  <Button variant="contained" startIcon={<AddIcon />}>
-                    Create Template
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchSavedPrompts}
+                    disabled={loadingSavedPrompts}
+                    size="small"
+                  >
+                    Refresh
                   </Button>
                 </Box>
                 
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, 
-                  gap: 2 
-                }}>
-                  {promptTemplates.map((template: any) => (
-                    <Card key={template.id}>
-                      <CardContent>
-                        <Typography variant="h6" sx={{ mb: 1 }}>
-                          {template.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {template.description}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5, mb: 2 }}>
-                          {template.tags.map((tag: string) => (
-                            <Chip key={tag} label={tag} size="small" variant="outlined" />
-                          ))}
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Chip 
-                            label={`${template.tokenCount} tokens`} 
-                            size="small" 
-                            color="primary"
-                          />
-                          <Button size="small" variant="outlined">
-                            Use Template
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
+                {loadingSavedPrompts && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                )}
+
+                {savedPromptsError && (
+                  <Alert severity="error" sx={{ mb: 3 }}>
+                    {savedPromptsError}
+                  </Alert>
+                )}
+
+                {!loadingSavedPrompts && !savedPromptsError && savedPrompts.length === 0 && (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                      No saved prompts yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Save your first prompt using the save button in the prompt stack
+                    </Typography>
+                  </Box>
+                )}
+
+                {!loadingSavedPrompts && !savedPromptsError && savedPrompts.length > 0 && (
+                  <Stack spacing={2}>
+                    {savedPrompts.map((prompt) => (
+                      <Card key={prompt.id} variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="h6" sx={{ mb: 1 }}>
+                                {prompt.title}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                {prompt.prompt.length > 150 
+                                  ? `${prompt.prompt.substring(0, 150)}...` 
+                                  : prompt.prompt
+                                }
+                              </Typography>
+                            </Box>
+                            <Chip 
+                              label={`${calculateTokenCount(prompt.prompt)} tokens`} 
+                              size="small" 
+                              color="primary"
+                            />
+                          </Box>
+                          
+                          {prompt.tags && prompt.tags.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.5, mb: 2, flexWrap: 'wrap' }}>
+                              {prompt.tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                          )}
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Created: {new Date(prompt.createdAt).toLocaleDateString()}
+                            </Typography>
+                            <Stack direction="row" spacing={1}>
+                              <Button size="small" variant="outlined" startIcon={<CopyIcon />} onClick={() => handleCopyPrompt(prompt)}>
+                                Copy
+                              </Button>
+                              <Button size="small" variant="contained" onClick={() => handleUsePrompt(prompt)}>
+                                Use Prompt
+                              </Button>
+                            </Stack>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                )}
               </TabPanel>
 
               {/* History Tab */}
@@ -554,40 +1020,79 @@ export default function PromptLabPage() {
                   Execution History
                 </Typography>
                 
-                {executions.map((execution: any) => (
-                  <Card key={execution.id} sx={{ mb: 2 }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {execution.name || 'Untitled Execution'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {execution.timestamp.toLocaleString()}
-                          </Typography>
-                        </Box>
-                        <Chip 
-                          label={execution.status} 
-                          size="small" 
-                          color={execution.status === 'completed' ? 'success' : 'warning'}
-                        />
-                      </Box>
-                      
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        {execution.prompt.substring(0, 200)}...
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button size="small" variant="outlined">
-                          View Details
-                        </Button>
-                        <Button size="small" variant="outlined" startIcon={<CopyIcon />}>
-                          Duplicate
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                ))}
+                {loadingHistory && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                )}
+
+                {historyError && (
+                  <Alert severity="error" sx={{ mb: 3 }}>
+                    {historyError}
+                  </Alert>
+                )}
+
+                {!loadingHistory && !historyError && executionHistory.length === 0 && (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                      No execution history yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Execute your first prompt to see it here
+                    </Typography>
+                  </Box>
+                )}
+
+                {!loadingHistory && !historyError && executionHistory.length > 0 && (
+                  <Stack spacing={2}>
+                    {executionHistory.map((execution) => (
+                      <Card key={execution.id} variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="h6" sx={{ mb: 1 }}>
+                                {execution.title}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                {execution.prompt.length > 200 
+                                  ? `${execution.prompt.substring(0, 200)}...` 
+                                  : execution.prompt
+                                }
+                              </Typography>
+                            </Box>
+                            <Chip 
+                              label={`${calculateTokenCount(execution.prompt)} tokens`} 
+                              size="small" 
+                              color="primary"
+                            />
+                          </Box>
+                          
+                          {execution.tags && execution.tags.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.5, mb: 2, flexWrap: 'wrap' }}>
+                              {execution.tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                          )}
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Executed: {new Date(execution.createdAt).toLocaleDateString()}
+                            </Typography>
+                            <Stack direction="row" spacing={1}>
+                              <Button size="small" variant="outlined" startIcon={<CopyIcon />} onClick={() => handleCopyPrompt(execution)}>
+                                Copy
+                              </Button>
+                              <Button size="small" variant="contained" onClick={() => handleUsePrompt(execution)}>
+                                Use Prompt
+                              </Button>
+                            </Stack>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                )}
               </TabPanel>
             </CardContent>
           </Card>
@@ -623,7 +1128,11 @@ export default function PromptLabPage() {
                         size="small" 
                         variant="outlined"
                       />
-                      <Button size="small" variant="contained">
+                      <Button 
+                        size="small" 
+                        variant="contained"
+                        onClick={() => setSelectedContext(suggestion)}
+                      >
                         Add Context
                       </Button>
                     </Box>
@@ -637,6 +1146,66 @@ export default function PromptLabPage() {
 
       {/* Floating Prompt Stack */}
       <PromptStack />
+
+      {/* Save Prompt Dialog */}
+      <Dialog 
+        open={savePromptDialog} 
+        onClose={isSaving ? undefined : handleSaveDialogClose} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>Save Prompt</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Title"
+              value={promptTitle}
+              onChange={(e) => setPromptTitle(e.target.value)}
+              placeholder="Enter a title for your prompt"
+              disabled={isSaving}
+            />
+            <TextField
+              fullWidth
+              label="Prompt Content"
+              multiline
+              rows={4}
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="Your prompt content"
+              disabled={isSaving}
+            />
+            {existingPrompt && (
+              <Alert severity="warning">
+                A prompt with this title already exists. Saving will update the existing prompt.
+              </Alert>
+            )}
+            {saveError && (
+              <Alert severity="error">
+                {saveError}
+              </Alert>
+            )}
+            {saveSuccess && (
+              <Alert severity="success">
+                {saveSuccess}
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleSaveDialogClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSaveConfirm} 
+            variant="contained"
+            disabled={!promptTitle.trim() || !promptText.trim() || isSaving}
+            startIcon={isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
+          >
+            {isSaving ? 'Saving...' : existingPrompt ? 'Update' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 } 

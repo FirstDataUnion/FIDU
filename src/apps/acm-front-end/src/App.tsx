@@ -59,7 +59,7 @@ const AppContent: React.FC<AppContentProps> = () => {
               width: '8px',
             },
             '&::-webkit-scrollbar-track': {
-              background: '#f1f1f1',
+              background: (theme: any) => theme.palette.mode === 'dark' ? '#424242' : '#f1f1f1',
             },
             '&::-webkit-scrollbar-thumb': {
               background: '#888',
