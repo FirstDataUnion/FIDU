@@ -622,7 +622,7 @@ const ConversationsPage: React.FC = () => {
               width: '8px',
             },
             '&::-webkit-scrollbar-track': {
-              background: '#f1f1f1',
+              background: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#f1f1f1',
             },
             '&::-webkit-scrollbar-thumb': {
               background: '#888',
@@ -714,7 +714,7 @@ const ConversationsPage: React.FC = () => {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            bgcolor: 'grey.50',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
             minWidth: 0 // Allow flex item to shrink below content size
           }}>
             <Box sx={{ textAlign: 'center', p: 4 }}>
