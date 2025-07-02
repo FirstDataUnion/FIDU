@@ -435,7 +435,9 @@ class FrontEndAPI:
         user_id = await self._get_current_user_id(request)
 
         if not user_id:
-            return HTMLResponse("Please log in to delete data packets.", status_code=401)
+            return HTMLResponse(
+                "Please log in to delete data packets.", status_code=401
+            )
 
         try:
             data_packet_id = request.query_params.get("data_packet_id")

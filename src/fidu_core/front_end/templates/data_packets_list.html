@@ -87,8 +87,8 @@
                             <div class="mt-1 flex items-center text-sm text-gray-500">
                                 <p>Data:</p>
                             </div>
-                            <div class="bg-gray-10 flex items-center max-h-32 border border-gray-200 rounded text-sm text-gray-500 overflow-auto">
-                                <pre class="text-xs text-gray-700 p-2">{{ packet.data | tojson(indent=2) }}</pre>
+                            <div class="bg-gray-100 border border-gray-200 rounded text-sm text-gray-500 max-h-32 overflow-auto">
+                                <pre class="text-xs text-gray-700 p-2 whitespace-pre-wrap break-words">{{ packet.data | tojson(indent=2) }}</pre>
                             </div>
                         </div>
                     </div>
