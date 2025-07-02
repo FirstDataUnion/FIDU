@@ -117,6 +117,12 @@ class FrontEndAPI:
             response_class=HTMLResponse,
         )
         self.app.add_api_route(
+            "/data-packets/delete",
+            self.delete_data_packet,
+            methods=["DELETE"],
+            response_class=HTMLResponse,
+        )
+        self.app.add_api_route(
             "/profiles",
             self.profiles_page,
             methods=["GET"],
@@ -423,6 +429,27 @@ class FrontEndAPI:
         except (DataPacketError, ProfileError, ValueError, TypeError) as e:
             logger.error("Data packets list error: %s", e)
             return HTMLResponse("Error loading data packets.", status_code=500)
+
+    async def delete_data_packet(self, request: Request) -> HTMLResponse:
+        """Handle data packet deletion (HTMX endpoint)."""
+        user_id = await self._get_current_user_id(request)
+
+        if not user_id:
+            return HTMLResponse("Please log in to delete data packets.", status_code=401)
+
+        try:
+            data_packet_id = request.query_params.get("data_packet_id")
+
+            if not data_packet_id:
+                return HTMLResponse("Data packet ID is required.", status_code=400)
+
+            self.data_packet_service.delete_data_packet(user_id, data_packet_id)
+
+            return HTMLResponse("Data packet deleted successfully.", status_code=200)
+
+        except (DataPacketError, ValueError, TypeError) as e:
+            logger.error("Delete data packet error: %s", e)
+            return HTMLResponse("Error deleting data packet.", status_code=500)
 
     async def profiles_page(
         self, request: Request

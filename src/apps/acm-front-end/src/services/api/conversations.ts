@@ -1,25 +1,7 @@
 import { apiClient } from './apiClients';
-import type { Conversation, FilterOptions, DataPacketQueryParams } from '../../types';
+import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket } from '../../types';
 
-interface DataPacket {
-  id: string;
-  profile_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-  tags: string[];
-  data: {
-    sourceChatbot: string;
-    interactions: Array<{
-      actor: string;
-      timestamp: string;
-      content: string;
-      attachments: string[];
-    }>;
-    originalACMsUsed: string[];
-    targetModelRequested: string;
-    conversationUrl: string;
-  };
-}
+
 
 export interface ConversationsResponse {
   conversations: Conversation[];
@@ -33,7 +15,7 @@ export interface ConversationResponse {
 }
 
 // Transform API data packet to local Conversation type
-const transformDataPacketToConversation = (packet: DataPacket): Conversation => {
+const transformDataPacketToConversation = (packet: ConversationDataPacket): Conversation => {
   // Add validation to ensure required fields exist
   console.log('transformDataPacketToConversation packet:', packet);
   if (!packet.data?.interactions?.length) {
@@ -63,7 +45,7 @@ export const conversationsApi = {
    */
   getAll: async (filters?: FilterOptions, page = 1, limit = 20, profileId?: string) => {
     const queryParams: DataPacketQueryParams = {
-      tags: ["ACM", ...(filters?.tags || [])],
+      tags: ["ACM", "ACM-Conversation", ...(filters?.tags || [])],
       profile_id: profileId, // Include profile_id for authenticated requests
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
@@ -73,7 +55,7 @@ export const conversationsApi = {
     };
 
     try {
-      const response = await apiClient.get<DataPacket[]>('/data-packets', {
+      const response = await apiClient.get<ConversationDataPacket[]>('/data-packets', {
         params: queryParams,
         paramsSerializer: {
           serialize: (params) => {
@@ -142,7 +124,7 @@ export const conversationsApi = {
    */
   getById: async (id: string) => {
     try {
-      const response = await apiClient.get<DataPacket>(`/data-packets/${id}`);
+      const response = await apiClient.get<ConversationDataPacket>(`/data-packets/${id}`);
       if (response.status === 200 && response.data) {
         return transformDataPacketToConversation(response.data);
       } else {
@@ -202,7 +184,7 @@ export const conversationsApi = {
   getMessages: async (conversationId: string) => {
     try {
       console.log('API getMessages called with conversationId:', conversationId);
-      const response = await apiClient.get<DataPacket>(`/data-packets/${conversationId}`);
+      const response = await apiClient.get<ConversationDataPacket>(`/data-packets/${conversationId}`);
       console.log('API getMessages response:', response);
       console.log('API getMessages response.data:', response.data);
       console.log('API getMessages response.status:', response.status);
