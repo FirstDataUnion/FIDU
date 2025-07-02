@@ -36,7 +36,7 @@
         </div>
 
         <!-- Data Packets List (HTMX) -->
-        <div id="data-packets-list" hx-get="/data-packets/list" hx-trigger="load" hx-target="#data-packets-list" hx-swap="innerHTML">
+        <div id="data-packets-list" hx-get="/data-packets/list" hx-trigger="load, refresh-data-packet-list from:body" hx-target="#data-packets-list" hx-swap="innerHTML">
             <div class="text-center text-gray-400">Loading data packets...</div>
         </div>
     </div>

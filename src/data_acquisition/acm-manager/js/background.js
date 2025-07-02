@@ -61,7 +61,7 @@ class FiduCoreAPI {
           data_packet: {
             profile_id: selectedProfileId,
             id: acm.id,
-            tags: ["ACM", "ACM-Manager-Plugin"], 
+            tags: ["ACM", "ACM-Manager-Plugin", "ACM-Conversation"], 
             data: {
               sourceChatbot: acm.sourceChatbot,
               interactions: acm.interactions,
