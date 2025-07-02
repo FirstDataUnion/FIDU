@@ -98,7 +98,6 @@ export default function PromptLabPage() {
     executions, 
     contextSuggestions,
     currentPrompt,
-    selectedSystemPrompts,
     selectedModels,
     loading, 
     error 
@@ -107,7 +106,6 @@ export default function PromptLabPage() {
     executions: [],
     contextSuggestions: [],
     currentPrompt: '',
-    selectedSystemPrompts: [],
     selectedModels: [],
     loading: false,
     error: null
@@ -117,7 +115,6 @@ export default function PromptLabPage() {
   const { currentProfile } = useAppSelector((state) => state.auth);
 
   // Ensure arrays are always defined
-  const safeSelectedSystemPrompts = selectedSystemPrompts || [];
   const safeSelectedModels = selectedModels || [];
 
   // UI State
@@ -518,16 +515,13 @@ export default function PromptLabPage() {
   // Memoized total tokens calculation to prevent expensive operations on every render
   const totalTokens = useMemo(() => {
     let total = 0;
-    safeSelectedSystemPrompts.forEach((id: string) => {
-      const prompt = mockSystemPrompts.find(p => p.id === id);
-      if (prompt) total += prompt.tokenCount;
-    });
+    // Removed system prompts calculation since we're now showing recent prompts instead
     total += calculateTokenCount(debouncedPromptText);
     if (selectedContext) {
       total += selectedContext.tokenCount;
     }
     return total;
-  }, [safeSelectedSystemPrompts, debouncedPromptText, selectedContext]);
+  }, [debouncedPromptText, selectedContext]);
 
   // Memoized debounced prompt token count
   const debouncedPromptTokens = useMemo(() => {
@@ -593,33 +587,6 @@ export default function PromptLabPage() {
         {/* Content */}
         {stackExpanded && (
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-            {/* System Prompts */}
-            {safeSelectedSystemPrompts.length > 0 && (
-              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Recent Prompts
-                </Typography>
-                {safeSelectedSystemPrompts.map((id: string) => {
-                  const prompt = mockSystemPrompts.find(p => p.id === id);
-                  return prompt ? (
-                    <Box key={id} sx={{ mb: 1, p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                          {prompt.name}
-                        </Typography>
-                        <Chip label={`${prompt.tokenCount}t`} size="small" variant="outlined" />
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {prompt.content.length > 80 
-                          ? `${prompt.content.substring(0, 80)}...` 
-                          : prompt.content
-                        }
-                      </Typography>
-                    </Box>
-                  ) : null;
-                })}
-              </Box>
-            )}
 
             {/* Current Prompt */}
             {debouncedPromptText && (
@@ -792,53 +759,71 @@ export default function PromptLabPage() {
               {/* Compose Tab */}
               <TabPanel value={activeTab} index={0}>
                 <Stack spacing={3}>
-                  {/* System Prompt Selection */}
+                  {/* Recent Prompts */}
                   <Box>
                     <Typography variant="h6" sx={{ mb: 2 }}>
-                      System Prompts
+                      Recent Prompts
                     </Typography>
-                    <Box sx={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, 
-                      gap: 2 
-                    }}>
-                      {mockSystemPrompts.map((prompt) => (
-                        <Card 
-                          key={prompt.id}
-                          variant="outlined"
-                          sx={{ 
-                            cursor: 'pointer',
-                            border: localSelectedModels.includes(prompt.id) ? 2 : 1,
-                            borderColor: localSelectedModels.includes(prompt.id) ? 'primary.main' : 'divider'
-                          }}
-                          onClick={() => {
-                            // Toggle selection logic would go here
-                          }}
-                        >
-                          <CardContent sx={{ p: 2 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                {prompt.name}
-                              </Typography>
-                              <Chip 
-                                label={`${prompt.tokenCount} tokens`} 
-                                size="small" 
-                                variant="outlined"
-                              />
-                            </Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                              {prompt.description}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {prompt.content.length > 80 
-                                ? `${prompt.content.substring(0, 80)}...` 
-                                : prompt.content
+                    {executionHistory.length > 0 ? (
+                      <Box sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, 
+                        gap: 2 
+                      }}>
+                        {executionHistory.slice(0, 2).map((execution) => (
+                          <Card 
+                            key={execution.id}
+                            variant="outlined"
+                            sx={{ 
+                              cursor: 'pointer',
+                              '&:hover': {
+                                boxShadow: 2,
+                                borderColor: 'primary.main'
                               }
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
+                            }}
+                            onClick={() => handleUsePrompt(execution)}
+                          >
+                            <CardContent sx={{ p: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                  {execution.title}
+                                </Typography>
+                                <Chip 
+                                  label={`${calculateTokenCount(execution.prompt)} tokens`} 
+                                  size="small" 
+                                  variant="outlined"
+                                />
+                              </Box>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                {execution.prompt.length > 100 
+                                  ? `${execution.prompt.substring(0, 100)}...` 
+                                  : execution.prompt
+                                }
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Executed: {new Date(execution.createdAt).toLocaleDateString()}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Box sx={{ 
+                        p: 3, 
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', 
+                        borderRadius: 1, 
+                        textAlign: 'center',
+                        border: '2px dashed',
+                        borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'grey.300'
+                      }}>
+                        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                          No recent prompts to show
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Execute a prompt to see it here
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
 
                   {/* Prompt Input */}

@@ -20,12 +20,26 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
   console.log('transformDataPacketToConversation packet:', packet);
   if (!packet.data?.interactions?.length) {
     console.warn('Data packet missing required fields:', packet);
-    throw new Error('Invalid data packet format');
+    console.warn('Skipping packet:', packet.id);
+    return {
+      id: packet.id,
+      title: "Error: Could not parse data packet as conversation",
+      platform: "other",
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      lastMessage: "Error: Could not parse data packet as conversation",
+      messageCount: 0,
+      tags: [],
+      isArchived: false,
+      isFavorite: false,
+      participants: [],
+      status: 'active'
+    };
   }
 
   return {
     id: packet.id,
-    title: packet.data.conversationUrl,
+    title: packet.data.conversationTitle || packet.data.conversationUrl,
     platform: packet.data.sourceChatbot.toLowerCase() as "chatgpt" | "claude" | "gemini" | "other",
     createdAt: packet.create_timestamp, // Store as ISO string
     updatedAt: packet.update_timestamp, // Store as ISO string

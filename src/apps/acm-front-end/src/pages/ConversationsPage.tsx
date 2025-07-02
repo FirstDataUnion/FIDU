@@ -240,6 +240,7 @@ const ConversationsPage: React.FC = () => {
           border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
           borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
           backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
+          maxWidth: '100%', // Ensure card doesn't exceed container width
           '&:hover': { 
             boxShadow: 3,
             transform: 'translateY(-2px)',
@@ -250,10 +251,17 @@ const ConversationsPage: React.FC = () => {
       >
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-            <Typography variant="h6" component="h3" sx={{ flex: 1, mr: 1 }}>
+            <Typography variant="h6" component="h3" sx={{ 
+              flex: 1, 
+              mr: 1,
+              maxWidth: '70%', // Limit title width
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
               {conversation.title}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
               {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
               {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
               {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
@@ -606,6 +614,7 @@ const ConversationsPage: React.FC = () => {
           flexDirection: 'column',
           overflow: 'hidden',
           minWidth: selectedConversation ? '300px' : 'auto', // Minimum width for readability
+          maxWidth: selectedConversation ? '500px' : '600px', // Maximum width to prevent expansion
           height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' } // Responsive height
         }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>

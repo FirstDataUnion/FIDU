@@ -88,6 +88,7 @@ export interface ConversationDataPacket {
     originalACMsUsed: string[];
     targetModelRequested: string;
     conversationUrl: string;
+    conversationTitle: string;
   };
 }
 

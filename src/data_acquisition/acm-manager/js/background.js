@@ -50,6 +50,9 @@ class FiduCoreAPI {
       // Generate deterministic IDs
       const requestId = acm.id+acm.timestamp;
 
+      // Make a slightly nicer title for the conversation to show in the ACM lab. 
+      const title = acm.interactions[0].content.substring(0, 40);
+
       const response = await fetch(`${this.baseUrl}/data-packets`, {
         method: 'POST',
         headers: {
@@ -63,6 +66,7 @@ class FiduCoreAPI {
             id: acm.id,
             tags: ["ACM", "ACM-Manager-Plugin", "ACM-Conversation"], 
             data: {
+              conversationTitle: title,
               sourceChatbot: acm.sourceChatbot,
               interactions: acm.interactions,
               originalACMsUsed: acm.originalACMsUsed,
