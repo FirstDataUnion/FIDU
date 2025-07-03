@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -33,7 +33,13 @@ import {
   Tabs,
   Fab,
   LinearProgress,
-  Autocomplete
+  Autocomplete,
+  Drawer,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -58,12 +64,19 @@ import {
   Fullscreen as FullscreenIcon,
   Terminal as TerminalIcon,
   DataObject as TokenIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Send as SendIcon,
+  SmartToy as BotIcon,
+  Person as UserIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { promptsApi } from '../services/api/prompts';
-import type { DataPacketQueryParams } from '../types';
+import type { DataPacketQueryParams, Conversation, Message } from '../types';
+import { ConversationWindow } from '../components/conversations/ConversationWindow';
+import { conversationsApi } from '../services/api/conversations';
 // import { fetchPromptLabData, executePrompt, generateContextSuggestions } from '../store/slices/promptLabSlice';
+
+
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -149,6 +162,13 @@ export default function PromptLabPage() {
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Conversation window state
+  const [conversationOpen, setConversationOpen] = useState(false);
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [isSendingFollowUp, setIsSendingFollowUp] = useState(false);
+  const [conversationError, setConversationError] = useState<string | null>(null);
 
   useEffect(() => {
     // dispatch(fetchPromptLabData());
@@ -365,13 +385,65 @@ export default function PromptLabPage() {
         localSelectedModels,
         currentProfile.id
       );
+      
+      // Initialize conversation with the original prompt and response
+      const initialMessages = [
+        {
+          id: `msg-${Date.now()}-1`,
+          role: 'user',
+          content: promptText,
+          timestamp: new Date().toISOString(),
+          model: localSelectedModels[0] // Use first selected model
+        },
+        {
+          id: `msg-${Date.now()}-2`,
+          role: 'assistant',
+          content: executionResult?.responses?.[0]?.content || 'This is a placeholder response. In a real implementation, this would be the actual model response.',
+          timestamp: new Date().toISOString(),
+          model: localSelectedModels[0]
+        }
+      ];
 
-      console.log('Execution completed:', executionResult);
+      // Create conversation in FIDU Core backed
+      // TODO: Need to add Context to this somehow
+      const conversation_id = crypto.randomUUID().toString();
+      const conversation: Conversation = {
+        id: conversation_id, 
+        title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+        platform: localSelectedModels[0].toLowerCase() as 'chatgpt' | 'claude' | 'gemini' | 'other',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messageCount: 2,
+        tags: [],
+        isArchived: false,
+        isFavorite: false,
+        participants: [], 
+        status: 'active' as 'active' | 'archived' | 'deleted'
+      };
+
+      const messages = initialMessages.map(msg => ({
+        id: msg.id,
+        conversationId: conversation_id,
+        content: msg.content,
+        role: msg.role as 'user' | 'assistant' | 'system',
+        timestamp: msg.timestamp,
+        platform: msg.model || 'unknown',
+        isEdited: false
+      }));
+
+      await conversationsApi.createConversation(
+        currentProfile.id,
+        conversation,
+        messages
+      );
+
+      setConversationMessages(messages);
+      setCurrentConversation(conversation);
+      setConversationOpen(true);
+      setConversationError(null);
       
       // Refresh execution history
       await fetchExecutionHistory();
-      
-      // TODO: Handle the execution result (e.g., show responses, update history)
       
     } catch (error: any) {
       console.error('Error executing prompt:', error);
@@ -425,27 +497,79 @@ export default function PromptLabPage() {
     }
   }, [currentProfile]);
 
-  // Mock data for development
-  const mockSystemPrompts = [
-    {
-      id: 'sys-1',
-      name: 'Code Assistant',
-      content: 'You are an expert software developer. Help write clean, efficient, and well-documented code.',
-      description: 'General coding assistance with best practices',
-      tokenCount: 23,
-      modelCompatibility: ['claude-3-sonnet', 'gpt-4-turbo', 'gemini-pro'],
-      createdAt: new Date('2024-01-10')
-    },
-    {
-      id: 'sys-2',
-      name: 'Technical Writer',
-      content: 'You are a technical documentation expert. Create clear, comprehensive documentation.',
-      description: 'Technical writing and documentation',
-      tokenCount: 18,
-      modelCompatibility: ['claude-3-sonnet', 'gpt-4'],
-      createdAt: new Date('2024-01-12')
+  // Handle sending follow-up message
+  const handleSendFollowUp = useCallback(async (message: string) => {
+    if (!message.trim() || !currentProfile || !currentConversation) {
+      return;
     }
-  ];
+
+    setIsSendingFollowUp(true);
+    setConversationError(null);
+
+    try {
+      // Add user message to conversation
+      const userMessage = {
+        id: `msg-${Date.now()}-user`,
+        conversationId: currentConversation.id,
+        role: 'user' as 'user' | 'assistant' | 'system',
+        content: message,
+        timestamp: new Date().toISOString(),
+        platform: localSelectedModels[0],
+        isEdited: false
+      };
+
+      var allMessagesSoFar: Message[] = [];
+      setConversationMessages(prev => {
+        const updatedMessages = [...prev, userMessage];
+        // Capture updated messages here to ensure we get most up to date state
+        allMessagesSoFar = updatedMessages;
+        return updatedMessages;
+      });
+      
+      // Send follow-up to API (placeholder for now)
+      // In a real implementation, you'd send the conversation context + new message
+      const followUpResult = await promptsApi.executePrompt(
+        selectedContext,
+        message,
+        localSelectedModels,
+        currentProfile.id
+      );
+
+      // Add assistant response to conversation
+      const assistantMessage = {
+        id: `msg-${Date.now()}-assistant`,
+        role: 'assistant' as 'user' | 'assistant' | 'system',
+        conversationId: currentConversation.id,
+        content: followUpResult?.responses?.[0]?.content || 'This is a placeholder follow-up response.',
+        timestamp: new Date().toISOString(),
+        platform: localSelectedModels[0],
+        isEdited: false
+      };
+
+      // Update conversation in FIDU Core backed
+      await conversationsApi.updateConversation(
+        currentConversation,
+        [...allMessagesSoFar, assistantMessage]
+      );
+
+      setConversationMessages(prev => [...prev, assistantMessage]);
+
+    } catch (error: any) {
+      console.error('Error sending follow-up:', error);
+      setConversationError(error.message || 'Failed to send follow-up message');
+    } finally {
+      setIsSendingFollowUp(false);
+    }
+  }, [currentProfile, currentConversation, localSelectedModels, selectedContext]);
+
+  // Handle closing conversation window
+  const handleCloseConversation = useCallback(() => {
+    setConversationOpen(false);
+    setConversationMessages([]);
+    setCurrentConversation(null);
+    setConversationError(null);
+  }, []);
+
 
   const mockContextSuggestions = [
     {
@@ -527,6 +651,7 @@ export default function PromptLabPage() {
   const debouncedPromptTokens = useMemo(() => {
     return calculateTokenCount(debouncedPromptText);
   }, [debouncedPromptText]);
+
 
   const PromptStack = () => {
     if (stackMinimized) {
@@ -1131,6 +1256,17 @@ export default function PromptLabPage() {
 
       {/* Floating Prompt Stack */}
       <PromptStack />
+
+      {/* Conversation Window */}
+      <ConversationWindow 
+        open={conversationOpen}
+        onClose={handleCloseConversation}
+        messages={conversationMessages}
+        selectedModel={localSelectedModels[0]}
+        isSendingFollowUp={isSendingFollowUp}
+        error={conversationError}
+        onSendMessage={handleSendFollowUp}
+      />
 
       {/* Save Prompt Dialog */}
       <Dialog 
