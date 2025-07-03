@@ -44,7 +44,7 @@ const transformPromptToDataPacket = (prompt: Prompt, profileId: string): {
   return {
     id: prompt.id,
     profile_id: profileId,
-    tags: ["ACM", "ACM-LAB-Prompt", "Saved-Prompt", ...(prompt.tags || [])],
+    tags: ["ACM", "ACM-LAB-Prompt", ...(prompt.tags || [])],
     data: {
       prompt_title: prompt.title || "Untitled Prompt",
       prompt: prompt.prompt,
@@ -56,7 +56,7 @@ export const promptsApi = {
 
 	getAll: async (filters?: FilterOptions, page = 1, limit = 20, profileId?: string) => {
 		const queryParams: DataPacketQueryParams = {
-			tags: ["ACM", "ACM-LAB-Prompt", "Saved-Prompt", ...(filters?.tags || [])],
+			tags: ["ACM", "ACM-LAB-Prompt", ...(filters?.tags || [])],
 			profile_id: profileId, // Include profile_id for authenticated requests
 			limit: limit,
 			offset: (page - 1) * limit,

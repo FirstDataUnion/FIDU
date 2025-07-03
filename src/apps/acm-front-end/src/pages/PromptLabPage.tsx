@@ -74,6 +74,11 @@ import { promptsApi } from '../services/api/prompts';
 import type { DataPacketQueryParams, Conversation, Message } from '../types';
 import { ConversationWindow } from '../components/conversations/ConversationWindow';
 import { conversationsApi } from '../services/api/conversations';
+import { PromptInput } from '../components/prompts/PromptInput';
+import { RecentPrompts } from '../components/prompts/RecentPrompts';
+import { ModelSelection } from '../components/prompts/ModelSelection';
+import { PromptStack } from '../components/prompts/PromptStack';
+import { usePromptText } from '../hooks/usePromptText';
 // import { fetchPromptLabData, executePrompt, generateContextSuggestions } from '../store/slices/promptLabSlice';
 
 
@@ -132,8 +137,6 @@ export default function PromptLabPage() {
 
   // UI State
   const [activeTab, setActiveTab] = useState(0);
-  const [promptText, setPromptText] = useState('');
-  const [debouncedPromptText, setDebouncedPromptText] = useState('');
   const [stackExpanded, setStackExpanded] = useState(true);
   const [stackMinimized, setStackMinimized] = useState(false);
   const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<any>(null);
@@ -141,6 +144,19 @@ export default function PromptLabPage() {
   const [selectedContext, setSelectedContext] = useState<any>(null);
   const [localSelectedModels, setLocalSelectedModels] = useState<string[]>([]);
   
+  // Simple prompt text state with debouncing
+  const [promptText, setPromptText] = useState('');
+  const [debouncedPromptText, setDebouncedPromptText] = useState('');
+  
+  // Debounce prompt text changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPromptText(promptText);
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timer);
+  }, [promptText]);
+
   // Save dialog states
   const [savePromptDialog, setSavePromptDialog] = useState(false);
   const [promptTitle, setPromptTitle] = useState('');
@@ -173,20 +189,6 @@ export default function PromptLabPage() {
   useEffect(() => {
     // dispatch(fetchPromptLabData());
   }, [dispatch]);
-
-  // Debounce prompt text changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedPromptText(promptText);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [promptText]);
-
-  // Function to immediately update debounced prompt when user clicks elsewhere
-  const handlePromptBlur = () => {
-    setDebouncedPromptText(promptText);
-  };
 
   // Generate a hash-based ID for deduplication
   const generatePromptId = (title: string, profileId: string): string => {
@@ -246,7 +248,7 @@ export default function PromptLabPage() {
         prompt: promptText,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        tags: []
+        tags: ["Saved-Prompt"]
       };
 
       const savedPrompt = await promptsApi.savePrompt(promptData, currentProfile.id);
@@ -562,6 +564,19 @@ export default function PromptLabPage() {
     }
   }, [currentProfile, currentConversation, localSelectedModels, selectedContext]);
 
+  // Convert Message to ConversationMessage (filtering out system messages)
+  const convertMessagesToConversationMessages = useCallback((messages: Message[]) => {
+    return messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString(),
+        model: msg.platform
+      }));
+  }, []);
+
   // Handle closing conversation window
   const handleCloseConversation = useCallback(() => {
     setConversationOpen(false);
@@ -631,10 +646,11 @@ export default function PromptLabPage() {
     }
   ];
 
-  const calculateTokenCount = (text: string) => {
+  // Optimized token calculation - memoized to prevent recalculation
+  const calculateTokenCount = useCallback((text: string) => {
     // Simple approximation: ~4 characters per token
     return Math.ceil(text.length / 4);
-  };
+  }, []);
 
   // Memoized total tokens calculation to prevent expensive operations on every render
   const totalTokens = useMemo(() => {
@@ -645,212 +661,12 @@ export default function PromptLabPage() {
       total += selectedContext.tokenCount;
     }
     return total;
-  }, [debouncedPromptText, selectedContext]);
+  }, [debouncedPromptText, selectedContext, calculateTokenCount]);
 
   // Memoized debounced prompt token count
   const debouncedPromptTokens = useMemo(() => {
     return calculateTokenCount(debouncedPromptText);
-  }, [debouncedPromptText]);
-
-
-  const PromptStack = () => {
-    if (stackMinimized) {
-      return (
-        <Paper 
-          sx={{ 
-            position: 'fixed', 
-            bottom: 16, 
-            right: 16, 
-            p: 1,
-            zIndex: 1000,
-            cursor: 'pointer',
-            backgroundColor: 'primary.main',
-            color: 'primary.contrastText'
-          }}
-          onClick={() => setStackMinimized(false)}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TerminalIcon />
-            <Typography variant="body2">Prompt Stack ({totalTokens} tokens)</Typography>
-          </Box>
-        </Paper>
-      );
-    }
-
-    return (
-      <Paper 
-        sx={{ 
-          position: 'fixed', 
-          top: 80, 
-          right: 16, 
-          width: 350, 
-          maxHeight: 'calc(100vh - 100px)',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        {/* Header */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TerminalIcon color="primary" />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Prompt Stack
-          </Typography>
-          <Chip 
-            label={`${totalTokens} tokens`} 
-            size="small" 
-            color="primary"
-          />
-          <IconButton size="small" onClick={() => setStackMinimized(true)}>
-            <MinimizeIcon />
-          </IconButton>
-          <IconButton size="small" onClick={() => setStackExpanded(!stackExpanded)}>
-            <ExpandMoreIcon sx={{ transform: stackExpanded ? 'rotate(180deg)' : 'none' }} />
-          </IconButton>
-        </Box>
-
-        {/* Content */}
-        {stackExpanded && (
-          <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-
-            {/* Current Prompt */}
-            {debouncedPromptText && (
-              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Current Prompt
-                  </Typography>
-                  <Chip 
-                    label={`${debouncedPromptTokens}t`} 
-                    size="small" 
-                    variant="outlined" 
-                  />
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {debouncedPromptText.length > 150 
-                    ? `${debouncedPromptText.substring(0, 150)}...` 
-                    : debouncedPromptText
-                  }
-                </Typography>
-              </Box>
-            )}
-
-            {/* Selected Context */}
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Selected Context
-              </Typography>
-              {selectedContext ? (
-                <Box sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      {selectedContext.title}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Chip label={`${selectedContext.relevanceScore * 100}%`} size="small" color="success" />
-                      <Chip label={`${selectedContext.tokenCount}t`} size="small" variant="outlined" />
-                    </Box>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                    {selectedContext.description}
-                  </Typography>
-                  <Button 
-                    size="small" 
-                    variant="outlined" 
-                    startIcon={<CloseIcon />}
-                    onClick={() => setSelectedContext(null)}
-                    sx={{ mt: 0.5 }}
-                  >
-                    Remove Context
-                  </Button>
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  p: 2, 
-                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', 
-                  borderRadius: 1, 
-                  textAlign: 'center',
-                  border: '2px dashed',
-                  borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'grey.300'
-                }}>
-                  <Typography variant="caption" color="text.secondary">
-                    No context selected
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    Select a context from the suggestions panel
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Selected Model */}
-            {localSelectedModels.length > 0 && (
-              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Selected Model
-                </Typography>
-                {localSelectedModels.map((modelId: string) => {
-                  const model = mockModels.find(m => m.id === modelId);
-                  return model ? (
-                    <Box key={modelId} sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                          {model.name}
-                        </Typography>
-                        <Chip label={model.provider} size="small" color="primary" />
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                        Max tokens: {model.maxTokens.toLocaleString()}
-                      </Typography>
-                      <Button 
-                        size="small" 
-                        variant="outlined" 
-                        startIcon={<CloseIcon />}
-                        onClick={() => {
-                          setLocalSelectedModels(prev => 
-                            prev.includes(model.id) 
-                              ? prev.filter(id => id !== model.id)
-                              : [...prev, model.id]
-                          );
-                        }}
-                        sx={{ mt: 0.5 }}
-                      >
-                        Remove Model
-                      </Button>
-                    </Box>
-                  ) : null;
-                })}
-              </Box>
-            )}
-          </Box>
-        )}
-
-        {/* Actions */}
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Stack direction="row" spacing={1}>
-            <Button 
-              variant="contained" 
-              startIcon={isExecuting ? <CircularProgress size={16} /> : <PlayIcon />}
-              size="small"
-              fullWidth
-              disabled={!promptText || totalTokens === 0 || isExecuting}
-              onClick={handleExecute}
-            >
-              {isExecuting ? 'Executing...' : 'Execute'}
-            </Button>
-            <IconButton size="small" onClick={handleSaveClick}>
-              <SaveIcon />
-            </IconButton>
-          </Stack>
-          {executionError && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              {executionError}
-            </Alert>
-          )}
-        </Box>
-      </Paper>
-    );
-  };
+  }, [debouncedPromptText, calculateTokenCount]);
 
   return (
     <Box sx={{ p: 3, pr: stackMinimized ? 3 : 45 }}>
@@ -885,150 +701,32 @@ export default function PromptLabPage() {
               <TabPanel value={activeTab} index={0}>
                 <Stack spacing={3}>
                   {/* Recent Prompts */}
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Recent Prompts
-                    </Typography>
-                    {executionHistory.length > 0 ? (
-                      <Box sx={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, 
-                        gap: 2 
-                      }}>
-                        {executionHistory.slice(0, 2).map((execution) => (
-                          <Card 
-                            key={execution.id}
-                            variant="outlined"
-                            sx={{ 
-                              cursor: 'pointer',
-                              '&:hover': {
-                                boxShadow: 2,
-                                borderColor: 'primary.main'
-                              }
-                            }}
-                            onClick={() => handleUsePrompt(execution)}
-                          >
-                            <CardContent sx={{ p: 2 }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                  {execution.title}
-                                </Typography>
-                                <Chip 
-                                  label={`${calculateTokenCount(execution.prompt)} tokens`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              </Box>
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {execution.prompt.length > 100 
-                                  ? `${execution.prompt.substring(0, 100)}...` 
-                                  : execution.prompt
-                                }
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                Executed: {new Date(execution.createdAt).toLocaleDateString()}
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </Box>
-                    ) : (
-                      <Box sx={{ 
-                        p: 3, 
-                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', 
-                        borderRadius: 1, 
-                        textAlign: 'center',
-                        border: '2px dashed',
-                        borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'grey.300'
-                      }}>
-                        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-                          No recent prompts to show
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Execute a prompt to see it here
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
+                  <RecentPrompts 
+                    prompts={executionHistory}
+                    onUsePrompt={handleUsePrompt}
+                    calculateTokenCount={calculateTokenCount}
+                  />
 
                   {/* Prompt Input */}
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Your Prompt
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={8}
-                      placeholder="Enter your prompt here..."
-                      value={promptText}
-                      // TODO: This is mega laggy cos it rerenders everything on each press. Need to optimise whole page a lot. 
-                      onChange={(e) => setPromptText(e.target.value)} 
-                      variant="outlined"
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': {
-                          fontFamily: 'monospace',
-                          fontSize: '0.9rem'
-                        }
-                      }}
-                      onBlur={handlePromptBlur}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {debouncedPromptTokens} tokens
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={handleSaveClick}>
-                          Save Prompt
-                        </Button>
-                      </Stack>
-                    </Box>
-                  </Box>
+                  <PromptInput 
+                    value={promptText}
+                    onChange={setPromptText}
+                    onSave={handleSaveClick}
+                    tokenCount={debouncedPromptTokens}
+                  />
 
                   {/* Model Selection */}
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Models
-                    </Typography>
-                    <Box sx={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, 
-                      gap: 2 
-                    }}>
-                      {mockModels.map((model) => (
-                        <Card 
-                          key={model.id}
-                          variant="outlined"
-                          sx={{ 
-                            cursor: 'pointer',
-                            border: localSelectedModels.includes(model.id) ? 2 : 1,
-                            borderColor: localSelectedModels.includes(model.id) ? 'primary.main' : 'divider'
-                          }}
-                          onClick={() => {
-                            setLocalSelectedModels(prev => 
-                              prev.includes(model.id) 
-                                ? prev.filter(id => id !== model.id)
-                                : [...prev, model.id]
-                            );
-                          }}
-                        >
-                          <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                              {model.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                              {model.provider}
-                            </Typography>
-                            <Chip 
-                              label={`${model.maxTokens.toLocaleString()} max`} 
-                              size="small" 
-                              variant="outlined"
-                            />
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
-                  </Box>
+                  <ModelSelection 
+                    models={mockModels}
+                    selectedModels={localSelectedModels}
+                    onModelToggle={(modelId) => {
+                      setLocalSelectedModels(prev => 
+                        prev.includes(modelId) 
+                          ? prev.filter(id => id !== modelId)
+                          : [...prev, modelId]
+                      );
+                    }}
+                  />
                 </Stack>
               </TabPanel>
 
@@ -1255,13 +953,32 @@ export default function PromptLabPage() {
       </Box>
 
       {/* Floating Prompt Stack */}
-      <PromptStack />
+      <PromptStack
+        
+        stackMinimized={stackMinimized}
+        stackExpanded={stackExpanded}
+        totalTokens={totalTokens}
+        debouncedPromptText={debouncedPromptText}
+        debouncedPromptTokens={debouncedPromptTokens}
+        selectedContext={selectedContext}
+        localSelectedModels={localSelectedModels}
+        mockModels={mockModels}
+        promptText={promptText}
+        isExecuting={isExecuting}
+        executionError={executionError}
+        onMinimize={() => setStackMinimized(true)}
+        onToggleExpanded={() => setStackExpanded(!stackExpanded)}
+        onRemoveContext={() => setSelectedContext(null)}
+        onRemoveModel={(modelId) => setLocalSelectedModels(prev => prev.filter(id => id !== modelId))}
+        onExecute={handleExecute}
+        onSave={handleSaveClick}
+      />
 
       {/* Conversation Window */}
       <ConversationWindow 
         open={conversationOpen}
         onClose={handleCloseConversation}
-        messages={conversationMessages}
+        messages={convertMessagesToConversationMessages(conversationMessages)}
         selectedModel={localSelectedModels[0]}
         isSendingFollowUp={isSendingFollowUp}
         error={conversationError}
