@@ -1,98 +1,52 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Conversation, FilterOptions, ConversationsState } from '../../types';
 import { conversationsApi } from '../../services/api/conversations';
-import { dbService } from '../../services/database';
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
   async ({ filters, page, limit }: { filters?: FilterOptions; page?: number; limit?: number }, { getState }) => {
-    const state = getState() as { conversations: ConversationsState; auth: { currentProfile: { id: string } | null } };
-    const useApi = state.conversations.useApi;
-
-    if (useApi) {
-      const profileId = state.auth.currentProfile?.id;
-      if (!profileId) {
-        throw new Error('No profile selected. Please select a profile to continue.');
-      }
-      return await conversationsApi.getAll(filters, page, limit, profileId);
-    } else {
-      const conversations = await dbService.getConversations(filters);
-      return {
-        conversations,
-        total: conversations.length,
-        page: page || 1,
-        limit: limit || 20
-      };
+    const state = getState() as { auth: { currentProfile: { id: string } | null } };
+    const profileId = state.auth.currentProfile?.id;
+    if (!profileId) {
+      throw new Error('No profile selected. Please select a profile to continue.');
     }
+    return await conversationsApi.getAll(filters, page, limit, profileId);
   }
 );
 
 export const fetchConversation = createAsyncThunk(
   'conversations/fetchConversation',
-  async (id: string, { getState }) => {
-    const state = getState() as { conversations: ConversationsState };
-    const useApi = state.conversations.useApi;
-
-    if (useApi) {
-      return await conversationsApi.getById(id);
-    } else {
-      return await dbService.getConversation(id);
-    }
+  async (id: string) => {
+    return await conversationsApi.getById(id);
   }
 );
 
 export const fetchConversationMessages = createAsyncThunk(
   'conversations/fetchConversationMessages',
-  async (conversationId: string, { getState }) => {
+  async (conversationId: string) => {
     console.log('fetchConversationMessages called with conversationId:', conversationId);
-    const state = getState() as { conversations: ConversationsState };
-    const useApi = state.conversations.useApi;
-    console.log('Using API:', useApi, 'State useApi value:', state.conversations.useApi);
-
-    if (useApi) {
-      console.log('Fetching messages from API...');
-      const messages = await conversationsApi.getMessages(conversationId);
-      console.log('API messages result:', messages);
-      return messages;
-    } else {
-      console.log('Fetching messages from local database...');
-      const messages = await dbService.getMessages(conversationId);
-      console.log('Database messages result:', messages);
-      return messages;
-    }
+    console.log('Fetching messages from API...');
+    const messages = await conversationsApi.getMessages(conversationId);
+    console.log('API messages result:', messages);
+    return messages;
   }
 );
 
 export const saveConversation = createAsyncThunk(
   'conversations/saveConversation',
-  async (conversation: Conversation, { getState }) => {
-    const state = getState() as { conversations: ConversationsState };
-    const useApi = state.conversations.useApi;
-
-    if (useApi) {
-      if (conversation.id) {
-        return await conversationsApi.update(conversation.id, conversation);
-      } else {
-        return await conversationsApi.create(conversation);
-      }
+  async (conversation: Conversation) => {
+    if (conversation.id) {
+      return await conversationsApi.update(conversation.id, conversation);
     } else {
-      await dbService.saveConversation(conversation);
-      return conversation;
+      return await conversationsApi.create(conversation);
     }
   }
 );
 
 export const deleteConversation = createAsyncThunk(
   'conversations/deleteConversation',
-  async (id: string, { getState }) => {
-    const state = getState() as { conversations: ConversationsState };
-    const useApi = state.conversations.useApi;
-
-    if (useApi) {
-      await conversationsApi.delete(id);
-    } else {
-      await dbService.deleteConversation(id);      
-    }
+  async (id: string) => {
+    await conversationsApi.delete(id);
     return id;
   }
 );
@@ -125,7 +79,6 @@ const initialState: ConversationsState = {
   messagesLoading: false,
   loading: false,
   error: null,
-  useApi: false,
   filters: {
     searchQuery: '',
     platforms: [],
@@ -169,9 +122,6 @@ const conversationsSlice = createSlice({
       if (state.currentConversation?.id === action.payload.id) {
         state.currentConversation = action.payload;
       }
-    },
-    toggleDataSource: (state) => {
-      state.useApi = !state.useApi;
     }
   },
   extraReducers: (builder) => {
@@ -297,8 +247,7 @@ export const {
   setPagination,
   clearCurrentConversation,
   clearError,
-  updateConversationLocally,
-  toggleDataSource
+  updateConversationLocally
 } = conversationsSlice.actions;
 
 export default conversationsSlice.reducer; 
