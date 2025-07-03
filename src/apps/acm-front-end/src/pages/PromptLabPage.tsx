@@ -169,6 +169,7 @@ export default function PromptLabPage() {
   const [savedPrompts, setSavedPrompts] = useState<any[]>([]);
   const [loadingSavedPrompts, setLoadingSavedPrompts] = useState(false);
   const [savedPromptsError, setSavedPromptsError] = useState<string | null>(null);
+  const [savedPromptsSearchQuery, setSavedPromptsSearchQuery] = useState('');
 
   // Execution state
   const [isExecuting, setIsExecuting] = useState(false);
@@ -668,6 +669,19 @@ export default function PromptLabPage() {
     return calculateTokenCount(debouncedPromptText);
   }, [debouncedPromptText, calculateTokenCount]);
 
+  // Filter saved prompts based on search query
+  const filteredSavedPrompts = useMemo(() => {
+    if (!savedPromptsSearchQuery.trim()) {
+      return savedPrompts;
+    }
+    
+    const query = savedPromptsSearchQuery.toLowerCase();
+    return savedPrompts.filter(prompt => 
+      prompt.title?.toLowerCase().includes(query) ||
+      prompt.prompt?.toLowerCase().includes(query)
+    );
+  }, [savedPrompts, savedPromptsSearchQuery]);
+
   return (
     <Box sx={{ p: 3, pr: stackMinimized ? 3 : 45 }}>
       {/* Header */}
@@ -746,6 +760,42 @@ export default function PromptLabPage() {
                     Refresh
                   </Button>
                 </Box>
+
+                {/* Search Bar */}
+                <TextField
+                  fullWidth
+                  placeholder="Search saved prompts by title or content..."
+                  value={savedPromptsSearchQuery}
+                  onChange={(e) => setSavedPromptsSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: savedPromptsSearchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSavedPromptsSearchQuery('')}
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                  sx={{ mb: 2 }}
+                  size="small"
+                />
+
+                {/* Search Results Count */}
+                {savedPromptsSearchQuery && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {filteredSavedPrompts.length} of {savedPrompts.length} prompts match your search
+                    </Typography>
+                  </Box>
+                )}
                 
                 {loadingSavedPrompts && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -759,20 +809,23 @@ export default function PromptLabPage() {
                   </Alert>
                 )}
 
-                {!loadingSavedPrompts && !savedPromptsError && savedPrompts.length === 0 && (
+                {!loadingSavedPrompts && !savedPromptsError && filteredSavedPrompts.length === 0 && (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                      No saved prompts yet
+                      {savedPromptsSearchQuery ? 'No prompts match your search' : 'No saved prompts yet'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Save your first prompt using the save button in the prompt stack
+                      {savedPromptsSearchQuery 
+                        ? 'Try adjusting your search terms'
+                        : 'Save your first prompt using the save button in the prompt stack'
+                      }
                     </Typography>
                   </Box>
                 )}
 
-                {!loadingSavedPrompts && !savedPromptsError && savedPrompts.length > 0 && (
+                {!loadingSavedPrompts && !savedPromptsError && filteredSavedPrompts.length > 0 && (
                   <Stack spacing={2}>
-                    {savedPrompts.map((prompt) => (
+                    {filteredSavedPrompts.map((prompt) => (
                       <Card key={prompt.id} variant="outlined">
                         <CardContent>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
