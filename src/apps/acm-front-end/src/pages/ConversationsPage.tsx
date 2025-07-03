@@ -42,7 +42,7 @@ import {
   Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { fetchConversations, fetchConversationMessages, toggleDataSource } from '../store/slices/conversationsSlice';
+import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchTags } from '../store/slices/tagsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
@@ -50,7 +50,7 @@ import { getPlatformColor, getTagColor, formatDate } from '../utils/conversation
 
 const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { items: conversations = [], loading, error, useApi } = useAppSelector((state) => state.conversations as ConversationsState);
+  const { items: conversations = [], loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: tags = [] } = useAppSelector((state) => state.tags as any);
   const { sidebarOpen } = useAppSelector((state) => state.ui);
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
@@ -76,11 +76,6 @@ const ConversationsPage: React.FC = () => {
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
   useEffect(() => {
-    // If authenticated and has a profile, use API by default
-    if (isAuthenticated && currentProfile && !useApi) {
-      dispatch(toggleDataSource());
-    }
-    
     dispatch(fetchConversations({ 
       filters: {
         sortBy: 'updatedAt',
@@ -90,22 +85,9 @@ const ConversationsPage: React.FC = () => {
       limit: 20
     }));
     dispatch(fetchTags());
-  }, [dispatch, isAuthenticated, currentProfile, useApi]);
+  }, [dispatch, isAuthenticated, currentProfile]);
 
   const handleRefresh = () => {
-    dispatch(fetchConversations({ 
-      filters: {
-        sortBy: 'updatedAt',
-        sortOrder: 'desc'
-      },
-      page: 1,
-      limit: 20
-    }));
-  };
-
-  const handleDataSourceToggle = () => {
-    dispatch(toggleDataSource());
-    // Refresh conversations with the new data source
     dispatch(fetchConversations({ 
       filters: {
         sortBy: 'updatedAt',
@@ -411,27 +393,6 @@ const ConversationsPage: React.FC = () => {
               flexWrap: 'wrap'
             }}
           >
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: '80px', flexShrink: 0 }}>
-              Mode: {useApi ? "API" : "Local DB"}
-            </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={useApi}
-                  onChange={handleDataSourceToggle}
-                  color="primary"
-                />
-              }
-              label={useApi ? "Using API" : "Using Local DB"}
-              sx={{ 
-                flexShrink: 0, 
-                minWidth: '120px', // Fixed width to prevent layout shifts
-                '& .MuiFormControlLabel-label': {
-                  width: '100px', // Fixed width for the label text
-                  textAlign: 'left'
-                }
-              }}
-            />
             <Button
               variant="outlined"
               onClick={handleRefresh}
