@@ -89,6 +89,32 @@ export interface ConversationDataPacket {
     targetModelRequested: string;
     conversationUrl: string;
     conversationTitle: string;
+    isArchived: boolean;
+    isFavorite: boolean;
+    participants: string[];
+    status: 'active' | 'archived' | 'deleted';
+  };
+}
+
+export interface ConversationDataPacketUpdate {
+  id: string;
+  tags: string[];
+  data: {
+    sourceChatbot: string;
+    interactions: Array<{
+      actor: string;
+      timestamp: string;
+      content: string;
+      attachments: string[];
+    }>;
+    originalACMsUsed: string[];
+    targetModelRequested: string;
+    conversationUrl: string;
+    conversationTitle: string;
+    isArchived: boolean;
+    isFavorite: boolean;
+    participants: string[];
+    status: 'active' | 'archived' | 'deleted';
   };
 }
 

@@ -46,6 +46,7 @@ import { fetchConversations, fetchConversationMessages, toggleDataSource } from 
 import { fetchTags } from '../store/slices/tagsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
+import { getPlatformColor, getTagColor, formatDate } from '../utils/conversationUtils';
 
 const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -158,25 +159,6 @@ const ConversationsPage: React.FC = () => {
     if (aVal > bVal) return 1 * multiplier;
     return 0;
   });
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getPlatformColor = (platform: string) => {
-    switch (platform) {
-      case 'chatgpt': return '#00A67E';
-      case 'claude': return '#FF6B35';
-      case 'gemini': return '#4285F4';
-      default: return '#666';
-    }
-  };
 
   const handleContextSelection = (conversationId: string) => {
     setSelectedForContext(prev => 

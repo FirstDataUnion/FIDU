@@ -1,6 +1,6 @@
 import { apiClient } from './apiClients';
-import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket } from '../../types';
-
+import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate } from '../../types';
+import { v5 as uuidv5 } from 'uuid';
 
 
 export interface ConversationsResponse {
@@ -17,10 +17,7 @@ export interface ConversationResponse {
 // Transform API data packet to local Conversation type
 const transformDataPacketToConversation = (packet: ConversationDataPacket): Conversation => {
   // Add validation to ensure required fields exist
-  console.log('transformDataPacketToConversation packet:', packet);
   if (!packet.data?.interactions?.length) {
-    console.warn('Data packet missing required fields:', packet);
-    console.warn('Skipping packet:', packet.id);
     return {
       id: packet.id,
       title: "Error: Could not parse data packet as conversation",
@@ -46,14 +43,95 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
     lastMessage: packet.data.interactions[packet.data.interactions.length - 1].content,
     messageCount: packet.data.interactions.length,
     tags: packet.tags || [],
-    isArchived: false,
-    isFavorite: false,
-    participants: [],
-    status: 'active'
+    isArchived: packet.data.isArchived || false,
+    isFavorite: packet.data.isFavorite || false,
+    participants: packet.data.participants || [],
+    status: packet.data.status || 'active'
+  };
+};
+
+const transformConversationToDataPacket = (profile_id: string, conversation: Partial<Conversation>, messages: Message[]): ConversationDataPacket => {
+  return {
+    id: conversation.id || crypto.randomUUID(),
+    profile_id: profile_id,
+    create_timestamp: '',
+    update_timestamp: '',
+    tags: ['ACM', 'ACM-Conversation', 'ACM-Lab-Conversation', ...(conversation.tags || [])],
+    data: {
+      sourceChatbot: (conversation.platform || 'other').toUpperCase(),
+      interactions: messages.map((message) => ({
+        actor: message.role,
+        timestamp: message.timestamp.toString(),
+        content: message.content,
+        attachments: message.attachments?.map(att => att.url || att.toString()) || []
+      })),
+      targetModelRequested: conversation.platform || 'other',
+      conversationUrl: 'ACM_Lab',
+      originalACMsUsed: [],
+      conversationTitle: conversation.title || 'Untitled Conversation',
+      isArchived: conversation.isArchived || false,
+      isFavorite: conversation.isFavorite || false,
+      participants: conversation.participants || [],
+      status: conversation.status || 'active'
+    }
+  };
+};
+
+const transformConversationToDataPacketUpdate = (conversation: Partial<Conversation>, messages: Message[]): ConversationDataPacketUpdate => {
+  if (!conversation.id) {
+    throw new Error('Conversation ID is required to update conversation');
+  }
+  return {
+    id: conversation.id,
+    tags: ['ACM', 'ACM-Conversation', 'ACM-Lab-Conversation', ...(conversation.tags || [])],
+    data: {
+      sourceChatbot: (conversation.platform || 'other').toUpperCase(),
+      interactions: messages.map((message) => ({
+        actor: message.role,
+        timestamp: message.timestamp.toString(),
+        content: message.content,
+        attachments: message.attachments?.map(att => att.url || att.toString()) || []
+      })),
+      targetModelRequested: conversation.platform || 'other',
+      conversationUrl: 'ACM_Lab',
+      originalACMsUsed: [],
+      conversationTitle: conversation.title || 'Untitled Conversation',
+      isArchived: conversation.isArchived || false,
+      isFavorite: conversation.isFavorite || false,
+      participants: conversation.participants || [],
+      status: conversation.status || 'active'
+    }
   };
 };
 
 export const conversationsApi = {
+
+  createConversation: async (profile_id: string, conversation: Partial<Conversation>, messages: Message[]) => {
+    const dataPacket = transformConversationToDataPacket(profile_id, conversation, messages);
+    const content = `${profile_id}-${conversation.id}-create`;
+    const namespace = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // UUID namespace for creates
+    const request_id = uuidv5(content, namespace); // Generate UUID 
+    const dataPacketCreateRequest = {
+      request_id,
+      data_packet: dataPacket
+    }
+    const response = await apiClient.post<ConversationDataPacket>('/data-packets', dataPacketCreateRequest);
+    return transformDataPacketToConversation(response.data);
+  },
+
+  updateConversation: async (conversation: Partial<Conversation>, messages: Message[]) => {
+    const dataPacket = transformConversationToDataPacketUpdate(conversation, messages);
+    // Currently don't see a strong need for a deterministic request_id here, we could 
+    // seed one from timestamp, but i see it causing more problems than it'd fix. 
+    const request_id = crypto.randomUUID().toString()
+    const dataPacketUpdateRequest = {
+      request_id,
+      data_packet: dataPacket
+    }
+    const response = await apiClient.put<ConversationDataPacket>('/data-packets/' + conversation.id, dataPacketUpdateRequest);
+    return transformDataPacketToConversation(response.data);
+  },
+
   /**
    * Get all conversations with optional filtering and pagination
    */
@@ -92,9 +170,6 @@ export const conversationsApi = {
           }
         }
       });
-
-      // Log the response for debugging
-      console.log('API Response:', response.data);
 
       // Check if response.data exists and has the expected structure
       if (!response.data) {
@@ -197,18 +272,10 @@ export const conversationsApi = {
    */
   getMessages: async (conversationId: string) => {
     try {
-      console.log('API getMessages called with conversationId:', conversationId);
       const response = await apiClient.get<ConversationDataPacket>(`/data-packets/${conversationId}`);
-      console.log('API getMessages response:', response);
-      console.log('API getMessages response.data:', response.data);
-      console.log('API getMessages response.status:', response.status);
       
       if (response.status === 200 && response.data) {
         const packet = response.data;
-        console.log('API getMessages packet:', packet);
-        console.log('API getMessages packet.data:', packet.data);
-        console.log('API getMessages packet.data?.interactions:', packet.data?.interactions);
-        
         if (!packet.data?.interactions) {
           console.log('No interactions found in packet, returning empty array');
           return [];
@@ -234,7 +301,6 @@ export const conversationsApi = {
           isEdited: false
         }));
         
-        console.log('API getMessages transformed messages:', messages);
         return messages;
       } else {
         console.error('API getMessages failed - response structure:', {

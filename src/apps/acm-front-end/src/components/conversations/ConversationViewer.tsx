@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import { useAppSelector } from '../../hooks/redux';
 import type { Conversation } from '../../types';
+import { getPlatformColor } from '../../utils/conversationUtils';
 
 interface ConversationViewerProps {
   conversation: Conversation;
@@ -261,16 +262,6 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
       </Box>
     </Box>
   );
-};
-
-// Helper function for platform colors
-const getPlatformColor = (platform: string) => {
-  switch (platform) {
-    case 'chatgpt': return '#00A67E';
-    case 'claude': return '#FF6B35';
-    case 'gemini': return '#4285F4';
-    default: return '#666';
-  }
 };
 
 export default ConversationViewer; 
