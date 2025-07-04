@@ -8,66 +8,26 @@ import {
   TextField,
   Chip,
   IconButton,
-  Menu,
-  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
   Stack,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Tooltip,
-  Paper,
   InputAdornment,
-  Switch,
-  FormControlLabel,
   CircularProgress,
   Alert,
   Tab,
-  Tabs,
-  Fab,
-  LinearProgress,
-  Autocomplete,
-  Drawer,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar
+  Tabs
 } from '@mui/material';
 import {
-  PlayArrow as PlayIcon,
-  Stop as StopIcon,
-  Add as AddIcon,
   Save as SaveIcon,
-  Delete as DeleteIcon,
   ContentCopy as CopyIcon,
-  ExpandMore as ExpandMoreIcon,
   Code as CodeIcon,
-  Psychology as PsychologyIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  Settings as SettingsIcon,
   History as HistoryIcon,
   BookmarkBorder as BookmarkIcon,
-  Share as ShareIcon,
-  Download as DownloadIcon,
-  FilterList as FilterIcon,
   Search as SearchIcon,
   Close as CloseIcon,
-  Minimize as MinimizeIcon,
-  Fullscreen as FullscreenIcon,
-  Terminal as TerminalIcon,
-  DataObject as TokenIcon,
-  Refresh as RefreshIcon,
-  Send as SendIcon,
-  SmartToy as BotIcon,
-  Person as UserIcon
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { promptsApi } from '../services/api/prompts';
@@ -78,7 +38,7 @@ import { PromptInput } from '../components/prompts/PromptInput';
 import { RecentPrompts } from '../components/prompts/RecentPrompts';
 import { ModelSelection } from '../components/prompts/ModelSelection';
 import { PromptStack } from '../components/prompts/PromptStack';
-import { usePromptText } from '../hooks/usePromptText';
+
 // import { fetchPromptLabData, executePrompt, generateContextSuggestions } from '../store/slices/promptLabSlice';
 
 
@@ -111,36 +71,15 @@ function TabPanel(props: TabPanelProps) {
 
 export default function PromptLabPage() {
   const dispatch = useAppDispatch();
-  const { 
-    systemPrompts, 
-    executions, 
-    contextSuggestions,
-    currentPrompt,
-    selectedModels,
-    loading, 
-    error 
-  } = useAppSelector((state) => state.promptLab || {
-    systemPrompts: [],
-    executions: [],
-    contextSuggestions: [],
-    currentPrompt: '',
-    selectedModels: [],
-    loading: false,
-    error: null
-  });
+
 
   // Get auth state for profile ID
   const { currentProfile } = useAppSelector((state) => state.auth);
-
-  // Ensure arrays are always defined
-  const safeSelectedModels = selectedModels || [];
 
   // UI State
   const [activeTab, setActiveTab] = useState(0);
   const [stackExpanded, setStackExpanded] = useState(true);
   const [stackMinimized, setStackMinimized] = useState(false);
-  const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<any>(null);
-  const [variables, setVariables] = useState<Record<string, string>>({});
   const [selectedContext, setSelectedContext] = useState<any>(null);
   const [localSelectedModels, setLocalSelectedModels] = useState<string[]>([]);
   
@@ -220,7 +159,7 @@ export default function PromptLabPage() {
     setPromptTitle(defaultTitle);
     
     // Generate ID and check for existing prompt
-    const promptId = generatePromptId(defaultTitle, currentProfile.id);
+    generatePromptId(defaultTitle, currentProfile.id);
     
     // For now, we'll assume no existing prompt (in a real implementation, you'd check the API)
     // TODO: Add check for existing prompt + update
@@ -369,9 +308,8 @@ export default function PromptLabPage() {
 
     try {
       // First, save the prompt to history
-      const promptId = generatePromptId(`Execution-${Date.now()}`, currentProfile.id);
       const promptData = {
-        id: promptId,
+        id: generatePromptId(`Execution-${Date.now()}`, currentProfile.id),
         title: `Execution - ${new Date().toLocaleString()}`,
         prompt: promptText,
         createdAt: new Date().toISOString(),
@@ -614,38 +552,7 @@ export default function PromptLabPage() {
   ];
 
   // Mock saved prompts data
-  const mockSavedPrompts = [
-    {
-      id: 'saved-1',
-      name: 'Code Review Assistant',
-      description: 'Helps review code for best practices and potential issues',
-      prompt: 'Please review this code for best practices, potential bugs, and areas for improvement...',
-      tokenCount: 45,
-      tags: ['code', 'review', 'best-practices'],
-      createdAt: new Date('2024-01-15'),
-      lastUsed: new Date('2024-01-20')
-    },
-    {
-      id: 'saved-2',
-      name: 'API Documentation Generator',
-      description: 'Generates comprehensive API documentation from code comments',
-      prompt: 'Generate comprehensive API documentation for the following endpoints...',
-      tokenCount: 32,
-      tags: ['api', 'documentation', 'generator'],
-      createdAt: new Date('2024-01-12'),
-      lastUsed: new Date('2024-01-18')
-    },
-    {
-      id: 'saved-3',
-      name: 'Error Analysis Helper',
-      description: 'Analyzes error messages and suggests solutions',
-      prompt: 'Analyze this error message and provide a detailed explanation with potential solutions...',
-      tokenCount: 28,
-      tags: ['debugging', 'errors', 'troubleshooting'],
-      createdAt: new Date('2024-01-10'),
-      lastUsed: new Date('2024-01-16')
-    }
-  ];
+
 
   // Optimized token calculation - memoized to prevent recalculation
   const calculateTokenCount = useCallback((text: string) => {
@@ -705,7 +612,7 @@ export default function PromptLabPage() {
           <Card>
             <CardContent>
               {/* Tabs */}
-              <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
+              <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
                 <Tab label="Compose" icon={<CodeIcon />} />
                 <Tab label="Saved" icon={<BookmarkIcon />} />
                 <Tab label="History" icon={<HistoryIcon />} />
@@ -726,7 +633,6 @@ export default function PromptLabPage() {
                     value={promptText}
                     onChange={setPromptText}
                     onSave={handleSaveClick}
-                    tokenCount={debouncedPromptTokens}
                   />
 
                   {/* Model Selection */}
