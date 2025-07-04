@@ -30,12 +30,12 @@ export class DatabaseService {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        this.upgradeDatabase(db, event.oldVersion);
+        this.upgradeDatabase(db);
       };
     });
   }
 
-  private upgradeDatabase(db: IDBDatabase, oldVersion: number): void {
+  private upgradeDatabase(db: IDBDatabase): void {
     // Create or upgrade object stores
     
     // Conversations store

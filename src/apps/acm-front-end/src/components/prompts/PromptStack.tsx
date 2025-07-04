@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
+
   Chip,
   IconButton,
   Button,

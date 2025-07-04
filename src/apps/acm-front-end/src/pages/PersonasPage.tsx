@@ -20,7 +20,6 @@ import {
   Select,
   Stack,
   Divider,
-  Tooltip,
   Paper,
   InputAdornment,
   Fab,
@@ -34,20 +33,14 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
   Person as PersonIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Chat as ChatIcon,
   Psychology as PsychologyIcon,
+  Chat as ChatIcon,
   Code as CodeIcon,
-  Science as ScienceIcon,
   Brush as BrushIcon,
   Business as BusinessIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
   SwapHoriz as SwitchIcon,
   ContentCopy as CopyIcon,
-  Archive as ArchiveIcon,
-  Unarchive as UnarchiveIcon,
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
@@ -55,9 +48,7 @@ import { useAppSelector, useAppDispatch } from '../store';
 
 export default function PersonasPage() {
   const dispatch = useAppDispatch();
-  const { items: personas, activePersonaId, loading, error } = useAppSelector((state) => state.personas || { 
-    items: [], 
-    activePersonaId: null, 
+  const { loading, error } = useAppSelector((state) => state.personas || { 
     loading: false, 
     error: null 
   });
@@ -71,7 +62,7 @@ export default function PersonasPage() {
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+
   
   // Form state
   const [personaForm, setPersonaForm] = useState({
@@ -242,7 +233,7 @@ export default function PersonasPage() {
     handleContextMenuClose();
   };
 
-  const handleSwitchPersona = (personaId: string) => {
+  const handleSwitchPersona = () => {
     // dispatch(switchPersona(personaId));
   };
 
@@ -403,7 +394,7 @@ export default function PersonasPage() {
         <Button 
           size="small" 
           variant="outlined"
-          onClick={() => handleSwitchPersona(persona.id)}
+          onClick={() => handleSwitchPersona()}
           disabled={persona.isActive}
         >
           {persona.isActive ? 'Current' : 'Switch To'}
@@ -549,7 +540,7 @@ export default function PersonasPage() {
         open={Boolean(contextMenuAnchor)}
         onClose={handleContextMenuClose}
       >
-        <MenuItem onClick={() => handleSwitchPersona(selectedPersona?.id)} disabled={selectedPersona?.isActive}>
+        <MenuItem onClick={() => handleSwitchPersona()} disabled={selectedPersona?.isActive}>
           <SwitchIcon sx={{ mr: 1 }} />
           Switch To
         </MenuItem>
