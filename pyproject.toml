@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fidu"
+version = "0.1.0"
+description = "FIDU - Personal data management system"
+authors = [{name = "FIDU Team"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "pydantic",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "python-multipart",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+norecursedirs = [
+    ".git",
+    ".pytest_cache",
+    "src-tauri/target",
+    "src-tauri/node_modules",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    ".mypy_cache",
+    "__pycache__",
+    "*.egg-info",
+    "build",
+    "dist",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = false
+strict_equality = false
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | src-tauri/target
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["fidu_core"] 
