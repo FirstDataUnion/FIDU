@@ -113,6 +113,12 @@
       border: 1px solid #f5c6cb;
     }
     
+    .status.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -231,6 +237,40 @@
         <button id="refreshConversations" class="secondary">Refresh</button>
         <button id="clearAllConversations" class="danger">Clear All</button>
       </div>
+    </div>
+    
+    <!-- FIDU Core Integration Section -->
+    <div class="section">
+      <h2>🔗 FIDU Core Integration</h2>
+      <p>Configure integration with FIDU Core backend for centralized data storage:</p>
+      
+      <div style="margin-bottom: 15px;">
+        <label>
+          <input type="checkbox" id="useFiduCore" style="margin-right: 8px;" />
+          Use FIDU Core Backend (instead of local IndexedDB)
+        </label>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label for="fiduCoreUrl">FIDU Core API URL:</label>
+        <input type="text" id="fiduCoreUrl" value="http://127.0.0.1:4000/api/v1" style="width: 100%; margin-top: 5px;" />
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label>
+          <input type="checkbox" id="requireAuth" checked style="margin-right: 8px;" />
+          Require Authentication
+        </label>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label>
+          <input type="checkbox" id="autoLogin" style="margin-right: 8px;" />
+          Auto-login on startup
+        </label>
+      </div>
+      
+      <button id="testFiduCoreConnection">Test Connection</button>
     </div>
     
     <!-- Settings Section -->

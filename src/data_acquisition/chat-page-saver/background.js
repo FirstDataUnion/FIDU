@@ -1,9 +1,172 @@
-// Chatbot Conversation Saver - Background Service Worker
+// Chat Page Saver - Background Service Worker
 // Handles URL monitoring, periodic saving, and IndexedDB operations
 
-class ChatbotConversationSaver {
+class FiduCoreAPI {
   constructor() {
-    this.dbName = 'ChatbotConversationsDB';
+    this.baseUrl = 'http://127.0.0.1:4000/api/v1';
+  }
+
+  async getAuthToken() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['authToken'], (result) => {
+        resolve(result.authToken || null);
+      });
+    });
+  }
+
+  async getSelectedProfileId() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['selectedProfileId'], (result) => {
+        resolve(result.selectedProfileId || null);
+      });
+    });
+  }
+
+  async saveConversation(conversationData) {
+    console.log('Background: Saving conversation to Fidu Core');
+    try {
+      // Get authentication token
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get selected profile ID
+      const selectedProfileId = await this.getSelectedProfileId();
+      if (!selectedProfileId) {
+        throw new Error('No profile selected. Please select a profile in the extension popup.');
+      }
+
+      // Generate deterministic request ID
+      const requestId = conversationData.uniqueId + conversationData.dateTime;
+
+      const response = await fetch(`${this.baseUrl}/data-packets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          data_packet: {
+            profile_id: selectedProfileId,
+            id: conversationData.uniqueId,
+            tags: ["Chat-Page-Saver", "Conversation", conversationData.modelName], 
+            data: {
+              conversationTitle: conversationData.title || 'Untitled Conversation',
+              modelName: conversationData.modelName,
+              url: conversationData.url,
+              date: conversationData.date,
+              time: conversationData.time,
+              dateTime: conversationData.dateTime,
+              htmlContent: conversationData.htmlContent,
+              lastSaved: conversationData.lastSaved
+            }
+          }
+        })
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        id: result.id,
+        data: result
+      };
+    } catch (error) {
+      console.error('Error saving conversation to Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async getAllConversations() {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/data-packets?tags=Chat-Page-Saver`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      console.error('Error getting conversations from Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async deleteConversation(id) {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/data-packets/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting conversation from Fidu Core:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  setBaseUrl(url) {
+    this.baseUrl = url;
+  }
+}
+
+class ChatPageSaver {
+  constructor() {
+    this.dbName = 'ChatPageSaverDB';
     this.dbVersion = 1;
     this.storeName = 'conversations';
     this.saveInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -16,6 +179,9 @@ class ChatbotConversationSaver {
       'bing.com',
       'perplexity.ai'
     ];
+    
+    // Initialize FIDU Core API
+    this.fiduCoreAPI = new FiduCoreAPI();
     
     this.init();
   }
@@ -40,9 +206,12 @@ class ChatbotConversationSaver {
       // Listen for storage changes (whitelist updates)
       chrome.storage.onChanged.addListener(this.handleStorageChange.bind(this));
       
-      console.log('ChatbotConversationSaver initialized successfully');
+      // Listen for messages from popup and options
+      chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+      
+      console.log('ChatPageSaver initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize ChatbotConversationSaver:', error);
+      console.error('Failed to initialize ChatPageSaver:', error);
     }
   }
 
@@ -131,6 +300,129 @@ class ChatbotConversationSaver {
     }
   }
 
+  async handleMessage(message, sender, sendResponse) {
+    console.log('Background script received message:', message);
+    
+    // Check if we should use Fidu Core
+    chrome.storage.sync.get('settings', async (result) => {
+      const useFiduCore = result.settings?.useFiduCore ?? false;
+      
+      if (useFiduCore) {
+        console.log('Background: Using Fidu Core');
+      } else {
+        console.log('Background: Using IndexedDB');
+      }
+
+      if (message.action === 'getConversations') {
+        try {
+          let conversations;
+          if (useFiduCore) {
+            const result = await this.fiduCoreAPI.getAllConversations();
+            if (result.success) {
+              conversations = result.data.map(item => ({
+                uniqueId: item.id,
+                modelName: item.data.modelName,
+                date: item.data.date,
+                time: item.data.time,
+                dateTime: item.data.dateTime,
+                url: item.data.url,
+                title: item.data.conversationTitle,
+                lastSaved: item.data.lastSaved
+              }));
+            } else {
+              throw new Error(result.error);
+            }
+          } else {
+            conversations = await this.getConversations();
+          }
+          sendResponse({ success: true, conversations });
+        } catch (error) {
+          console.error('Error retrieving conversations:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+      
+      if (message.action === 'deleteConversation') {
+        try {
+          let result;
+          if (useFiduCore) {
+            result = await this.fiduCoreAPI.deleteConversation(message.uniqueId);
+          } else {
+            result = await this.deleteConversation(message.uniqueId);
+          }
+          sendResponse({ success: true, result });
+        } catch (error) {
+          console.error('Error deleting conversation:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+      
+      if (message.action === 'clearAllConversations') {
+        try {
+          let result;
+          if (useFiduCore) {
+            // For Fidu Core, we might need to implement a bulk delete or get all and delete individually
+            result = { success: true, message: 'Bulk delete not implemented for Fidu Core' };
+          } else {
+            result = await this.clearAllConversations();
+          }
+          sendResponse({ success: true, result });
+        } catch (error) {
+          console.error('Error clearing all conversations:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+      
+      if (message.action === 'settingsUpdated') {
+        // Update Fidu Core API base URL if provided
+        if (message.settings.fiduCoreUrl) {
+          this.fiduCoreAPI.setBaseUrl(message.settings.fiduCoreUrl);
+        }
+        
+        sendResponse({ success: true });
+        return true;
+      }
+
+      if (message.action === 'getWhitelist') {
+        try {
+          sendResponse({ success: true, data: this.whitelist });
+        } catch (error) {
+          console.error('Error getting whitelist:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+
+      if (message.action === 'updateWhitelist') {
+        try {
+          this.whitelist = message.whitelist;
+          await chrome.storage.sync.set({ whitelist: this.whitelist });
+          sendResponse({ success: true });
+        } catch (error) {
+          console.error('Error updating whitelist:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+
+      if (message.action === 'saveNow') {
+        try {
+          await this.saveActiveConversation();
+          sendResponse({ success: true });
+        } catch (error) {
+          console.error('Error saving active conversation:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+      }
+    });
+    
+    return true; // Indicates we will send a response asynchronously
+  }
+
   async checkAndSaveConversation(tab) {
     try {
       const matchedDomain = this.isWhitelistedDomain(tab.url);
@@ -191,10 +483,34 @@ class ChatbotConversationSaver {
         lastSaved: dateTime
       };
 
-      // Save to IndexedDB (overwrite if exists)
-      await this.saveToIndexedDB(conversationData);
-      
-      console.log(`Conversation saved: ${modelName} - ${tab.url}`);
+      // Check if we should use Fidu Core
+      chrome.storage.sync.get('settings', async (result) => {
+        const useFiduCore = result.settings?.useFiduCore ?? false;
+        
+        if (useFiduCore) {
+          console.log('Background: Saving to Fidu Core');
+          try {
+            const result = await this.fiduCoreAPI.saveConversation(conversationData);
+            if (result.success) {
+              console.log(`Conversation saved to Fidu Core: ${modelName} - ${tab.url}`);
+            } else {
+              console.error('Failed to save to Fidu Core:', result.error);
+              // Fallback to IndexedDB if Fidu Core fails
+              await this.saveToIndexedDB(conversationData);
+              console.log(`Conversation saved to IndexedDB (fallback): ${modelName} - ${tab.url}`);
+            }
+          } catch (error) {
+            console.error('Error saving to Fidu Core:', error);
+            // Fallback to IndexedDB if Fidu Core fails
+            await this.saveToIndexedDB(conversationData);
+            console.log(`Conversation saved to IndexedDB (fallback): ${modelName} - ${tab.url}`);
+          }
+        } else {
+          // Save to IndexedDB (overwrite if exists)
+          await this.saveToIndexedDB(conversationData);
+          console.log(`Conversation saved to IndexedDB: ${modelName} - ${tab.url}`);
+        }
+      });
     } catch (error) {
       console.error('Error saving conversation:', error);
     }
@@ -322,44 +638,4 @@ class ChatbotConversationSaver {
 }
 
 // Initialize the extension when the service worker starts
-const saver = new ChatbotConversationSaver();
-
-// Handle messages from popup and options pages
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  switch (request.action) {
-    case 'getConversations':
-      saver.getConversations()
-        .then(conversations => sendResponse({ success: true, data: conversations }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true; // Keep message channel open for async response
-      
-    case 'deleteConversation':
-      saver.deleteConversation(request.uniqueId)
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-      
-    case 'clearAllConversations':
-      saver.clearAllConversations()
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-      
-    case 'saveNow':
-      saver.saveActiveConversation()
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-      
-    case 'getWhitelist':
-      sendResponse({ success: true, data: saver.whitelist });
-      break;
-      
-    case 'updateWhitelist':
-      saver.whitelist = request.whitelist;
-      chrome.storage.sync.set({ whitelist: request.whitelist })
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-  }
-}); 
+const saver = new ChatPageSaver(); 

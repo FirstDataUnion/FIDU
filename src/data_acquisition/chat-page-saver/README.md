@@ -1,215 +1,189 @@
-# Chatbot Conversation Saver Chrome Extension
+# Chat Page Saver - Chrome Extension
 
-A Chrome extension that automatically saves HTML content from chatbot conversation pages to IndexedDB for later structured post-processing.
+A Chrome extension that automatically saves chatbot conversation pages to either local IndexedDB storage or a FIDU Core backend for centralized data management.
 
 ## Features
 
-- **Automatic Detection**: Monitors active tabs and detects whitelisted chatbot domains
-- **Periodic Saving**: Saves conversations every 5 minutes (configurable) using Chrome alarms
-- **Overwrite Protection**: Updates existing conversations instead of creating duplicates
-- **IndexedDB Storage**: Uses IndexedDB for efficient, structured data storage
-- **Configurable Whitelist**: Easy management of supported domains through options page
-- **Rich Metadata**: Captures URL, model name, timestamps, and full HTML content
-- **User Interface**: Options page for management and popup for quick actions
+- **Automatic Saving**: Periodically saves conversation pages from whitelisted chatbot domains
+- **Dual Storage**: Choose between local IndexedDB storage or FIDU Core backend
+- **Domain Whitelist**: Configurable list of chatbot domains to monitor
+- **Rich Metadata**: Saves HTML content, timestamps, URLs, and conversation titles
+- **Easy Management**: Options page for configuration and conversation management
+- **FIDU Core Integration**: Seamless integration with FIDU Core for centralized data storage
 
-## Supported Platforms
+## Supported Chatbots
 
-The extension comes pre-configured with support for:
 - ChatGPT (chatgpt.com)
 - Claude (claude.ai)
-- Google Gemini (gemini.google.com)
-- Google Bard (bard.google.com)
+- Gemini (gemini.google.com)
+- Bard (bard.google.com)
 - Bing Chat (bing.com)
 - Perplexity (perplexity.ai)
 
-Additional domains can be added through the options page.
-
 ## Installation
 
-### Method 1: Load as Unpacked Extension (Development)
+1. Clone or download this extension
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable "Developer mode" in the top right
+4. Click "Load unpacked" and select the extension directory
+5. The extension icon should appear in your toolbar
 
-1. **Download/Clone the Extension**
-   ```bash
-   # Navigate to the extension directory
-   cd src/data_acquisition/chrome-extension
-   ```
+## Configuration
 
-2. **Open Chrome Extensions Page**
-   - Open Chrome and navigate to `chrome://extensions/`
-   - Enable "Developer mode" in the top right corner
+### Basic Settings
 
-3. **Load the Extension**
-   - Click "Load unpacked"
-   - Select the `chrome-extension` directory
-   - The extension should now appear in your extensions list
+1. Click the extension icon to open the popup
+2. Click "Open Options" to access the full configuration
+3. Configure the following settings:
+   - **Save Interval**: How often to save conversations (1-60 minutes)
+   - **Domain Whitelist**: Add/remove chatbot domains to monitor
 
-4. **Grant Permissions**
-   - Click on the extension icon to grant necessary permissions
-   - The extension will request access to active tabs and storage
+### FIDU Core Integration
 
-### Method 2: Create Icons (Optional)
+To use FIDU Core backend instead of local storage:
 
-The extension references icon files that need to be created:
-- `icons/icon16.png` (16x16 pixels)
-- `icons/icon48.png` (48x48 pixels)
-- `icons/icon128.png` (128x128 pixels)
+1. In the options page, go to the "FIDU Core Integration" section
+2. Check "Use FIDU Core Backend"
+3. Enter your FIDU Core API URL (default: `http://127.0.0.1:4000/api/v1`)
+4. Configure authentication settings:
+   - **Require Authentication**: Enable if your FIDU Core requires auth
+   - **Auto-login**: Enable for automatic authentication on startup
+5. Click "Test Connection" to verify connectivity
+6. Save your settings
 
-You can create simple placeholder icons or use any image editor to create appropriate icons.
+### Authentication Setup
 
-## Usage
+If using FIDU Core with authentication:
 
-### Basic Operation
+1. Ensure you have a valid authentication token stored in the extension
+2. Select a profile ID in the FIDU Core interface
+3. The extension will automatically use these credentials when saving data
 
-1. **Automatic Saving**: Once installed, the extension automatically monitors your browsing
-2. **Visit Chatbot Pages**: Navigate to any whitelisted chatbot platform
-3. **Conversations Saved**: The extension will automatically save the page content every 5 minutes
-4. **Manual Save**: Click the extension icon and use "Save Current Page" for immediate saving
+## Data Storage
 
-### Managing Settings
+### Local Storage (IndexedDB)
 
-1. **Open Options**: Click the extension icon and select "Options" or right-click the extension and choose "Options"
-2. **Whitelist Management**: Add or remove domains from the whitelist
-3. **View Conversations**: See all saved conversations with metadata
-4. **Adjust Settings**: Change the save interval (1-60 minutes)
+When FIDU Core is disabled, conversations are stored locally in the browser's IndexedDB:
 
-### Data Management
+- **Database Name**: `ChatPageSaverDB`
+- **Store Name**: `conversations`
+- **Data Structure**: Each conversation includes HTML content, metadata, and timestamps
 
-- **View Saved Data**: Use the options page to see all saved conversations
-- **Delete Individual**: Remove specific conversations from the options page
-- **Clear All**: Use the "Clear All" button to remove all saved data
-- **Export Data**: Access IndexedDB directly through Chrome DevTools for data export
+### FIDU Core Storage
 
-## Technical Details
+When FIDU Core is enabled, conversations are sent to the FIDU Core backend:
 
-### Data Structure
+- **Data Packets**: Conversations are stored as data packets with tags
+- **Tags**: `["Chat-Page-Saver", "Conversation", {modelName}]`
+- **Profile Association**: Data is associated with the selected FIDU Core profile
+- **Fallback**: If FIDU Core is unavailable, data falls back to local storage
+
+## Data Structure
 
 Each saved conversation includes:
+
 ```javascript
 {
-  uniqueId: "hash_url_hash_timestamp", // Primary key
-  modelName: "chatgpt.com",            // Matched whitelist domain
-  date: "2024-01-15",                  // YYYY-MM-DD format
-  time: "14:30:25",                    // HH:MM:SS format
-  dateTime: "2024-01-15T14:30:25.123Z", // ISO timestamp
-  url: "https://chatgpt.com/chat/abc",  // Full URL
-  htmlContent: "<!DOCTYPE html>...",    // Complete HTML
-  title: "ChatGPT",                    // Page title
-  lastSaved: "2024-01-15T14:30:25.123Z" // Last save timestamp
+  uniqueId: "hash_based_unique_identifier",
+  modelName: "ChatGPT|Claude|Gemini|etc",
+  date: "YYYY-MM-DD",
+  time: "HH:MM:SS",
+  dateTime: "ISO_8601_timestamp",
+  url: "conversation_url",
+  htmlContent: "full_page_html",
+  title: "conversation_title",
+  lastSaved: "ISO_8601_timestamp"
 }
 ```
 
-### IndexedDB Schema
+## Usage
 
-- **Database**: `ChatbotConversationsDB`
-- **Object Store**: `conversations`
-- **Primary Key**: `uniqueId`
-- **Indexes**:
-  - `url` (unique) - For finding existing conversations
-  - `modelName` - For filtering by chatbot platform
-  - `date` - For date-based queries
-  - `dateTime` - For chronological sorting
+### Automatic Saving
+
+1. Navigate to a supported chatbot website
+2. The extension automatically detects the domain and begins monitoring
+3. Conversations are saved periodically based on your configured interval
+4. A status indicator shows when saving is active
+
+### Manual Saving
+
+1. Click the extension icon while on a supported page
+2. Click "Save Now" to immediately save the current conversation
+3. The popup shows the current status and save confirmation
+
+### Managing Saved Data
+
+1. Open the options page
+2. View statistics and recent conversations
+3. Delete individual conversations or clear all data
+4. Export data if needed (FIDU Core integration provides centralized access)
+
+## Troubleshooting
+
+### FIDU Core Connection Issues
+
+- Verify FIDU Core is running and accessible
+- Check the API URL in settings
+- Ensure authentication is properly configured
+- Use the "Test Connection" button to verify connectivity
+
+### Storage Issues
+
+- Check browser storage permissions
+- Clear browser data if IndexedDB becomes corrupted
+- Verify sufficient disk space for local storage
+
+### Domain Whitelist Issues
+
+- Ensure domains are correctly formatted (e.g., `chatgpt.com`)
+- Check that the domain matches the actual website URL
+- Add subdomains if needed (e.g., `app.chatgpt.com`)
+
+## Development
 
 ### File Structure
 
 ```
-chrome-extension/
-├── manifest.json          # Extension configuration
+chat-page-saver/
+├── manifest.json          # Extension manifest
 ├── background.js          # Service worker (main logic)
-├── content.js            # Content script for HTML extraction
-├── options.html          # Options page UI
-├── options.js            # Options page logic
-├── popup.html            # Extension popup UI
+├── content.js            # Content script (page interaction)
+├── popup.html            # Popup interface
 ├── popup.js              # Popup logic
+├── options.html          # Options page interface
+├── options.js            # Options page logic
 ├── icons/                # Extension icons
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
 └── README.md             # This file
 ```
 
-## Development
+### Key Classes
 
-### Key Components
+- **ChatPageSaver**: Main extension class handling saving logic
+- **FiduCoreAPI**: API client for FIDU Core integration
+- **OptionsManager**: Options page management
+- **PopupManager**: Popup interface management
 
-1. **Background Service Worker** (`background.js`)
-   - Handles URL monitoring and tab updates
-   - Manages IndexedDB operations
-   - Controls periodic saving via Chrome alarms
-   - Processes messages from popup and options pages
+### Adding New Chatbots
 
-2. **Content Script** (`content.js`)
-   - Injected into whitelisted pages
-   - Extracts HTML content from the DOM
-   - Communicates with background script
-
-3. **Options Page** (`options.html` + `options.js`)
-   - Manages domain whitelist
-   - Displays saved conversations
-   - Provides data management tools
-   - Shows usage statistics
-
-4. **Popup** (`popup.html` + `popup.js`)
-   - Quick access to extension features
-   - Shows current page status
-   - Manual save functionality
-
-### Debugging
-
-1. **Background Script Logs**: Open `chrome://extensions/`, find the extension, click "service worker" link
-2. **Content Script Logs**: Use Chrome DevTools on the target page
-3. **Options Page**: Use DevTools on the options page
-4. **IndexedDB Inspection**: Use Chrome DevTools → Application → Storage → IndexedDB
-
-### Common Issues
-
-1. **Extension Not Working**: Check if permissions are granted
-2. **No Data Saved**: Verify the page URL matches whitelist domains
-3. **Permission Errors**: Ensure all required permissions are enabled
-4. **IndexedDB Errors**: Check browser storage settings and available space
-
-## Data Export and Post-Processing
-
-### Accessing Saved Data
-
-1. **Through Options Page**: View and manage conversations directly
-2. **Via Chrome DevTools**:
-   - Open DevTools (F12)
-   - Go to Application → Storage → IndexedDB
-   - Navigate to `ChatbotConversationsDB` → `conversations`
-   - Export data as needed
-
-3. **Programmatic Access**: Use the extension's message API:
-   ```javascript
-   chrome.runtime.sendMessage({ action: 'getConversations' }, (response) => {
-     if (response.success) {
-       console.log(response.data); // Array of conversation objects
-     }
-   });
-   ```
-
-### Post-Processing Considerations
-
-- **HTML Parsing**: Use libraries like Cheerio or JSDOM for structured parsing
-- **Content Extraction**: Focus on conversation content, ignore UI elements
-- **Data Cleaning**: Remove scripts, styles, and unnecessary markup
-- **Storage Management**: Monitor IndexedDB size and implement cleanup strategies
-
-## Security and Privacy
-
-- **Local Storage**: All data is stored locally in IndexedDB
-- **No External Communication**: The extension doesn't send data to external servers
-- **Permission Scope**: Only requests necessary permissions for functionality
-- **Data Control**: Users have full control over saved data through the options page
-
-## Contributing
-
-To extend the extension:
-
-1. **Add New Domains**: Update the whitelist in `background.js` or use the options page
-2. **Modify Save Logic**: Edit the `saveConversation` method in `background.js`
-3. **Enhance UI**: Modify HTML/CSS in options and popup files
-4. **Add Features**: Extend the message handling in `background.js`
+1. Add the domain to the whitelist in `background.js`
+2. Update `manifest.json` host permissions
+3. Test the domain detection and saving functionality
 
 ## License
 
-This extension is provided as-is for educational and research purposes. Users are responsible for complying with the terms of service of the chatbot platforms they use. 
+This extension is part of the FIDU project and follows the same licensing terms.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## Support
+
+For issues and questions:
+- Check the troubleshooting section above
+- Review the FIDU Core documentation
+- Open an issue in the project repository 

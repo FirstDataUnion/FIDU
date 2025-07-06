@@ -15,6 +15,9 @@ class OptionsManager {
       // Load conversations
       await this.loadConversations();
       
+      // Load settings
+      await this.loadSettings();
+      
       // Set up event listeners
       this.setupEventListeners();
       
@@ -52,6 +55,32 @@ class OptionsManager {
     }
   }
 
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.sync.get('settings');
+      const settings = result.settings || this.getDefaultSettings();
+      
+      // Apply settings to form elements
+      document.getElementById('useFiduCore').checked = settings.useFiduCore ?? false;
+      document.getElementById('fiduCoreUrl').value = settings.fiduCoreUrl || 'http://127.0.0.1:4000/api/v1';
+      document.getElementById('requireAuth').checked = settings.requireAuth ?? true;
+      document.getElementById('autoLogin').checked = settings.autoLogin ?? false;
+      document.getElementById('saveInterval').value = settings.saveInterval || 5;
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  }
+
+  getDefaultSettings() {
+    return {
+      useFiduCore: false,
+      fiduCoreUrl: 'http://127.0.0.1:4000/api/v1',
+      requireAuth: true,
+      autoLogin: false,
+      saveInterval: 5
+    };
+  }
+
   setupEventListeners() {
     // Add domain to whitelist
     document.getElementById('addDomain').addEventListener('click', () => {
@@ -84,6 +113,11 @@ class OptionsManager {
     // Save settings
     document.getElementById('saveSettings').addEventListener('click', () => {
       this.saveSettings();
+    });
+
+    // Test FIDU Core connection
+    document.getElementById('testFiduCoreConnection').addEventListener('click', () => {
+      this.testFiduCoreConnection();
     });
 
     // Event delegation for remove domain buttons
@@ -211,10 +245,57 @@ class OptionsManager {
     }
 
     try {
-      await chrome.storage.sync.set({ saveInterval });
-      this.showStatus('Settings saved successfully', 'success');
+      const settings = {
+        useFiduCore: document.getElementById('useFiduCore').checked,
+        fiduCoreUrl: document.getElementById('fiduCoreUrl').value.trim(),
+        requireAuth: document.getElementById('requireAuth').checked,
+        autoLogin: document.getElementById('autoLogin').checked,
+        saveInterval: saveInterval
+      };
+      
+      // Save to Chrome storage
+      await chrome.storage.sync.set({ settings });
+      
+      // Notify background script of settings update
+      const response = await this.sendMessage({ 
+        action: 'settingsUpdated', 
+        settings 
+      });
+      
+      if (response.success) {
+        this.showStatus('Settings saved successfully', 'success');
+      } else {
+        this.showStatus('Failed to save settings: ' + response.error, 'error');
+      }
     } catch (error) {
       this.showStatus('Failed to save settings: ' + error.message, 'error');
+    }
+  }
+
+  async testFiduCoreConnection() {
+    try {
+      const fiduCoreUrl = document.getElementById('fiduCoreUrl').value.trim();
+      if (!fiduCoreUrl) {
+        this.showStatus('Please enter a FIDU Core API URL', 'error');
+        return;
+      }
+
+      this.showStatus('Testing connection...', 'info');
+      
+      const response = await fetch(`${fiduCoreUrl}/health`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        this.showStatus('Connection successful! FIDU Core is reachable.', 'success');
+      } else {
+        this.showStatus(`Connection failed: HTTP ${response.status}`, 'error');
+      }
+    } catch (error) {
+      this.showStatus('Connection failed: ' + error.message, 'error');
     }
   }
 
