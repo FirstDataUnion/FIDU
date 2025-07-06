@@ -1,0 +1,358 @@
+// Options page JavaScript for Chatbot Conversation Saver
+
+class OptionsManager {
+  constructor() {
+    this.whitelist = [];
+    this.conversations = [];
+    this.init();
+  }
+
+  async init() {
+    try {
+      // Load current whitelist
+      await this.loadWhitelist();
+      
+      // Load conversations
+      await this.loadConversations();
+      
+      // Set up event listeners
+      this.setupEventListeners();
+      
+      // Update UI
+      this.updateWhitelistUI();
+      this.updateStatistics();
+      this.updateConversationsUI();
+      
+    } catch (error) {
+      this.showStatus('Failed to initialize options page: ' + error.message, 'error');
+    }
+  }
+
+  async loadWhitelist() {
+    try {
+      const response = await this.sendMessage({ action: 'getWhitelist' });
+      if (response.success) {
+        this.whitelist = response.data;
+      }
+    } catch (error) {
+      console.error('Failed to load whitelist:', error);
+    }
+  }
+
+  async loadConversations() {
+    try {
+      const response = await this.sendMessage({ action: 'getConversations' });
+      if (response.success) {
+        this.conversations = response.data || [];
+        // Sort by date (newest first)
+        this.conversations.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    }
+  }
+
+  setupEventListeners() {
+    // Add domain to whitelist
+    document.getElementById('addDomain').addEventListener('click', () => {
+      this.addDomain();
+    });
+
+    // Enter key in domain input
+    document.getElementById('newDomain').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.addDomain();
+      }
+    });
+
+    // Refresh conversations
+    document.getElementById('refreshConversations').addEventListener('click', () => {
+      this.loadConversations().then(() => {
+        this.updateConversationsUI();
+        this.updateStatistics();
+        this.showStatus('Conversations refreshed', 'success');
+      });
+    });
+
+    // Clear all conversations
+    document.getElementById('clearAllConversations').addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete all saved conversations? This action cannot be undone.')) {
+        this.clearAllConversations();
+      }
+    });
+
+    // Save settings
+    document.getElementById('saveSettings').addEventListener('click', () => {
+      this.saveSettings();
+    });
+
+    // Event delegation for remove domain buttons
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove-domain-btn')) {
+        const domain = e.target.getAttribute('data-domain');
+        if (domain) {
+          this.removeDomain(domain);
+        }
+      }
+      
+      // Event delegation for delete conversation buttons
+      if (e.target.classList.contains('delete-conversation-btn')) {
+        const uniqueId = e.target.getAttribute('data-unique-id');
+        if (uniqueId) {
+          this.deleteConversation(uniqueId);
+        }
+      }
+    });
+  }
+
+  async addDomain() {
+    const input = document.getElementById('newDomain');
+    const domain = input.value.trim().toLowerCase();
+    
+    if (!domain) {
+      this.showStatus('Please enter a domain', 'error');
+      return;
+    }
+
+    // Basic domain validation
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) {
+      this.showStatus('Please enter a valid domain (e.g., chatgpt.com)', 'error');
+      return;
+    }
+
+    if (this.whitelist.includes(domain)) {
+      this.showStatus('Domain already in whitelist', 'error');
+      return;
+    }
+
+    try {
+      const newWhitelist = [...this.whitelist, domain];
+      const response = await this.sendMessage({ 
+        action: 'updateWhitelist', 
+        whitelist: newWhitelist 
+      });
+      
+      if (response.success) {
+        this.whitelist = newWhitelist;
+        this.updateWhitelistUI();
+        input.value = '';
+        this.showStatus(`Domain "${domain}" added to whitelist`, 'success');
+      } else {
+        this.showStatus('Failed to add domain: ' + response.error, 'error');
+      }
+    } catch (error) {
+      this.showStatus('Failed to add domain: ' + error.message, 'error');
+    }
+  }
+
+  async removeDomain(domain) {
+    try {
+      const newWhitelist = this.whitelist.filter(d => d !== domain);
+      const response = await this.sendMessage({ 
+        action: 'updateWhitelist', 
+        whitelist: newWhitelist 
+      });
+      
+      if (response.success) {
+        this.whitelist = newWhitelist;
+        this.updateWhitelistUI();
+        this.showStatus(`Domain "${domain}" removed from whitelist`, 'success');
+      } else {
+        this.showStatus('Failed to remove domain: ' + response.error, 'error');
+      }
+    } catch (error) {
+      this.showStatus('Failed to remove domain: ' + error.message, 'error');
+    }
+  }
+
+  async deleteConversation(uniqueId) {
+    try {
+      const response = await this.sendMessage({ 
+        action: 'deleteConversation', 
+        uniqueId 
+      });
+      
+      if (response.success) {
+        this.conversations = this.conversations.filter(c => c.uniqueId !== uniqueId);
+        this.updateConversationsUI();
+        this.updateStatistics();
+        this.showStatus('Conversation deleted', 'success');
+      } else {
+        this.showStatus('Failed to delete conversation: ' + response.error, 'error');
+      }
+    } catch (error) {
+      this.showStatus('Failed to delete conversation: ' + error.message, 'error');
+    }
+  }
+
+  async clearAllConversations() {
+    try {
+      const response = await this.sendMessage({ action: 'clearAllConversations' });
+      
+      if (response.success) {
+        this.conversations = [];
+        this.updateConversationsUI();
+        this.updateStatistics();
+        this.showStatus('All conversations cleared', 'success');
+      } else {
+        this.showStatus('Failed to clear conversations: ' + response.error, 'error');
+      }
+    } catch (error) {
+      this.showStatus('Failed to clear conversations: ' + error.message, 'error');
+    }
+  }
+
+  async saveSettings() {
+    const saveInterval = parseInt(document.getElementById('saveInterval').value);
+    
+    if (saveInterval < 1 || saveInterval > 60) {
+      this.showStatus('Save interval must be between 1 and 60 minutes', 'error');
+      return;
+    }
+
+    try {
+      await chrome.storage.sync.set({ saveInterval });
+      this.showStatus('Settings saved successfully', 'success');
+    } catch (error) {
+      this.showStatus('Failed to save settings: ' + error.message, 'error');
+    }
+  }
+
+  updateWhitelistUI() {
+    const container = document.getElementById('whitelistItems');
+    container.innerHTML = '';
+
+    if (this.whitelist.length === 0) {
+      container.innerHTML = '<p style="color: #666; font-style: italic;">No domains in whitelist</p>';
+      return;
+    }
+
+    this.whitelist.forEach(domain => {
+      const item = document.createElement('div');
+      item.className = 'whitelist-item';
+      item.innerHTML = `
+        <span>${domain}</span>
+        <button class="danger remove-domain-btn" data-domain="${domain}">Remove</button>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  updateStatistics() {
+    const totalConversations = this.conversations.length;
+    const totalSize = this.calculateTotalSize();
+    const lastSaved = this.getLastSavedTime();
+
+    document.getElementById('totalConversations').textContent = totalConversations;
+    document.getElementById('totalSize').textContent = totalSize.toFixed(2);
+    document.getElementById('lastSaved').textContent = lastSaved;
+  }
+
+  calculateTotalSize() {
+    return this.conversations.reduce((total, conv) => {
+      // Estimate size: 2 bytes per character for UTF-16
+      const size = (conv.htmlContent?.length || 0) * 2;
+      return total + size;
+    }, 0) / (1024 * 1024); // Convert to MB
+  }
+
+  getLastSavedTime() {
+    if (this.conversations.length === 0) {
+      return 'Never';
+    }
+    
+    const lastSaved = new Date(this.conversations[0].dateTime);
+    const now = new Date();
+    const diffMs = now - lastSaved;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffMins < 1440) {
+      const diffHours = Math.floor(diffMins / 60);
+      return `${diffHours}h ago`;
+    } else {
+      const diffDays = Math.floor(diffMins / 1440);
+      return `${diffDays}d ago`;
+    }
+  }
+
+  updateConversationsUI() {
+    const container = document.getElementById('conversationsList');
+    
+    if (this.conversations.length === 0) {
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No conversations saved yet</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    
+    // Show only the most recent 10 conversations
+    const recentConversations = this.conversations.slice(0, 10);
+    
+    recentConversations.forEach(conversation => {
+      const item = document.createElement('div');
+      item.className = 'conversation-item';
+      
+      const title = conversation.title || 'Untitled Conversation';
+      const date = new Date(conversation.dateTime).toLocaleDateString();
+      const time = new Date(conversation.dateTime).toLocaleTimeString();
+      const size = ((conversation.htmlContent?.length || 0) * 2 / 1024).toFixed(1); // KB
+      
+      item.innerHTML = `
+        <div class="conversation-info">
+          <div class="conversation-title">${title}</div>
+          <div class="conversation-meta">
+            ${conversation.modelName} • ${date} ${time} • ${size} KB
+          </div>
+        </div>
+        <div class="conversation-actions">
+          <button class="danger delete-conversation-btn" data-unique-id="${conversation.uniqueId}">Delete</button>
+        </div>
+      `;
+      
+      container.appendChild(item);
+    });
+    
+    if (this.conversations.length > 10) {
+      const moreItem = document.createElement('div');
+      moreItem.style.textAlign = 'center';
+      moreItem.style.padding = '10px';
+      moreItem.style.color = '#666';
+      moreItem.textContent = `... and ${this.conversations.length - 10} more conversations`;
+      container.appendChild(moreItem);
+    }
+  }
+
+  showStatus(message, type) {
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = message;
+    statusEl.className = `status ${type}`;
+    statusEl.style.display = 'block';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      statusEl.style.display = 'none';
+    }, 3000);
+  }
+
+  sendMessage(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+  }
+}
+
+// Initialize options manager when page loads
+let optionsManager;
+document.addEventListener('DOMContentLoaded', () => {
+  optionsManager = new OptionsManager();
+}); 
