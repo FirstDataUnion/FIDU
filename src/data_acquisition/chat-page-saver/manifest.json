@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Chatbot Conversation Saver",
+  "version": "1.0.0",
+  "description": "Automatically saves chatbot conversation pages to IndexedDB for later processing",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "alarms",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://bard.google.com/*",
+    "https://bing.com/*",
+    "https://perplexity.ai/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://bard.google.com/*",
+        "https://bing.com/*",
+        "https://perplexity.ai/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  
+  "options_page": "options.html",
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Chatbot Conversation Saver"
+  },
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+} 
