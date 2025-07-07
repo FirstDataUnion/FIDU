@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Chatbot Conversation Saver",
   "version": "1.0.0",
-  "description": "Automatically saves chatbot conversation pages to IndexedDB for later processing",
+  "description": "Automatically saves chatbot conversation pages to IndexedDB or FIDU Core backend for centralized data management",
   
   "permissions": [
     "activeTab",
@@ -17,7 +17,9 @@
     "https://gemini.google.com/*",
     "https://bard.google.com/*",
     "https://bing.com/*",
-    "https://perplexity.ai/*"
+    "https://perplexity.ai/*",
+    "http://127.0.0.1:4000/*",
+    "http://localhost:4000/*"
   ],
   
   "background": {
