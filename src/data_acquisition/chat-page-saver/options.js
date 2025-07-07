@@ -334,6 +334,16 @@ class OptionsManager {
       this.showStatus('Testing connection...', 'info');
       
       console.log('Making fetch request to:', `${fiduCoreUrl}/health`);
+      
+      // Check if the URL is allowed by Chrome extension policies
+      try {
+        new URL(fiduCoreUrl);
+      } catch (e) {
+        console.error('Invalid URL:', fiduCoreUrl);
+        this.showStatus('Invalid URL format', 'error');
+        return;
+      }
+      
       const response = await fetch(`${fiduCoreUrl}/health`, {
         method: 'GET',
         headers: {
