@@ -8,25 +8,33 @@ class OptionsManager {
   }
 
   async init() {
+    console.log('OptionsManager init started');
     try {
       // Load current whitelist
+      console.log('Loading whitelist...');
       await this.loadWhitelist();
       
       // Load conversations
+      console.log('Loading conversations...');
       await this.loadConversations();
       
       // Load settings
+      console.log('Loading settings...');
       await this.loadSettings();
       
       // Set up event listeners
+      console.log('Setting up event listeners...');
       this.setupEventListeners();
       
       // Update UI
+      console.log('Updating UI...');
       this.updateWhitelistUI();
       this.updateStatistics();
       this.updateConversationsUI();
       
+      console.log('OptionsManager init completed successfully');
     } catch (error) {
+      console.error('OptionsManager init failed:', error);
       this.showStatus('Failed to initialize options page: ' + error.message, 'error');
     }
   }
@@ -73,7 +81,7 @@ class OptionsManager {
 
   getDefaultSettings() {
     return {
-      useFiduCore: false,
+      useFiduCore: true, // Default to FIDU Core
       fiduCoreUrl: 'http://127.0.0.1:4000/api/v1',
       requireAuth: true,
       autoLogin: false,
@@ -82,43 +90,81 @@ class OptionsManager {
   }
 
   setupEventListeners() {
+    console.log('Setting up event listeners...');
+    
     // Add domain to whitelist
-    document.getElementById('addDomain').addEventListener('click', () => {
-      this.addDomain();
-    });
+    const addDomainBtn = document.getElementById('addDomain');
+    if (addDomainBtn) {
+      addDomainBtn.addEventListener('click', () => {
+        console.log('Add domain button clicked');
+        this.addDomain();
+      });
+    } else {
+      console.error('Add domain button not found');
+    }
 
     // Enter key in domain input
-    document.getElementById('newDomain').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        this.addDomain();
-      }
-    });
+    const newDomainInput = document.getElementById('newDomain');
+    if (newDomainInput) {
+      newDomainInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          console.log('Enter key pressed in domain input');
+          this.addDomain();
+        }
+      });
+    } else {
+      console.error('New domain input not found');
+    }
 
     // Refresh conversations
-    document.getElementById('refreshConversations').addEventListener('click', () => {
-      this.loadConversations().then(() => {
-        this.updateConversationsUI();
-        this.updateStatistics();
-        this.showStatus('Conversations refreshed', 'success');
+    const refreshBtn = document.getElementById('refreshConversations');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        console.log('Refresh conversations button clicked');
+        this.loadConversations().then(() => {
+          this.updateConversationsUI();
+          this.updateStatistics();
+          this.showStatus('Conversations refreshed', 'success');
+        });
       });
-    });
+    } else {
+      console.error('Refresh conversations button not found');
+    }
 
     // Clear all conversations
-    document.getElementById('clearAllConversations').addEventListener('click', () => {
-      if (confirm('Are you sure you want to delete all saved conversations? This action cannot be undone.')) {
-        this.clearAllConversations();
-      }
-    });
+    const clearAllBtn = document.getElementById('clearAllConversations');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        console.log('Clear all conversations button clicked');
+        if (confirm('Are you sure you want to delete all saved conversations? This action cannot be undone.')) {
+          this.clearAllConversations();
+        }
+      });
+    } else {
+      console.error('Clear all conversations button not found');
+    }
 
     // Save settings
-    document.getElementById('saveSettings').addEventListener('click', () => {
-      this.saveSettings();
-    });
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    if (saveSettingsBtn) {
+      saveSettingsBtn.addEventListener('click', () => {
+        console.log('Save settings button clicked');
+        this.saveSettings();
+      });
+    } else {
+      console.error('Save settings button not found');
+    }
 
     // Test FIDU Core connection
-    document.getElementById('testFiduCoreConnection').addEventListener('click', () => {
-      this.testFiduCoreConnection();
-    });
+    const testConnectionBtn = document.getElementById('testFiduCoreConnection');
+    if (testConnectionBtn) {
+      testConnectionBtn.addEventListener('click', () => {
+        console.log('Test FIDU Core connection button clicked');
+        this.testFiduCoreConnection();
+      });
+    } else {
+      console.error('Test FIDU Core connection button not found');
+    }
 
     // Event delegation for remove domain buttons
     document.addEventListener('click', (e) => {
@@ -273,15 +319,21 @@ class OptionsManager {
   }
 
   async testFiduCoreConnection() {
+    console.log('testFiduCoreConnection method called');
     try {
       const fiduCoreUrl = document.getElementById('fiduCoreUrl').value.trim();
+      console.log('FIDU Core URL:', fiduCoreUrl);
+      
       if (!fiduCoreUrl) {
+        console.log('No FIDU Core URL provided');
         this.showStatus('Please enter a FIDU Core API URL', 'error');
         return;
       }
 
+      console.log('Showing testing status...');
       this.showStatus('Testing connection...', 'info');
       
+      console.log('Making fetch request to:', `${fiduCoreUrl}/health`);
       const response = await fetch(`${fiduCoreUrl}/health`, {
         method: 'GET',
         headers: {
@@ -289,12 +341,16 @@ class OptionsManager {
         }
       });
 
+      console.log('Response status:', response.status);
       if (response.ok) {
+        console.log('Connection successful');
         this.showStatus('Connection successful! FIDU Core is reachable.', 'success');
       } else {
+        console.log('Connection failed with status:', response.status);
         this.showStatus(`Connection failed: HTTP ${response.status}`, 'error');
       }
     } catch (error) {
+      console.error('Connection test error:', error);
       this.showStatus('Connection failed: ' + error.message, 'error');
     }
   }
@@ -435,5 +491,8 @@ class OptionsManager {
 // Initialize options manager when page loads
 let optionsManager;
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded event fired');
+  console.log('Creating OptionsManager instance...');
   optionsManager = new OptionsManager();
+  console.log('OptionsManager instance created');
 }); 
