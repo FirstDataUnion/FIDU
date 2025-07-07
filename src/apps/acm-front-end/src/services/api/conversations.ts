@@ -228,42 +228,42 @@ export const conversationsApi = {
   /**
    * Create a new conversation
    */
-  create: async (conversation: Partial<Conversation>) => {
+  create: async (_conversation: Partial<Conversation>) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Update an existing conversation
    */
-  update: async (id: string, updates: Partial<Conversation>) => {
+  update: async (_id: string, _updates: Partial<Conversation>) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Delete a conversation
    */
-  delete: async (id: string) => {
+  delete: async (_id: string) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Archive a conversation
    */
-  archive: async (id: string) => {
+  archive: async (_id: string) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Unarchive a conversation
    */
-  unarchive: async (id: string) => {
+  unarchive: async (_id: string) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Toggle favorite status of a conversation
    */
-  toggleFavorite: async (id: string) => {
+  toggleFavorite: async (_id: string) => {
     throw new Error("Not implemented");
   },
 
@@ -319,14 +319,14 @@ export const conversationsApi = {
   /**
    * Add tags to a conversation
    */
-  addTags: async (id: string, tags: string[]) => {
+  addTags: async (_id: string, _tags: string[]) => {
     throw new Error("Not implemented");
   },
 
   /**
    * Remove tags from a conversation
    */
-  removeTags: async (id: string, tags: string[]) => {
+  removeTags: async (_id: string, _tags: string[]) => {
     throw new Error("Not implemented");
   },
 }; 

@@ -5,7 +5,6 @@ import {
   Card, 
   CardContent, 
   Chip, 
-  Grid, 
   CircularProgress, 
   Alert,
   Button,
@@ -16,7 +15,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Divider,
   IconButton,
   Menu,
   ListItemIcon,
@@ -25,7 +23,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Slider,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -42,20 +39,14 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterIcon,
   ExpandMore as ExpandMoreIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
-  Category as CategoryIcon,
-  PriorityHigh as HighPriorityIcon,
   Book as FactIcon,
   Person as PreferenceIcon,
   WorkOutline as ContextIcon,
   School as SkillIcon,
   Flag as GoalIcon,
-  Link as LinkIcon,
   GetApp as ExportIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
@@ -79,7 +70,6 @@ const MemoriesPage: React.FC = () => {
   const [selectedTypes, setSelectedTypes] = useState<Memory['type'][]>([]);
   const [selectedImportance, setSelectedImportance] = useState<Memory['importance'][]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<[number, number]>([0, 100]);
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'importance' | 'title'>('updatedAt');
@@ -580,13 +570,13 @@ const MemoriesPage: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <Grid container spacing={3}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: viewMode === 'grid' ? 'repeat(2, 1fr)' : '1fr', md: viewMode === 'grid' ? 'repeat(3, 1fr)' : '1fr' }, gap: 3 }}>
           {sortedMemories.map((memory: Memory) => (
-            <Grid item xs={12} sm={viewMode === 'grid' ? 6 : 12} md={viewMode === 'grid' ? 4 : 12} key={memory.id}>
+            <Box key={memory.id}>
               <MemoryCard memory={memory} />
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
 
       {/* Context Menu */}

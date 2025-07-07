@@ -32,7 +32,7 @@ export const fetchConversationMessages = createAsyncThunk(
   }
 );
 
-export const saveConversation = createAsyncThunk(
+export const saveConversation = createAsyncThunk<Conversation, Conversation>(
   'conversations/saveConversation',
   async (conversation: Conversation) => {
     if (conversation.id) {
@@ -51,21 +51,21 @@ export const deleteConversation = createAsyncThunk(
   }
 );
 
-export const archiveConversation = createAsyncThunk(
+export const archiveConversation = createAsyncThunk<Conversation, string>(
   'conversations/archiveConversation',
   async (id: string) => {
     return await conversationsApi.archive(id);
   }
 );
 
-export const unarchiveConversation = createAsyncThunk(
+export const unarchiveConversation = createAsyncThunk<Conversation, string>(
   'conversations/unarchiveConversation',
   async (id: string) => {
     return await conversationsApi.unarchive(id);
   }
 );
 
-export const toggleFavoriteConversation = createAsyncThunk(
+export const toggleFavoriteConversation = createAsyncThunk<Conversation, string>(
   'conversations/toggleFavorite',
   async (id: string) => {
     return await conversationsApi.toggleFavorite(id);
@@ -99,13 +99,13 @@ const conversationsSlice = createSlice({
   name: 'conversations',
   initialState,
   reducers: {
-    setFilters: (state, action) => {
+    setFilters: (state, action: any) => {
       state.filters = { ...state.filters, ...action.payload };
     },
     clearFilters: (state) => {
       state.filters = initialState.filters;
     },
-    setPagination: (state, action) => {
+    setPagination: (state, action: any) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
     clearCurrentConversation: (state) => {
@@ -114,7 +114,7 @@ const conversationsSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    updateConversationLocally: (state, action) => {
+    updateConversationLocally: (state, action: any) => {
       const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
       if (index !== -1) {
         state.items[index] = action.payload;
@@ -131,7 +131,7 @@ const conversationsSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchConversations.fulfilled, (state, action) => {
+      .addCase(fetchConversations.fulfilled, (state, action: any) => {
         state.loading = false;
         state.items = action.payload.conversations;
         state.pagination = {
