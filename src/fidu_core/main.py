@@ -1,9 +1,13 @@
 """Main application module for the FIDU Local App."""
 
-from fastapi import FastAPI, Request
+from threading import Timer
+import webbrowser
+from pathlib import Path
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fidu_core.data_packets import (
     DataPacketService,
@@ -15,6 +19,9 @@ from fidu_core.users import UserService, UserAPI
 from fidu_core.front_end.api import FrontEndAPI
 from fidu_core.users.store import LocalSqlUserStore
 from fidu_core.utils.db import close_connection
+
+ACM_LAB_BUILD_DIR = Path("src/apps/acm-front-end/dist")
+ACM_LAB_INDEX_FILE = ACM_LAB_BUILD_DIR / "index.html"
 
 app = FastAPI(
     title="FIDU Core API",
@@ -43,6 +50,10 @@ templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
 app.mount(
     "/static", StaticFiles(directory="src/fidu_core/front_end/static"), name="static"
 )
+
+# Mount the React app's static assets at /acm-lab
+if ACM_LAB_BUILD_DIR.exists():
+    app.mount("/acm-lab", StaticFiles(directory=str(ACM_LAB_BUILD_DIR)), name="acm-lab")
 
 # Create storage layer objects using connection factory pattern
 # Each store will get its own thread-local connection when needed
@@ -83,6 +94,41 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/acm-lab")
+async def serve_acm_lab():
+    """Serve the ACM Lab React app."""
+    if not ACM_LAB_INDEX_FILE.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="""ACM Lab frontend not built.
+             Please run 'npm run build' in the acm-front-end directory.""",
+        )
+    return FileResponse(ACM_LAB_INDEX_FILE)
+
+
+@app.get("/acm-lab/{path:path}")
+async def serve_acm_lab_path(path: str):
+    """Serve the ACM Lab React app for client-side routing."""
+    # Check if the path is for a static asset
+    static_file_path = ACM_LAB_BUILD_DIR / path
+    if static_file_path.exists() and static_file_path.is_file():
+        return FileResponse(static_file_path)
+
+    # For all other paths, serve the React app's index.html for client-side routing
+    if not ACM_LAB_INDEX_FILE.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="""ACM Lab frontend not built. Please run 'npm run build' in
+             the acm-front-end directory.""",
+        )
+    return FileResponse(ACM_LAB_INDEX_FILE)
+
+
+def open_browser():
+    """Open the browser to the local app."""
+    webbrowser.open("http://127.0.0.1:4000")
+
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -90,4 +136,6 @@ if __name__ == "__main__":
     print("Docs: http://127.0.0.1:4000/docs")
     print("Redoc: http://127.0.0.1:4000/redoc")
     print("OpenAPI: http://127.0.0.1:4000/openapi.json")
+    print("ACM Lab: http://127.0.0.1:4000/acm-lab")
+    Timer(1, open_browser).start()
     uvicorn.run(app, host="127.0.0.1", port=4000)

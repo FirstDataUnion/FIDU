@@ -13,11 +13,11 @@ handle_exit() {
            ____ __
           { --.\  |          .)%%%)%%
            '-._\\ | (\___   %)%%(%%(%%%
-               `\\|{/ ^ _)-%(%%%%)%%;%%%
-           .'^^^^^^^  /'    %%)%%%%)%%%'
+               '\\|{/ ^ _)-%(%%%%)%%;%%%
+           ,'^^^^^^^  /'    %%)%%%%)%%%'
           //\   ) ,  /       '%%%%(%%;
-    ,  _.`/  \<--  \<
-     `^^^`     ^^   ^^
+    ,  _.'/  \<--  \<
+     '^^^'     ^^   ^^
 
 YOUR PUSH HAS BEEN REJECTED BY THE FEROCIOUS LINTER, GUARDIAN OF CODE QUALITY.
 Please fix the issues above before pushing.

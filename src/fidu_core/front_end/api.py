@@ -140,6 +140,12 @@ class FrontEndAPI:
             methods=["POST"],
             response_class=HTMLResponse,
         )
+        self.app.add_api_route(
+            "/apps",
+            self.apps_page,
+            methods=["GET"],
+            response_model=None,
+        )
 
     async def _get_current_user_id(self, request: Request) -> Optional[str]:
         """Get the current user ID from the request token."""
@@ -469,6 +475,24 @@ class FrontEndAPI:
             )
         except (UserNotFoundError, UserError) as e:
             logger.error("Profiles page error: %s", e)
+            return RedirectResponse(url="/login", status_code=302)
+
+    async def apps_page(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Serve the apps page."""
+        user_id = await self._get_current_user_id(request)
+
+        if not user_id:
+            return RedirectResponse(url="/login", status_code=302)
+
+        try:
+            user = self.user_service.get_user(user_id)
+            return self.templates.TemplateResponse(
+                "apps.html", {"request": request, "user": user}
+            )
+        except (UserNotFoundError, UserError) as e:
+            logger.error("Apps page error: %s", e)
             return RedirectResponse(url="/login", status_code=302)
 
     async def profiles_list(self, request: Request) -> HTMLResponse:
