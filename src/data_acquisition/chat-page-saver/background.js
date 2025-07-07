@@ -303,9 +303,9 @@ class ChatPageSaver {
   async handleMessage(message, sender, sendResponse) {
     console.log('Background script received message:', message);
     
-    // Check if we should use Fidu Core
-    chrome.storage.sync.get('settings', async (result) => {
-      const useFiduCore = result.settings?.useFiduCore ?? false;
+          // Check if we should use Fidu Core (default to true)
+      chrome.storage.sync.get('settings', async (result) => {
+        const useFiduCore = result.settings?.useFiduCore ?? true;
       
       if (useFiduCore) {
         console.log('Background: Using Fidu Core');
@@ -483,9 +483,9 @@ class ChatPageSaver {
         lastSaved: dateTime
       };
 
-      // Check if we should use Fidu Core
+      // Check if we should use Fidu Core (default to true)
       chrome.storage.sync.get('settings', async (result) => {
-        const useFiduCore = result.settings?.useFiduCore ?? false;
+        const useFiduCore = result.settings?.useFiduCore ?? true;
         
         if (useFiduCore) {
           console.log('Background: Saving to Fidu Core');
