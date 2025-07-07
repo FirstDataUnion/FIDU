@@ -25,7 +25,7 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
-  Switch
+
 } from '@mui/material';
 import { 
   Chat as ChatIcon,
@@ -46,13 +46,13 @@ import { fetchConversations, fetchConversationMessages } from '../store/slices/c
 import { fetchTags } from '../store/slices/tagsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
-import { getPlatformColor, getTagColor, formatDate } from '../utils/conversationUtils';
+import { getPlatformColor, formatDate } from '../utils/conversationUtils';
 
 const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { items: conversations = [], loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: tags = [] } = useAppSelector((state) => state.tags as any);
-  const { sidebarOpen } = useAppSelector((state) => state.ui);
+
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
   // Search and Filter State

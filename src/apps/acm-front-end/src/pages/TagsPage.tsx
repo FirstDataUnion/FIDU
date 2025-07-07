@@ -22,18 +22,12 @@ import {
   Autocomplete,
   Tabs,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   IconButton,
   Menu,
   ListItemIcon,
   ListItemText,
-  Divider,
+
   Slider,
   Switch,
   FormControlLabel,
@@ -49,21 +43,19 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   MoreVert as MoreIcon,
-  ColorLens as ColorIcon,
   Category as CategoryIcon,
   AutoAwesome as AutoIcon,
   Analytics as AnalyticsIcon,
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
   Refresh as RefreshIcon,
-  GetApp as ExportIcon,
-  Upload as ImportIcon
+  GetApp as ExportIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { fetchTags } from '../store/slices/tagsSlice';
 import { fetchConversations } from '../store/slices/conversationsSlice';
 import { fetchMemories } from '../store/slices/memoriesSlice';
-import type { Tag, TagsState, ConversationsState, MemoriesState, RootState } from '../types';
+import type { Tag, TagsState, RootState } from '../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -89,15 +81,12 @@ function TabPanel(props: TabPanelProps) {
 const TagsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const tagsState = useAppSelector((state: RootState) => state.tags as TagsState);
-  const conversationsState = useAppSelector((state: RootState) => state.conversations as ConversationsState);
-  const memoriesState = useAppSelector((state: RootState) => state.memories as MemoriesState);
 
   // Extract with proper typing
   const tags = tagsState.items;
   const loading = tagsState.loading;
   const error = tagsState.error;
-  const conversations = conversationsState.items;
-  const memories = memoriesState.items;
+
 
   // Tab state
   const [currentTab, setCurrentTab] = useState(0);
@@ -137,8 +126,8 @@ const TagsPage: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTags());
-    dispatch(fetchConversations());
-    dispatch(fetchMemories());
+    dispatch(fetchConversations({}));
+    dispatch(fetchMemories({}));
   }, [dispatch]);
 
   const handleRefresh = () => {
@@ -402,7 +391,7 @@ const TagsPage: React.FC = () => {
               <Typography gutterBottom>Usage Range</Typography>
               <Slider
                 value={usageFilter}
-                onChange={(e, newValue) => setUsageFilter(newValue as number[])}
+                onChange={(_, newValue) => setUsageFilter(newValue as number[])}
                 valueLabelDisplay="auto"
                 min={0}
                 max={100}

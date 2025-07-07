@@ -48,10 +48,8 @@ import {
   ExpandLess,
   ExpandMore,
   Star as StarIcon,
-  StarBorder as StarBorderIcon,
   Share as ShareIcon,
   Download as DownloadIcon,
-  FilterList as FilterIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
   Tag as TagIcon
@@ -62,7 +60,7 @@ import { fetchTags } from '../store/slices/tagsSlice';
 
 export default function ContextsPage() {
   const dispatch = useAppDispatch();
-  const { items: contexts, loading, error } = useAppSelector((state) => state.contexts || { items: [], loading: false, error: null });
+  const { loading, error } = useAppSelector((state) => state.contexts || { loading: false, error: null });
   const { items: tags } = useAppSelector((state) => state.tags as any);
   
   // State for UI
@@ -787,7 +785,7 @@ export default function ContextsPage() {
             <Autocomplete
               multiple
               value={editedTags}
-              onChange={(event, newValue) => {
+                              onChange={(_, newValue) => {
                 setEditedTags(newValue);
               }}
               options={allTags}
