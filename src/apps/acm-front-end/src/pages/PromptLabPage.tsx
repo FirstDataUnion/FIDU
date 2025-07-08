@@ -39,7 +39,6 @@ import { RecentPrompts } from '../components/prompts/RecentPrompts';
 import { ModelSelection } from '../components/prompts/ModelSelection';
 import { PromptStack } from '../components/prompts/PromptStack';
 
-// import { fetchPromptLabData, executePrompt, generateContextSuggestions } from '../store/slices/promptLabSlice';
 
 
 
@@ -76,12 +75,17 @@ export default function PromptLabPage() {
   // Get auth state for profile ID
   const { currentProfile } = useAppSelector((state) => state.auth);
 
+  // Debug logging for profile changes
+  useEffect(() => {
+    console.log('PromptLabPage: currentProfile changed to:', currentProfile);
+  }, [currentProfile]);
+
   // UI State
   const [activeTab, setActiveTab] = useState(0);
   const [stackExpanded, setStackExpanded] = useState(true);
   const [stackMinimized, setStackMinimized] = useState(false);
   const [selectedContext, setSelectedContext] = useState<any>(null);
-  const [localSelectedModels, setLocalSelectedModels] = useState<string[]>([]);
+  const [localSelectedModel, setLocalSelectedModel] = useState<string>('');
   
   // Simple prompt text state with debouncing
   const [promptText, setPromptText] = useState('');
@@ -226,7 +230,7 @@ export default function PromptLabPage() {
   };
 
   // Fetch saved prompts from API
-  const fetchSavedPrompts = async () => {
+  const fetchSavedPrompts = useCallback(async () => {
     if (!currentProfile) {
       setSavedPromptsError('No profile selected');
       return;
@@ -237,7 +241,7 @@ export default function PromptLabPage() {
 
     try {
       const queryParams: DataPacketQueryParams = {
-        tags: ["ACM", "ACM-LAB-Prompt", "Saved-Prompt"],
+        tags: ["ACM", "ACM-Prompt", "Saved-Prompt"],
         profile_id: currentProfile.id,
         limit: 100,
         offset: 0,
@@ -260,14 +264,14 @@ export default function PromptLabPage() {
     } finally {
       setLoadingSavedPrompts(false);
     }
-  };
+  }, [currentProfile]);
 
   // Load saved prompts when profile changes or component mounts
   useEffect(() => {
     if (currentProfile) {
       fetchSavedPrompts();
     }
-  }, [currentProfile]);
+  }, [currentProfile, fetchSavedPrompts]);
 
   // Handle using a saved prompt
   const handleUsePrompt = (prompt: any) => {
@@ -288,20 +292,25 @@ export default function PromptLabPage() {
 
   // Handle executing the prompt
   const handleExecute = async () => {
+    console.log('handleExecute called with currentProfile:', currentProfile);
+    
     if (!promptText.trim()) {
       setExecutionError('Please enter a prompt before executing');
       return;
     }
 
     if (!currentProfile) {
+      console.error('currentProfile is null in handleExecute');
       setExecutionError('Please select a profile before executing');
       return;
     }
 
-    if (localSelectedModels.length === 0) {
-      setExecutionError('Please select at least one model before executing');
+    if (!localSelectedModel) {
+      setExecutionError('Please select a model before executing');
       return;
     }
+
+    console.log('Executing prompt with profile ID:', currentProfile.id);
 
     setIsExecuting(true);
     setExecutionError(null);
@@ -321,27 +330,28 @@ export default function PromptLabPage() {
 
       // Then execute the prompt
       const executionResult = await promptsApi.executePrompt(
+        [], // No previous messages for initial prompt
         selectedContext,
         promptText,
-        localSelectedModels,
+        localSelectedModel,
         currentProfile.id
       );
-      
+
       // Initialize conversation with the original prompt and response
       const initialMessages = [
         {
-          id: `msg-${Date.now()}-1`,
+          id: `msg-usr-${Date.now()}`,
           role: 'user',
           content: promptText,
           timestamp: new Date().toISOString(),
-          model: localSelectedModels[0] // Use first selected model
+          model: localSelectedModel 
         },
         {
-          id: `msg-${Date.now()}-2`,
+          id: executionResult.id,
           role: 'assistant',
-          content: executionResult?.responses?.[0]?.content || 'This is a placeholder response. In a real implementation, this would be the actual model response.',
-          timestamp: new Date().toISOString(),
-          model: localSelectedModels[0]
+          content: executionResult.responses.content,
+          timestamp: executionResult.timestamp,
+          model: localSelectedModel
         }
       ];
 
@@ -351,7 +361,7 @@ export default function PromptLabPage() {
       const conversation: Conversation = {
         id: conversation_id, 
         title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-        platform: localSelectedModels[0].toLowerCase() as 'chatgpt' | 'claude' | 'gemini' | 'other',
+        platform: localSelectedModel.toLowerCase() as 'chatgpt' | 'claude' | 'gemini' | 'other',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messageCount: 2,
@@ -395,7 +405,7 @@ export default function PromptLabPage() {
   };
 
   // Fetch execution history from API
-  const fetchExecutionHistory = async () => {
+  const fetchExecutionHistory = useCallback(async () => {
     if (!currentProfile) {
       setHistoryError('No profile selected');
       return;
@@ -429,14 +439,14 @@ export default function PromptLabPage() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [currentProfile]);
 
   // Load execution history when profile changes or component mounts
   useEffect(() => {
     if (currentProfile) {
       fetchExecutionHistory();
     }
-  }, [currentProfile]);
+  }, [currentProfile, fetchExecutionHistory]);
 
   // Handle sending follow-up message
   const handleSendFollowUp = useCallback(async (message: string) => {
@@ -455,7 +465,7 @@ export default function PromptLabPage() {
         role: 'user' as 'user' | 'assistant' | 'system',
         content: message,
         timestamp: new Date().toISOString(),
-        platform: localSelectedModels[0],
+        platform: localSelectedModel,
         isEdited: false
       };
 
@@ -467,23 +477,23 @@ export default function PromptLabPage() {
         return updatedMessages;
       });
       
-      // Send follow-up to API (placeholder for now)
-      // In a real implementation, you'd send the conversation context + new message
+      // Send follow-up to API with full conversation history
       const followUpResult = await promptsApi.executePrompt(
+        conversationMessages, // Send all previous messages
         selectedContext,
         message,
-        localSelectedModels,
+        localSelectedModel,
         currentProfile.id
       );
 
       // Add assistant response to conversation
       const assistantMessage = {
-        id: `msg-${Date.now()}-assistant`,
+        id: followUpResult.id,
         role: 'assistant' as 'user' | 'assistant' | 'system',
         conversationId: currentConversation.id,
-        content: followUpResult?.responses?.[0]?.content || 'This is a placeholder follow-up response.',
-        timestamp: new Date().toISOString(),
-        platform: localSelectedModels[0],
+        content: followUpResult.responses.content,
+        timestamp: followUpResult.timestamp,
+        platform: localSelectedModel,
         isEdited: false
       };
 
@@ -501,7 +511,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSendingFollowUp(false);
     }
-  }, [currentProfile, currentConversation, localSelectedModels, selectedContext]);
+  }, [currentProfile, currentConversation, localSelectedModel, selectedContext, conversationMessages, fetchExecutionHistory]);
 
   // Convert Message to ConversationMessage (filtering out system messages)
   const convertMessagesToConversationMessages = useCallback((messages: Message[]) => {
@@ -544,15 +554,9 @@ export default function PromptLabPage() {
     }
   ];
 
-  const mockModels = [
-    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic', maxTokens: 200000 },
-    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic', maxTokens: 200000 },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI', maxTokens: 128000 },
-    { id: 'gemini-ultra', name: 'Gemini Ultra', provider: 'Google', maxTokens: 32000 }
-  ];
-
-  // Mock saved prompts data
-
+  const models = [
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', maxTokens: 128000 },
+  ]
 
   // Optimized token calculation - memoized to prevent recalculation
   const calculateTokenCount = useCallback((text: string) => {
@@ -637,14 +641,10 @@ export default function PromptLabPage() {
 
                   {/* Model Selection */}
                   <ModelSelection 
-                    models={mockModels}
-                    selectedModels={localSelectedModels}
+                    models={models}
+                    selectedModel={localSelectedModel}
                     onModelToggle={(modelId) => {
-                      setLocalSelectedModels(prev => 
-                        prev.includes(modelId) 
-                          ? prev.filter(id => id !== modelId)
-                          : [...prev, modelId]
-                      );
+                      setLocalSelectedModel(modelId);
                     }}
                   />
                 </Stack>
@@ -920,15 +920,15 @@ export default function PromptLabPage() {
         debouncedPromptText={debouncedPromptText}
         debouncedPromptTokens={debouncedPromptTokens}
         selectedContext={selectedContext}
-        localSelectedModels={localSelectedModels}
-        mockModels={mockModels}
+        localSelectedModel={localSelectedModel}
+        mockModels={models}
         promptText={promptText}
         isExecuting={isExecuting}
         executionError={executionError}
         onMinimize={() => setStackMinimized(true)}
         onToggleExpanded={() => setStackExpanded(!stackExpanded)}
         onRemoveContext={() => setSelectedContext(null)}
-        onRemoveModel={(modelId) => setLocalSelectedModels(prev => prev.filter(id => id !== modelId))}
+        onRemoveModel={(_) => setLocalSelectedModel('')}
         onExecute={handleExecute}
         onSave={handleSaveClick}
       />
@@ -938,7 +938,7 @@ export default function PromptLabPage() {
         open={conversationOpen}
         onClose={handleCloseConversation}
         messages={convertMessagesToConversationMessages(conversationMessages)}
-        selectedModel={localSelectedModels[0]}
+        selectedModel={localSelectedModel}
         isSendingFollowUp={isSendingFollowUp}
         error={conversationError}
         onSendMessage={handleSendFollowUp}

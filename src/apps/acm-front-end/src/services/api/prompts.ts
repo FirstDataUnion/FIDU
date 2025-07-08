@@ -1,5 +1,9 @@
-import { apiClient } from './apiClients';
-import type { FilterOptions, PromptDataPacket, DataPacketQueryParams, Prompt } from '../../types';
+import { fiduCoreAPIClient } from './apiClientFIDUCore';
+import { nlpWorkbenchAPIClient } from './apiClientNLPWorkbench';
+import type { FilterOptions, PromptDataPacket, DataPacketQueryParams, Prompt, Message } from '../../types';
+
+const DEFAULT_WAIT_TIME_MS = 10000;
+const DEFAULT_POLL_INTERVAL_MS = 1500;
 
 interface PromptsResponse {
 	prompts: Prompt[];
@@ -54,20 +58,12 @@ const transformPromptToDataPacket = (prompt: Prompt, profileId: string): {
 
 export const promptsApi = {
 
-	getAll: async (filters?: FilterOptions, page = 1, limit = 20, profileId?: string) => {
-		const queryParams: DataPacketQueryParams = {
-			tags: ["ACM", "ACM-LAB-Prompt", ...(filters?.tags || [])],
-			profile_id: profileId, // Include profile_id for authenticated requests
-			limit: limit,
-			offset: (page - 1) * limit,
-			sort_order: "desc",
-		};
-
+	getAll: async (queryParams?: DataPacketQueryParams, page = 1, limit = 20) => {
 		try {
-			const response = await apiClient.get<PromptDataPacket[]>('/data-packets', {
+			const response = await fiduCoreAPIClient.get<PromptDataPacket[]>('/data-packets', {
 				params: queryParams,
 				paramsSerializer: {
-					serialize: (params) => {
+					serialize: (params: Record<string, any>) => {
 						const searchParams = new URLSearchParams();
 						
 						Object.entries(params).forEach(([key, value]) => {
@@ -141,7 +137,7 @@ export const promptsApi = {
 			};
 
 			// Submit to the data packet API
-			const response = await apiClient.post('/data-packets', requestPayload);
+			const response = await fiduCoreAPIClient.post('/data-packets', requestPayload);
 
 			// Transform the response back to a Prompt
 			const savedDataPacket = response.data as PromptDataPacket;
@@ -153,35 +149,90 @@ export const promptsApi = {
 	},
 
 	executePrompt: async (
+		conversationMessages: Message[],
 		context: any,
 		prompt: string,
-		selectedModels: string[],
+		selectedModel: string,
 		profileId?: string
 	) => {
 		if (!profileId) {
 			throw new Error('Profile ID is required to execute a prompt');
 		}
 
-		// Placeholder implementation - just log the parameters
-		console.log('=== Prompt Execution Request ===');
-		console.log('Context:', context);
-		console.log('Prompt:', prompt);
-		console.log('Selected Models:', selectedModels);
-		console.log('Profile ID:', profileId);
-		console.log('================================');
+		// Format conversation history for the AI model
+		const formatConversationHistory = (messages: Message[]): string => {
+			return messages
+				.filter(msg => msg.role !== 'system') // Filter out system messages for now
+				.map(msg => {
+					const role = msg.role === 'user' ? 'User' : 'Assistant';
+					return `${role}: ${msg.content}`;
+				})
+				.join('\n\n');
+		};
 
-		// TODO: Implement actual API call to execute prompt
-		// This would typically make a call to an AI service API
-		// For now, we'll return a mock response
+		// Build the complete prompt with conversation history
+		var agentPrompt = prompt
+		if (context && conversationMessages.length > 0) {
+			agentPrompt = `
+			Given the following existing background context: ${context}
+
+			And the following conversation history: ${formatConversationHistory(conversationMessages)}
+
+			Answer the following prompt, keeping the existing context of the conversation in mind, 
+			treating it as either a previous part of the same conversation, or just as a framing 
+			for the following prompt: 
+
+			Prompt: ${prompt}
+			`
+		} else if (context) {
+			agentPrompt = `
+			Given the following existing background context: ${context}
+			
+			Answer the following prompt, keeping the existing context of the conversation in mind, 
+			treating it as either a previous part of the same conversation, or just as a framing 
+			for the following prompt: 
+
+			Prompt: ${prompt}
+			`
+		} else if (conversationMessages.length > 0) {	
+			agentPrompt = `
+			Given the following conversation history: ${formatConversationHistory(conversationMessages)}
+
+			Answer the following prompt, keeping the existing context of the conversation in mind and 
+			continuing the flow of the conversation:
+
+			Prompt: ${prompt}`
+		}
+
+		var agentCallback = null;
+		switch (selectedModel) {
+			case "gpt-3.5-turbo":
+				agentCallback = nlpWorkbenchAPIClient.executeChatGPTGeneralAgent.bind(nlpWorkbenchAPIClient);
+				break;
+			default:
+				throw new Error(`Unsupported model: ${selectedModel}`);
+		}
+
+		const response = await nlpWorkbenchAPIClient.executeAgentAndWait(
+			agentPrompt, 
+			agentCallback, 
+			DEFAULT_WAIT_TIME_MS,
+			DEFAULT_POLL_INTERVAL_MS
+		)
+		
+		console.log(response);
+
+		const chatResponse = response.outputs.results[0]?.output?.result;
 		
 		return {
 			id: `exec-${Date.now()}`,
-			status: 'completed',
-			responses: selectedModels.map(modelId => ({
-				modelId,
-				content: `Mock response from ${modelId} for prompt: "${prompt.substring(0, 50)}..."`
-			})),
+			status: response.status,
+			responses: {
+				modelId: selectedModel,
+				content: chatResponse,
+			},
 			timestamp: new Date().toISOString()
 		};
 	},
+
 }

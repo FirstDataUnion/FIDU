@@ -43,7 +43,7 @@ interface PromptStackProps {
   debouncedPromptText: string;
   debouncedPromptTokens: number;
   selectedContext: ContextSuggestion | null;
-  localSelectedModels: string[];
+  localSelectedModel: string;
   mockModels: Model[];
   promptText: string;
   isExecuting: boolean;
@@ -63,7 +63,7 @@ export const PromptStack = React.memo<PromptStackProps>(({
   debouncedPromptText,
   debouncedPromptTokens,
   selectedContext,
-  localSelectedModels,
+  localSelectedModel,
   mockModels,
   promptText,
   isExecuting,
@@ -209,15 +209,15 @@ export const PromptStack = React.memo<PromptStackProps>(({
           </Box>
 
           {/* Selected Model */}
-          {localSelectedModels.length > 0 && (
+          {localSelectedModel && (
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
               <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                 Selected Model
               </Typography>
-              {localSelectedModels.map((modelId: string) => {
-                const model = mockModels.find(m => m.id === modelId);
+              {(() => {
+                const model = mockModels.find(m => m.id === localSelectedModel);
                 return model ? (
-                  <Box key={modelId} sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50', borderRadius: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>
                         {model.name}
@@ -238,7 +238,7 @@ export const PromptStack = React.memo<PromptStackProps>(({
                     </Button>
                   </Box>
                 ) : null;
-              })}
+              })()}
             </Box>
           )}
         </Box>

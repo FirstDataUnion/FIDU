@@ -99,10 +99,34 @@ export const initializeAuth = createAsyncThunk(
         // Fetch profiles
         const profiles = await dispatch(fetchProfiles()).unwrap();
         
-        // Set first profile as current if available
+        // Check for existing saved profile first, then default to first profile
         let currentProfile = null;
-        if (profiles.length > 0) {
+        const savedProfile = localStorage.getItem('current_profile');
+        
+        console.log('initializeAuth: savedProfile from localStorage:', savedProfile);
+        console.log('initializeAuth: fetched profiles:', profiles);
+        
+        if (savedProfile) {
+          try {
+            const parsedProfile = JSON.parse(savedProfile);
+            console.log('initializeAuth: parsed saved profile:', parsedProfile);
+            // Verify the saved profile still exists in the fetched profiles
+            const profileExists = profiles.find(p => p.id === parsedProfile.id);
+            if (profileExists) {
+              currentProfile = profileExists;
+              console.log('initializeAuth: using saved profile:', currentProfile);
+            } else {
+              console.log('initializeAuth: saved profile not found in fetched profiles');
+            }
+          } catch (error) {
+            console.warn('Failed to parse saved profile:', error);
+          }
+        }
+        
+        // If no saved profile or saved profile doesn't exist anymore, use first profile
+        if (!currentProfile && profiles.length > 0) {
           currentProfile = profiles[0];
+          console.log('initializeAuth: using first profile as default:', currentProfile);
           localStorage.setItem('current_profile', JSON.stringify(currentProfile));
         }
         
@@ -155,6 +179,7 @@ const authSlice = createSlice({
     },
     
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
+      console.log('Redux: setCurrentProfile called with:', action.payload);
       state.currentProfile = action.payload;
       localStorage.setItem('current_profile', JSON.stringify(action.payload));
     },
@@ -256,6 +281,7 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isInitialized = true;
         if (action.payload) {
+          console.log('Redux: initializeAuth.fulfilled setting currentProfile to:', action.payload.currentProfile);
           state.user = action.payload.user;
           state.profiles = action.payload.profiles;
           state.currentProfile = action.payload.currentProfile;
