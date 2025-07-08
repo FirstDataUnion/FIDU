@@ -1,4 +1,4 @@
-import { apiClient } from './apiClients';
+import { fiduCoreAPIClient } from './apiClientFIDUCore';
 import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate } from '../../types';
 import { v5 as uuidv5 } from 'uuid';
 
@@ -115,7 +115,7 @@ export const conversationsApi = {
       request_id,
       data_packet: dataPacket
     }
-    const response = await apiClient.post<ConversationDataPacket>('/data-packets', dataPacketCreateRequest);
+    const response = await fiduCoreAPIClient.post<ConversationDataPacket>('/data-packets', dataPacketCreateRequest);
     return transformDataPacketToConversation(response.data);
   },
 
@@ -128,7 +128,7 @@ export const conversationsApi = {
       request_id,
       data_packet: dataPacket
     }
-    const response = await apiClient.put<ConversationDataPacket>('/data-packets/' + conversation.id, dataPacketUpdateRequest);
+    const response = await fiduCoreAPIClient.put<ConversationDataPacket>('/data-packets/' + conversation.id, dataPacketUpdateRequest);
     return transformDataPacketToConversation(response.data);
   },
 
@@ -147,7 +147,7 @@ export const conversationsApi = {
     };
 
     try {
-      const response = await apiClient.get<ConversationDataPacket[]>('/data-packets', {
+      const response = await fiduCoreAPIClient.get<ConversationDataPacket[]>('/data-packets', {
         params: queryParams,
         paramsSerializer: {
           serialize: (params) => {
@@ -213,7 +213,7 @@ export const conversationsApi = {
    */
   getById: async (id: string) => {
     try {
-      const response = await apiClient.get<ConversationDataPacket>(`/data-packets/${id}`);
+      const response = await fiduCoreAPIClient.get<ConversationDataPacket>(`/data-packets/${id}`);
       if (response.status === 200 && response.data) {
         return transformDataPacketToConversation(response.data);
       } else {
@@ -272,7 +272,7 @@ export const conversationsApi = {
    */
   getMessages: async (conversationId: string) => {
     try {
-      const response = await apiClient.get<ConversationDataPacket>(`/data-packets/${conversationId}`);
+      const response = await fiduCoreAPIClient.get<ConversationDataPacket>(`/data-packets/${conversationId}`);
       
       if (response.status === 200 && response.data) {
         const packet = response.data;

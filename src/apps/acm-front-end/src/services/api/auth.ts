@@ -1,4 +1,4 @@
-import { apiClient } from './apiClients';
+import { fiduCoreAPIClient } from './apiClientFIDUCore';
 import type { 
   LoginRequest, 
   LoginResponse, 
@@ -13,7 +13,7 @@ export const authApi = {
    * Login a user
    */
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>('/users/login', credentials);
+    const response = await fiduCoreAPIClient.post<LoginResponse>('/users/login', credentials);
     return response.data;
   },
 
@@ -21,7 +21,7 @@ export const authApi = {
    * Register a new user
    */
   register: async (userData: RegisterRequest): Promise<User> => {
-    const response = await apiClient.post<User>('/users', userData);
+    const response = await fiduCoreAPIClient.post<User>('/users', userData);
     return response.data;
   },
 
@@ -29,7 +29,7 @@ export const authApi = {
    * Get current user information
    */
   getCurrentUser: async (): Promise<User> => {
-    const response = await apiClient.get<User>('/users/current');
+    const response = await fiduCoreAPIClient.get<User>('/users/current');
     return response.data;
   },
 
@@ -37,7 +37,7 @@ export const authApi = {
    * Get all profiles for the current user
    */
   getProfiles: async (): Promise<Profile[]> => {
-    const response = await apiClient.get<Profile[]>('/profiles');
+    const response = await fiduCoreAPIClient.get<Profile[]>('/profiles');
     return response.data;
   },
 
@@ -45,7 +45,7 @@ export const authApi = {
    * Create a new profile
    */
   createProfile: async (profileData: CreateProfileRequest): Promise<Profile> => {
-    const response = await apiClient.post<Profile>('/profiles', profileData);
+    const response = await fiduCoreAPIClient.post<Profile>('/profiles', profileData);
     return response.data;
   },
 
@@ -53,7 +53,7 @@ export const authApi = {
    * Get a specific profile by ID
    */
   getProfile: async (profileId: string): Promise<Profile> => {
-    const response = await apiClient.get<Profile>(`/profiles/${profileId}`);
+    const response = await fiduCoreAPIClient.get<Profile>(`/profiles/${profileId}`);
     return response.data;
   },
 }; 

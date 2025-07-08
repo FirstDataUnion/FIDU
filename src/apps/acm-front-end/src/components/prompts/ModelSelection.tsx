@@ -16,13 +16,13 @@ interface Model {
 
 interface ModelSelectionProps {
   models: Model[];
-  selectedModels: string[];
+  selectedModel: string;
   onModelToggle: (modelId: string) => void;
 }
 
 export const ModelSelection = React.memo<ModelSelectionProps>(({ 
   models, 
-  selectedModels, 
+  selectedModel, 
   onModelToggle 
 }) => {
   const handleModelClick = useCallback((modelId: string) => {
@@ -45,8 +45,8 @@ export const ModelSelection = React.memo<ModelSelectionProps>(({
             variant="outlined"
             sx={{ 
               cursor: 'pointer',
-              border: selectedModels.includes(model.id) ? 2 : 1,
-              borderColor: selectedModels.includes(model.id) ? 'primary.main' : 'divider'
+              border: selectedModel === model.id ? 2 : 1,
+              borderColor: selectedModel === model.id ? 'primary.main' : 'divider'
             }}
             onClick={() => handleModelClick(model.id)}
           >

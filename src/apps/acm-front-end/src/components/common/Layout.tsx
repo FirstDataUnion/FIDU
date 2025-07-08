@@ -87,6 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleProfileSwitch = (profile: Profile) => {
+    console.log('Layout: Switching to profile:', profile);
     dispatch(setCurrentProfile(profile));
     handleProfileSwitcherClose();
   };

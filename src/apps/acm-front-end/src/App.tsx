@@ -124,7 +124,7 @@ const AppContent: React.FC<AppContentProps> = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename="/acm-lab">
         <AuthWrapper />
         {authInitialized && (
           <Layout>
