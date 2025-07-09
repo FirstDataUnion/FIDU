@@ -3,6 +3,8 @@
 import uuid
 import json
 import logging
+import sys
+from pathlib import Path
 from typing import Optional, Union
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -23,6 +25,21 @@ from fidu_core.profiles.schema import (
     ProfileCreate,
 )
 from fidu_core.profiles.exceptions import ProfileError
+
+
+def get_base_path():
+    """Get the base path for the application, handling PyInstaller bundling."""
+    if getattr(sys, 'frozen', False):
+        # Running in a PyInstaller bundle
+        return Path(sys._MEIPASS)
+    else:
+        # Running in normal Python environment
+        # In development, we need to go up to the project root
+        return Path(__file__).parent.parent.parent
+
+
+# Get the base path
+BASE_PATH = get_base_path()
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +71,10 @@ class FrontEndAPI:
         self.profile_service = profile_service
         self.jwt_manager = JWTManager()
         self.password_hasher = PasswordHasher()
-        self.templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
+        
+        templates_dir = BASE_PATH / "fidu_core" / "front_end" / "templates"
+        
+        self.templates = Jinja2Templates(directory=str(templates_dir))
         self._setup_routes()
 
     def _setup_routes(self) -> None:

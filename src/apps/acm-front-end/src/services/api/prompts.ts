@@ -1,6 +1,6 @@
 import { fiduCoreAPIClient } from './apiClientFIDUCore';
 import { nlpWorkbenchAPIClient } from './apiClientNLPWorkbench';
-import type { FilterOptions, PromptDataPacket, DataPacketQueryParams, Prompt, Message } from '../../types';
+import type { PromptDataPacket, DataPacketQueryParams, Prompt, Message } from '../../types';
 
 const DEFAULT_WAIT_TIME_MS = 10000;
 const DEFAULT_POLL_INTERVAL_MS = 1500;

@@ -2,6 +2,8 @@
 
 from threading import Timer
 import webbrowser
+import sys
+import os
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,8 +21,31 @@ from fidu_core.users import UserService, UserAPI
 from fidu_core.front_end.api import FrontEndAPI
 from fidu_core.users.store import LocalSqlUserStore
 from fidu_core.utils.db import close_connection
+from fidu_core.proxy.router import create_proxy_router
 
-ACM_LAB_BUILD_DIR = Path("src/apps/acm-front-end/dist")
+
+def get_base_path():
+    """Get the base path for the application, handling PyInstaller bundling."""
+    if getattr(sys, 'frozen', False):
+        # Running in a PyInstaller bundle
+        return Path(sys._MEIPASS)
+    else:
+        # Running in normal Python environment
+        # In development, we need to go up to the project root
+        return Path(__file__).parent.parent.parent
+
+
+# Get the base path
+BASE_PATH = get_base_path()
+
+# Define paths relative to the base path
+if getattr(sys, 'frozen', False):
+    # PyInstaller mode - files are directly in the bundle
+    ACM_LAB_BUILD_DIR = BASE_PATH / "apps" / "acm-front-end" / "dist"
+else:
+    # Development mode - files are in src/ directory
+    ACM_LAB_BUILD_DIR = BASE_PATH / "src" / "apps" / "acm-front-end" / "dist"
+
 ACM_LAB_INDEX_FILE = ACM_LAB_BUILD_DIR / "index.html"
 
 app = FastAPI(
@@ -46,10 +71,18 @@ class DatabaseCleanupMiddleware(BaseHTTPMiddleware):
 
 
 # Set up templates and static files
-templates = Jinja2Templates(directory="src/fidu_core/front_end/templates")
-app.mount(
-    "/static", StaticFiles(directory="src/fidu_core/front_end/static"), name="static"
-)
+if getattr(sys, 'frozen', False):
+    # PyInstaller mode - files are directly in the bundle
+    templates = Jinja2Templates(directory=str(BASE_PATH / "fidu_core" / "front_end" / "templates"))
+    app.mount(
+        "/static", StaticFiles(directory=str(BASE_PATH / "fidu_core" / "front_end" / "static")), name="static"
+    )
+else:
+    # Development mode - files are in src/ directory
+    templates = Jinja2Templates(directory=str(BASE_PATH / "src" / "fidu_core" / "front_end" / "templates"))
+    app.mount(
+        "/static", StaticFiles(directory=str(BASE_PATH / "src" / "fidu_core" / "front_end" / "static")), name="static"
+    )
 
 # Mount the React app's static assets at /acm-lab
 if ACM_LAB_BUILD_DIR.exists():
@@ -75,13 +108,20 @@ user_api = UserAPI(app, user_service)
 # and a basic profile page - now using service layers directly
 front_end_api = FrontEndAPI(app, user_service, data_packet_service, profile_service)
 
+# Add proxy router for external API requests
+# This is used to proxy requests from the ACM-Lab to external APIs as we are serving
+# the ACM-Lab from the same server as the FIDU Core API for now. When this changes, 
+# we can remove this. 
+proxy_router = create_proxy_router()
+app.include_router(proxy_router)
+
 # Configure CORS for local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-API-Key"],  # Explicitly allow X-API-Key header
 )
 
 # Add database cleanup middleware

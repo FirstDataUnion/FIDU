@@ -1,6 +1,6 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { ApiError, type ApiResponse, type ErrorResponse } from './apiClients';
+import type { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { ApiError, type ErrorResponse } from './apiClients';
 
 // NLP Workbench API Configuration
 const NLP_WORKBENCH_API_CONFIG = {

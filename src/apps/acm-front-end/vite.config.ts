@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => {
           target: 'https://wb.nlp-processing.com',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/nlp-workbench/, '/api/public'),
-          configure: (proxy, options) => {
-            proxy.on('proxyReq', (proxyReq, req, res) => {
+          configure: (proxy, _options) => {
+            proxy.on('proxyReq', (proxyReq, _req, _res) => {
               // Add the API key header on the server side
               if (env.VITE_NLP_WORKBENCH_AGENT_API_KEY) {
                 proxyReq.setHeader('X-API-Key', env.VITE_NLP_WORKBENCH_AGENT_API_KEY);
