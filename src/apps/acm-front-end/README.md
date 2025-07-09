@@ -60,6 +60,10 @@ npm run dev
 
 4. Open your browser to `http://localhost:5173`
 
+5. In order for communication with the NLP Agentic Workbench to work, 
+an env variable of your agent key will need to be set in the variable 
+VITE_NLP_WORKBENCH_AGENT_API_KEY in a .env file at the project root. 
+
 ### Building for Production
 
 ```bash
