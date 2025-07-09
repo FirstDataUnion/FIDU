@@ -2,4 +2,4 @@
 
 from .nlp_workbench_proxy import NLPWorkbenchProxy
 
-__all__ = ["NLPWorkbenchProxy"] 
+__all__ = ["NLPWorkbenchProxy"]

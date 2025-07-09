@@ -29,13 +29,12 @@ from fidu_core.profiles.exceptions import ProfileError
 
 def get_base_path():
     """Get the base path for the application, handling PyInstaller bundling."""
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # Running in a PyInstaller bundle
-        return Path(sys._MEIPASS)
-    else:
-        # Running in normal Python environment
-        # In development, we need to go up to the project root
-        return Path(__file__).parent.parent.parent
+        return Path(sys._MEIPASS)  # pylint: disable=protected-access
+    # Running in normal Python environment
+    # In development, we need to go up to the project root
+    return Path(__file__).parent.parent.parent
 
 
 # Get the base path
@@ -71,9 +70,9 @@ class FrontEndAPI:
         self.profile_service = profile_service
         self.jwt_manager = JWTManager()
         self.password_hasher = PasswordHasher()
-        
+
         templates_dir = BASE_PATH / "fidu_core" / "front_end" / "templates"
-        
+
         self.templates = Jinja2Templates(directory=str(templates_dir))
         self._setup_routes()
 

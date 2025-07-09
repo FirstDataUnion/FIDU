@@ -1,6 +1,5 @@
 """Standalone proxy server for external API requests."""
 
-import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +16,7 @@ def create_proxy_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
-    
+
     # Configure CORS
     config = proxy_config.get_proxy_server_config()
     app.add_middleware(
@@ -27,33 +26,33 @@ def create_proxy_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Add proxy router
     proxy_router = create_proxy_router()
     app.include_router(proxy_router)
-    
+
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
         return {"status": "healthy", "service": "proxy"}
-    
+
     return app
 
 
 def run_proxy_server(host: str = None, port: int = None):
     """Run the standalone proxy server."""
     app = create_proxy_app()
-    
+
     config = proxy_config.get_proxy_server_config()
     host = host or config["host"]
     port = port or config["port"]
-    
+
     print(f"Proxy server running on http://{host}:{port}")
     print(f"Docs: http://{host}:{port}/docs")
     print(f"Health: http://{host}:{port}/health")
-    
+
     uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    run_proxy_server() 
+    run_proxy_server()
