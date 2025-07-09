@@ -208,6 +208,9 @@ export const sampleSettings: UserSettings = {
   notificationsEnabled: true,
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
+  apiKeys: {
+    nlpWorkbench: '',
+  },
   privacySettings: {
     shareAnalytics: false,
     autoBackup: true,

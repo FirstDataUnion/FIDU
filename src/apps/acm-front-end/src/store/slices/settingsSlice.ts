@@ -11,6 +11,9 @@ const defaultSettings: UserSettings = {
   notificationsEnabled: true,
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
+  apiKeys: {
+    nlpWorkbench: '',
+  },
   privacySettings: {
     shareAnalytics: false,
     autoBackup: true,
@@ -71,6 +74,9 @@ const settingsSlice = createSlice({
     updateDisplaySettings: (state, action) => {
       state.settings.displaySettings = { ...state.settings.displaySettings, ...action.payload };
     },
+    updateApiKeys: (state, action) => {
+      state.settings.apiKeys = { ...state.settings.apiKeys, ...action.payload };
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -117,6 +123,7 @@ export const {
   toggleNotifications,
   updatePrivacySettings,
   updateDisplaySettings,
+  updateApiKeys,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;

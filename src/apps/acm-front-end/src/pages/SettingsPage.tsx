@@ -7,25 +7,71 @@ import {
   CardContent, 
   Alert, 
   CircularProgress,
-  Divider 
+  Divider,
+  TextField,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
 import { 
   Add as AddIcon, 
   Delete as DeleteIcon, 
-  Refresh as RefreshIcon 
+  Refresh as RefreshIcon,
+  Visibility,
+  VisibilityOff,
+  Save as SaveIcon
 } from '@mui/icons-material';
 import { populateDatabaseWithSampleData, isDatabaseEmpty } from '../utils/sampleData';
 import { dbService } from '../services/database';
-import { useAppDispatch } from '../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchConversations } from '../store/slices/conversationsSlice';
 import { fetchMemories } from '../store/slices/memoriesSlice';
 import { fetchTags } from '../store/slices/tagsSlice';
-import { fetchSettings } from '../store/slices/settingsSlice';
+import { fetchSettings, saveSettings } from '../store/slices/settingsSlice';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [showNlpApiKey, setShowNlpApiKey] = useState(false);
+  const [tempNlpApiKey, setTempNlpApiKey] = useState('');
   const dispatch = useAppDispatch();
+  const { settings } = useAppSelector((state) => state.settings);
+
+  // Initialize temp API key from settings
+  React.useEffect(() => {
+    setTempNlpApiKey(settings.apiKeys?.nlpWorkbench || '');
+  }, [settings.apiKeys?.nlpWorkbench]);
+
+  const handleSaveApiKeys = async () => {
+    setLoading(true);
+    setMessage(null);
+    
+    try {
+      await dispatch(saveSettings({
+        ...settings,
+        apiKeys: {
+          ...settings.apiKeys,
+          nlpWorkbench: tempNlpApiKey,
+        }
+      })).unwrap();
+      
+      setMessage({
+        type: 'success',
+        text: '🔑 API keys saved successfully!'
+      });
+    } catch (error) {
+      console.error('Error saving API keys:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to save API keys. Check the console for details.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearNlpApiKey = () => {
+    setTempNlpApiKey('');
+  };
 
   const handlePopulateSampleData = async () => {
     setLoading(true);
@@ -151,6 +197,78 @@ const SettingsPage: React.FC = () => {
         Settings
       </Typography>
       
+      {message && (
+        <Alert 
+          severity={message.type} 
+          sx={{ mb: 3 }}
+          onClose={() => setMessage(null)}
+        >
+          {message.text}
+        </Alert>
+      )}
+
+      {/* API Keys Section */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            🔑 API Keys
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Configure API keys for external services. These keys are stored locally and will be used instead of environment variables when provided.
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+            <Box sx={{ flex: { xs: 1, md: 2 } }}>
+              <TextField
+                fullWidth
+                label="NLP Workbench API Key"
+                type={showNlpApiKey ? 'text' : 'password'}
+                value={tempNlpApiKey}
+                onChange={(e) => setTempNlpApiKey(e.target.value)}
+                placeholder="Enter your NLP Workbench API key"
+                helperText="This key will be used for AI model interactions. Leave empty to use environment variable."
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowNlpApiKey(!showNlpApiKey)}
+                        edge="end"
+                      >
+                        {showNlpApiKey ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+            <Box sx={{ flex: { xs: 1, md: 1 } }}>
+              <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                  onClick={handleSaveApiKeys}
+                  disabled={loading}
+                  fullWidth
+                >
+                  Save API Keys
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleClearNlpApiKey}
+                  disabled={loading}
+                  fullWidth
+                >
+                  Clear Key
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+          
+        </CardContent>
+      </Card>
+      
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
@@ -159,16 +277,6 @@ const SettingsPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Manage sample data for testing the ACM Manager application.
           </Typography>
-          
-          {message && (
-            <Alert 
-              severity={message.type} 
-              sx={{ mb: 2 }}
-              onClose={() => setMessage(null)}
-            >
-              {message.text}
-            </Alert>
-          )}
           
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button

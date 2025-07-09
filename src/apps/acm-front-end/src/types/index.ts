@@ -203,6 +203,9 @@ export interface UserSettings {
   notificationsEnabled: boolean;
   defaultPlatform?: string;
   exportFormat: 'json' | 'markdown' | 'csv';
+  apiKeys: {
+    nlpWorkbench?: string;
+  };
   privacySettings: {
     shareAnalytics: boolean;
     autoBackup: boolean;
