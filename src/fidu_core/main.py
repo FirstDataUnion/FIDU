@@ -3,7 +3,6 @@
 from threading import Timer
 import webbrowser
 import sys
-import os
 import time
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
@@ -13,37 +12,48 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fidu_core.utils.db import close_connection
+from fidu_core.data_packets import (
+    DataPacketService,
+    DataPacketAPI,
+    LocalSqlDataPacketStore,
+)
+from fidu_core.profiles import ProfileService, ProfileAPI, LocalSqlProfileStore
+from fidu_core.users import UserService, UserAPI
+from fidu_core.front_end.api import FrontEndAPI
+from fidu_core.users.store import LocalSqlUserStore
+from fidu_core.proxy.router import create_proxy_router
 
 
 def get_base_path():
     """Get the base path for the application, handling PyInstaller bundling."""
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # Running in a PyInstaller bundle
-        return Path(sys._MEIPASS)
-    else:
-        # Running in normal Python environment
-        # In development, we need to go up to the project root
-        return Path(__file__).parent.parent.parent
+        return Path(sys._MEIPASS)  # pylint: disable=protected-access
+    # Running in normal Python environment
+    # In development, we need to go up to the project root
+    return Path(__file__).parent.parent.parent
 
 
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
 def create_app():
     """Create and configure the FastAPI application."""
     start_time = time.time()
     print(f"[{time.time() - start_time:.2f}s] Starting up FIDU Core...")
 
     # Get the base path
-    BASE_PATH = get_base_path()
-    print(f"[{time.time() - start_time:.2f}s] Base path determined: {BASE_PATH}")
+    base_path = get_base_path()
+    print(f"[{time.time() - start_time:.2f}s] Base path determined: {base_path}")
 
     # Define paths relative to the base path
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # PyInstaller mode - files are directly in the bundle
-        ACM_LAB_BUILD_DIR = BASE_PATH / "apps" / "acm-front-end" / "dist"
+        acm_lab_build_dir = base_path / "apps" / "acm-front-end" / "dist"
     else:
         # Development mode - files are in src/ directory
-        ACM_LAB_BUILD_DIR = BASE_PATH / "src" / "apps" / "acm-front-end" / "dist"
+        acm_lab_build_dir = base_path / "src" / "apps" / "acm-front-end" / "dist"
 
-    ACM_LAB_INDEX_FILE = ACM_LAB_BUILD_DIR / "index.html"
+    acm_lab_index_file = acm_lab_build_dir / "index.html"
     print(f"[{time.time() - start_time:.2f}s] Paths configured")
 
     print(f"[{time.time() - start_time:.2f}s] Creating FastAPI app...")
@@ -69,38 +79,44 @@ def create_app():
 
     print(f"[{time.time() - start_time:.2f}s] Setting up static files and templates...")
     # Set up templates and static files
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # PyInstaller mode - files are directly in the bundle
-        templates = Jinja2Templates(directory=str(BASE_PATH / "fidu_core" / "front_end" / "templates"))
+        Jinja2Templates(
+            directory=str(base_path / "fidu_core" / "front_end" / "templates")
+        )
         app.mount(
-            "/static", StaticFiles(directory=str(BASE_PATH / "fidu_core" / "front_end" / "static")), name="static"
+            "/static",
+            StaticFiles(
+                directory=str(base_path / "fidu_core" / "front_end" / "static")
+            ),
+            name="static",
         )
     else:
         # Development mode - files are in src/ directory
-        templates = Jinja2Templates(directory=str(BASE_PATH / "src" / "fidu_core" / "front_end" / "templates"))
+        Jinja2Templates(
+            directory=str(base_path / "src" / "fidu_core" / "front_end" / "templates")
+        )
         app.mount(
-            "/static", StaticFiles(directory=str(BASE_PATH / "src" / "fidu_core" / "front_end" / "static")), name="static"
+            "/static",
+            StaticFiles(
+                directory=str(base_path / "src" / "fidu_core" / "front_end" / "static")
+            ),
+            name="static",
         )
 
     # Mount the React app's static assets at /acm-lab
-    if ACM_LAB_BUILD_DIR.exists():
-        app.mount("/acm-lab", StaticFiles(directory=str(ACM_LAB_BUILD_DIR)), name="acm-lab")
+    if acm_lab_build_dir.exists():
+        app.mount(
+            "/acm-lab", StaticFiles(directory=str(acm_lab_build_dir)), name="acm-lab"
+        )
         print(f"[{time.time() - start_time:.2f}s] ACM Lab frontend mounted")
     else:
-        print(f"[{time.time() - start_time:.2f}s] Warning: ACM Lab frontend not found at {ACM_LAB_BUILD_DIR}")
+        print(
+            f"""[{time.time() - start_time:.2f}s]
+            Warning: ACM Lab frontend not found at {acm_lab_build_dir}"""
+        )
 
     print(f"[{time.time() - start_time:.2f}s] Importing modules...")
-    # Import modules only when needed
-    from fidu_core.data_packets import (
-        DataPacketService,
-        DataPacketAPI,
-        LocalSqlDataPacketStore,
-    )
-    from fidu_core.profiles import ProfileService, ProfileAPI, LocalSqlProfileStore
-    from fidu_core.users import UserService, UserAPI
-    from fidu_core.front_end.api import FrontEndAPI
-    from fidu_core.users.store import LocalSqlUserStore
-    from fidu_core.proxy.router import create_proxy_router
     print(f"[{time.time() - start_time:.2f}s] Modules imported")
 
     # Create storage layer objects using connection factory pattern
@@ -120,21 +136,21 @@ def create_app():
 
     # Create API layer objects (for external API access)
     print(f"[{time.time() - start_time:.2f}s] Creating APIs...")
-    data_packet_api = DataPacketAPI(app, data_packet_service)
-    profile_api = ProfileAPI(app, profile_service)
-    user_api = UserAPI(app, user_service)
+    DataPacketAPI(app, data_packet_service)
+    ProfileAPI(app, profile_service)
+    UserAPI(app, user_service)
     print(f"[{time.time() - start_time:.2f}s] APIs created")
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
     # and a basic profile page - now using service layers directly
     print(f"[{time.time() - start_time:.2f}s] Creating front end API...")
-    front_end_api = FrontEndAPI(app, user_service, data_packet_service, profile_service)
+    FrontEndAPI(app, user_service, data_packet_service, profile_service)
     print(f"[{time.time() - start_time:.2f}s] Front end API created")
 
     # Add proxy router for external API requests
     # This is used to proxy requests from the ACM-Lab to external APIs as we are serving
-    # the ACM-Lab from the same server as the FIDU Core API for now. When this changes, 
-    # we can remove this. 
+    # the ACM-Lab from the same server as the FIDU Core API for now. When this changes,
+    # we can remove this.
 
     print(f"[{time.time() - start_time:.2f}s] Creating proxy router...")
     proxy_router = create_proxy_router()
@@ -163,30 +179,30 @@ def create_app():
     @app.get("/acm-lab")
     async def serve_acm_lab():
         """Serve the ACM Lab React app."""
-        if not ACM_LAB_INDEX_FILE.exists():
+        if not acm_lab_index_file.exists():
             raise HTTPException(
                 status_code=404,
                 detail="""ACM Lab frontend not built.
                  Please run 'npm run build' in the acm-front-end directory.""",
             )
-        return FileResponse(ACM_LAB_INDEX_FILE)
+        return FileResponse(acm_lab_index_file)
 
     @app.get("/acm-lab/{path:path}")
     async def serve_acm_lab_path(path: str):
         """Serve the ACM Lab React app for client-side routing."""
         # Check if the path is for a static asset
-        static_file_path = ACM_LAB_BUILD_DIR / path
+        static_file_path = acm_lab_build_dir / path
         if static_file_path.exists() and static_file_path.is_file():
             return FileResponse(static_file_path)
 
         # For all other paths, serve the React app's index.html for client-side routing
-        if not ACM_LAB_INDEX_FILE.exists():
+        if not acm_lab_index_file.exists():
             raise HTTPException(
                 status_code=404,
                 detail="""ACM Lab frontend not built. Please run 'npm run build' in
                  the acm-front-end directory.""",
             )
-        return FileResponse(ACM_LAB_INDEX_FILE)
+        return FileResponse(acm_lab_index_file)
 
     print(f"[{time.time() - start_time:.2f}s] Application setup complete!")
     return app
@@ -200,12 +216,12 @@ def open_browser():
 if __name__ == "__main__":
     import uvicorn
 
-    app = create_app()
-    
+    fastapi_app = create_app()
+
     print("Running on http://127.0.0.1:4000")
     print("Docs: http://127.0.0.1:4000/docs")
     print("Redoc: http://127.0.0.1:4000/redoc")
     print("OpenAPI: http://127.0.0.1:4000/openapi.json")
     print("ACM Lab: http://127.0.0.1:4000/acm-lab")
     Timer(1, open_browser).start()
-    uvicorn.run(app, host="127.0.0.1", port=4000)
+    uvicorn.run(fastapi_app, host="127.0.0.1", port=4000)
