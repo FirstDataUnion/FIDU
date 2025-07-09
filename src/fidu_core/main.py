@@ -57,7 +57,7 @@ def create_app():
     print(f"[{time.time() - start_time:.2f}s] Paths configured")
 
     print(f"[{time.time() - start_time:.2f}s] Creating FastAPI app...")
-    app = FastAPI(
+    fast_api_app = FastAPI(
         title="FIDU Core API",
         description="API for interacting with the FIDU Core Application",
         version="1.0.0",
@@ -84,7 +84,7 @@ def create_app():
         Jinja2Templates(
             directory=str(base_path / "fidu_core" / "front_end" / "templates")
         )
-        app.mount(
+        fast_api_app.mount(
             "/static",
             StaticFiles(
                 directory=str(base_path / "fidu_core" / "front_end" / "static")
@@ -96,7 +96,7 @@ def create_app():
         Jinja2Templates(
             directory=str(base_path / "src" / "fidu_core" / "front_end" / "templates")
         )
-        app.mount(
+        fast_api_app.mount(
             "/static",
             StaticFiles(
                 directory=str(base_path / "src" / "fidu_core" / "front_end" / "static")
@@ -104,12 +104,11 @@ def create_app():
             name="static",
         )
 
-    # Mount the React app's static assets at /acm-lab
+    # Note: Static files are now handled by the route handlers below
     if acm_lab_build_dir.exists():
-        app.mount(
-            "/acm-lab", StaticFiles(directory=str(acm_lab_build_dir)), name="acm-lab"
+        print(
+            f"[{time.time() - start_time:.2f}s] ACM Lab frontend found at {acm_lab_build_dir}"
         )
-        print(f"[{time.time() - start_time:.2f}s] ACM Lab frontend mounted")
     else:
         print(
             f"""[{time.time() - start_time:.2f}s]
@@ -136,15 +135,15 @@ def create_app():
 
     # Create API layer objects (for external API access)
     print(f"[{time.time() - start_time:.2f}s] Creating APIs...")
-    DataPacketAPI(app, data_packet_service)
-    ProfileAPI(app, profile_service)
-    UserAPI(app, user_service)
+    DataPacketAPI(fast_api_app, data_packet_service)
+    ProfileAPI(fast_api_app, profile_service)
+    UserAPI(fast_api_app, user_service)
     print(f"[{time.time() - start_time:.2f}s] APIs created")
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
     # and a basic profile page - now using service layers directly
     print(f"[{time.time() - start_time:.2f}s] Creating front end API...")
-    FrontEndAPI(app, user_service, data_packet_service, profile_service)
+    FrontEndAPI(fast_api_app, user_service, data_packet_service, profile_service)
     print(f"[{time.time() - start_time:.2f}s] Front end API created")
 
     # Add proxy router for external API requests
@@ -154,12 +153,12 @@ def create_app():
 
     print(f"[{time.time() - start_time:.2f}s] Creating proxy router...")
     proxy_router = create_proxy_router()
-    app.include_router(proxy_router)
+    fast_api_app.include_router(proxy_router)
     print(f"[{time.time() - start_time:.2f}s] Proxy router created")
 
     # Configure CORS for local development
     print(f"[{time.time() - start_time:.2f}s] Configuring CORS...")
-    app.add_middleware(
+    fast_api_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # In production, replace with specific origins
         allow_credentials=True,
@@ -169,14 +168,14 @@ def create_app():
 
     # Add database cleanup middleware
     print(f"[{time.time() - start_time:.2f}s] Adding database cleanup middleware...")
-    app.add_middleware(DatabaseCleanupMiddleware)
+    fast_api_app.add_middleware(DatabaseCleanupMiddleware)
 
-    @app.get("/health")
+    @fast_api_app.get("/health")
     async def health_check():
         """Health check endpoint."""
         return {"status": "healthy"}
 
-    @app.get("/acm-lab")
+    @fast_api_app.get("/acm-lab")
     async def serve_acm_lab():
         """Serve the ACM Lab React app."""
         if not acm_lab_index_file.exists():
@@ -187,7 +186,7 @@ def create_app():
             )
         return FileResponse(acm_lab_index_file)
 
-    @app.get("/acm-lab/{path:path}")
+    @fast_api_app.get("/acm-lab/{path:path}")
     async def serve_acm_lab_path(path: str):
         """Serve the ACM Lab React app for client-side routing."""
         # Check if the path is for a static asset
@@ -205,7 +204,7 @@ def create_app():
         return FileResponse(acm_lab_index_file)
 
     print(f"[{time.time() - start_time:.2f}s] Application setup complete!")
-    return app
+    return fast_api_app
 
 
 def open_browser():
@@ -213,10 +212,11 @@ def open_browser():
     webbrowser.open("http://127.0.0.1:4000")
 
 
+# Create the app instance for uvicorn to find
+app = create_app()
+
 if __name__ == "__main__":
     import uvicorn
-
-    fastapi_app = create_app()
 
     print("Running on http://127.0.0.1:4000")
     print("Docs: http://127.0.0.1:4000/docs")
@@ -224,4 +224,4 @@ if __name__ == "__main__":
     print("OpenAPI: http://127.0.0.1:4000/openapi.json")
     print("ACM Lab: http://127.0.0.1:4000/acm-lab")
     Timer(1, open_browser).start()
-    uvicorn.run(fastapi_app, host="127.0.0.1", port=4000)
+    uvicorn.run(app, host="127.0.0.1", port=4000)
