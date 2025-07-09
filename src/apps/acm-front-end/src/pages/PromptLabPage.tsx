@@ -30,7 +30,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
-import { promptsApi } from '../services/api/prompts';
+import { createPromptsApi } from '../services/api/prompts';
 import type { DataPacketQueryParams, Conversation, Message } from '../types';
 import { ConversationWindow } from '../components/conversations/ConversationWindow';
 import { conversationsApi } from '../services/api/conversations';
@@ -71,9 +71,16 @@ function TabPanel(props: TabPanelProps) {
 export default function PromptLabPage() {
   const dispatch = useAppDispatch();
 
-
   // Get auth state for profile ID
   const { currentProfile } = useAppSelector((state) => state.auth);
+  
+  // Get settings for API key access
+  const { settings } = useAppSelector((state) => state.settings);
+
+  // Create prompts API with settings-based API key provider
+  const promptsApi = useMemo(() => {
+    return createPromptsApi(() => settings.apiKeys?.nlpWorkbench);
+  }, [settings.apiKeys?.nlpWorkbench]);
 
   // Debug logging for profile changes
   useEffect(() => {
@@ -264,7 +271,7 @@ export default function PromptLabPage() {
     } finally {
       setLoadingSavedPrompts(false);
     }
-  }, [currentProfile]);
+  }, [currentProfile, promptsApi]);
 
   // Load saved prompts when profile changes or component mounts
   useEffect(() => {
@@ -439,7 +446,7 @@ export default function PromptLabPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }, [currentProfile]);
+  }, [currentProfile, promptsApi]);
 
   // Load execution history when profile changes or component mounts
   useEffect(() => {
@@ -511,7 +518,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSendingFollowUp(false);
     }
-  }, [currentProfile, currentConversation, localSelectedModel, selectedContext, conversationMessages, fetchExecutionHistory]);
+  }, [currentProfile, currentConversation, localSelectedModel, selectedContext, conversationMessages, fetchExecutionHistory, promptsApi]);
 
   // Convert Message to ConversationMessage (filtering out system messages)
   const convertMessagesToConversationMessages = useCallback((messages: Message[]) => {

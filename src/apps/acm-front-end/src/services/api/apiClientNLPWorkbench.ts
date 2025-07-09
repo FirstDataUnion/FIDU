@@ -28,12 +28,14 @@ const NLP_WORKBENCH_API_CONFIG = {
   export class NLPWorkbenchAPIClient {
     private client: AxiosInstance;
     private apiKey: string;
-  
-    constructor(apiKey?: string) {
+    private getApiKeyFromSettings?: () => string | undefined;
+
+    constructor(apiKey?: string, getApiKeyFromSettings?: () => string | undefined) {
+      this.getApiKeyFromSettings = getApiKeyFromSettings;
       this.apiKey = apiKey || import.meta.env.VITE_NLP_WORKBENCH_AGENT_API_KEY || '';
       
-      if (!this.apiKey) {
-        console.warn('NLP Workbench API key not provided. Please set VITE_NLP_WORKBENCH_AGENT_API_KEY environment variable.');
+      if (!this.apiKey && !this.getApiKeyFromSettings) {
+        console.warn('NLP Workbench API key not provided. Please set VITE_NLP_WORKBENCH_AGENT_API_KEY environment variable or configure in settings.');
       }
   
       this.client = axios.create({
@@ -42,11 +44,27 @@ const NLP_WORKBENCH_API_CONFIG = {
   
       this.setupInterceptors();
     }
+
+    private getCurrentApiKey(): string {
+      // First try to get from settings
+      if (this.getApiKeyFromSettings) {
+        const settingsApiKey = this.getApiKeyFromSettings();
+        if (settingsApiKey) {
+          return settingsApiKey;
+        }
+      }
+      // Fall back to constructor-provided key or environment variable
+      return this.apiKey;
+    }
   
     private setupInterceptors(): void {
       this.client.interceptors.request.use(
         (config: InternalAxiosRequestConfig) => {
-          // No need to add API key here as it's handled by the Vite proxy
+          // Add API key from settings if available
+          const currentApiKey = this.getCurrentApiKey();
+          if (currentApiKey) {
+            config.headers['X-API-Key'] = currentApiKey;
+          }
           return config;
         },
         (error: AxiosError) => {
@@ -148,4 +166,8 @@ const NLP_WORKBENCH_API_CONFIG = {
   
   // Export a function to create new instances with custom API key
   export const createNLPWorkbenchAPIClient = (apiKey: string) => new NLPWorkbenchAPIClient(apiKey);
+  
+  // Export a function to create new instances with settings-based API key provider
+  export const createNLPWorkbenchAPIClientWithSettings = (getApiKeyFromSettings: () => string | undefined) => 
+    new NLPWorkbenchAPIClient(undefined, getApiKeyFromSettings);
   

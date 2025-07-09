@@ -36,7 +36,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    optimize=0,
+    optimize=2,  # Enable Python optimization
 )
 pyz = PYZ(a.pure)
 
@@ -48,7 +48,7 @@ exe = EXE(
     name='main',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=True,  # Strip debug symbols
     upx=True,
     console=True,
     disable_windowed_traceback=False,
@@ -61,7 +61,7 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
-    strip=False,
+    strip=True,  # Strip debug symbols
     upx=True,
     upx_exclude=[],
     name='main',

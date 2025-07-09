@@ -39,7 +39,11 @@ class NLPWorkbenchProxy:
         
         # Add API key if available
         if self.api_key:
-            headers["X-API-Key"] = self.api_key
+            headers["x-api-key"] = self.api_key
+
+        # Pass API Key from original request if available
+        if "x-api-key" in original_headers:
+            headers["x-api-key"] = original_headers["x-api-key"]
         
         return headers
     
@@ -70,7 +74,7 @@ class NLPWorkbenchProxy:
         
         # Get headers
         headers = self._get_headers(dict(request.headers))
-        
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 # Make the request to the target API
