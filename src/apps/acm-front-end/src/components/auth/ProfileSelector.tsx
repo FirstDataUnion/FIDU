@@ -22,7 +22,7 @@ import type { Profile } from '../../types';
 
 const ProfileSelector: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { profiles, isLoading, error } = useAppSelector((state) => state.auth);
+  const { profiles, isLoading, error, user } = useAppSelector((state) => state.auth);
   
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
@@ -37,7 +37,7 @@ const ProfileSelector: React.FC = () => {
     dispatch(clearError());
     const result = await dispatch(createProfile({
       profile: {
-        user_id: '', // This will be set by the backend based on the authenticated user
+        user_id: user?.id || '',
         name: newProfileName.trim(),
       },
     }));

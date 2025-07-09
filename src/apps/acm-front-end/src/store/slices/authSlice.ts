@@ -13,12 +13,16 @@ import type {
 // Async thunks
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
-  async (credentials: LoginRequest, { rejectWithValue }) => {
+  async (credentials: LoginRequest, { dispatch, rejectWithValue }) => {
     try {
       const response = await authApi.login(credentials);
       // Store token in localStorage for persistence
       localStorage.setItem('auth_token', response.access_token);
       localStorage.setItem('user', JSON.stringify(response.user));
+      
+      // Fetch profiles after successful login
+      await dispatch(fetchProfiles());
+      
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Login failed');
@@ -205,7 +209,7 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.token = action.payload.access_token;
         state.error = null;
-        // Note: Profiles will be fetched by the component after login
+        // Trigger initializeAuth to fetch profiles and set up the session
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;

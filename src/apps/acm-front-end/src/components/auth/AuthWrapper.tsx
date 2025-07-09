@@ -1,21 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { fetchProfiles } from '../../store/slices/authSlice';
+import React, { useState } from 'react';
+import { useAppSelector } from '../../hooks/redux';
+
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import ProfileSelector from './ProfileSelector';
 
 const AuthWrapper: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { isAuthenticated, currentProfile, profiles, isInitialized } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, currentProfile, isInitialized } = useAppSelector((state) => state.auth);
   const [showRegister, setShowRegister] = useState(false);
-
-  // Fetch profiles when authenticated but no profile selected
-  useEffect(() => {
-    if (isAuthenticated && !currentProfile && profiles.length === 0) {
-      dispatch(fetchProfiles());
-    }
-  }, [isAuthenticated, currentProfile, profiles.length, dispatch]);
 
   // Show loading while auth is initializing
   if (!isInitialized) {
