@@ -9,7 +9,7 @@ setup(
         "fastapi>=0.104.1",
         "uvicorn>=0.24.0",
         "python-dotenv>=1.0.0",
-        "pydantic>=2.4.2",
+        "pydantic>=2.11.7",
         "email-validator>=2.1.0",  # Required for Pydantic email validation
         "argon2-cffi>=23.1.0",  # Password hashing
         "python-jose[cryptography]>=3.3.0",  # JWT handling
