@@ -74,6 +74,8 @@ fi
 echo "Installing npm dependencies for acm-front-end..."
 cd src/apps/acm-front-end
 npm install --legacy-peer-deps
+# Install @types/node for TypeScript support in vite.config.ts
+npm install --save-dev @types/node
 cd ../../..
 
 # Install mypy type stubs

@@ -15,7 +15,7 @@ setup(
         "python-jose[cryptography]>=3.3.0",  # JWT handling
         "python-multipart>=0.0.6",  # Form data parsing
         "jinja2>=3.1.2",  # Template engine for frontend
-        "httpx>=0.27.0",  
+        "httpx>=0.27.0",
     ],
     extras_require={
         "dev": [
