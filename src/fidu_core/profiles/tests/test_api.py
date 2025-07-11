@@ -119,61 +119,73 @@ class TestExceptionHandlers:
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 404 if the profile is not found."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_profile.side_effect = ProfileNotFoundError("test_profile_id")
-        response = test_client.get(
-            "/api/v1/profiles/test_profile_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 404
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/profiles/test_profile_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 404
 
     def test_raises_400_if_profile_id_already_exists(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 400 if a profile ID already exists."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.create_profile.side_effect = ProfileIDAlreadyExistsError(
             "test_profile_id"
         )
-        response = test_client.post(
-            "/api/v1/profiles",
-            json={
-                "request_id": "req_123",
-                "profile": {"user_id": "test_user_123", "name": "Test Profile"},
-            },
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 400
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/profiles",
+                json={
+                    "request_id": "req_123",
+                    "profile": {"user_id": "test_user_123", "name": "Test Profile"},
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 400
 
     def test_raises_400_if_user_already_has_profile(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 400 if a user already has a profile with the same name."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.create_profile.side_effect = ProfileUserAlreadyHasProfileError(
             "test_user_123", "Test Profile"
         )
-        response = test_client.post(
-            "/api/v1/profiles",
-            json={
-                "request_id": "req_123",
-                "profile": {"user_id": "test_user_123", "name": "Test Profile"},
-            },
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 400
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/profiles",
+                json={
+                    "request_id": "req_123",
+                    "profile": {"user_id": "test_user_123", "name": "Test Profile"},
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 400
 
     def test_raises_500_if_profile_error(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 500 if a general profile error occurs."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_profile.side_effect = ProfileError("Profile error")
-        response = test_client.get(
-            "/api/v1/profiles/test_profile_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 500
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/profiles/test_profile_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 500
 
 
 class TestCreateProfile:
@@ -195,7 +207,7 @@ class TestCreateProfile:
         # Arrange
         mock_uuid.return_value = "test_profile_123"
         mock_service.create_profile.return_value = sample_profile_internal
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
@@ -235,18 +247,20 @@ class TestCreateProfile:
         mock_service.create_profile.side_effect = ProfileIDAlreadyExistsError(
             "test_profile_id"
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
-        response = test_client.post(
-            "/api/v1/profiles",
-            json=json_compatible_request,
-            headers={"Authorization": "Bearer test_token"},
-        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/profiles",
+                json=json_compatible_request,
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert
-        assert response.status_code == 400
+        assert exc_info.value.status_code == 400
 
     def test_raises_400_if_user_already_has_profile_error_raised_from_service(
         self,
@@ -261,24 +275,26 @@ class TestCreateProfile:
         mock_service.create_profile.side_effect = ProfileUserAlreadyHasProfileError(
             "test_user_123", "Test Profile"
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
-        response = test_client.post(
-            "/api/v1/profiles",
-            json=json_compatible_request,
-            headers={"Authorization": "Bearer test_token"},
-        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/profiles",
+                json=json_compatible_request,
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert
-        assert response.status_code == 400
+        assert exc_info.value.status_code == 400
 
     def test_raises_422_if_request_id_is_missing(
         self, api, test_client, mock_service, sample_profile_create, sample_token_data
     ):
         """Test that create profile raises a 422 if the request id is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         # This will fail validation because request_id is required
         request_data = {"profile": jsonable_encoder(sample_profile_create)}
         response = test_client.post(
@@ -292,7 +308,7 @@ class TestCreateProfile:
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that create profile raises a 422 if the profile is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         # This will fail validation because profile is required
         request_data = {"request_id": "req_123"}
         response = test_client.post(
@@ -307,7 +323,11 @@ class TestCreateProfile:
     ):
         """Test that create profile raises a 401 if the token is invalid."""
         # Arrange
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act
         json_compatible_request = jsonable_encoder(sample_create_profile_request)
@@ -330,7 +350,7 @@ class TestCreateProfile:
     ):
         """Test that create profile raises a 403 if the user_id in request doesn't match token."""
         # Arrange
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Create request with different user_id
         different_user_request = CreateProfileRequest(
@@ -368,7 +388,7 @@ class TestGetProfile:
         """Test that get profile successfully retrieves a profile."""
         # Arrange
         mock_service.get_profile.return_value = sample_profile_internal
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         response = test_client.get(
@@ -390,21 +410,26 @@ class TestGetProfile:
         """Test that get profile raises a 404 if the profile is not found."""
         # Arrange
         mock_service.get_profile.side_effect = ProfileNotFoundError("test_profile_id")
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
-        response = test_client.get(
-            "/api/v1/profiles/test_profile_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/profiles/test_profile_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert
-        assert response.status_code == 404
+        assert exc_info.value.status_code == 404
 
     def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
         """Test that get profile raises a 401 if the token is invalid."""
         # Arrange
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act
         response = test_client.get(
@@ -428,7 +453,7 @@ class TestGetProfile:
             update_timestamp=datetime(2024, 1, 1, 12, 0, 0),
         )
         mock_service.get_profile.return_value = different_user_profile
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         response = test_client.get(
@@ -472,7 +497,7 @@ class TestListProfiles:
             sample_profile_internal_1,
             sample_profile_internal_2,
         ]
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         response = test_client.get(
@@ -497,7 +522,7 @@ class TestListProfiles:
         """Test that list profiles returns an empty list when no profiles exist."""
         # Arrange
         mock_service.list_profiles.return_value = []
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Act
         response = test_client.get(
@@ -515,7 +540,11 @@ class TestListProfiles:
     def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
         """Test that list profiles raises a 401 if the token is invalid."""
         # Arrange
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act
         response = test_client.get(

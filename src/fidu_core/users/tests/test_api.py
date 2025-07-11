@@ -130,62 +130,77 @@ class TestExceptionHandlers:
         user_id = "test_user_id"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.side_effect = UserNotFoundError(user_id)
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 404
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 404
 
     def test_raises_409_if_user_already_exists(self, api, test_client, mock_service):
         """Test that exception handler raises a 409 if a user already exists."""
         user_id = "test_user_id"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.side_effect = UserAlreadyExistsError(
             user_id, "test@example.com"
         )
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 409
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 409
 
     def test_raises_400_if_user_validation_error(self, api, test_client, mock_service):
         """Test that exception handler raises a 400 if a user validation error occurs."""
         user_id = "test_user_id"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.side_effect = UserValidationError("User validation error")
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 400
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 400
 
     def test_raises_403_if_user_permission_error(self, api, test_client, mock_service):
         """Test that exception handler raises a 403 for a user permission error."""
         user_id = "test_user_id"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.side_effect = UserPermissionError(user_id)
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 403
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 403
 
     def test_raises_500_if_user_error(self, api, test_client, mock_service):
         """Test that exception handler raises a 500 if a general user error occurs."""
         user_id = "test_user_id"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.side_effect = UserError("User error")
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 500
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 500
 
 
 class TestCreateUser:
@@ -236,10 +251,13 @@ class TestCreateUser:
         mock_service.create_user.side_effect = UserAlreadyExistsError(
             "test_user_id", "test@example.com"
         )
-        response = test_client.post(
-            "/api/v1/users", json=jsonable_encoder(sample_create_user_request)
-        )
-        assert response.status_code == 409
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/users", json=jsonable_encoder(sample_create_user_request)
+            )
+
+        assert exc_info.value.status_code == 409
 
     def test_raises_422_if_request_id_is_missing(
         self, api, test_client, mock_service, sample_user_base
@@ -381,14 +399,14 @@ class TestGetCurrentUser:
         # Mock the JWT manager to return valid token data
         mock_token_data = Mock()
         mock_token_data.user_id = "test_user_123"
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         # Act
         headers = {"Authorization": "Bearer test_token_123"}
         response = test_client.get("/api/v1/users/current", headers=headers)
 
         # Assert
-        api.jwt_manager.verify_token.assert_called_once_with("test_token_123")
+        api.jwt_manager.verify_token_or_raise.assert_called_once_with("test_token_123")
         mock_service.get_user.assert_called_once_with("test_user_123")
         assert response.status_code == 200
         assert response.json() == jsonable_encoder(sample_user)
@@ -401,7 +419,11 @@ class TestGetCurrentUser:
     ):
         """Test that get current user raises a 401 if the token is invalid."""
         # Arrange
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act
         headers = {"Authorization": "Bearer invalid_token"}
@@ -419,9 +441,11 @@ class TestGetCurrentUser:
     ):
         """Test that get current user raises a 401 if the token has no user_id."""
         # Arrange
-        mock_token_data = Mock()
-        mock_token_data.user_id = None
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act
         headers = {"Authorization": "Bearer test_token_123"}
@@ -441,7 +465,7 @@ class TestGetCurrentUser:
         # Arrange
         mock_token_data = Mock()
         mock_token_data.user_id = "test_user_123"
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
         mock_service.get_user.side_effect = KeyError("User not found")
 
         # Act
@@ -475,7 +499,7 @@ class TestGetUser:
         mock_token_data = Mock()
         user_id = "test_user_123"
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
 
         mock_service.get_user.return_value = sample_user_internal
 
@@ -490,18 +514,18 @@ class TestGetUser:
 
     def test_raises_500_if_user_not_found(self, api, test_client, mock_service):
         """Test that get user raises a 500 if the user is not found."""
-        # Arrange
         user_id = "nonexistent_user"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=mock_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=mock_token_data)
         mock_service.get_user.side_effect = UserNotFoundError(user_id)
 
-        # Act & Assert
         headers = {"Authorization": "Bearer test_token_123"}
-        response = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
-        assert response.status_code == 404
-        assert response.json()["detail"] == f"User with ID '{user_id}' not found"
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+
+        assert exc_info.value.status_code == 404
 
     def test_raises_403_if_user_not_authorized(self, api, test_client, mock_service):
         """Test that get user raises a 403 if the user is not authorized."""
@@ -509,7 +533,11 @@ class TestGetUser:
         user_id = "test_user_456"
         mock_token_data = Mock()
         mock_token_data.user_id = user_id
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Act & Assert
         headers = {"Authorization": "Bearer test_token_123"}

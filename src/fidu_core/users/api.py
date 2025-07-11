@@ -3,8 +3,10 @@
 import uuid
 import logging
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fidu_core.security import PasswordHasher, JWTManager
 from .schema import User, CreateUserRequest, UserInternal, LoginRequest, LoginResponse
 from .service import UserService
@@ -108,7 +110,7 @@ class UserAPI:
                 detail="An unexpected error occurred while processing the user",
             )
 
-    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> User:
+    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> Response:
         """Get the current authenticated user.
 
         Args:
@@ -135,9 +137,9 @@ class UserAPI:
         # Convert to public user model
         public_user = User(**user.model_dump())
 
-        return public_user
+        return JSONResponse(content=jsonable_encoder(public_user))
 
-    async def create_user(self, create_user_request: CreateUserRequest) -> User:
+    async def create_user(self, create_user_request: CreateUserRequest) -> Response:
         """Create a new user.
 
         Args:
@@ -166,9 +168,9 @@ class UserAPI:
         # Convert to public user model
         user = User(**internal_user.model_dump())
 
-        return user
+        return JSONResponse(content=jsonable_encoder(user))
 
-    async def login_user(self, login_request: LoginRequest) -> LoginResponse:
+    async def login_user(self, login_request: LoginRequest) -> Response:
         """Login a user.
 
         Args:
@@ -206,13 +208,16 @@ class UserAPI:
         # Convert internal user to public user
         public_user = User(**internal_user.model_dump())
 
-        return LoginResponse(
+        login_response = LoginResponse(
             access_token=access_token, token_type="bearer", user=public_user
         )
+        return JSONResponse(content=jsonable_encoder(login_response))
 
     # TODO: Given it only makes sense to get your own user resource,
     # this is the same as get_current_user. pending removal.
-    async def get_user(self, user_id: str, token: str = Depends(oauth2_scheme)) -> User:
+    async def get_user(
+        self, user_id: str, token: str = Depends(oauth2_scheme)
+    ) -> Response:
         """Get a user by their ID.
 
         Args:
@@ -232,11 +237,12 @@ class UserAPI:
             )
 
         internal_user = self.service.get_user(user_id)
-        return User(**internal_user.model_dump())
+        user = User(**internal_user.model_dump())
+        return JSONResponse(content=jsonable_encoder(user))
 
     # TODO: I don't think there's use case for this endpoint.
     # pending removal.
-    async def list_users(self) -> List[User]:
+    async def list_users(self) -> Response:
         """List all users.
 
         Returns:
@@ -244,4 +250,5 @@ class UserAPI:
         """
 
         internal_users = self.service.list_users()
-        return [User(**user.model_dump()) for user in internal_users]
+        users = [User(**user.model_dump()) for user in internal_users]
+        return JSONResponse(content=jsonable_encoder(users))

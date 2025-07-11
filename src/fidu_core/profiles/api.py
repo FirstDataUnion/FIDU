@@ -3,8 +3,10 @@
 import uuid
 import logging
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fidu_core.security import JWTManager
 from .schema import (
     Profile,
@@ -102,7 +104,7 @@ class ProfileAPI:
         self,
         create_profile_request: CreateProfileRequest,
         token: str = Depends(oauth2_scheme),
-    ) -> Profile:
+    ) -> Response:
         """Create a new profile.
 
         Args:
@@ -138,11 +140,11 @@ class ProfileAPI:
         # Convert internal model to response model
         response_profile = Profile(**created_profile.model_dump())
 
-        return response_profile
+        return JSONResponse(content=jsonable_encoder(response_profile))
 
     async def get_profile(
         self, profile_id: str, token: str = Depends(oauth2_scheme)
-    ) -> Profile:
+    ) -> Response:
         """Get a profile by its ID.
 
         Args:
@@ -169,13 +171,13 @@ class ProfileAPI:
             )
 
         response_profile = Profile(**internal_profile.model_dump())
-        return response_profile
+        return JSONResponse(content=jsonable_encoder(response_profile))
 
     async def list_profiles(
         self,
         query_params: ProfileQueryParams = Depends(ProfileQueryParams.as_query_params),
         token: str = Depends(oauth2_scheme),
-    ) -> List[Profile]:
+    ) -> Response:
         """List all profiles.
 
         Args:
@@ -203,4 +205,4 @@ class ProfileAPI:
 
         internal_profiles = self.service.list_profiles(internal_query_params)
         response_profiles = [Profile(**p.model_dump()) for p in internal_profiles]
-        return response_profiles
+        return JSONResponse(content=jsonable_encoder(response_profiles))

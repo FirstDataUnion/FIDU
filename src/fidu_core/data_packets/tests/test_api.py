@@ -120,69 +120,84 @@ class TestExceptionHandlers:
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 404 if the data packet is not found."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_data_packet.side_effect = DataPacketNotFoundError(
             "test_packet_id"
         )
-        response = test_client.get(
-            "/api/v1/data-packets/test_packet_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 404
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/data-packets/test_packet_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 404
 
     def test_raises_409_if_data_packet_already_exists(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 409 if the data packet already exists."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_data_packet.side_effect = DataPacketAlreadyExistsError(
             "test_packet_id"
         )
-        response = test_client.get(
-            "/api/v1/data-packets/test_packet_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 409
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/data-packets/test_packet_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 409
 
     def test_raises_400_if_data_packet_validation_error(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 400 if the data packet validation error."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_data_packet.side_effect = DataPacketValidationError(
             "Data packet validation error"
         )
-        response = test_client.get(
-            "/api/v1/data-packets/test_packet_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 400
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/data-packets/test_packet_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 400
 
     def test_raises_403_if_data_packet_permission_error(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 403 if the data packet permission error."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_data_packet.side_effect = DataPacketPermissionError(
             "test_packet_id", "test_user_id"
         )
-        response = test_client.get(
-            "/api/v1/data-packets/test_packet_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 403
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/data-packets/test_packet_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 403
 
     def test_raises_500_if_data_packet_error(
         self, api, test_client, mock_service, sample_token_data
     ):
         """Test that exception handler raises a 500 if a general data packet error occurs."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         mock_service.get_data_packet.side_effect = DataPacketError("Data packet error")
-        response = test_client.get(
-            "/api/v1/data-packets/test_packet_id",
-            headers={"Authorization": "Bearer test_token"},
-        )
-        assert response.status_code == 500
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                "/api/v1/data-packets/test_packet_id",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert exc_info.value.status_code == 500
 
 
 class TestCreateDataPacket:
@@ -204,7 +219,7 @@ class TestCreateDataPacket:
         )
 
         mock_service.create_data_packet.return_value = sample_data_packet_internal
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call create data packet
         json_compatible_request = jsonable_encoder(request)
@@ -241,7 +256,7 @@ class TestCreateDataPacket:
         sample_token_data,
     ):
         """Test that create data packet raises a 422 if the request id is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         request_data = {"data_packet": jsonable_encoder(sample_data_packet_create)}
         response = test_client.post(
             "/api/v1/data-packets",
@@ -254,7 +269,7 @@ class TestCreateDataPacket:
         self, api, test_client, mock_service, sample_data_packet_create
     ):
         """Test that create data packet raises a 422 if the data packet is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         request_data = {"request_id": "req_123"}
         response = test_client.post(
             "/api/v1/data-packets",
@@ -280,18 +295,20 @@ class TestCreateDataPacket:
         mock_service.create_data_packet.side_effect = DataPacketAlreadyExistsError(
             "test_packet_123"
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call create data packet
         json_compatible_request = jsonable_encoder(request)
-        response = test_client.post(
-            "/api/v1/data-packets",
-            json=json_compatible_request,
-            headers={"Authorization": "Bearer test_token"},
-        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.post(
+                "/api/v1/data-packets",
+                json=json_compatible_request,
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert expectations
-        assert response.status_code == 409
+        assert exc_info.value.status_code == 409
 
     def test_raises_401_if_invalid_token(
         self, api, test_client, mock_service, sample_data_packet_create
@@ -302,7 +319,11 @@ class TestCreateDataPacket:
             request_id="req_123", data_packet=sample_data_packet_create
         )
 
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Call create data packet
         json_compatible_request = jsonable_encoder(request)
@@ -337,7 +358,7 @@ class TestUpdateDataPacket:
         mock_service.update_data_packet.return_value = (
             sample_data_packet_internal_updated
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call update data packet
         json_compatible_request = jsonable_encoder(request)
@@ -381,18 +402,20 @@ class TestUpdateDataPacket:
         mock_service.update_data_packet.side_effect = DataPacketNotFoundError(
             "test_packet_123"
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call update data packet
         json_compatible_request = jsonable_encoder(request)
-        response = test_client.put(
-            "/api/v1/data-packets/test_packet_123",
-            json=json_compatible_request,
-            headers={"Authorization": "Bearer test_token"},
-        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.put(
+                "/api/v1/data-packets/test_packet_123",
+                json=json_compatible_request,
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert expectations
-        assert response.status_code == 404
+        assert exc_info.value.status_code == 404
 
     def test_raises_422_if_request_id_is_missing(
         self,
@@ -403,7 +426,7 @@ class TestUpdateDataPacket:
         sample_token_data,
     ):
         """Test that update data packet raises a 422 if the request id is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         request_data = {"data_packet": jsonable_encoder(sample_data_packet_update)}
         response = test_client.put(
             "/api/v1/data-packets/test_packet_123",
@@ -421,7 +444,7 @@ class TestUpdateDataPacket:
         sample_token_data,
     ):
         """Test that update data packet raises a 422 if the data packet is missing."""
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
         request_data = {"request_id": "req_123"}
         response = test_client.put(
             "/api/v1/data-packets/test_packet_123",
@@ -439,7 +462,11 @@ class TestUpdateDataPacket:
             request_id="req_123", data_packet=sample_data_packet_update
         )
 
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Call update data packet
         json_compatible_request = jsonable_encoder(request)
@@ -463,7 +490,7 @@ class TestDeleteDataPacket:
         # Prepare expected calls
         data_packet_id = "test_packet_id"
         mock_service.delete_data_packet.return_value = None
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call delete data packet
         response = test_client.delete(
@@ -486,22 +513,27 @@ class TestDeleteDataPacket:
         mock_service.delete_data_packet.side_effect = DataPacketNotFoundError(
             data_packet_id
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call delete data packet
-        response = test_client.delete(
-            f"/api/v1/data-packets/{data_packet_id}",
-            headers={"Authorization": "Bearer test_token"},
-        )
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.delete(
+                f"/api/v1/data-packets/{data_packet_id}",
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert expectations
-        assert response.status_code == 404
+        assert exc_info.value.status_code == 404
 
     def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
         """Test that delete data packet raises a 401 if the token is invalid."""
         # Prepare expected calls
         data_packet_id = "test_packet_id"
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Call delete data packet
         response = test_client.delete(
@@ -528,7 +560,7 @@ class TestGetDataPacket:
         # Prepare expected calls
         data_packet_id = "test_packet_id"
         mock_service.get_data_packet.return_value = sample_data_packet_internal
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call get data packet
         response = test_client.get(
@@ -555,22 +587,27 @@ class TestGetDataPacket:
         mock_service.get_data_packet.side_effect = DataPacketNotFoundError(
             data_packet_id
         )
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call get data packet
-        response = test_client.get(
-            f"/api/v1/data-packets/{data_packet_id}",
-            headers={"Authorization": "Bearer test_token"},
-        )
+        with pytest.raises(HTTPException) as exc_info:
+            test_client.get(
+                f"/api/v1/data-packets/{data_packet_id}",
+                headers={"Authorization": "Bearer test_token"},
+            )
 
         # Assert expectations
-        assert response.status_code == 404
+        assert exc_info.value.status_code == 404
 
     def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
         """Test that get data packet raises a 401 if the token is invalid."""
         # Prepare expected calls
         data_packet_id = "test_packet_id"
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Call get data packet
         response = test_client.get(
@@ -597,7 +634,7 @@ class TestListDataPackets:
         # Prepare expected calls
         expected_packets = [sample_data_packet_internal]
         mock_service.list_data_packets.return_value = expected_packets
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call list data packets
         response = test_client.get(
@@ -631,7 +668,7 @@ class TestListDataPackets:
         # Prepare expected calls
         expected_packets = [sample_data_packet_internal]
         mock_service.list_data_packets.return_value = expected_packets
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call list data packets with query parameters
         response = test_client.get(
@@ -684,7 +721,7 @@ class TestListDataPackets:
             ),
         ]
         mock_service.list_data_packets.return_value = expected_packets
-        api.jwt_manager.verify_token = Mock(return_value=sample_token_data)
+        api.jwt_manager.verify_token_or_raise = Mock(return_value=sample_token_data)
 
         # Call list data packets
         response = test_client.get(
@@ -704,7 +741,11 @@ class TestListDataPackets:
     def test_raises_401_if_invalid_token(self, api, test_client, mock_service):
         """Test that list data packets raises a 401 if the token is invalid."""
         # Prepare expected calls
-        api.jwt_manager.verify_token = Mock(return_value=None)
+        api.jwt_manager.verify_token_or_raise = Mock(
+            side_effect=HTTPException(
+                status_code=401, detail="Could not validate credentials"
+            )
+        )
 
         # Call list data packets
         response = test_client.get(

@@ -1,8 +1,10 @@
 """Data Packet submission endpoints for the FIDU API."""
 
 from typing import List
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Response
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.encoders import jsonable_encoder
 from fidu_core.security import JWTManager
 from .schema import (
     DataPacket,
@@ -118,7 +120,7 @@ class DataPacketAPI:
         self,
         data_packet_create_request: DataPacketCreateRequest,
         token: str = Depends(oauth2_scheme),
-    ) -> DataPacket:
+    ) -> Response:
         """Create a data packet in the system.
 
         Args:
@@ -150,13 +152,13 @@ class DataPacketAPI:
         # Convert to response model
         response_data_packet = DataPacket(**created_data_packet.model_dump())
 
-        return response_data_packet
+        return JSONResponse(content=jsonable_encoder(response_data_packet))
 
     async def update_data_packet(
         self,
         data_packet_update_request: DataPacketUpdateRequest,
         token: str = Depends(oauth2_scheme),
-    ) -> DataPacket:
+    ) -> Response:
         """Update a data packet in the system.
 
         Args:
@@ -189,11 +191,11 @@ class DataPacketAPI:
         # Convert to response model
         response_data_packet = DataPacket(**saved_data_packet.model_dump())
 
-        return response_data_packet
+        return JSONResponse(content=jsonable_encoder(response_data_packet))
 
     async def delete_data_packet(
         self, data_packet_id: str, token: str = Depends(oauth2_scheme)
-    ) -> None:
+    ) -> Response:
         """Delete a data packet from the system.
 
         Args:
@@ -208,10 +210,11 @@ class DataPacketAPI:
         user_id = token_data.user_id
 
         self.service.delete_data_packet(user_id, data_packet_id)
+        return JSONResponse(content={"message": "Data packet deleted successfully"})
 
     async def get_data_packet(
         self, data_packet_id: str, token: str = Depends(oauth2_scheme)
-    ) -> DataPacket:
+    ) -> Response:
         """Get a data packet from the system by its ID.
 
         Args:
@@ -233,13 +236,15 @@ class DataPacketAPI:
         # Convert to response model
         response_data_packet = DataPacket(**data_packet.model_dump())
 
-        return response_data_packet
+        return JSONResponse(content=jsonable_encoder(response_data_packet))
 
     async def list_data_packets(
         self,
-        query: DataPacketQueryParams = Depends(DataPacketQueryParams.as_query_params),
+        query_params: DataPacketQueryParams = Depends(
+            DataPacketQueryParams.as_query_params
+        ),
         token: str = Depends(oauth2_scheme),
-    ) -> List[DataPacket]:
+    ) -> Response:
         """List data packets with filtering and pagination.
 
         Args:
@@ -258,10 +263,11 @@ class DataPacketAPI:
 
         # Convert to internal query params
         internal_query_params = DataPacketQueryParamsInternal(
-            user_id=user_id, **query.model_dump()
+            user_id=user_id, **query_params.model_dump()
         )
 
-        data_packets = self.service.list_data_packets(internal_query_params)
-
-        # Convert to response models
-        return [DataPacket(**dp.model_dump()) for dp in data_packets]
+        internal_data_packets = self.service.list_data_packets(internal_query_params)
+        response_data_packets = [
+            DataPacket(**dp.model_dump()) for dp in internal_data_packets
+        ]
+        return JSONResponse(content=jsonable_encoder(response_data_packets))
