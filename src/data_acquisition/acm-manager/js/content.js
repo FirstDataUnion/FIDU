@@ -98,6 +98,11 @@ function initialize() {
     addGeminiDebugButton();
   }
   
+  // Add Claude debug button if needed
+  if (chatbotType === 'Claude') {
+    addClaudeDebugButton();
+  }
+  
   // Load settings and start periodic capture
   loadSettingsAndStartCapture();
   
@@ -267,9 +272,41 @@ function extractAllMessages() {
       break;
       
     case 'Claude':
-      messageElements = [
-        ...document.querySelectorAll('.message-content, .message, .human-message, .claude-message, .assistant-message, .user-message')
+      // Primary selectors based on current Claude interface
+      const primarySelectors = [
+        '[data-testid="user-message"]',
+        '.font-claude-message'
       ];
+      
+      // Fallback selectors for compatibility
+      const fallbackSelectors = [
+        '.message-content', 
+        '.message', 
+        '.human-message', 
+        '.claude-message', 
+        '.assistant-message', 
+        '.user-message'
+      ];
+      
+      // Try primary selectors first
+      for (const selector of primarySelectors) {
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+          messageElements = [...messageElements, ...elements];
+          console.log(`Found ${elements.length} elements with primary selector "${selector}"`);
+        }
+      }
+      
+      // If no messages found, try fallback selectors
+      if (messageElements.length === 0) {
+        for (const selector of fallbackSelectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            messageElements = [...messageElements, ...elements];
+            console.log(`Found ${elements.length} elements with fallback selector "${selector}"`);
+          }
+        }
+      }
       break;
       
     case 'Gemini':
@@ -526,14 +563,15 @@ function extractMessageData(element) {
         
       case 'Claude':
         // Determine if it's a user or assistant message
-        if (element.closest('.human-message, .user-message')) {
+        if (element.closest('[data-testid="user-message"]') || element.closest('.human-message, .user-message')) {
           actor = 'user';
-        } else if (element.closest('.claude-message, .ai-message')) {
+        } else if (element.closest('.font-claude-message') || element.closest('.claude-message, .ai-message')) {
           actor = 'bot';
         }
         
-        // Extract message content
-        content = element.textContent.trim();
+        // Extract message content - try to find the most specific content container
+        const claudeContent = element.querySelector('.message-content, .claude-message-content, .user-message-content') || element;
+        content = claudeContent.textContent.trim();
         
         // Extract file attachments if any
         const claudeAttachments = element.querySelectorAll('.attachment, .file-item');
@@ -1265,6 +1303,124 @@ function debugGeminiCapture() {
   document.body.appendChild(messageDiv);
   
   document.getElementById('closeDebug').addEventListener('click', () => {
+    document.body.removeChild(messageDiv);
+  });
+  
+  return currentConversation.interactions;
+}
+
+// Add a debug button for Claude
+function addClaudeDebugButton() {
+  if (chatbotType !== 'Claude') return;
+  
+  const debugBtn = document.createElement('button');
+  debugBtn.textContent = 'Debug Claude';
+  debugBtn.style.position = 'fixed';
+  debugBtn.style.bottom = '90px';
+  debugBtn.style.right = '10px';
+  debugBtn.style.zIndex = '10000';
+  debugBtn.style.padding = '5px 10px';
+  debugBtn.style.borderRadius = '4px';
+  debugBtn.style.backgroundColor = '#ff8c00';
+  debugBtn.style.color = 'white';
+  debugBtn.style.border = 'none';
+  debugBtn.style.cursor = 'pointer';
+  
+  debugBtn.addEventListener('click', () => {
+    debugClaudeCapture();
+  });
+  
+  document.body.appendChild(debugBtn);
+}
+
+// Debug function for Claude capture
+function debugClaudeCapture() {
+  console.log('===== CLAUDE DEBUG INFO =====');
+  console.log('Current URL:', window.location.href);
+  console.log('Document ready state:', document.readyState);
+  
+  // Primary selectors for Claude
+  const claudeSelectors = [
+    '[data-testid="user-message"]',
+    '.font-claude-message',
+    '.message-content',
+    '.claude-message',
+    '.human-message',
+    '.user-message',
+    '.assistant-message'
+  ];
+  
+  claudeSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    console.log(`${selector}: ${elements.length} elements found`);
+    
+    if (elements.length > 0 && elements.length < 10) {
+      // Log details about each element
+      elements.forEach((el, index) => {
+        console.log(`  ${selector} #${index}:`, {
+          classes: el.className,
+          attributes: Array.from(el.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', '),
+          text: el.textContent.substring(0, 50) + (el.textContent.length > 50 ? '...' : ''),
+          children: el.children.length,
+          isUserMessage: !!el.closest('[data-testid="user-message"]') || !!el.closest('.human-message, .user-message'),
+          isClaudeMessage: !!el.closest('.font-claude-message') || !!el.closest('.claude-message, .ai-message')
+        });
+      });
+    }
+  });
+  
+  // Find text that could be message content
+  const potentialTextElements = document.querySelectorAll('p, .message-content, .claude-message-content, .user-message-content');
+  console.log(`Found ${potentialTextElements.length} potential text elements`);
+  
+  const significantTexts = [];
+  
+  potentialTextElements.forEach((el, i) => {
+    const text = el.textContent.trim();
+    if (text.length > 30) {
+      significantTexts.push({
+        element: el,
+        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        fullText: text
+      });
+      console.log(`Significant text #${i+1}:`, text.substring(0, 100) + (text.length > 100 ? '...' : ''));
+    }
+  });
+  
+  // Attempt to manually capture right now
+  captureEntireConversation();
+  
+  // Format for easy viewing
+  let formattedMessages = '';
+  currentConversation.interactions.forEach((msg, i) => {
+    formattedMessages += `\n[${i+1}] ${msg.actor}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`;
+  });
+  
+  // Show a visual message
+  const messageDiv = document.createElement('div');
+  messageDiv.style.position = 'fixed';
+  messageDiv.style.top = '20px';
+  messageDiv.style.left = '20px';
+  messageDiv.style.padding = '10px';
+  messageDiv.style.backgroundColor = 'rgba(0,0,0,0.8)';
+  messageDiv.style.color = 'white';
+  messageDiv.style.borderRadius = '5px';
+  messageDiv.style.zIndex = '10000';
+  messageDiv.style.maxWidth = '80%';
+  messageDiv.style.maxHeight = '80%';
+  messageDiv.style.overflow = 'auto';
+  messageDiv.innerHTML = `
+    <h3>Claude Debug Info</h3>
+    <p>Found ${currentConversation.interactions.length} messages</p>
+    <pre style="font-size: 12px; white-space: pre-wrap;">${formattedMessages}</pre>
+    <p>Significant Text Blocks: ${significantTexts.length}</p>
+    <p>Check console for details</p>
+    <button id="closeClaudeDebug" style="padding: 5px; margin-top: 10px;">Close</button>
+  `;
+  
+  document.body.appendChild(messageDiv);
+  
+  document.getElementById('closeClaudeDebug').addEventListener('click', () => {
     document.body.removeChild(messageDiv);
   });
   
