@@ -6,8 +6,8 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional, Union
-from fastapi import FastAPI, Request, HTTPException, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer
 from fidu_core.security import JWTManager, PasswordHasher
@@ -223,15 +223,17 @@ class FrontEndAPI:
             # User is logged in, redirect to dashboard
             return RedirectResponse(url="/dashboard", status_code=302)
 
-        return self.templates.TemplateResponse(
+        response = self.templates.TemplateResponse(
             "home.html", {"request": request, "error": None}
         )
+        return HTMLResponse(content=response.body.decode(), status_code=200)
 
     async def login_page(self, request: Request) -> HTMLResponse:
         """Serve the login page."""
-        return self.templates.TemplateResponse(
+        response = self.templates.TemplateResponse(
             "login.html", {"request": request, "error": None}
         )
+        return HTMLResponse(content=response.body.decode(), status_code=200)
 
     async def login(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Handle user login."""
@@ -241,35 +243,38 @@ class FrontEndAPI:
             password = form_data.get("password")
 
             if not email or not password:
-                return self.templates.TemplateResponse(
+                response = self.templates.TemplateResponse(
                     "login.html",
                     {"request": request, "error": "Email and password are required"},
                 )
+                return HTMLResponse(content=response.body.decode(), status_code=200)
 
             # Get user by email
             try:
                 internal_user = self.user_service.get_user_by_email(str(email))
             except (UserNotFoundError, UserError):
-                return self.templates.TemplateResponse(
+                response = self.templates.TemplateResponse(
                     "login.html",
                     {"request": request, "error": "Invalid email or password"},
                 )
+                return HTMLResponse(content=response.body.decode(), status_code=200)
 
             # Verify password
             if not self.password_hasher.verify_password(
                 str(password), internal_user.password_hash
             ):
-                return self.templates.TemplateResponse(
+                response = self.templates.TemplateResponse(
                     "login.html",
                     {"request": request, "error": "Invalid email or password"},
                 )
+                return HTMLResponse(content=response.body.decode(), status_code=200)
 
             # Generate JWT token
             token = self.jwt_manager.create_access_token(data={"sub": internal_user.id})
 
             # Create response with redirect to dashboard
-            response = RedirectResponse(url="/dashboard", status_code=302)
-            response.set_cookie(
+            redirect_response = RedirectResponse(url="/dashboard", status_code=302)
+            redirect_response.set_cookie(
                 key="auth_token",
                 value=token,
                 httponly=True,
@@ -277,20 +282,22 @@ class FrontEndAPI:
                 samesite="lax",
                 max_age=3600,  # 1 hour
             )
-            return response
+            return redirect_response
 
         except (UserError, DataPacketError, ProfileError, ValueError, TypeError) as e:
             logger.error("Login error: %s", e)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "login.html",
                 {"request": request, "error": "An error occurred during login"},
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
 
     async def register_page(self, request: Request) -> HTMLResponse:
         """Serve the register page."""
-        return self.templates.TemplateResponse(
+        response = self.templates.TemplateResponse(
             "register.html", {"request": request, "error": None}
         )
+        return HTMLResponse(content=response.body.decode(), status_code=200)
 
     async def register(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Handle user registration."""
@@ -303,16 +310,18 @@ class FrontEndAPI:
             confirm_password = form_data.get("confirm_password")
 
             if not email or not password or not confirm_password:
-                return self.templates.TemplateResponse(
+                response = self.templates.TemplateResponse(
                     "register.html",
                     {"request": request, "error": "All fields are required"},
                 )
+                return HTMLResponse(content=response.body.decode(), status_code=200)
 
             if password != confirm_password:
-                return self.templates.TemplateResponse(
+                response = self.templates.TemplateResponse(
                     "register.html",
                     {"request": request, "error": "Passwords do not match"},
                 )
+                return HTMLResponse(content=response.body.decode(), status_code=200)
 
             # Create user
             user_create = UserBase(
@@ -335,8 +344,8 @@ class FrontEndAPI:
             token = self.jwt_manager.create_access_token(data={"sub": internal_user.id})
 
             # Create response with redirect to dashboard
-            response = RedirectResponse(url="/dashboard", status_code=302)
-            response.set_cookie(
+            redirect_response = RedirectResponse(url="/dashboard", status_code=302)
+            redirect_response.set_cookie(
                 key="auth_token",
                 value=token,
                 httponly=True,
@@ -344,14 +353,15 @@ class FrontEndAPI:
                 samesite="lax",
                 max_age=3600,  # 1 hour
             )
-            return response
+            return redirect_response
 
         except (UserError, DataPacketError, ProfileError, ValueError, TypeError) as e:
             logger.error("Registration error: %s", e)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "register.html",
                 {"request": request, "error": "An error occurred during registration"},
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
 
     # pylint: disable=unused-argument
     async def logout(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
@@ -372,9 +382,10 @@ class FrontEndAPI:
 
         try:
             user = self.user_service.get_user(user_id)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "dashboard.html", {"request": request, "user": user}
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (UserNotFoundError, UserError) as e:
             logger.error("Dashboard error: %s", e)
             return RedirectResponse(url="/login", status_code=302)
@@ -390,9 +401,10 @@ class FrontEndAPI:
 
         try:
             user = self.user_service.get_user(user_id)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "data_packets.html", {"request": request, "user": user}
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (UserNotFoundError, UserError) as e:
             logger.error("Data packets page error: %s", e)
             return RedirectResponse(url="/login", status_code=302)
@@ -442,7 +454,7 @@ class FrontEndAPI:
                 query_params_internal
             )
 
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "data_packets_list.html",
                 {
                     "request": request,
@@ -451,6 +463,7 @@ class FrontEndAPI:
                     "available_profiles": available_profiles,
                 },
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (DataPacketError, ProfileError, ValueError, TypeError) as e:
             logger.error("Data packets list error: %s", e)
             return HTMLResponse("Error loading data packets.", status_code=500)
@@ -489,9 +502,10 @@ class FrontEndAPI:
 
         try:
             user = self.user_service.get_user(user_id)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "profiles.html", {"request": request, "user": user}
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (UserNotFoundError, UserError) as e:
             logger.error("Profiles page error: %s", e)
             return RedirectResponse(url="/login", status_code=302)
@@ -507,9 +521,10 @@ class FrontEndAPI:
 
         try:
             user = self.user_service.get_user(user_id)
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "apps.html", {"request": request, "user": user}
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (UserNotFoundError, UserError) as e:
             logger.error("Apps page error: %s", e)
             return RedirectResponse(url="/login", status_code=302)
@@ -534,9 +549,10 @@ class FrontEndAPI:
 
             profiles = self.profile_service.list_profiles(query_params)
 
-            return self.templates.TemplateResponse(
+            response = self.templates.TemplateResponse(
                 "profiles_list.html", {"request": request, "profiles": profiles}
             )
+            return HTMLResponse(content=response.body.decode(), status_code=200)
         except (ProfileError, ValueError, TypeError) as e:
             logger.error("Profiles list error: %s", e)
             return HTMLResponse("Error loading profiles.", status_code=500)
