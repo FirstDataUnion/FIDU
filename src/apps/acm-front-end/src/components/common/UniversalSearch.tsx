@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -55,7 +55,7 @@ export default function UniversalSearch({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Mock data for demonstration
-  const mockResults: SearchResult[] = [
+  const mockResults: SearchResult[] = useMemo(() => [
     {
       id: 'conv-1',
       title: 'Frontend Architecture Discussion',
@@ -103,7 +103,11 @@ export default function UniversalSearch({
       type: 'tag',
       metadata: { usage: 12, category: 'technology' }
     }
-  ];
+  ], []);
+
+  useEffect(() => {
+    setResults(mockResults);
+  }, [mockResults]);
 
   useEffect(() => {
     if (query.length > 0) {
@@ -124,7 +128,7 @@ export default function UniversalSearch({
       setResults([]);
       setIsOpen(false);
     }
-  }, [query, activeFilters]);
+  }, [query, activeFilters, mockResults]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {

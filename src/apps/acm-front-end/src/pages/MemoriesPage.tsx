@@ -147,11 +147,12 @@ const MemoriesPage: React.FC = () => {
         aValue = a.title.toLowerCase();
         bValue = b.title.toLowerCase();
         break;
-      case 'importance':
+      case 'importance': {
         const importanceOrder = { critical: 4, high: 3, medium: 2, low: 1 };
         aValue = importanceOrder[a.importance];
         bValue = importanceOrder[b.importance];
         break;
+      }
       case 'createdAt':
         aValue = new Date(a.createdAt).getTime();
         bValue = new Date(b.createdAt).getTime();

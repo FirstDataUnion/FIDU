@@ -168,7 +168,7 @@ const ConversationsPage: React.FC = () => {
       case 'clipboard':
         navigator.clipboard.writeText(contextPreview);
         break;
-      case 'json':
+      case 'json': {
         const jsonData = JSON.stringify(selectedConversations, null, 2);
         const jsonBlob = new Blob([jsonData], { type: 'application/json' });
         const jsonUrl = URL.createObjectURL(jsonBlob);
@@ -177,7 +177,8 @@ const ConversationsPage: React.FC = () => {
         jsonLink.download = 'acm-context.json';
         jsonLink.click();
         break;
-      case 'markdown':
+      }
+      case 'markdown': {
         const mdBlob = new Blob([contextPreview], { type: 'text/markdown' });
         const mdUrl = URL.createObjectURL(mdBlob);
         const mdLink = document.createElement('a');
@@ -185,6 +186,7 @@ const ConversationsPage: React.FC = () => {
         mdLink.download = 'acm-context.md';
         mdLink.click();
         break;
+      }
     }
   };
 
