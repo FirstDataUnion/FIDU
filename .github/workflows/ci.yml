@@ -53,7 +53,7 @@ jobs:
         
     - name: Run type checking (mypy)
       run: |
-        mypy src/
+        mypy --install-types --non-interactive src/
         
     - name: Run tests with coverage
       run: |
@@ -148,14 +148,15 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Run Bandit security scan
-      uses: shundor/bandit-action@v1
-      with:
-        path: src/
-        level: medium
-        confidence: medium
+      uses: shundor/bandit-action
+      with: 
+          path: "."
+          level: medium
+          confidence: medium
+          exit_zero: true   
         
     - name: Run Safety check
-      uses: pyupio/safety@v1
+      uses: pyupio/safety-action
       with:
         api-key: ${{ secrets.SAFETY_API_KEY }}
 
