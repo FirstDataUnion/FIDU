@@ -138,27 +138,28 @@ jobs:
         # curl -f http://localhost:8000/health || exit 1
         echo "API endpoint tests placeholder - add your API test commands here"
 
+  # TODO: Add security scan back in once repo is public
   # Security Scan
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    permissions: write-all
+  # security-scan:
+  #   name: Security Scan
+  #   runs-on: ubuntu-latest
+  #   permissions: write-all
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
       
-    - name: Bandit Scan
-      uses: PyCQA/bandit-action@v1
-      with: 
-        targets: src/
-        severity: medium
-        confidence: medium
+  #   - name: Bandit Scan
+  #     uses: PyCQA/bandit-action@v1
+  #     with: 
+  #       targets: src/
+  #       severity: medium
+  #       confidence: medium
         
-    - name: Run Safety check
-      uses: pyupio/safety-action@v1
-      with:
-        api-key: ${{ secrets.SAFETY_API_KEY }}
+  #   - name: Run Safety check
+  #     uses: pyupio/safety-action@v1
+  #     with:
+  #       api-key: ${{ secrets.SAFETY_API_KEY }}
 
   # Build Verification
   build-verification:
