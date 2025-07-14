@@ -148,7 +148,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Run Bandit security scan
-      uses: shundor/bandit-action
+      uses: shundor/bandit-action@v1
       with: 
           path: "."
           level: medium
@@ -156,7 +156,7 @@ jobs:
           exit_zero: true   
         
     - name: Run Safety check
-      uses: pyupio/safety-action
+      uses: pyupio/safety-action@v1
       with:
         api-key: ${{ secrets.SAFETY_API_KEY }}
 
