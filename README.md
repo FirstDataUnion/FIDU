@@ -1,77 +1,106 @@
-## FIDU
+# FIDU
 
 Take control of your digital identity and break free from Big Tech. The FIDU app empowers users to collect and securely store their personal data, define precise preferences for its usage, and serve it to applications and agents strictly on their terms.
 
 ## More about FIDU
 
-https://firstdataunion.org/intro/site_1.html 
+https://firstdataunion.org
 
-## What it is
+## The Project (IMPORTANT)
 
-This project aims to demonstrate a taste of FIDU’s dream, where all use of a user’s data can be collected, controlled, and managed by the user themselves via this application. This is the first step towards reclaiming our data from big tech. 
+This project aims to demonstrate a taste of FIDU's vision. This is an extremely early version, and we're working hard to add new features and apps all the time.
 
-## What it does
+We are offering this early alpha to encourage those interested in our journey to start interacting with our tools, hopefully finding some useful functionality for themselves, as well as helping to shape its future.
 
-The application will collect the user’s data via an extensible ecosystem of data collection tools in the “Data Collection Layer”, starting with our initial web browser plugin. These tools transmit collected data to the core FIDU App, which then orchestrates its storage using a set of configurable and extensible storage options. Furthermore, the main application provides a user interface to define and manage your data sharing and usage preferences. Finally, authorised "Application Layer" programs can access and utilise your data  according to these defined preferences. 
+Due to the early stage of this project, there are many caveats to the guarantees we provide so far. Be sure to understand these before using any of our tools.
 
-TODO: Diagram
+### The Goal
 
+The application will collect user data via an extensible ecosystem of data collection tools in the “Data Collection Layer,” starting with our initial web browser plugin. These tools transmit collected data to the core FIDU App, which then orchestrates its storage using a set of configurable and extensible storage options. Furthermore, the main application provides a user interface to define and manage your data sharing and usage preferences. Finally, authorised "Application Layer" programs can access and utilise your data according to these defined preferences.
 
-## The Goal
+![Architecture Diagram](docs/FIDUBasicDiagram.png)
 
-Our ultimate goal is to empower users to collect and control a large portion of their digital footprint within this data union. Eventually, the richness and comprehensiveness of this user-managed data will incentivise tech companies to directly request data from the union, thereby granting users unparalleled control over what information is shared and for what purpose.
+## Current Functionality
+
+### FIDU Core
+
+A locally run server that must be running to use other apps. It manages the storage and retrieval of user data and currently offers local storage only.
+
+There is a basic front end that allows users to view their raw stored data and manage profiles for their account.
+
+**IMPORTANT:**
+
+- **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
+- **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and avoid storing any sensitive data in the application. This is an experimental alpha, and we cannot yet guarantee the security of data stored.
+
+### ACM Manager
+
+A Chrome plugin that allows the automatic capture of conversations with chatbots. Supports:
+- ChatGPT
+- Claude
+- Google Gemini
+- Poe
+- Perplexity
+
+Conversations are stored in FIDU Core and will be available for use in future application layer programs.
+
+**IMPORTANT:**  
+Currently, the ACM-Manager plugin can only store data if the FIDU Server is running on your machine, and there is no mechanism (yet) to hold data for later use.
 
 ## Installation
 
-Coming Soon: instructions on a local installation. 
+### FIDU Core
 
-## Development Setup
+We currently provide three versions of the pre-built FIDU program: Windows, macOS, and Linux.
 
-Once pulling the repo, run the following script before you start work:
+**NOTE:** Due to early alpha status, our testing of support on all versions of these OSes is limited. Please feel free to report any issues to us!
 
-`/scripts/setup_dev.sh`
+Coming Soon: Links to download these.
 
-this will install all requirements, including dev only tools (linters, formatters etc.), 
-create a virtual env, activate the virtual env, and set up the precommit hook to run all linters/testers on every commit. 
+Once downloaded, you can run the executable to start the local FIDU Core server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
 
-Linters/tests can be run manually via the command './scripts/lint.sh'
+### ACM Manager
 
-## Usage
+More detailed information on this plugin can be found here:  
+https://github.com/FirstDataUnion/FIDU/blob/main/src/data_acquisition/acm-manager/README.md
 
-The core App can be started up with:
-`uvicorn src.fidu_core.main:app --port 4000 --reload`
+To install it into Chrome, perform the following:
 
-This will run it with an auto-reload mechanism, where any changes made will be automatically detected and cause a hot-reload to allow for quick development cycles. 
+1. Open Chrome and navigate to chrome://extensions/
+2. Enable "Developer mode" (toggle in the top right)
+3. Click "Load unpacked" and select the extension directory (.../FIDU/src/data_acquisition/acm-manager)
+4. The ACM Manager icon should appear in your Chrome toolbar
 
-The FIDU Core backend can then be accessed by going to 
+Once installed, use the plugin option box in the top right of your browser to log into your FIDU account. Any conversations in the supported chatbots in Chrome will be automatically saved to FIDU Core.
 
-`http://127.0.0.1:4000`
+## Running in Developer Mode
 
-API docs can be viewed at
+You may also run the FIDU Core server in development mode. To do this, run the following command from the project root to install all development dependencies:
 
-`http://127.0.0.1:4000/docs`
+```sh
+source scripts/setup_dev.sh
+```
 
-Once this is running, the ACM-Capture chrome plugin and ACM-Lab front end can be used along with it. These have separate README files in their respective directories. 
+It will also create and activate a Python venv, into which all requirements will be installed to keep it self-contained.
 
-All these apps share the same identity system, and creating an account in one allows you to log into all 3. 
+Then a dev server can be run via either:
 
+```sh
+uvicorn src.fidu_core.main:app --port 4000 --reload
+```
+(this provides automatic hot-reload functionality)
 
-## What’s (currently) in the box
+or
 
-Around the core orchestration application, there are a small suite of collection/storage/processing options to demonstrate development in these layers. The idea is that these will be extended into larger suites of options/application with time, resulting in a diverse set of options.
-
-## Integrations/APIs
-
-Coming Soon
-
-**Description/links to API docs (hoping to use proto + swagger to maybe auto-generate these). This is an important section. 
+```sh
+.venv/bin/python src/fidu_core/main.py
+```
+(no hot-reload)
 
 ## Contributing
 
-Contributions are very welcome! Feel free to fork the repo and use a feature branch. 
+We do not have a contribution process in place just yet. However, we're working on it, and would love to hear any thoughts you have in the meantime!
 
-TODO: describe what we want from contributions, integrations + main code changes?
+## License
 
-## Licence
-
-TODO
+[MIT License](LICENSE)
