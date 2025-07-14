@@ -19,7 +19,7 @@ import ContextsPage from './pages/ContextsPage';
 import PromptLabPage from './pages/PromptLabPage';
 import PersonasPage from './pages/PersonasPage';
 
-interface AppContentProps {}
+interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
 
 const AppContent: React.FC<AppContentProps> = () => {
   const { isInitialized, isLoading, error } = useDatabase();

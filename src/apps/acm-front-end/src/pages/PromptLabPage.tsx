@@ -476,7 +476,7 @@ export default function PromptLabPage() {
         isEdited: false
       };
 
-      var allMessagesSoFar: Message[] = [];
+      let allMessagesSoFar: Message[] = [];
       setConversationMessages(prev => {
         const updatedMessages = [...prev, userMessage];
         // Capture updated messages here to ensure we get most up to date state
@@ -518,7 +518,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSendingFollowUp(false);
     }
-  }, [currentProfile, currentConversation, localSelectedModel, selectedContext, conversationMessages, fetchExecutionHistory, promptsApi]);
+  }, [currentProfile, currentConversation, localSelectedModel, selectedContext, conversationMessages, promptsApi]);
 
   // Convert Message to ConversationMessage (filtering out system messages)
   const convertMessagesToConversationMessages = useCallback((messages: Message[]) => {

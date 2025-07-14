@@ -176,7 +176,7 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
       };
 
       // Build the complete prompt with conversation history
-      var agentPrompt = prompt
+      let agentPrompt = prompt;
       if (context && conversationMessages.length > 0) {
         agentPrompt = `
         Given the following existing background context: ${context}
@@ -209,7 +209,7 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
         Prompt: ${prompt}`
       }
 
-      var agentCallback = null;
+      let agentCallback = null;
       switch (selectedModel) {
         case "gpt-3.5-turbo":
           agentCallback = nlpWorkbenchAPIClient.executeChatGPTGeneralAgent.bind(nlpWorkbenchAPIClient);

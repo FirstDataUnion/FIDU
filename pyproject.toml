@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fidu-core"
+name = "fidu"
 version = "0.1.0"
 description = "A local API server for the Fidu desktop application"
-authors = [{name = "FirstDataUnion", email = "evenoli@hotmail.co.uk"}]
+authors = [{name = "FirstDataUnion", email = "oli@firstdataunion.org"}]
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
