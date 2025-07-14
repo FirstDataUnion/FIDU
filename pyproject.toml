@@ -3,20 +3,34 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fidu"
+name = "fidu-core"
 version = "0.1.0"
-description = "FIDU - Personal data management system"
-authors = [{name = "FIDU Team"}]
+description = "A local API server for the Fidu desktop application"
+authors = [{name = "FirstDataUnion", email = "evenoli@hotmail.co.uk"}]
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "fastapi",
-    "uvicorn",
-    "sqlalchemy",
-    "pydantic",
-    "python-jose[cryptography]",
-    "passlib[bcrypt]",
-    "python-multipart",
+    "fastapi>=0.104.1",
+    "uvicorn>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.11.7",
+    "email-validator>=2.1.0",
+    "argon2-cffi>=23.1.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.6",
+    "jinja2>=3.1.2",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pycodestyle>=2.11.1",
+    "pylint>=3.0.3",
+    "black>=24.1.1",
+    "mypy>=1.16.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pre-commit>=4.2.0",
 ]
 
 [tool.pytest.ini_options]
