@@ -33,7 +33,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/pyproject.toml', '**/setup.py') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-${{ matrix.python-version }}-
           
@@ -147,8 +147,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Run Bandit security scan
-      uses: shundor/bandit-action@v1
+    - name: Bandit Scan
+      uses: shundor/python-bandit-scan@v1.0
       with: 
           path: "."
           level: medium
@@ -189,7 +189,8 @@ jobs:
         
     - name: Verify Python package builds
       run: |
-        python setup.py sdist bdist_wheel
+        python -m pip install build
+        python -m build
         
     - name: Verify frontend builds
       working-directory: src/apps/acm-front-end
