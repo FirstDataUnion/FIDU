@@ -1,0 +1,27 @@
+# Global repository owners
+* @evenoli
+
+# Python backend code
+src/fidu_core/ @evenoli
+
+# Frontend application
+src/apps/acm-front-end/ @evenoli
+
+# Desktop application (PyInstaller)
+src-tauri/ @evenoli
+
+# Data acquisition tools
+src/data_acquisition/ @evenoli
+
+# Configuration and build files
+*.toml @evenoli
+*.py @evenoli
+requirements.txt @evenoli
+setup.py @evenoli
+
+# Documentation
+*.md @evenoli
+docs/ @evenoli
+
+# GitHub workflows and configuration
+.github/ @evenoli 
