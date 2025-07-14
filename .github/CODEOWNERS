@@ -7,9 +7,6 @@ src/fidu_core/ @evenoli
 # Frontend application
 src/apps/acm-front-end/ @evenoli
 
-# Desktop application (PyInstaller)
-src-tauri/ @evenoli
-
 # Data acquisition tools
 src/data_acquisition/ @evenoli
 
@@ -17,7 +14,6 @@ src/data_acquisition/ @evenoli
 *.toml @evenoli
 *.py @evenoli
 requirements.txt @evenoli
-setup.py @evenoli
 
 # Documentation
 *.md @evenoli
