@@ -3,13 +3,13 @@
 import os
 from typing import Dict, Any
 
-
 class ProxyConfig:
     """Configuration class for proxy settings."""
 
     def __init__(self):
         """Initialize proxy configuration."""
         # NLP Workbench settings
+        
         self.nlp_workbench_base_url = "https://wb.nlp-processing.com"
         self.nlp_workbench_api_key = os.getenv("VITE_NLP_WORKBENCH_AGENT_API_KEY")
 
@@ -40,5 +40,12 @@ class ProxyConfig:
         }
 
 
-# Global configuration instance
-proxy_config = ProxyConfig()
+# Singleton instance holder
+_proxy_config_instance = None
+
+def get_proxy_config() -> ProxyConfig:
+    """Get the singleton ProxyConfig instance, creating it if necessary."""
+    global _proxy_config_instance
+    if _proxy_config_instance is None:
+        _proxy_config_instance = ProxyConfig()
+    return _proxy_config_instance

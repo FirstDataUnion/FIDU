@@ -1,6 +1,7 @@
 """Data Packet submission endpoints for the FIDU API."""
 
 from typing import List
+import httpx
 from fastapi import FastAPI, HTTPException, Depends, status, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -22,9 +23,13 @@ from .exceptions import (
     DataPacketValidationError,
     DataPacketPermissionError,
 )
+from fidu_core.identity_service.client import get_user_from_identity_service
+from fidu_core.users.schema import IdentityServiceUser
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
+
+USE_REMOTE_IDENTITY_SERVICE = True  # Set to False to use local JWT validation
 
 
 class DataPacketAPI:
@@ -133,15 +138,25 @@ class DataPacketAPI:
         Raises:
             HTTPException: If the token is invalid or the user is not authorized
         """
-        # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        # Validate the request by requesting the User from the identity service
+        if USE_REMOTE_IDENTITY_SERVICE:
+            user: IdentityServiceUser = await get_user_from_identity_service(token)
+            user_id = user.id
+            profile_ids = [profile.id for profile in user.profiles]
+        else:
+            token_data = self.jwt_manager.verify_token_or_raise(token)
+            user_id = token_data.user_id
+            profile_ids = self.service.get_profile_ids(user_id)
 
         # Convert to internal model
         internal_data_packet = DataPacketInternal(
             **data_packet_create_request.data_packet.model_dump()
         )
         internal_data_packet.user_id = user_id
+
+        # Assert that profile ID is in the list of profile IDs
+        if data_packet_create_request.data_packet.profile_id not in profile_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Profile ID not found")
 
         # Pass data packet to service layer to be processed and stored
         # Service layer will handle all error cases and raise appropriate exceptions
@@ -172,8 +187,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        if USE_REMOTE_IDENTITY_SERVICE:
+            user: IdentityServiceUser = await get_user_from_identity_service(token)
+            user_id = user.id
+        else:
+            token_data = self.jwt_manager.verify_token_or_raise(token)
+            user_id = token_data.user_id
 
         # Convert to internal model
         internal_data_packet = DataPacketInternal(
@@ -206,8 +225,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        if USE_REMOTE_IDENTITY_SERVICE:
+            user: IdentityServiceUser = await get_user_from_identity_service(token)
+            user_id = user.id
+        else:
+            token_data = self.jwt_manager.verify_token_or_raise(token)
+            user_id = token_data.user_id
 
         self.service.delete_data_packet(user_id, data_packet_id)
         return JSONResponse(content={"message": "Data packet deleted successfully"})
@@ -228,8 +251,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        if USE_REMOTE_IDENTITY_SERVICE:
+            user: IdentityServiceUser = await get_user_from_identity_service(token)
+            user_id = user.id
+        else:
+            token_data = self.jwt_manager.verify_token_or_raise(token)
+            user_id = token_data.user_id
 
         data_packet = self.service.get_data_packet(user_id, data_packet_id)
 
@@ -258,8 +285,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        if USE_REMOTE_IDENTITY_SERVICE:
+            user: IdentityServiceUser = await get_user_from_identity_service(token)
+            user_id = user.id
+        else:
+            token_data = self.jwt_manager.verify_token_or_raise(token)
+            user_id = token_data.user_id
 
         # Convert to internal query params
         internal_query_params = DataPacketQueryParamsInternal(

@@ -1,5 +1,7 @@
 """Main application module for the FIDU Local App."""
 
+import os
+from dotenv import load_dotenv
 from threading import Timer
 import webbrowser
 import sys
@@ -37,6 +39,13 @@ def get_base_path():
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-statements
 def create_app():
+
+    env = os.getenv("FIDU_ENV", "development")
+    if env == "development":
+        load_dotenv(override=True)
+    else:
+        load_dotenv()
+
     """Create and configure the FastAPI application."""
     start_time = time.time()
     print(f"[{time.time() - start_time:.2f}s] Starting up FIDU Core...")
