@@ -56,13 +56,17 @@
                             <div class="ml-4">
                                 <div class="flex items-center">
                                     <p class="text-sm font-medium text-gray-900">
-                                        {{ profile.name }}
+                                        {{ profile.display_name }}
                                     </p>
                                 </div>
                                 <div class="mt-1 flex items-center text-sm text-gray-500">
                                     <p>ID: {{ profile.id }}</p>
                                     <span class="mx-2">•</span>
-                                    <p>Created: {{ profile.create_timestamp.strftime('%Y-%m-%d %H:%M') if profile.create_timestamp else 'Unknown' }}</p>
+                                    <p>Created: {{ profile.created_at.strftime('%Y-%m-%d %H:%M') if profile.created_at else 'Unknown' }}</p>
+                                    <span class="mx-2">•</span>
+                                    <p>Active: {{ profile.is_active }}</p>
+                                    <span class="mx-2">•</span>
+                                    <p>Updated: {{ profile.updated_at.strftime('%Y-%m-%d %H:%M') if profile.updated_at else 'Unknown' }}</p>
                                 </div>
                             </div>
                         </div>
