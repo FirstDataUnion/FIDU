@@ -4,6 +4,7 @@ Service layer for data packets.
 
 from datetime import datetime, timezone
 from typing import List
+from fidu_core.profiles.schema import ProfileQueryParamsInternal
 from .schema import DataPacketInternal, DataPacketQueryParamsInternal
 from .store import DataPacketStoreInterface
 from ..profiles.service import ProfileService
@@ -58,11 +59,6 @@ class DataPacketService:
                 "Profile ID is required to create a data packet"
             )
 
-        # Will also raise an exception if the profile does not exist
-        profile = self.profile_service.get_profile(profile_id)
-        if profile.user_id != user_id:
-            raise DataPacketPermissionError(data_packet.id, user_id)
-
         # Set timestamps
         data_packet.create_timestamp = self._get_current_timestamp()
         data_packet.update_timestamp = self._get_current_timestamp()
@@ -70,6 +66,14 @@ class DataPacketService:
         # Store the data packet in the storage layer
         saved_data_packet = self.store.store_data_packet(request_id, data_packet)
         return saved_data_packet
+
+    def get_profile_ids(self, user_id: str) -> List[str]:
+        """Get the profile IDs for a user.
+
+        Temporary hack to maintain functionality with online service
+        """
+        profiles = self.profile_service.list_profiles(ProfileQueryParamsInternal(user_id=user_id))
+        return [profile.id for profile in profiles]
 
     def update_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
