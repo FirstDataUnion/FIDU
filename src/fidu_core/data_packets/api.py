@@ -29,7 +29,7 @@ from fidu_core.users.schema import IdentityServiceUser
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
 
-USE_REMOTE_IDENTITY_SERVICE = True  # Set to False to use local JWT validation
+USE_REMOTE_IDENTITY_SERVICE = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  # Set to False to use local JWT validation
 
 
 class DataPacketAPI:
