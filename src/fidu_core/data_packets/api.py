@@ -1,5 +1,6 @@
 """Data Packet submission endpoints for the FIDU API."""
 
+import os
 from typing import List
 import httpx
 from fastapi import FastAPI, HTTPException, Depends, status, Response

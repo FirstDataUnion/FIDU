@@ -16,17 +16,37 @@
                 <p class="text-gray-600 mb-6">Sign in to your account or create a new one to get started.</p>
             </div>
             
-            <div class="space-y-4">
-                <a href="/login" 
-                   class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                    Sign In
-                </a>
-                
-                <a href="/register" 
-                   class="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                    Create Account
-                </a>
-            </div>
+            <!-- FIDU SDK Auth Widget -->
+            <div id="fiduAuthContainer"></div>
+            <script src="{{ identity_service_url }}/static/js/fidu-sdk.js"></script>
+            <script>
+            // Initialize FIDU SDK
+            const fidu = new FIDUAuth({
+                fiduHost: '{{ identity_service_url }}',
+                debug: true
+            });
+
+            // Set up event handlers
+            fidu.on('onAuthSuccess', (user, token, portalUrl) => {
+                console.log('User authenticated:', user);
+                localStorage.setItem('fiduToken', token);
+                // Set auth_token cookie for backend compatibility (expires in 1 hour)
+                document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
+                window.location.href = "/dashboard";
+            });
+
+            fidu.on('onAuthError', (error) => {
+                console.error('Auth error:', error);
+            });
+
+            // Check if user is already authenticated
+            fidu.init().then(isAuthenticated => {
+                if (!isAuthenticated) {
+                    // Show login widget
+                    fidu.showLoginWidget();
+                }
+            });
+            </script>
         </div>
         
         <div class="text-center text-sm text-gray-500">

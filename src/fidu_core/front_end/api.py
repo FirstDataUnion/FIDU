@@ -1,5 +1,6 @@
 """Frontend API for HTMX-based user interface."""
 
+import os
 import uuid
 import json
 import logging
@@ -25,7 +26,7 @@ from fidu_core.profiles.schema import (
     ProfileCreate,
 )
 from fidu_core.profiles.exceptions import ProfileError
-
+from fidu_core.identity_service.client import get_user_from_identity_service, create_profile
 
 def get_base_path():
     """Get the base path for the application, handling PyInstaller bundling."""
@@ -86,36 +87,11 @@ class FrontEndAPI:
             response_model=None,
         )
         self.app.add_api_route(
-            "/login",
-            self.login_page,
-            methods=["GET"],
-            response_class=HTMLResponse,
-        )
-        self.app.add_api_route(
-            "/login",
-            self.login,
-            methods=["POST"],
-            response_model=None,
-        )
-        self.app.add_api_route(
-            "/register",
-            self.register_page,
-            methods=["GET"],
-            response_class=HTMLResponse,
-        )
-        self.app.add_api_route(
-            "/register",
-            self.register,
-            methods=["POST"],
-            response_model=None,
-        )
-        self.app.add_api_route(
             "/logout",
             self.logout,
             methods=["POST"],
             response_model=None,
         )
-
         # Main application routes
         self.app.add_api_route(
             "/dashboard",
@@ -178,8 +154,9 @@ class FrontEndAPI:
                     token = auth_header[7:]
 
             if token:
-                token_data = self.jwt_manager.verify_token_or_raise(token)
-                return token_data.user_id
+                # Fetch user from identity service
+                user = await get_user_from_identity_service(token)
+                return user.id
         # TODO: This is not the right kind of exception to catch here, should adjust what is
         # returned from jwt_manager
         # Catch unauthed exceptions from jwt_manager
@@ -223,15 +200,11 @@ class FrontEndAPI:
             # User is logged in, redirect to dashboard
             return RedirectResponse(url="/dashboard", status_code=302)
 
-        response = self.templates.TemplateResponse(
-            "home.html", {"request": request, "error": None}
-        )
-        return HTMLResponse(content=response.body.decode(), status_code=200)
+        # Get the identity service URL from the environment variable, or use default
+        identity_service_url = os.environ.get("FIDU_IDENTITY_SERVICE_URL", "https://fidu.identity-service.com")
 
-    async def login_page(self, request: Request) -> HTMLResponse:
-        """Serve the login page."""
         response = self.templates.TemplateResponse(
-            "login.html", {"request": request, "error": None}
+            "home.html", {"request": request, "error": None, "identity_service_url": identity_service_url}
         )
         return HTMLResponse(content=response.body.decode(), status_code=200)
 
@@ -292,78 +265,6 @@ class FrontEndAPI:
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
 
-    async def register_page(self, request: Request) -> HTMLResponse:
-        """Serve the register page."""
-        response = self.templates.TemplateResponse(
-            "register.html", {"request": request, "error": None}
-        )
-        return HTMLResponse(content=response.body.decode(), status_code=200)
-
-    async def register(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
-        """Handle user registration."""
-        try:
-            form_data = await request.form()
-            email = form_data.get("email")
-            first_name = form_data.get("first_name")
-            last_name = form_data.get("last_name")
-            password = form_data.get("password")
-            confirm_password = form_data.get("confirm_password")
-
-            if not email or not password or not confirm_password:
-                response = self.templates.TemplateResponse(
-                    "register.html",
-                    {"request": request, "error": "All fields are required"},
-                )
-                return HTMLResponse(content=response.body.decode(), status_code=200)
-
-            if password != confirm_password:
-                response = self.templates.TemplateResponse(
-                    "register.html",
-                    {"request": request, "error": "Passwords do not match"},
-                )
-                return HTMLResponse(content=response.body.decode(), status_code=200)
-
-            # Create user
-            user_create = UserBase(
-                email=str(email), first_name=str(first_name), last_name=str(last_name)
-            )
-            create_request = CreateUserRequest(
-                request_id=str(uuid.uuid4()), user=user_create, password=str(password)
-            )
-
-            internal_user = self.user_service.create_user(
-                create_request.request_id,
-                UserInternal(
-                    id=str(uuid.uuid4()),
-                    email=str(email),
-                    password_hash=self.password_hasher.hash_password(str(password)),
-                ),
-            )
-
-            # Generate JWT token
-            token = self.jwt_manager.create_access_token(data={"sub": internal_user.id})
-
-            # Create response with redirect to dashboard
-            redirect_response = RedirectResponse(url="/dashboard", status_code=302)
-            redirect_response.set_cookie(
-                key="auth_token",
-                value=token,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="lax",
-                max_age=3600,  # 1 hour
-            )
-            return redirect_response
-
-        except (UserError, DataPacketError, ProfileError, ValueError, TypeError) as e:
-            logger.error("Registration error: %s", e)
-            response = self.templates.TemplateResponse(
-                "register.html",
-                {"request": request, "error": "An error occurred during registration"},
-            )
-            return HTMLResponse(content=response.body.decode(), status_code=200)
-
-    # pylint: disable=unused-argument
     async def logout(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Handle user logout."""
         response = RedirectResponse(url="/", status_code=302)
@@ -375,48 +276,41 @@ class FrontEndAPI:
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the main dashboard."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return RedirectResponse(url="/login", status_code=302)
-
         try:
-            user = self.user_service.get_user(user_id)
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             response = self.templates.TemplateResponse(
                 "dashboard.html", {"request": request, "user": user}
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
-        except (UserNotFoundError, UserError) as e:
-            logger.error("Dashboard error: %s", e)
-            return RedirectResponse(url="/login", status_code=302)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
 
     async def data_packets_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the data packets page."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return RedirectResponse(url="/login", status_code=302)
-
         try:
-            user = self.user_service.get_user(user_id)
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             response = self.templates.TemplateResponse(
                 "data_packets.html", {"request": request, "user": user}
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
-        except (UserNotFoundError, UserError) as e:
-            logger.error("Data packets page error: %s", e)
-            return RedirectResponse(url="/login", status_code=302)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
 
     async def data_packets_list(self, request: Request) -> HTMLResponse:
         """Serve the data packets list (HTMX endpoint)."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return HTMLResponse("Please log in to view data packets.", status_code=401)
-
         try:
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             # Get query parameters for filtering
             profile_id = request.query_params.get("profile_id")
             tags = request.query_params.get("tags")
@@ -430,17 +324,11 @@ class FrontEndAPI:
             }
 
             # Get available profiles for the dropdown
-            try:
-                profile_query = ProfileQueryParamsInternal(
-                    user_id=user_id, limit=100, offset=0
-                )
-                available_profiles = self.profile_service.list_profiles(profile_query)
-            except (ProfileError, ValueError, TypeError):
-                available_profiles = []
+            available_profiles = user.profiles
 
             # Create query params for service
             query_params_internal = DataPacketQueryParamsInternal(
-                user_id=user_id,
+                user_id=user.id,
                 profile_id=profile_id if profile_id else None,
                 tags=[tag.strip() for tag in tags.split(",")] if tags else None,
                 from_timestamp=None,
@@ -464,107 +352,95 @@ class FrontEndAPI:
                 },
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
         except (DataPacketError, ProfileError, ValueError, TypeError) as e:
             logger.error("Data packets list error: %s", e)
-            return HTMLResponse("Error loading data packets.", status_code=500)
+            return HTMLResponse("Error loading data packets.", status_code=500) 
 
     async def delete_data_packet(self, request: Request) -> HTMLResponse:
         """Handle data packet deletion (HTMX endpoint)."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return HTMLResponse(
-                "Please log in to delete data packets.", status_code=401
-            )
-
         try:
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             data_packet_id = request.query_params.get("data_packet_id")
 
             if not data_packet_id:
                 return HTMLResponse("Data packet ID is required.", status_code=400)
 
-            self.data_packet_service.delete_data_packet(user_id, data_packet_id)
+            self.data_packet_service.delete_data_packet(user.id, data_packet_id)
 
             return HTMLResponse("Data packet deleted successfully.", status_code=200)
 
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
         except (DataPacketError, ValueError, TypeError) as e:
             logger.error("Delete data packet error: %s", e)
-            return HTMLResponse("Error deleting data packet.", status_code=500)
+            return HTMLResponse("Error deleting data packet.", status_code=500) 
 
     async def profiles_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the profiles page."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return RedirectResponse(url="/login", status_code=302)
-
         try:
-            user = self.user_service.get_user(user_id)
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             response = self.templates.TemplateResponse(
                 "profiles.html", {"request": request, "user": user}
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
-        except (UserNotFoundError, UserError) as e:
-            logger.error("Profiles page error: %s", e)
-            return RedirectResponse(url="/login", status_code=302)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
 
     async def apps_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the apps page."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return RedirectResponse(url="/login", status_code=302)
-
         try:
-            user = self.user_service.get_user(user_id)
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             response = self.templates.TemplateResponse(
                 "apps.html", {"request": request, "user": user}
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
-        except (UserNotFoundError, UserError) as e:
-            logger.error("Apps page error: %s", e)
-            return RedirectResponse(url="/login", status_code=302)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
 
     async def profiles_list(self, request: Request) -> HTMLResponse:
         """Serve the profiles list (HTMX endpoint)."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return HTMLResponse("Please log in to view profiles.", status_code=401)
-
         try:
-            # Get query parameters for filtering
-            name = request.query_params.get("name")
-            limit = int(request.query_params.get("limit", 50))
-            offset = int(request.query_params.get("offset", 0))
-
-            # Create query params for service
-            query_params = ProfileQueryParamsInternal(
-                user_id=user_id, name=name if name else None, limit=limit, offset=offset
-            )
-
-            profiles = self.profile_service.list_profiles(query_params)
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
 
             response = self.templates.TemplateResponse(
-                "profiles_list.html", {"request": request, "profiles": profiles}
+                "profiles_list.html", {"request": request, "profiles": user.profiles}
             )
             return HTMLResponse(content=response.body.decode(), status_code=200)
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            else:
+                raise e
         except (ProfileError, ValueError, TypeError) as e:
             logger.error("Profiles list error: %s", e)
-            return HTMLResponse("Error loading profiles.", status_code=500)
+            return HTMLResponse("Error loading profiles.", status_code=500) 
 
     async def create_profile(self, request: Request) -> HTMLResponse:
         """Handle profile creation (HTMX endpoint)."""
-        user_id = await self._get_current_user_id(request)
-
-        if not user_id:
-            return HTMLResponse("Please log in to create profiles.", status_code=401)
-
         try:
+            user = await get_user_from_identity_service(request.cookies.get("auth_token"))
+
             form_data = await request.form()
             name = form_data.get("name")
 
@@ -572,19 +448,8 @@ class FrontEndAPI:
                 return HTMLResponse("Profile name is required.", status_code=400)
 
             # Create profile
-            profile_create = ProfileCreate(name=str(name), user_id=str(user_id))
-            create_request = CreateProfileRequest(
-                request_id=str(uuid.uuid4()), profile=profile_create
-            )
-
-            profile_internal = ProfileInternal(
-                id=str(uuid.uuid4()), user_id=str(user_id), name=str(name)
-            )
-
-            self.profile_service.create_profile(
-                create_request.request_id, profile_internal
-            )
-
+            await create_profile(request.cookies.get("auth_token"), name)
+            
             # Return updated profiles list
             return await self.profiles_list(request)
 
