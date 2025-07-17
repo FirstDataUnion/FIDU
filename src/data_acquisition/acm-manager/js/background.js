@@ -166,9 +166,23 @@ class FiduCoreAPI {
       }
 
       const result = await response.json();
+      if (!result.data) {
+        return {
+          success: false,
+          error: 'No data found in ACM response'
+        };
+      }
       return {
         success: true,
-        data: result
+        data: {
+          id: result.id,
+          sourceChatbot: result.data.sourceChatbot,
+          timestamp: result.create_timestamp,
+          conversationUrl: result.data.conversationUrl,
+          targetModelRequested: result.data.targetModelRequested,
+          interactions: result.data.interactions,
+          originalACMsUsed: result.content?.originalACMsUsed
+        }
       };
     } catch (error) {
       console.error('Error getting ACM by URL from Fidu Core:', error);
@@ -203,6 +217,12 @@ class FiduCoreAPI {
       }
 
       const result = await response.json();
+      if (!result.data) {
+        return {
+          success: false,
+          error: 'No data found in ACM response'
+        };
+      }
       return {
         success: true,
         data: {
@@ -212,7 +232,7 @@ class FiduCoreAPI {
           conversationUrl: result.data.conversationUrl,
           targetModelRequested: result.data.targetModelRequested,
           interactions: result.data.interactions,
-          originalACMsUsed: result.content.originalACMsUsed
+          originalACMsUsed: result.content?.originalACMsUsed
         }
       };
     } catch (error) {

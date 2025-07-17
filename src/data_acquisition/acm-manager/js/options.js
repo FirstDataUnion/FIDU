@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.set({ settings }, () => {
       // Update auth service base URL if it exists
       if (typeof authService !== 'undefined') {
-        authService.setBaseUrl(settings.fiduCoreUrl);
+        authService.setBaseUrl("http://localhost:8080");
       }
       
       // Show success message
