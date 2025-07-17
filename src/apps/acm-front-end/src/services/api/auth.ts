@@ -1,59 +1,24 @@
-import { fiduCoreAPIClient } from './apiClientFIDUCore';
 import type { 
-  LoginRequest, 
-  LoginResponse, 
-  RegisterRequest, 
   User, 
-  Profile, 
-  CreateProfileRequest 
+  Profile
 } from '../../types';
+import { createProfile, fetchCurrentUser } from './apiClientIdentityService';
 
 export const authApi = {
   /**
-   * Login a user
-   */
-  login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await fiduCoreAPIClient.post<LoginResponse>('/users/login', credentials);
-    return response.data;
-  },
-
-  /**
-   * Register a new user
-   */
-  register: async (userData: RegisterRequest): Promise<User> => {
-    const response = await fiduCoreAPIClient.post<User>('/users', userData);
-    return response.data;
-  },
-
-  /**
    * Get current user information
    */
-  getCurrentUser: async (): Promise<User> => {
-    const response = await fiduCoreAPIClient.get<User>('/users/current');
-    return response.data;
-  },
-
-  /**
-   * Get all profiles for the current user
-   */
-  getProfiles: async (): Promise<Profile[]> => {
-    const response = await fiduCoreAPIClient.get<Profile[]>('/profiles');
-    return response.data;
+  getCurrentUser: async (token: string): Promise<User> => {
+    const user = await fetchCurrentUser(token);
+    return user;
   },
 
   /**
    * Create a new profile
    */
-  createProfile: async (profileData: CreateProfileRequest): Promise<Profile> => {
-    const response = await fiduCoreAPIClient.post<Profile>('/profiles', profileData);
-    return response.data;
+  createProfile: async (token: string, display_name: string): Promise<Profile> => {
+    const response = await createProfile(token, display_name);
+    return response;
   },
 
-  /**
-   * Get a specific profile by ID
-   */
-  getProfile: async (profileId: string): Promise<Profile> => {
-    const response = await fiduCoreAPIClient.get<Profile>(`/profiles/${profileId}`);
-    return response.data;
-  },
 }; 

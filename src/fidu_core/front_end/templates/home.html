@@ -28,8 +28,7 @@
 
             // Set up event handlers
             fidu.on('onAuthSuccess', (user, token, portalUrl) => {
-                console.log('User authenticated:', user);
-                localStorage.setItem('fiduToken', token);
+                localStorage.setItem('auth_token', token);
                 // Set auth_token cookie for backend compatibility (expires in 1 hour)
                 document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
                 window.location.href = "/dashboard";

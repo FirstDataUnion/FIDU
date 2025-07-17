@@ -44,6 +44,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
 import type { Profile } from '../../types';
+import { externalProfileToInternalProfile } from '../../services/api/apiClientIdentityService';
 
 const drawerWidth = 240;
 
@@ -95,12 +96,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
     
-    const result = await dispatch(createProfile({
-      profile: {
-        user_id: '', // Will be set by backend
-        name: newProfileName.trim(),
-      },
-    }));
+    const result = await dispatch(createProfile(newProfileName.trim()));
     
     if (createProfile.fulfilled.match(result)) {
       setShowCreateProfileDialog(false);
@@ -152,7 +148,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           {title}
-        </Typography>
+        </Typography> 
       )}
       <List dense>
         {items.map((item) => (
@@ -255,7 +251,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               sx={{ ml: 1 }}
             >
               <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                {user?.first_name?.[0] || user?.email?.[0] || <AccountIcon />}
+                {user?.name?.[0] || user?.email?.[0] || <AccountIcon />}
               </Avatar>
             </IconButton>
             

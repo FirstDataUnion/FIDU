@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAppSelector } from '../../hooks/redux';
 
-import LoginForm from './LoginForm';
-import RegisterForm from './RegisterForm';
+import FiduAuthLogin from './FiduAuthLogin';
 import ProfileSelector from './ProfileSelector';
 
 const AuthWrapper: React.FC = () => {
   const { isAuthenticated, currentProfile, isInitialized } = useAppSelector((state) => state.auth);
-  const [showRegister, setShowRegister] = useState(false);
+
 
   // Show loading while auth is initializing
   if (!isInitialized) {
@@ -16,11 +15,7 @@ const AuthWrapper: React.FC = () => {
 
   // If not authenticated, show login/register forms
   if (!isAuthenticated) {
-    return showRegister ? (
-      <RegisterForm onSwitchToLogin={() => setShowRegister(false)} />
-    ) : (
-      <LoginForm onSwitchToRegister={() => setShowRegister(true)} />
-    );
+    return <FiduAuthLogin />
   }
 
   // If authenticated but no profile selected, show profile selector
