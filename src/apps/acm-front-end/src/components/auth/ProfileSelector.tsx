@@ -33,14 +33,10 @@ const ProfileSelector: React.FC = () => {
 
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
-    
+
     dispatch(clearError());
-    const result = await dispatch(createProfile({
-      profile: {
-        user_id: user?.id || '',
-        name: newProfileName.trim(),
-      },
-    }));
+    
+    const result = await dispatch(createProfile(newProfileName.trim()));
     
     if (createProfile.fulfilled.match(result)) {
       setShowCreateDialog(false);

@@ -30,7 +30,7 @@ from fidu_core.users.schema import IdentityServiceUser
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
 
-USE_REMOTE_IDENTITY_SERVICE = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  # Set to False to use local JWT validation
+
 
 
 class DataPacketAPI:
@@ -140,7 +140,8 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate the request by requesting the User from the identity service
-        if USE_REMOTE_IDENTITY_SERVICE:
+        use_remote_identity_service = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  
+        if use_remote_identity_service:
             user: IdentityServiceUser = await get_user_from_identity_service(token)
             user_id = user.id
             profile_ids = [profile.id for profile in user.profiles]
@@ -188,7 +189,8 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        if USE_REMOTE_IDENTITY_SERVICE:
+        use_remote_identity_service = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  
+        if use_remote_identity_service:
             user: IdentityServiceUser = await get_user_from_identity_service(token)
             user_id = user.id
         else:
@@ -226,7 +228,8 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        if USE_REMOTE_IDENTITY_SERVICE:
+        use_remote_identity_service = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  
+        if use_remote_identity_service:
             user: IdentityServiceUser = await get_user_from_identity_service(token)
             user_id = user.id
         else:
@@ -252,7 +255,8 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        if USE_REMOTE_IDENTITY_SERVICE:
+        use_remote_identity_service = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  
+        if use_remote_identity_service:
             user: IdentityServiceUser = await get_user_from_identity_service(token)
             user_id = user.id
         else:
@@ -285,8 +289,10 @@ class DataPacketAPI:
         Raises:
             HTTPException: If the token is invalid
         """
+
         # Validate token and get user ID
-        if USE_REMOTE_IDENTITY_SERVICE:
+        use_remote_identity_service = os.getenv("USE_IDENTITY_SERVICE", "false").lower() == "true"  
+        if use_remote_identity_service:
             user: IdentityServiceUser = await get_user_from_identity_service(token)
             user_id = user.id
         else:
