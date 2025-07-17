@@ -425,48 +425,10 @@
         </div>
       </div>
       
-      <!-- Login Form -->
-      <div id="loginForm" class="auth-form">
-        <div class="form-group">
-          <label for="loginEmail">Email:</label>
-          <input type="email" id="loginEmail" placeholder="Enter your email">
-        </div>
-        <div class="form-group">
-          <label for="loginPassword">Password:</label>
-          <input type="password" id="loginPassword" placeholder="Enter your password">
-        </div>
-        <div class="auth-buttons">
-          <button id="loginBtn">Login</button>
-          <button id="showRegisterBtn" class="secondary">Register</button>
-        </div>
-        <div id="loginError" class="error-message"></div>
-      </div>
-      
-      <!-- Register Form -->
-      <div id="registerForm" class="auth-form">
-        <div class="form-group">
-          <label for="registerEmail">Email:</label>
-          <input type="email" id="registerEmail" placeholder="Enter your email">
-        </div>
-        <div class="form-group">
-          <label for="registerPassword">Password:</label>
-          <input type="password" id="registerPassword" placeholder="Enter your password">
-        </div>
-        <div class="form-group">
-          <label for="registerFirstName">First Name:</label>
-          <input type="text" id="registerFirstName" placeholder="Enter your first name">
-        </div>
-        <div class="form-group">
-          <label for="registerLastName">Last Name:</label>
-          <input type="text" id="registerLastName" placeholder="Enter your last name">
-        </div>
-        <div class="auth-buttons">
-          <button id="registerBtn">Register</button>
-          <button id="showLoginBtn" class="secondary">Back to Login</button>
-        </div>
-        <div id="registerError" class="error-message"></div>
-        <div id="registerSuccess" class="success-message"></div>
-      </div>
+      <!-- FIDU SDK Auth Widget -->
+      <div id="fiduAuthContainer"></div>
+      <script src="../js/fidu-sdk.js"></script>
+      <script src="../js/fidu-auth-init.js"></script>
     </div>
     
     <div id="status" class="status">

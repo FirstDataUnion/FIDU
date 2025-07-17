@@ -37,7 +37,10 @@
         "https://poe.com/*",
         "https://perplexity.ai/*"
       ],
-      "js": ["js/content.js"],
+      "js": [
+        "js/auth.js",
+        "js/content.js"
+      ],
       "css": ["css/content.css"]
     }
   ],

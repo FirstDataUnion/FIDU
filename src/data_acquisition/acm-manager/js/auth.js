@@ -10,99 +10,10 @@
 
 class AuthService {
   constructor() {
-    this.baseUrl = 'http://127.0.0.1:4000/api/v1';
+    this.baseUrl = 'http://localhost:8080';
     this.tokenKey = 'fidu_auth_token';
     this.userKey = 'fidu_user_data';
     this.selectedProfileKey = 'fidu_selected_profile';
-  }
-
-  /**
-   * Login user with email and password
-   * @param {string} email - User's email
-   * @param {string} password - User's password
-   * @returns {Promise<Object>} - Login result
-   */
-  async login(email, password) {
-    try {
-      const response = await fetch(`${this.baseUrl}/users/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
-      }
-
-      const data = await response.json();
-      
-      // Store token and user data
-      await this.storeAuthData(data.access_token, data.user);
-      
-      return {
-        success: true,
-        user: data.user,
-        token: data.access_token
-      };
-    } catch (error) {
-      console.error('Login error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Register a new user
-   * @param {string} email - User's email
-   * @param {string} password - User's password
-   * @param {string} firstName - User's first name
-   * @param {string} lastName - User's last name
-   * @returns {Promise<Object>} - Registration result
-   */
-  async register(email, password, firstName, lastName) {
-    try {
-      const response = await fetch(`${this.baseUrl}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          request_id: this.generateRequestId(),
-          user: {
-            email: email,
-            first_name: firstName,
-            last_name: lastName
-          },
-          password: password
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Registration failed');
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        user: data
-      };
-    } catch (error) {
-      console.error('Registration error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
   }
 
   /**
@@ -130,7 +41,7 @@ class AuthService {
       }
 
       // Verify token is still valid by making a test request
-      const response = await fetch(`${this.baseUrl}/users/current`, {
+      const response = await fetch(`${this.baseUrl}/user`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -259,19 +170,10 @@ class AuthService {
    */
   async createProfile(name) {
     try {
-      const user = await this.getCurrentUser();
-      if (!user) {
-        throw new Error('User not found');
-      }
-
       const response = await this.authenticatedRequest(`${this.baseUrl}/profiles`, {
         method: 'POST',
         body: JSON.stringify({
-          request_id: this.generateRequestId(),
-          profile: {
-            user_id: user.id,
-            name: name
-          }
+          display_name: name
         })
       });
 
@@ -362,3 +264,8 @@ const authService = new AuthService();
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = AuthService;
 } 
+
+// Make available globally for content scripts
+if (typeof window !== 'undefined') {
+  window.authService = authService;
+}
