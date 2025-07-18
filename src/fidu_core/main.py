@@ -1,12 +1,12 @@
 """Main application module for the FIDU Local App."""
 
 import os
-from dotenv import load_dotenv
-from threading import Timer
-import webbrowser
 import sys
 import time
 from pathlib import Path
+import webbrowser
+from threading import Timer
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,10 +19,7 @@ from fidu_core.data_packets import (
     DataPacketAPI,
     LocalSqlDataPacketStore,
 )
-from fidu_core.profiles import ProfileService, ProfileAPI, LocalSqlProfileStore
-from fidu_core.users import UserService, UserAPI
 from fidu_core.front_end.api import FrontEndAPI
-from fidu_core.users.store import LocalSqlUserStore
 from fidu_core.proxy.router import create_proxy_router
 
 
@@ -39,14 +36,12 @@ def get_base_path():
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-statements
 def create_app():
-
+    """Create and configure the FastAPI application."""
     env = os.getenv("FIDU_ENV", "development")
     if env == "development":
         load_dotenv(override=True)
     else:
         load_dotenv()
-
-    """Create and configure the FastAPI application."""
     start_time = time.time()
     print(f"[{time.time() - start_time:.2f}s] Starting up FIDU Core...")
 
@@ -130,29 +125,23 @@ def create_app():
     # Create storage layer objects using connection factory pattern
     # Each store will get its own thread-local connection when needed
     print(f"[{time.time() - start_time:.2f}s] Creating stores...")
-    profile_store = LocalSqlProfileStore()
-    user_store = LocalSqlUserStore()
     data_packet_store = LocalSqlDataPacketStore()
     print(f"[{time.time() - start_time:.2f}s] Stores created")
 
     # Create service layer objects
     print(f"[{time.time() - start_time:.2f}s] Creating services...")
-    user_service = UserService(user_store)
-    profile_service = ProfileService(profile_store)
-    data_packet_service = DataPacketService(data_packet_store, profile_service)
+    data_packet_service = DataPacketService(data_packet_store)
     print(f"[{time.time() - start_time:.2f}s] Services created")
 
     # Create API layer objects (for external API access)
     print(f"[{time.time() - start_time:.2f}s] Creating APIs...")
     DataPacketAPI(fast_api_app, data_packet_service)
-    ProfileAPI(fast_api_app, profile_service)
-    UserAPI(fast_api_app, user_service)
     print(f"[{time.time() - start_time:.2f}s] APIs created")
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
     # and a basic profile page - now using service layers directly
     print(f"[{time.time() - start_time:.2f}s] Creating front end API...")
-    FrontEndAPI(fast_api_app, user_service, data_packet_service, profile_service)
+    FrontEndAPI(fast_api_app, data_packet_service)
     print(f"[{time.time() - start_time:.2f}s] Front end API created")
 
     # Add proxy router for external API requests

@@ -116,9 +116,10 @@ class LoginResponse(BaseModel):
         }
     )
 
+
 class IdentityServiceProfile(BaseModel):
     """Model for representing Profiles from the Identity Service.
-    This model aligns with the Identity service definition, and should not be changed. 
+    This model aligns with the Identity service definition, and should not be changed.
     """
 
     id: str
@@ -136,14 +137,15 @@ class IdentityServiceProfile(BaseModel):
                 "display_name": "John Doe",
                 "is_active": True,
                 "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-02T00:00:00"
+                "updated_at": "2024-01-02T00:00:00",
             }
         }
     )
-    
+
+
 class IdentityServiceUser(BaseModel):
     """Model for representing Users from the Identity Service.
-    This model aligns with the Identity service definition, and should not be changed. 
+    This model aligns with the Identity service definition, and should not be changed.
     """
 
     id: str
@@ -181,9 +183,9 @@ class IdentityServiceUser(BaseModel):
                         "user_id": "123e4567-e89b-12d3-a456-426614174000",
                         "name": "Default",
                         "create_timestamp": "2024-01-01T00:00:00",
-                        "update_timestamp": "2024-01-02T00:00:00"
+                        "update_timestamp": "2024-01-02T00:00:00",
                     }
-                ]
+                ],
             }
         }
     )
