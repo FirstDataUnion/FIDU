@@ -237,7 +237,7 @@ class FrontEndAPI:
         response = HTMLResponse(content=html_content)
         response.delete_cookie("auth_token")
         response.delete_cookie("session_data")
-        
+
         return response
 
     async def dashboard(
