@@ -8,13 +8,13 @@ from fidu_core.users.schema import IdentityServiceUser, IdentityServiceProfile
 
 logger = logging.getLogger(__name__)
 
-IDENTITY_SERVICE_DEFAULT_URL = os.getenv(
-    "IDENTITY_SERVICE_URL", "http://localhost:8001"
-)
-
+IDENTITY_SERVICE_DEFAULT_URL = "https://identity.firstdataunion.org"
 
 async def get_user_from_identity_service(token: str) -> IdentityServiceUser | None:
     """Fetch a user from the identity service by user_id."""
+    identity_service_url = os.getenv(
+        "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
+    )
     if not token:
         return None
     logging.info("Fetching user from identity service: %s", token)
@@ -24,7 +24,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{IDENTITY_SERVICE_DEFAULT_URL}/user", headers=headers
+                f"{identity_service_url}/user", headers=headers
             )
             if response.status_code == 200:
                 if "user" in response.json():
@@ -34,7 +34,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
             return None
     except httpx.ConnectError as e:
         logger.error("Failed to connect to identity service at %s: %s", 
-                    IDENTITY_SERVICE_DEFAULT_URL, str(e))
+                    identity_service_url, str(e))
         raise HTTPException(
             status_code=503,
             detail="Identity service is currently unavailable. Please try again later."

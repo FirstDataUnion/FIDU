@@ -22,7 +22,9 @@
     "https://poe.com/*",
     "https://perplexity.ai/*",
     "http://127.0.0.1:4000/*",
-    "http://localhost:4000/*"
+    "http://localhost:4000/*",
+    "https://identity.firstdataunion.org/*",
+    "https://dev.identity.firstdataunion.org/*"
   ],
   "background": {
     "service_worker": "js/background.js"
@@ -38,6 +40,7 @@
         "https://perplexity.ai/*"
       ],
       "js": [
+        "js/fidu-config.js",
         "js/auth.js",
         "js/content.js"
       ],
