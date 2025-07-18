@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 IDENTITY_SERVICE_DEFAULT_URL = "https://identity.firstdataunion.org"
 
+
 async def get_user_from_identity_service(token: str) -> IdentityServiceUser | None:
     """Fetch a user from the identity service by user_id."""
     identity_service_url = os.getenv(
@@ -23,9 +24,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{identity_service_url}/user", headers=headers
-            )
+            response = await client.get(f"{identity_service_url}/user", headers=headers)
             if response.status_code == 200:
                 if "user" in response.json():
                     return IdentityServiceUser(**response.json()["user"])
@@ -33,29 +32,32 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
             logging.error("Failed to fetch user: %s", response.text)
             return None
     except httpx.ConnectError as e:
-        logger.error("Failed to connect to identity service at %s: %s", 
-                    identity_service_url, str(e))
+        logger.error(
+            "Failed to connect to identity service at %s: %s",
+            identity_service_url,
+            str(e),
+        )
         raise HTTPException(
             status_code=503,
-            detail="Identity service is currently unavailable. Please try again later."
+            detail="Identity service is currently unavailable. Please try again later.",
         )
     except httpx.TimeoutException as e:
         logger.error("Timeout connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
-            detail="Identity service request timed out. Please try again later."
+            detail="Identity service request timed out. Please try again later.",
         )
     except httpx.HTTPError as e:
         logger.error("HTTP error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
-            detail="Unable to communicate with identity service. Please try again later."
+            detail="Unable to communicate with identity service. Please try again later.",
         )
     except Exception as e:
         logger.error("Unexpected error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while validating your credentials."
+            detail="An unexpected error occurred while validating your credentials.",
         )
 
 
@@ -99,27 +101,30 @@ async def create_profile(
             )
             raise HTTPException(status_code=500, detail="Identity service error")
     except httpx.ConnectError as e:
-        logger.error("Failed to connect to identity service at %s: %s", 
-                    identity_service_url, str(e))
+        logger.error(
+            "Failed to connect to identity service at %s: %s",
+            identity_service_url,
+            str(e),
+        )
         raise HTTPException(
             status_code=503,
-            detail="Identity service is currently unavailable. Please try again later."
+            detail="Identity service is currently unavailable. Please try again later.",
         )
     except httpx.TimeoutException as e:
         logger.error("Timeout connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
-            detail="Identity service request timed out. Please try again later."
+            detail="Identity service request timed out. Please try again later.",
         )
     except httpx.HTTPError as e:
         logger.error("HTTP error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
-            detail="Unable to communicate with identity service. Please try again later."
+            detail="Unable to communicate with identity service. Please try again later.",
         )
     except Exception as e:
         logger.error("Unexpected error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while creating the profile."
+            detail="An unexpected error occurred while creating the profile.",
         )
