@@ -15,7 +15,7 @@ const FIDU_SDK_ID = 'fidu-sdk-script';
 
 const getFiduHost = () => {
   // Use the same logic as fetchCurrentUser
-  return import.meta.env.VITE_IDENTITY_SERVICE_URL || 'https://fidu.identity-service.com';
+  return import.meta.env.VITE_IDENTITY_SERVICE_URL || ' https://identity.firstdataunion.org';
 };
 
 const FiduAuthLogin: React.FC = () => {
