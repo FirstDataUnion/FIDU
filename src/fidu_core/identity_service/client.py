@@ -40,25 +40,25 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
         raise HTTPException(
             status_code=503,
             detail="Identity service is currently unavailable. Please try again later.",
-        )
+        ) from e
     except httpx.TimeoutException as e:
         logger.error("Timeout connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
             detail="Identity service request timed out. Please try again later.",
-        )
+        ) from e
     except httpx.HTTPError as e:
         logger.error("HTTP error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
             detail="Unable to communicate with identity service. Please try again later.",
-        )
+        ) from e
     except Exception as e:
         logger.error("Unexpected error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while validating your credentials.",
-        )
+        ) from e
 
 
 async def create_profile(
@@ -109,22 +109,22 @@ async def create_profile(
         raise HTTPException(
             status_code=503,
             detail="Identity service is currently unavailable. Please try again later.",
-        )
+        ) from e
     except httpx.TimeoutException as e:
         logger.error("Timeout connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
             detail="Identity service request timed out. Please try again later.",
-        )
+        ) from e
     except httpx.HTTPError as e:
         logger.error("HTTP error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=503,
             detail="Unable to communicate with identity service. Please try again later.",
-        )
+        ) from e
     except Exception as e:
         logger.error("Unexpected error connecting to identity service: %s", str(e))
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while creating the profile.",
-        )
+        ) from e
