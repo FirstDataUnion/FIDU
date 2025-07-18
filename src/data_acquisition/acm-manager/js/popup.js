@@ -51,9 +51,6 @@ function initializePopup() {
   // Check authentication status
   checkAuthenticationStatus();
   
-  // Update statistics
-  updateStatistics();
-  
   // Add event listeners
   viewAcmsBtnEl.addEventListener('click', openAcmViewer);
   toggleCaptureBtnEl.addEventListener('click', toggleCapture);
@@ -75,6 +72,11 @@ function initializePopup() {
   
   // Event delegation for profile selection
   profilesListEl.addEventListener('click', handleProfileListClick);
+  
+  // Update statistics with a small delay to ensure background script is ready
+  setTimeout(() => {
+    updateStatistics();
+  }, 100);
 }
 
 // Authentication functions
@@ -429,6 +431,12 @@ function updateStatistics() {
   
   // Get total ACM count from database
   chrome.runtime.sendMessage({ action: 'getACMs' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+      totalAcmsEl.textContent = 'Loading...';
+      return;
+    }
+    
     if (response && response.success) {
       totalAcmsEl.textContent = 0; //response.acms.length;
     } else {
@@ -490,6 +498,12 @@ function openAcmViewer() {
 // Export ACMs to a JSON file
 function exportAcms() {
   chrome.runtime.sendMessage({ action: 'getACMs' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+      alert('Extension is still loading. Please try again in a moment.');
+      return;
+    }
+    
     if (response && response.success) {
       const acmsData = response.acms;
       const exportData = {
@@ -525,6 +539,12 @@ function exportAcms() {
 function clearAllAcms() {
   if (confirm('Are you sure you want to delete all ACMs? This cannot be undone.')) {
     chrome.runtime.sendMessage({ action: 'clearAllACMs' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+        alert('Extension is still loading. Please try again in a moment.');
+        return;
+      }
+      
       if (response && response.success) {
         alert('All ACMs have been deleted');
         sessionCount = 0;

@@ -10,10 +10,53 @@
 
 class AuthService {
   constructor() {
-    this.baseUrl = 'http://localhost:8080';
+    // Initialize with a default URL, will be updated when config is loaded
+    this.baseUrl = 'https://identity.firstdataunion.org';
     this.tokenKey = 'fidu_auth_token';
     this.userKey = 'fidu_user_data';
     this.selectedProfileKey = 'fidu_selected_profile';
+    
+    // Initialize the base URL from settings
+    this.initializeBaseUrl();
+  }
+  
+  /**
+   * Initialize the base URL from Chrome storage settings
+   */
+  async initializeBaseUrl() {
+    try {
+      if (typeof getFiduIdentityServiceUrl === 'function') {
+        getFiduIdentityServiceUrl((url) => {
+          this.baseUrl = url;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to initialize base URL:', error);
+    }
+  }
+
+  /**
+   * Get the current base URL from storage (always fresh)
+   * @returns {Promise<string>} - Current base URL
+   */
+  async getCurrentBaseUrl() {
+    return new Promise((resolve) => {
+      // Check if we're in a content script context
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // In content script context, use default URL since we can't access settings
+        resolve(this.baseUrl);
+        return;
+      }
+      
+      if (typeof getFiduIdentityServiceUrl === 'function') {
+        getFiduIdentityServiceUrl((url) => {
+          resolve(url);
+        });
+      } else {
+        // Fallback to default if getFiduIdentityServiceUrl is not available
+        resolve(this.baseUrl);
+      }
+    });
   }
 
   /**
@@ -21,6 +64,16 @@ class AuthService {
    */
   async logout() {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        localStorage.removeItem(this.tokenKey);
+        localStorage.removeItem(this.userKey);
+        localStorage.removeItem(this.selectedProfileKey);
+        localStorage.removeItem('selectedProfileId');
+        return { success: true };
+      }
+      
       await chrome.storage.local.remove([this.tokenKey, this.userKey, this.selectedProfileKey, 'selectedProfileId']);
       return { success: true };
     } catch (error) {
@@ -40,8 +93,20 @@ class AuthService {
         return false;
       }
 
+      // Check if we're in a content script context
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // In content script context, just check if we have a token and user data
+        // Don't make network requests due to CORS restrictions
+        const userData = localStorage.getItem(this.userKey);
+        return !!(token && userData);
+      }
+
+      // In extension context (popup, background, options), we can make network requests
+      // Get the current base URL (always fresh)
+      const currentBaseUrl = await this.getCurrentBaseUrl();
+
       // Verify token is still valid by making a test request
-      const response = await fetch(`${this.baseUrl}/user`, {
+      const response = await fetch(`${currentBaseUrl}/user`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -60,6 +125,13 @@ class AuthService {
    */
   async getCurrentUser() {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        const userData = localStorage.getItem(this.userKey);
+        return userData ? JSON.parse(userData) : null;
+      }
+      
       const result = await chrome.storage.local.get([this.userKey]);
       return result[this.userKey] || null;
     } catch (error) {
@@ -74,6 +146,12 @@ class AuthService {
    */
   async getToken() {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        return localStorage.getItem(this.tokenKey) || null;
+      }
+      
       const result = await chrome.storage.local.get([this.tokenKey]);
       return result[this.tokenKey] || null;
     } catch (error) {
@@ -89,6 +167,14 @@ class AuthService {
    */
   async storeAuthData(token, user) {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        localStorage.setItem(this.tokenKey, token);
+        localStorage.setItem(this.userKey, JSON.stringify(user));
+        return;
+      }
+      
       await chrome.storage.local.set({
         [this.tokenKey]: token,
         [this.userKey]: user
@@ -142,7 +228,8 @@ class AuthService {
    */
   async getProfiles() {
     try {
-      const response = await this.authenticatedRequest(`${this.baseUrl}/profiles`);
+      const currentBaseUrl = await this.getCurrentBaseUrl();
+      const response = await this.authenticatedRequest(`${currentBaseUrl}/profiles`);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -170,7 +257,8 @@ class AuthService {
    */
   async createProfile(name) {
     try {
-      const response = await this.authenticatedRequest(`${this.baseUrl}/profiles`, {
+      const currentBaseUrl = await this.getCurrentBaseUrl();
+      const response = await this.authenticatedRequest(`${currentBaseUrl}/profiles`, {
         method: 'POST',
         body: JSON.stringify({
           display_name: name
@@ -202,6 +290,13 @@ class AuthService {
    */
   async getSelectedProfile() {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        const profileData = localStorage.getItem(this.selectedProfileKey);
+        return profileData ? JSON.parse(profileData) : null;
+      }
+      
       const result = await chrome.storage.local.get([this.selectedProfileKey]);
       return result[this.selectedProfileKey] || null;
     } catch (error) {
@@ -216,6 +311,14 @@ class AuthService {
    */
   async setSelectedProfile(profile) {
     try {
+      // Check if we're in a content script context (no direct access to chrome.storage)
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        // Use localStorage as fallback for content scripts
+        localStorage.setItem(this.selectedProfileKey, JSON.stringify(profile));
+        localStorage.setItem('selectedProfileId', profile.id);
+        return;
+      }
+      
       await chrome.storage.local.set({
         [this.selectedProfileKey]: profile,
         'selectedProfileId': profile.id

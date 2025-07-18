@@ -74,7 +74,7 @@ class FrontEndAPI:
         self.app.add_api_route(
             "/logout",
             self.logout,
-            methods=["GET"],
+            methods=["POST"],
             response_model=None,
         )
         self.app.add_api_route(
@@ -211,9 +211,33 @@ class FrontEndAPI:
 
     async def logout(self, _request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Handle user logout."""
-        response = RedirectResponse(url="/", status_code=302)
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Logging out...</title>
+        </head>
+        <body>
+            <script>
+                // Clear localStorage auth keys
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('fiduToken');
+                
+                // Clear sessionStorage as well
+                sessionStorage.removeItem('auth_token');
+                sessionStorage.removeItem('fiduToken');
+                
+                // Redirect to home page
+                window.location.href = '/';
+            </script>
+            <p>Logging out...</p>
+        </body>
+        </html>
+        """
+        response = HTMLResponse(content=html_content)
         response.delete_cookie("auth_token")
         response.delete_cookie("session_data")
+        
         return response
 
     async def dashboard(

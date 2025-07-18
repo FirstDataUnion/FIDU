@@ -275,6 +275,36 @@
   </div>
   
   <div class="section">
+    <h2>FIDU Identity Service Settings</h2>
+    
+    <div class="option-group">
+      <div class="option-row">
+        <div class="option-label">
+          <label for="fiduIdentityUrl">Identity Service URL</label>
+        </div>
+        <div class="option-control">
+          <input type="url" id="fiduIdentityUrl" placeholder="https://identity.firstdataunion.org">
+        </div>
+      </div>
+      
+      <div class="option-row">
+        <div class="option-label">
+          <label for="fiduIdentityUrlDisplay">Current URL (read-only)</label>
+        </div>
+        <div class="option-control">
+          <input type="url" id="fiduIdentityUrlDisplay" readonly style="background-color: #f5f5f5;">
+        </div>
+      </div>
+      
+      <div class="option-row">
+        <div class="option-label">
+          <small style="color: #666;">Leave empty to use production (https://identity.firstdataunion.org)</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section">
     <h2>FIDU Core Settings</h2>
     
     <div class="option-group">
@@ -323,6 +353,7 @@
   
   <div id="statusMessage" class="status-message">Settings saved successfully!</div>
   
+  <script src="../js/fidu-config.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/options.js"></script>
 </body>

@@ -37,9 +37,12 @@ A Chrome extension for capturing, organizing, and managing conversations with AI
 
 To use the FIDU Core backend with authentication:
 
-1. **Enable FIDU Core**: Go to the extension options and check "Use FIDU Core Backend"
-2. **Configure Server URL**: Set the FIDU Core server URL (default: `http://127.0.0.1:4000/api/v1`)
-3. **Register/Login**: Click the ACM Manager icon and use the authentication section to:
+1. **Configure Identity Service**: Go to the extension options and set the FIDU Identity Service URL:
+   - Leave empty to use production: `https://identity.firstdataunion.org` (default)
+   - Enter a custom URL for development or testing environments
+2. **Enable FIDU Core**: Go to the extension options and check "Use FIDU Core Backend"
+3. **Configure Server URL**: Set the FIDU Core server URL (default: `http://127.0.0.1:4000/api/v1`)
+4. **Register/Login**: Click the ACM Manager icon and use the authentication section to:
    - Register a new account with email, password, first name, and last name
    - Login with your existing credentials
 4. **Select a Profile**: After logging in, you'll see a profile section where you can:
@@ -77,6 +80,12 @@ Access the options page by:
 - **Capture Frequency**: Set how often to capture (10-300 seconds)
 - **Show capture indicator**: Display visual feedback on the page
 - **Highlight captured messages**: Mark captured messages in the UI
+
+#### FIDU Identity Service Settings
+- **Identity Service URL**: Enter a custom URL for the FIDU Identity Service
+  - Leave empty to use production: `https://identity.firstdataunion.org` (default)
+  - Enter a custom URL for development or testing environments
+- **Current URL**: Shows the effective URL that will be used (read-only)
 
 #### FIDU Core Settings
 - **FIDU Core Server URL**: Configure the backend server address
@@ -123,14 +132,18 @@ acm-manager/
 │   ├── auth.js           # Authentication service
 │   ├── background.js     # Background script
 │   ├── content.js        # Content script
+│   ├── fidu-config.js    # FIDU configuration utilities
+│   ├── fidu-sdk.js       # FIDU SDK integration
+│   ├── fidu-auth-init.js # FIDU authentication initialization
 │   ├── popup.js          # Popup script
 │   └── options.js        # Options script
 ├── pages/
 │   ├── popup.html        # Popup UI
 │   ├── options.html      # Options UI
 │   └── viewer.html       # ACM viewer
-└── css/
-    └── content.css       # Content script styles
+├── css/
+│   └── content.css       # Content script styles
+└── test_*.html           # Test files for development
 ```
 
 ## Security

@@ -20,6 +20,9 @@ const defaultSettings = {
   captureFrequency: 60, // Default capture frequency in seconds
   useFiduCore: false, // Default to not using Fidu Core backend
   
+  // FIDU Identity Service settings
+  fiduIdentityUrl: '', // Default to empty (will use production)
+  
   // FIDU Core settings
   fiduCoreUrl: 'http://127.0.0.1:4000/api/v1',
   requireAuth: true,
@@ -40,6 +43,8 @@ const defaultSettings = {
   dataCleanupPolicy: 'oldest'
 };
 
+// Use the DEFAULT_FIDU_IDENTITY_URL from fidu-config.js
+
 // Initialize options page
 document.addEventListener('DOMContentLoaded', () => {
   // Get DOM elements
@@ -48,6 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const highlightCapturedMessagesEl = document.getElementById('highlightCapturedMessages');
   const captureFrequencyEl = document.getElementById('captureFrequency');
   const useFiduCoreEl = document.getElementById('useFiduCore');
+
+  // FIDU Identity Service settings
+  const fiduIdentityUrlEl = document.getElementById('fiduIdentityUrl');
+  const fiduIdentityUrlDisplayEl = document.getElementById('fiduIdentityUrlDisplay');
 
   // FIDU Core settings
   const fiduCoreUrlEl = document.getElementById('fiduCoreUrl');
@@ -74,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add event listeners
   saveButtonEl.addEventListener('click', saveSettings);
   resetButtonEl.addEventListener('click', resetSettings);
+  
+  // Add event listener for URL input
+  fiduIdentityUrlEl.addEventListener('input', updateIdentityUrlDisplay);
 
   // Load settings from storage
   function loadSettings() {
@@ -86,6 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
       highlightCapturedMessagesEl.checked = settings.highlightCapturedMessages;
       captureFrequencyEl.value = settings.captureFrequency || 60;
       useFiduCoreEl.checked = settings.useFiduCore ?? false;
+      
+      // FIDU Identity Service settings
+      fiduIdentityUrlEl.value = settings.fiduIdentityUrl || defaultSettings.fiduIdentityUrl;
+      updateIdentityUrlDisplay();
       
       // FIDU Core settings
       fiduCoreUrlEl.value = settings.fiduCoreUrl || defaultSettings.fiduCoreUrl;
@@ -114,6 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
       captureFrequency: parseInt(captureFrequencyEl.value, 10) || 60,
       useFiduCore: useFiduCoreEl.checked,
       
+      // FIDU Identity Service settings
+      fiduIdentityUrl: fiduIdentityUrlEl.value.trim(),
+      
       // FIDU Core settings
       fiduCoreUrl: fiduCoreUrlEl.value.trim() || defaultSettings.fiduCoreUrl,
       requireAuth: requireAuthEl.checked,
@@ -136,11 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Save to Chrome storage
     chrome.storage.sync.set({ settings }, () => {
-      // Update auth service base URL if it exists
-      if (typeof authService !== 'undefined') {
-        authService.setBaseUrl("http://localhost:8080");
-      }
-      
       // Show success message
       statusMessageEl.textContent = 'Settings saved successfully!';
       statusMessageEl.classList.remove('error');
@@ -165,6 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
       highlightCapturedMessagesEl.checked = defaultSettings.highlightCapturedMessages;
       captureFrequencyEl.value = defaultSettings.captureFrequency;
       useFiduCoreEl.checked = defaultSettings.useFiduCore;
+      
+      // FIDU Identity Service settings
+      fiduIdentityUrlEl.value = defaultSettings.fiduIdentityUrl;
+      updateIdentityUrlDisplay();
       
       // FIDU Core settings
       fiduCoreUrlEl.value = defaultSettings.fiduCoreUrl;
@@ -195,6 +213,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 3000);
     }
   }
+  
+  // Function to update the identity URL display
+  function updateIdentityUrlDisplay() {
+    const customUrl = fiduIdentityUrlEl.value.trim();
+    
+    // If custom URL is provided and not empty, use it; otherwise use production
+    const effectiveUrl = customUrl || DEFAULT_FIDU_IDENTITY_URL;
+    fiduIdentityUrlDisplayEl.value = effectiveUrl;
+  }
 });
 
 // Function to suppress connector errors that might be logged to the console
@@ -217,4 +244,6 @@ function suppressConnectorErrors() {
     // For all other errors, use the original console.error
     originalConsoleError.apply(console, args);
   };
-} 
+}
+
+// The getFiduIdentityServiceUrl function is now defined in fidu-config.js 
