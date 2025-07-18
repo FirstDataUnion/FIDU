@@ -4,10 +4,8 @@ Service layer for data packets.
 
 from datetime import datetime, timezone
 from typing import List
-from fidu_core.profiles.schema import ProfileQueryParamsInternal
 from .schema import DataPacketInternal, DataPacketQueryParamsInternal
 from .store import DataPacketStoreInterface
-from ..profiles.service import ProfileService
 from .exceptions import (
     DataPacketPermissionError,
     DataPacketNotFoundError,
@@ -18,16 +16,13 @@ from .exceptions import (
 class DataPacketService:
     """Service layer for data packets."""
 
-    def __init__(
-        self, store: DataPacketStoreInterface, profile_service: ProfileService
-    ) -> None:
+    def __init__(self, store: DataPacketStoreInterface) -> None:
         """Initialize the service layer.
 
         Args:
             store: The storage layer object to use for storing and retrieving data packets
         """
         self.store = store
-        self.profile_service = profile_service
 
     def create_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
@@ -43,8 +38,7 @@ class DataPacketService:
 
         Raises:
             DataPacketAlreadyExistsError: If a data packet with the same ID already exists
-            DataPacketPermissionError: If the profile does not belong to the user
-            ProfileNotFoundError: If the profile does not exist
+            DataPacketValidationError: If the data packet is invalid
         """
 
         user_id = data_packet.user_id
@@ -66,14 +60,6 @@ class DataPacketService:
         # Store the data packet in the storage layer
         saved_data_packet = self.store.store_data_packet(request_id, data_packet)
         return saved_data_packet
-
-    def get_profile_ids(self, user_id: str) -> List[str]:
-        """Get the profile IDs for a user.
-
-        Temporary hack to maintain functionality with online service
-        """
-        profiles = self.profile_service.list_profiles(ProfileQueryParamsInternal(user_id=user_id))
-        return [profile.id for profile in profiles]
 
     def update_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
