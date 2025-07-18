@@ -1,7 +1,7 @@
 import type { Profile, User } from "../../types";
 
 export const getIdentityServiceUrl = () => {
-  return import.meta.env.VITE_IDENTITY_SERVICE_URL || 'https://fidu.identity-service.com';
+  return import.meta.env.VITE_IDENTITY_SERVICE_URL || ' https://identity.firstdataunion.org';
 };
 
 export async function fetchCurrentUser(token: string) {
