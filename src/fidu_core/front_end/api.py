@@ -196,7 +196,7 @@ class FrontEndAPI:
 
         # Get the identity service URL from the environment variable, or use default
         identity_service_url = os.environ.get(
-            "FIDU_IDENTITY_SERVICE_URL", " https://identity.firstdataunion.org"
+            "FIDU_IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org"
         )
 
         response = self.templates.TemplateResponse(
