@@ -11,9 +11,6 @@ import { useAppDispatch } from '../../hooks/redux';
 import { initializeAuth } from '../../store/slices/authSlice';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
 
-interface FiduAuthLoginProps {
-}
-
 const FIDU_SDK_ID = 'fidu-sdk-script';
 
 const getFiduHost = () => {
@@ -21,7 +18,7 @@ const getFiduHost = () => {
   return import.meta.env.VITE_IDENTITY_SERVICE_URL || 'https://fidu.identity-service.com';
 };
 
-const FiduAuthLogin: React.FC<FiduAuthLoginProps> = () => {
+const FiduAuthLogin: React.FC = () => {
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +74,7 @@ const FiduAuthLogin: React.FC<FiduAuthLoginProps> = () => {
         document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
         // Re-initialize Redux auth state (fetches profiles, etc.)
         await dispatch(initializeAuth());
-      } catch (e: any) {
+      } catch {
         setError('Authentication succeeded, but failed to fetch user info.');
       }
     });
