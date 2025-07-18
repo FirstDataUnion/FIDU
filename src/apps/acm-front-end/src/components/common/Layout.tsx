@@ -44,7 +44,6 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
 import type { Profile } from '../../types';
-import { externalProfileToInternalProfile } from '../../services/api/apiClientIdentityService';
 
 const drawerWidth = 240;
 

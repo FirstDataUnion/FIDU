@@ -82,7 +82,7 @@ const FiduAuthLogin: React.FC<FiduAuthLoginProps> = () => {
       }
     });
 
-    fidu.on('onAuthError', (err: any) => {
+    fidu.on('onAuthError', (_err: any) => {
       setError('Authentication failed. Please try again.');
     });
 
