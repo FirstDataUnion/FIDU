@@ -70,6 +70,12 @@ class FiduCoreAPI {
         throw new Error('Authentication expired. Please login again.');
       }
 
+      // Handle "already exists" error with PUT update
+      if (response.status === 409) {
+        console.log('Background: Conversation already exists, updating with PUT request');
+        return await this.updateExistingConversation(conversationData, token, selectedProfileId);
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
@@ -87,6 +93,67 @@ class FiduCoreAPI {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  async updateExistingConversation(conversationData, token, selectedProfileId) {
+    try {
+      console.log('Background: Updating existing conversation with current data');
+      
+      // Generate new request ID for the update
+      const updateRequestId = conversationData.uniqueId + Date.now() + '_update';
+
+      // Prepare the complete data to replace existing data
+      const newData = {
+        conversationTitle: conversationData.title || 'Untitled Conversation',
+        modelName: conversationData.modelName,
+        url: conversationData.url,
+        date: conversationData.date,
+        time: conversationData.time,
+        dateTime: conversationData.dateTime,
+        htmlContent: conversationData.htmlContent,
+        lastSaved: conversationData.lastSaved
+      };
+
+      console.log('Background: Replacing conversation data with:', newData);
+
+      // Perform PUT update with complete replacement
+      const updateResponse = await fetch(`${this.baseUrl}/data-packets/${conversationData.uniqueId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          request_id: updateRequestId,
+          data_packet: {
+            profile_id: selectedProfileId,
+            id: conversationData.uniqueId,
+            tags: ["Chat-Page-Saver", "Conversation", conversationData.modelName], 
+            data: newData
+          }
+        })
+      });
+
+      if (updateResponse.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${updateResponse.status}`);
+      }
+
+      const result = await updateResponse.json();
+      return {
+        success: true,
+        id: result.id,
+        data: result,
+        updated: true
+      };
+    } catch (error) {
+      console.error('Error updating existing conversation:', error);
+      throw error;
     }
   }
 

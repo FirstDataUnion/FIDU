@@ -48,7 +48,7 @@ class FiduCoreAPI {
       }
 
       // Generate deterministic IDs
-      const requestId = acm.id+acm.timestamp;
+      const requestId = acm.id+Date.now();
 
       // Make a slightly nicer title for the conversation to show in the ACM lab. 
       const title = acm.interactions[0].content.substring(0, 40);
@@ -81,13 +81,16 @@ class FiduCoreAPI {
         throw new Error('Authentication expired. Please login again.');
       }
 
+      // Handle "already exists" error with PUT update
+      if (response.status === 409) {
+        console.log('Background: ACM already exists, updating with PUT request');
+        return await this.updateExistingACM(acm, token, selectedProfileId, title);
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
-
-      // TODO: Maybe catch an "Already Exists" error and update the data packet instead 
-      // once FIDU core actually has a way to return this error. 
 
       const result = await response.json();
       return {
@@ -101,6 +104,65 @@ class FiduCoreAPI {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  async updateExistingACM(acm, token, selectedProfileId, title) {
+    try {
+      console.log('Background: Updating existing ACM with current data');
+      
+      // Generate new request ID for the update
+      const updateRequestId = acm.id + Date.now() + '_update';
+
+      // Prepare the complete data to replace existing data
+      const newData = {
+        conversationTitle: title,
+        sourceChatbot: acm.sourceChatbot,
+        interactions: acm.interactions,
+        originalACMsUsed: acm.originalACMsUsed,
+        targetModelRequested: acm.targetModelRequested,
+        conversationUrl: acm.conversationUrl
+      };
+
+      console.log('Background: Replacing ACM data with:', newData);
+
+      // Perform PUT update with complete replacement
+      const updateResponse = await fetch(`${this.baseUrl}/data-packets/${acm.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          request_id: updateRequestId,
+          data_packet: {
+            profile_id: selectedProfileId,
+            id: acm.id,
+            tags: ["ACM", "ACM-Manager-Plugin", "ACM-Conversation"], 
+            data: newData
+          }
+        })
+      });
+
+      if (updateResponse.status === 401) {
+        throw new Error('Authentication expired. Please login again.');
+      }
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${updateResponse.status}`);
+      }
+
+      const result = await updateResponse.json();
+      return {
+        success: true,
+        id: result.id,
+        data: result,
+        updated: true
+      };
+    } catch (error) {
+      console.error('Error updating existing ACM:', error);
+      throw error;
     }
   }
 
