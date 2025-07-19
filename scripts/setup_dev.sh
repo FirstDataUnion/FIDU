@@ -36,22 +36,49 @@ fi
 
 # Activate virtual environment
 echo "🔌 Activating virtual environment..."
+if [ ! -f ".venv/bin/activate" ]; then
+    echo "❌ Virtual environment activation script not found"
+    exit 1
+fi
+
 source .venv/bin/activate
+
+# Verify activation worked
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "❌ Virtual environment activation failed"
+    exit 1
+fi
+
+echo "✅ Virtual environment activated: $VIRTUAL_ENV"
 
 # Upgrade pip
 echo "⬆️  Upgrading pip..."
-pip install --upgrade pip
+if ! pip install --upgrade pip; then
+    echo "❌ Failed to upgrade pip"
+    exit 1
+fi
 
 # Install requirements
 echo "📚 Installing requirements..."
-pip install -r requirements.txt
+if ! pip install -r requirements.txt; then
+    echo "❌ Failed to install requirements"
+    exit 1
+fi
 
 # Install the package in development mode with all dev dependencies
 echo "📚 Installing package with development dependencies..."
-pip install -e ".[dev]"
+if ! pip install -e ".[dev]"; then
+    echo "❌ Failed to install package with dev dependencies"
+    exit 1
+fi
 
 # Install pre-push hooks
 echo "🔧 Installing pre-push hooks..."
+if [ ! -f "scripts/githooks/pre-push" ]; then
+    echo "❌ Pre-push hook script not found"
+    exit 1
+fi
+
 # 'install' the pre-push hook
 cp scripts/githooks/pre-push .git/hooks/pre-push
 # Ensure the pre-push hook is executable
@@ -67,15 +94,33 @@ fi
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
     echo "📝 Creating .env file..."
-    cp .env.example .env 2>/dev/null || echo "# Add your environment variables here" > .env
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
+        echo "✅ Created .env from .env.example"
+    else
+        echo "# Add your environment variables here" > .env
+        echo "✅ Created empty .env file"
+    fi
 fi
 
 # Install npm dependencies for acm-front-end
-echo "Installing npm dependencies for acm-front-end..."
+echo "📦 Installing npm dependencies for acm-front-end..."
+if [ ! -d "src/apps/acm-front-end" ]; then
+    echo "❌ acm-front-end directory not found"
+    exit 1
+fi
+
 cd src/apps/acm-front-end
-npm install --legacy-peer-deps
+if ! npm install --legacy-peer-deps; then
+    echo "❌ Failed to install npm dependencies"
+    exit 1
+fi
+
 # Install @types/node for TypeScript support in vite.config.ts
-npm install --save-dev @types/node
+if ! npm install --save-dev @types/node; then
+    echo "⚠️  Warning: Failed to install @types/node"
+fi
+
 cd ../../..
 
 # Install mypy type stubs
@@ -86,10 +131,19 @@ echo "📝 Installing mypy type stubs..."
 # existing files. 
 source .venv/bin/activate 
 
+mypy_failed=false
 if ! mypy --install-types --non-interactive src/; then
-    mypy_failed=true
+    echo "⚠️  First mypy attempt failed, trying again..."
+    # Try one more time after a brief delay
+    sleep 2
+    if ! mypy --install-types --non-interactive src/; then
+        mypy_failed=true
+        echo "⚠️  Mypy type stub installation failed"
+    else
+        echo "✅ Mypy type stubs installed on second attempt"
+    fi
 else
-    mypy_failed=false
+    echo "✅ Mypy type stubs installed"
 fi
 
 echo """
@@ -132,6 +186,9 @@ if [ "$mypy_failed" = true ]; then
     echo """
 ⚠️  Warning: The mypy type stub installation failed. 
     This command sometimes requires multiple attempts to complete.
-    Rerunning the script again will typically fix this.
+    You can try running it manually later:
+    
+    source .venv/bin/activate
+    mypy --install-types --non-interactive src/
 """
 fi
