@@ -15,7 +15,7 @@
                     {% if available_profiles %}
                         {% for profile in available_profiles %}
                         <option value="{{ profile.id }}" {% if query_params.profile_id == profile.id %}selected{% endif %}>
-                            {{ profile.name }}
+                            {{ profile.display_name }}
                         </option>
                         {% endfor %}
                     {% endif %}
@@ -71,7 +71,7 @@
                                 </p>
                             </div>
                             <div class="mt-1 flex items-center text-sm text-gray-500">
-                                <p>Profile: {{ packet.profile_id }}</p>
+                                <p>Profile ID: {{ packet.profile_id }}</p>
                                 <span class="mx-2">•</span>
                                 <p>Created: {{ packet.create_timestamp.strftime('%Y-%m-%d %H:%M') if packet.create_timestamp else 'Unknown' }}</p>
                             </div>

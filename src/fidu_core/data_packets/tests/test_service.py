@@ -17,8 +17,7 @@ from ..exceptions import (
     DataPacketAlreadyExistsError,
     DataPacketPermissionError,
 )
-from ...profiles.service import ProfileService
-from ...profiles.schema import ProfileInternal
+from fidu_core.profiles.schema import ProfileInternal
 
 
 @pytest.fixture
@@ -28,15 +27,9 @@ def mock_store():
 
 
 @pytest.fixture
-def mock_profile_service():
-    """Create a mock profile service object for testing."""
-    return Mock(spec=ProfileService)
-
-
-@pytest.fixture
-def service(mock_store, mock_profile_service):
+def service(mock_store):
     """Create a DataPacketService object for testing."""
-    return DataPacketService(mock_store, mock_profile_service)
+    return DataPacketService(mock_store)
 
 
 @pytest.fixture
@@ -65,6 +58,7 @@ def sample_data_packet_internal():
         user_id="test_user_123",
         tags=["test", "sample"],
         data={"name": "Falco Lombardi", "type": "character"},
+        profiles=[sample_profile],
     )
 
 
@@ -77,7 +71,6 @@ class TestCreateDataPacket:
         mock_get_current_timestamp,
         service,
         mock_store,
-        mock_profile_service,
         sample_data_packet_internal,
         sample_profile,
         sample_timestamp,
@@ -92,7 +85,6 @@ class TestCreateDataPacket:
         )
         mock_store.store_data_packet.return_value = expected_data_packet
         mock_get_current_timestamp.return_value = sample_timestamp
-        mock_profile_service.get_profile.return_value = sample_profile
         request_id = "req_123"
 
         # Call create data packet
@@ -100,7 +92,6 @@ class TestCreateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
-        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
         mock_store.store_data_packet.assert_called_once_with(
             request_id, expected_data_packet
         )
@@ -112,9 +103,7 @@ class TestCreateDataPacket:
         mock_get_current_timestamp,
         service,
         mock_store,
-        mock_profile_service,
         sample_data_packet_internal,
-        sample_profile,
         sample_timestamp,
     ):
         """Test that create data packet raises DataPacketAlreadyExistsError when store raises KeyError."""
@@ -123,7 +112,6 @@ class TestCreateDataPacket:
             "test_packet_123"
         )
         mock_get_current_timestamp.return_value = sample_timestamp
-        mock_profile_service.get_profile.return_value = sample_profile
         request_id = "req_123"
 
         # Call create data packet and expect exception
@@ -132,7 +120,6 @@ class TestCreateDataPacket:
 
         # Assert expectations
         mock_get_current_timestamp.assert_called()
-        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
         expected_data_packet = sample_data_packet_internal.model_copy(
             update={
                 "create_timestamp": sample_timestamp,
@@ -142,36 +129,6 @@ class TestCreateDataPacket:
         mock_store.store_data_packet.assert_called_once_with(
             request_id, expected_data_packet
         )
-
-    @patch.object(DataPacketService, "_get_current_timestamp")
-    def test_raises_permission_error_when_profile_belongs_to_different_user(
-        self,
-        mock_get_current_timestamp,
-        service,
-        mock_store,
-        mock_profile_service,
-        sample_data_packet_internal,
-        sample_timestamp,
-    ):
-        """Test that create data packet raises DataPacketPermissionError when profile belongs to different user."""
-        # Prepare expected calls
-        different_user_profile = ProfileInternal(
-            id="test_profile_123",
-            user_id="different_user_456",
-            name="Test Profile",
-            description="A test profile",
-        )
-        mock_get_current_timestamp.return_value = sample_timestamp
-        mock_profile_service.get_profile.return_value = different_user_profile
-        request_id = "req_123"
-
-        # Call create data packet and expect exception
-        with pytest.raises(DataPacketPermissionError):
-            service.create_data_packet(request_id, sample_data_packet_internal)
-
-        # Assert expectations
-        mock_profile_service.get_profile.assert_called_once_with("test_profile_123")
-        mock_store.store_data_packet.assert_not_called()
 
 
 class TestUpdateDataPacket:

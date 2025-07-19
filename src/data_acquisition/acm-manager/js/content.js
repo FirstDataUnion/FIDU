@@ -66,6 +66,108 @@ function suppressConnectorErrors() {
   };
 }
 
+// === Profile Status Indicator ===
+function addProfileStatusIndicator() {
+  // Remove existing if present
+  const existing = document.getElementById('acm-profile-status');
+  if (existing) existing.remove();
+
+  const statusBox = document.createElement('div');
+  statusBox.id = 'acm-profile-status';
+  statusBox.style.position = 'fixed';
+  statusBox.style.bottom = '130px';
+  statusBox.style.right = '10px';
+  statusBox.style.zIndex = '10000';
+  statusBox.style.padding = '5px 12px';
+  statusBox.style.borderRadius = '4px';
+  statusBox.style.fontSize = '13px';
+  statusBox.style.fontWeight = 'bold';
+  statusBox.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
+  statusBox.style.cursor = 'pointer';
+  statusBox.style.transition = 'opacity 0.2s';
+  statusBox.style.opacity = '1';
+
+  // Set initial text and color (will update below)
+  statusBox.textContent = 'Checking profile...';
+  statusBox.style.background = '#888';
+  statusBox.style.color = 'white';
+
+  // Add to DOM
+  document.body.appendChild(statusBox);
+
+  // Click handler: open extension popup
+  statusBox.addEventListener('click', () => {
+    // Try to open the extension popup
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ action: 'openPopup' });
+    }
+  });
+
+  // Helper to update status
+  async function updateStatus() {
+    try {
+      // Dynamically import AuthService if not present
+      let authService = window.authService;
+      if (!authService) {
+        // Try to get from global or require
+        if (typeof require !== 'undefined') {
+          authService = require('./auth.js');
+        } else if (window.AuthService) {
+          authService = window.AuthService;
+        }
+      }
+      if (!authService) return;
+
+      const isLoggedIn = await authService.isAuthenticated();
+      if (!isLoggedIn) {
+        statusBox.textContent = 'NOT LOGGED IN, UNABLE TO SAVE ACMS';
+        statusBox.style.background = '#c62828';
+        statusBox.style.color = 'white';
+        return;
+      }
+      // Logged in, check profile
+      const profile = await authService.getSelectedProfile();
+      if (!profile || !profile.id) {
+        statusBox.textContent = 'NO PROFILE SELECTED, UNABLE TO SAVE ACMS';
+        statusBox.style.background = '#c62828';
+        statusBox.style.color = 'white';
+        return;
+      }
+      // Logged in and profile selected
+      statusBox.textContent = `Profile: ${profile.display_name || profile.name || profile.id}`;
+      statusBox.style.background = '#388e3c';
+      statusBox.style.color = 'white';
+    } catch (e) {
+      statusBox.textContent = 'ERROR CHECKING PROFILE';
+      statusBox.style.background = '#c62828';
+      statusBox.style.color = 'white';
+    }
+  }
+
+  updateStatus();
+
+  // Listen for changes to login/profile (storage events)
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && (changes['fidu_auth_token'] || changes['fidu_selected_profile'])) {
+        updateStatus();
+      }
+    });
+  }
+
+  // Also listen for specific auth changed events
+  if (typeof chrome !== 'undefined' && chrome.runtime) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'authStatusChanged') {
+        updateStatus();
+      }
+    });
+  }
+
+  // Optionally, poll every 30s in case of missed events
+  setInterval(updateStatus, 30000);
+}
+
 // Initialize the content script
 function initialize() {
   console.log('ACM Manager content script initialized');
@@ -103,6 +205,9 @@ function initialize() {
     addClaudeDebugButton();
   }
   
+  // Add profile status indicator
+  addProfileStatusIndicator();
+  
   // Load settings and start periodic capture
   loadSettingsAndStartCapture();
   
@@ -112,49 +217,57 @@ function initialize() {
 
 // Load settings and start the periodic capture
 function loadSettingsAndStartCapture() {
-  chrome.storage.sync.get('settings', (result) => {
-    const settings = result.settings || {};
-    
-    // Check if capture is enabled
-    const captureEnabled = settings.autoCaptureEnabled !== false; // Default to true if not set
-    
-    // Get capture frequency from settings (in seconds, convert to milliseconds)
-    captureFrequency = (settings.captureFrequency || 60) * 1000;
-    
-    console.log(`Capture settings loaded - Enabled: ${captureEnabled}, Frequency: ${captureFrequency/1000}s`);
-    
-    if (captureEnabled) {
-      startPeriodicCapture();
-    } else {
-      console.log('Automatic capture is disabled in settings');
-      updateStatusIndicator('Capture disabled');
-    }
-  });
-  
-  // Listen for settings changes
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.action === 'settingsUpdated') {
-      console.log('Settings updated, reloading capture settings');
+  // Check if we have access to chrome.storage
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    chrome.storage.sync.get('settings', (result) => {
+      const settings = result.settings || {};
       
-      // Clear existing interval
-      if (captureInterval) {
-        clearInterval(captureInterval);
-        captureInterval = null;
-      }
+      // Check if capture is enabled
+      const captureEnabled = settings.autoCaptureEnabled !== false; // Default to true if not set
       
-      // Check new settings
-      const settings = message.settings || {};
-      const captureEnabled = settings.autoCaptureEnabled !== false;
+      // Get capture frequency from settings (in seconds, convert to milliseconds)
       captureFrequency = (settings.captureFrequency || 60) * 1000;
       
-      // Restart if enabled
+      console.log(`Capture settings loaded - Enabled: ${captureEnabled}, Frequency: ${captureFrequency/1000}s`);
+      
       if (captureEnabled) {
         startPeriodicCapture();
       } else {
+        console.log('Automatic capture is disabled in settings');
         updateStatusIndicator('Capture disabled');
       }
-    }
-  });
+    });
+    
+    // Listen for settings changes
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.action === 'settingsUpdated') {
+        console.log('Settings updated, reloading capture settings');
+        
+        // Clear existing interval
+        if (captureInterval) {
+          clearInterval(captureInterval);
+          captureInterval = null;
+        }
+        
+        // Check new settings
+        const settings = message.settings || {};
+        const captureEnabled = settings.autoCaptureEnabled !== false;
+        captureFrequency = (settings.captureFrequency || 60) * 1000;
+        
+        // Restart if enabled
+        if (captureEnabled) {
+          startPeriodicCapture();
+        } else {
+          updateStatusIndicator('Capture disabled');
+        }
+      }
+    });
+  } else {
+    // Fallback to default settings if chrome.storage is not available
+    console.log('Chrome storage not available, using default capture settings');
+    captureFrequency = 60 * 1000; // Default to 60 seconds
+    startPeriodicCapture();
+  }
 }
 
 // Start periodic capture of the entire conversation

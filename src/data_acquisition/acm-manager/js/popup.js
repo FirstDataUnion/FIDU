@@ -23,29 +23,6 @@ const exportBtnEl = document.getElementById('exportBtn');
 const clearBtnEl = document.getElementById('clearBtn');
 const optionsLinkEl = document.getElementById('optionsLink');
 
-// Authentication DOM elements
-const authStatusEl = document.getElementById('authStatus');
-const authStatusTextEl = document.getElementById('authStatusText');
-const toggleAuthBtnEl = document.getElementById('toggleAuthBtn');
-const userInfoEl = document.getElementById('userInfo');
-const userEmailEl = document.getElementById('userEmail');
-const userNameEl = document.getElementById('userName');
-const loginFormEl = document.getElementById('loginForm');
-const registerFormEl = document.getElementById('registerForm');
-const loginEmailEl = document.getElementById('loginEmail');
-const loginPasswordEl = document.getElementById('loginPassword');
-const registerEmailEl = document.getElementById('registerEmail');
-const registerPasswordEl = document.getElementById('registerPassword');
-const registerFirstNameEl = document.getElementById('registerFirstName');
-const registerLastNameEl = document.getElementById('registerLastName');
-const loginBtnEl = document.getElementById('loginBtn');
-const registerBtnEl = document.getElementById('registerBtn');
-const showRegisterBtnEl = document.getElementById('showRegisterBtn');
-const showLoginBtnEl = document.getElementById('showLoginBtn');
-const loginErrorEl = document.getElementById('loginError');
-const registerErrorEl = document.getElementById('registerError');
-const registerSuccessEl = document.getElementById('registerSuccess');
-
 // Profile DOM elements
 const profileSectionEl = document.getElementById('profileSection');
 const selectedProfileNameEl = document.getElementById('selectedProfileName');
@@ -61,8 +38,6 @@ const profilesListEl = document.getElementById('profilesList');
 // State variables
 let captureEnabled = true;
 let sessionCount = 0;
-let isAuthenticated = false;
-let currentUser = null;
 let userProfiles = [];
 let selectedProfile = null;
 
@@ -76,22 +51,12 @@ function initializePopup() {
   // Check authentication status
   checkAuthenticationStatus();
   
-  // Update statistics
-  updateStatistics();
-  
   // Add event listeners
   viewAcmsBtnEl.addEventListener('click', openAcmViewer);
   toggleCaptureBtnEl.addEventListener('click', toggleCapture);
   exportBtnEl.addEventListener('click', exportAcms);
   clearBtnEl.addEventListener('click', clearAllAcms);
   optionsLinkEl.addEventListener('click', openOptions);
-  
-  // Add authentication event listeners
-  toggleAuthBtnEl.addEventListener('click', toggleAuthForm);
-  loginBtnEl.addEventListener('click', handleLogin);
-  registerBtnEl.addEventListener('click', handleRegister);
-  showRegisterBtnEl.addEventListener('click', showRegisterForm);
-  showLoginBtnEl.addEventListener('click', showLoginForm);
   
   // Add profile management event listeners
   manageProfilesBtnEl.addEventListener('click', openProfileModal);
@@ -107,6 +72,11 @@ function initializePopup() {
   
   // Event delegation for profile selection
   profilesListEl.addEventListener('click', handleProfileListClick);
+  
+  // Update statistics with a small delay to ensure background script is ready
+  setTimeout(() => {
+    updateStatistics();
+  }, 100);
 }
 
 // Authentication functions
@@ -114,7 +84,6 @@ async function checkAuthenticationStatus() {
   try {
     isAuthenticated = await authService.isAuthenticated();
     currentUser = await authService.getCurrentUser();
-    updateAuthUI();
     
     if (isAuthenticated) {
       // Load profiles and selected profile
@@ -126,42 +95,15 @@ async function checkAuthenticationStatus() {
     console.error('Error checking authentication status:', error);
     isAuthenticated = false;
     currentUser = null;
-    updateAuthUI();
   }
 }
 
-function updateAuthUI() {
-  if (isAuthenticated && currentUser) {
-    // User is authenticated
-    authStatusEl.className = 'auth-status authenticated';
-    authStatusTextEl.textContent = 'Authenticated';
-    toggleAuthBtnEl.textContent = 'Logout';
-    
-    // Show user info
-    userInfoEl.style.display = 'block';
-    userEmailEl.textContent = currentUser.email;
-    userNameEl.textContent = `${currentUser.first_name} ${currentUser.last_name}`;
-    
-    // Show profile section
-    profileSectionEl.style.display = 'block';
-    
-    // Hide forms
-    loginFormEl.classList.remove('show');
-    registerFormEl.classList.remove('show');
-  } else {
-    // User is not authenticated
-    authStatusEl.className = 'auth-status not-authenticated';
-    authStatusTextEl.textContent = 'Not authenticated';
-    toggleAuthBtnEl.textContent = 'Login';
-    
-    // Hide user info and profile section
-    userInfoEl.style.display = 'none';
-    profileSectionEl.style.display = 'none';
-    
-    // Show login form by default
-    showLoginForm();
+// Listener to check Auth status after certain events
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'authStatusChanged') {
+    updateProfileUI();
   }
-}
+});
 
 function toggleAuthForm() {
   if (isAuthenticated) {
@@ -300,7 +242,7 @@ async function loadUserProfiles() {
   try {
     const result = await authService.getProfiles();
     if (result.success) {
-      userProfiles = result.profiles;
+      userProfiles = result.profiles.profiles;
     } else {
       console.error('Error loading profiles:', result.error);
       userProfiles = [];
@@ -322,7 +264,7 @@ async function loadSelectedProfile() {
 
 function updateProfileUI() {
   if (selectedProfile) {
-    selectedProfileNameEl.textContent = selectedProfile.name;
+    selectedProfileNameEl.textContent = selectedProfile.display_name;
   } else {
     selectedProfileNameEl.textContent = 'No profile selected';
   }
@@ -356,12 +298,12 @@ async function loadProfilesInModal() {
     
     const profilesHtml = userProfiles.map(profile => {
       const isSelected = selectedProfile && selectedProfile.id === profile.id;
-      const createDate = new Date(profile.create_timestamp).toLocaleDateString();
+      const createDate = new Date(profile.created_at).toLocaleDateString();
       
       return `
         <div class="profile-item ${isSelected ? 'selected' : ''}" data-profile-id="${profile.id}">
           <div class="profile-item-info">
-            <div class="profile-item-name">${profile.name}</div>
+            <div class="profile-item-name">${profile.display_name}</div>
             <div class="profile-item-date">Created: ${createDate}</div>
           </div>
           <div class="profile-item-actions">
@@ -489,8 +431,14 @@ function updateStatistics() {
   
   // Get total ACM count from database
   chrome.runtime.sendMessage({ action: 'getACMs' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+      totalAcmsEl.textContent = 'Loading...';
+      return;
+    }
+    
     if (response && response.success) {
-      totalAcmsEl.textContent = response.acms.length;
+      totalAcmsEl.textContent = 0; //response.acms.length;
     } else {
       totalAcmsEl.textContent = 'Error';
       console.error('Error retrieving ACMs:', response.error);
@@ -550,6 +498,12 @@ function openAcmViewer() {
 // Export ACMs to a JSON file
 function exportAcms() {
   chrome.runtime.sendMessage({ action: 'getACMs' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+      alert('Extension is still loading. Please try again in a moment.');
+      return;
+    }
+    
     if (response && response.success) {
       const acmsData = response.acms;
       const exportData = {
@@ -585,6 +539,12 @@ function exportAcms() {
 function clearAllAcms() {
   if (confirm('Are you sure you want to delete all ACMs? This cannot be undone.')) {
     chrome.runtime.sendMessage({ action: 'clearAllACMs' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Background script not ready yet:', chrome.runtime.lastError.message);
+        alert('Extension is still loading. Please try again in a moment.');
+        return;
+      }
+      
       if (response && response.success) {
         alert('All ACMs have been deleted');
         sessionCount = 0;

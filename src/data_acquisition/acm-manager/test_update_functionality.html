@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACM Manager - Update Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>ACM Manager - Update Functionality Test</h1>
+    
+    <div class="test-section info">
+        <h2>Test Overview</h2>
+        <p>This page tests the new update functionality for ACMs. The system now:</p>
+        <ul>
+            <li>Catches 409 CONFLICT errors when trying to create an ACM that already exists</li>
+            <li>Performs a PUT update to replace the existing data entirely</li>
+            <li>Uses the current view of the conversation as the authoritative version</li>
+            <li>No longer merges data to avoid duplication issues</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Configuration</h2>
+        <label for="baseUrl">FIDU Core API Base URL:</label>
+        <input type="text" id="baseUrl" value="http://127.0.0.1:4000/api/v1" style="width: 300px;">
+        <br><br>
+        <label for="authToken">Auth Token:</label>
+        <input type="text" id="authToken" placeholder="Enter your auth token" style="width: 400px;">
+        <br><br>
+        <label for="profileId">Profile ID:</label>
+        <input type="text" id="profileId" placeholder="Enter your profile ID" style="width: 300px;">
+    </div>
+
+    <div class="test-section">
+        <h2>Test ACM Data</h2>
+        <label for="acmId">ACM ID:</label>
+        <input type="text" id="acmId" value="test-acm-123" style="width: 300px;">
+        <br><br>
+        <label for="conversationUrl">Conversation URL:</label>
+        <input type="text" id="conversationUrl" value="https://chat.openai.com/c/test-conversation" style="width: 400px;">
+        <br><br>
+        <button onclick="createInitialACM()">1. Create Initial ACM</button>
+        <button onclick="createDuplicateACM()">2. Try to Create Duplicate (Should Update)</button>
+        <button onclick="fetchACM()">3. Fetch ACM to Verify</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        class TestFiduCoreAPI {
+            constructor() {
+                this.baseUrl = document.getElementById('baseUrl').value;
+            }
+
+            setBaseUrl(url) {
+                this.baseUrl = url;
+            }
+
+            async saveACM(acm) {
+                console.log('Test: Saving ACM to Fidu Core');
+                try {
+                    const token = document.getElementById('authToken').value;
+                    if (!token) {
+                        throw new Error('Authentication required. Please enter auth token.');
+                    }
+
+                    const selectedProfileId = document.getElementById('profileId').value;
+                    if (!selectedProfileId) {
+                        throw new Error('No profile selected. Please enter profile ID.');
+                    }
+
+                    const requestId = acm.id + Date.now();
+                    const title = acm.interactions[0].content.substring(0, 40);
+
+                    const response = await fetch(`${this.baseUrl}/data-packets`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            request_id: requestId,
+                            data_packet: {
+                                profile_id: selectedProfileId,
+                                id: acm.id,
+                                tags: ["ACM", "ACM-Manager-Plugin", "ACM-Conversation"], 
+                                data: {
+                                    conversationTitle: title,
+                                    sourceChatbot: acm.sourceChatbot,
+                                    interactions: acm.interactions,
+                                    originalACMsUsed: acm.originalACMsUsed,
+                                    targetModelRequested: acm.targetModelRequested,
+                                    conversationUrl: acm.conversationUrl
+                                }
+                            }
+                        })
+                    });
+
+                    if (response.status === 401) {
+                        throw new Error('Authentication expired. Please login again.');
+                    }
+
+                    // Handle "already exists" error with PUT update
+                    if (response.status === 409) {
+                        console.log('Test: ACM already exists, updating with PUT request');
+                        return await this.updateExistingACM(acm, token, selectedProfileId, title);
+                    }
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    return {
+                        success: true,
+                        id: result.id,
+                        data: result
+                    };
+                } catch (error) {
+                    console.error('Error saving ACM to Fidu Core:', error);
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
+
+            async updateExistingACM(acm, token, selectedProfileId, title) {
+                try {
+                    console.log('Test: Updating existing ACM with current data');
+                    
+                    // Generate new request ID for the update
+                    const updateRequestId = acm.id + Date.now() + '_update';
+
+                    // Prepare the complete data to replace existing data
+                    const newData = {
+                        conversationTitle: title,
+                        sourceChatbot: acm.sourceChatbot,
+                        interactions: acm.interactions,
+                        originalACMsUsed: acm.originalACMsUsed,
+                        targetModelRequested: acm.targetModelRequested,
+                        conversationUrl: acm.conversationUrl
+                    };
+
+                    console.log('Test: Replacing ACM data with:', newData);
+
+                    // Perform PUT update with complete replacement
+                    const updateResponse = await fetch(`${this.baseUrl}/data-packets/${acm.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            request_id: updateRequestId,
+                            data_packet: {
+                                profile_id: selectedProfileId,
+                                id: acm.id,
+                                tags: ["ACM", "ACM-Manager-Plugin", "ACM-Conversation"], 
+                                data: newData
+                            }
+                        })
+                    });
+
+                    if (updateResponse.status === 401) {
+                        throw new Error('Authentication expired. Please login again.');
+                    }
+
+                    if (!updateResponse.ok) {
+                        const errorData = await updateResponse.json();
+                        throw new Error(errorData.detail || `HTTP error! status: ${updateResponse.status}`);
+                    }
+
+                    const result = await updateResponse.json();
+                    return {
+                        success: true,
+                        id: result.id,
+                        data: result,
+                        updated: true
+                    };
+                } catch (error) {
+                    console.error('Error updating existing ACM:', error);
+                    throw error;
+                }
+            }
+
+            async getACM(id) {
+                try {
+                    const token = document.getElementById('authToken').value;
+                    if (!token) {
+                        throw new Error('Authentication required. Please enter auth token.');
+                    }
+
+                    const response = await fetch(`${this.baseUrl}/data-packets/${id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.status === 401) {
+                        throw new Error('Authentication expired. Please login again.');
+                    }
+
+                    if (response.status === 404) {
+                        return {
+                            success: false,
+                            error: 'ACM not found'
+                        };
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    return {
+                        success: true,
+                        data: result
+                    };
+                } catch (error) {
+                    console.error('Error getting ACM:', error);
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
+        }
+
+        const api = new TestFiduCoreAPI();
+
+        function logResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<p><strong>${new Date().toLocaleTimeString()}:</strong> ${message}</p>`;
+            resultsDiv.appendChild(div);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function createSampleACM(interactionCount = 2) {
+            const acmId = document.getElementById('acmId').value;
+            const conversationUrl = document.getElementById('conversationUrl').value;
+            
+            const interactions = [];
+            for (let i = 0; i < interactionCount; i++) {
+                interactions.push({
+                    role: i % 2 === 0 ? 'user' : 'assistant',
+                    content: `Test message ${i + 1} - ${new Date().toISOString()}`,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            return {
+                id: acmId,
+                sourceChatbot: 'ChatGPT',
+                interactions: interactions,
+                originalACMsUsed: ['test-acm-1', 'test-acm-2'],
+                targetModelRequested: 'gpt-4',
+                conversationUrl: conversationUrl,
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        async function createInitialACM() {
+            logResult('Creating initial ACM...', 'info');
+            
+            const acm = createSampleACM(2);
+            const result = await api.saveACM(acm);
+            
+            if (result.success) {
+                logResult(`✅ Initial ACM created successfully! ID: ${result.id}`, 'success');
+            } else {
+                logResult(`❌ Failed to create initial ACM: ${result.error}`, 'error');
+            }
+        }
+
+        async function createDuplicateACM() {
+            logResult('Attempting to create duplicate ACM (should trigger update)...', 'info');
+            
+            const acm = createSampleACM(3); // Different number of interactions
+            const result = await api.saveACM(acm);
+            
+            if (result.success) {
+                if (result.updated) {
+                    logResult(`✅ ACM updated successfully! ID: ${result.id} (was updated, not created)`, 'success');
+                } else {
+                    logResult(`✅ ACM created successfully! ID: ${result.id}`, 'success');
+                }
+            } else {
+                logResult(`❌ Failed to create/update ACM: ${result.error}`, 'error');
+            }
+        }
+
+        async function fetchACM() {
+            logResult('Fetching ACM to verify content...', 'info');
+            
+            const acmId = document.getElementById('acmId').value;
+            const result = await api.getACM(acmId);
+            
+            if (result.success) {
+                const data = result.data;
+                logResult(`✅ ACM fetched successfully!`, 'success');
+                logResult(`📊 Details:`, 'info');
+                logResult(`   - ID: ${data.id}`, 'info');
+                logResult(`   - Title: ${data.data.conversationTitle}`, 'info');
+                logResult(`   - Source: ${data.data.sourceChatbot}`, 'info');
+                logResult(`   - Interactions: ${data.data.interactions.length}`, 'info');
+                logResult(`   - URL: ${data.data.conversationUrl}`, 'info');
+                
+                // Show interactions
+                logResult(`💬 Interactions:`, 'info');
+                data.data.interactions.forEach((interaction, index) => {
+                    logResult(`   ${index + 1}. [${interaction.role}] ${interaction.content.substring(0, 50)}...`, 'info');
+                });
+            } else {
+                logResult(`❌ Failed to fetch ACM: ${result.error}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Update base URL when input changes
+        document.getElementById('baseUrl').addEventListener('input', function() {
+            api.setBaseUrl(this.value);
+        });
+    </script>
+</body>
+</html> 
