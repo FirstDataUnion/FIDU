@@ -317,7 +317,6 @@ const fiduCoreAPI = new FiduCoreAPI();
 // Initialize the extension
 chrome.runtime.onInstalled.addListener(() => {
   console.log('ACM Manager installed');
-  initDatabase();
   
   // Suppress connector errors
   suppressConnectorErrors();
@@ -338,26 +337,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  // For other messages, check settings first
+  // For other messages, always use FIDU Core
   chrome.storage.sync.get('settings', async (result) => {
-    const useFiduCore = result.settings?.useFiduCore ?? false;
-    
-    if (useFiduCore) {
-      console.log('Background: Using Fidu Core');
-    } else {
-      console.log('Background: Using Database');
-    }
+    console.log('Background: Using Fidu Core');
 
     if (message.action === 'saveACM') {
       try {
-        let result;
-        if (useFiduCore) {
-          result = await fiduCoreAPI.saveACM(message.data);
-        } else {
-          result = await saveACMToDatabase(message.data);
-        }
-        console.log('ACM saved successfully:', result);
-        sendResponse({ success: true, id: result.id || result });
+        const saveResult = await fiduCoreAPI.saveACM(message.data);
+        console.log('ACM saved successfully:', saveResult);
+        sendResponse({ success: true, id: saveResult.id || saveResult });
       } catch (error) {
         console.error('Error saving ACM:', error);
         sendResponse({ success: false, error: error.message });
@@ -367,13 +355,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     if (message.action === 'deleteACM') {
       try {
-        let result;
-        if (useFiduCore) {
-          result = await fiduCoreAPI.deleteACM(message.id);
-        } else {
-          result = await deleteACMFromDatabase(message.id);
-        }
-        sendResponse({ success: true, result });
+        const deleteResult = await fiduCoreAPI.deleteACM(message.id);
+        sendResponse({ success: true, result: deleteResult });
       } catch (error) {
         console.error('Error deleting ACM:', error);
         sendResponse({ success: false, error: error.message });
@@ -383,13 +366,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     if (message.action === 'findConversationByUrl') {
       try {
-        let result;
-        if (useFiduCore) {
-          result = await fiduCoreAPI.getACMByUrl(message.url);
-        } else {
-          result = await findConversationByUrl(message.url);
-        }
-        sendResponse({ success: true, result });
+        const findResult = await fiduCoreAPI.getACMByUrl(message.url);
+        sendResponse({ success: true, result: findResult });
       } catch (error) {
         console.error('Error finding conversation by URL:', error);
         sendResponse({ success: false, error: error.message });
@@ -425,16 +403,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Helper functions for message handling
 async function handleGetACMs(message, sendResponse) {
   try {
-    chrome.storage.sync.get('settings', async (result) => {
-      const useFiduCore = result.settings?.useFiduCore ?? false;
-      
-      let acms;
-      if (useFiduCore) {
-        const result = await fiduCoreAPI.getAllACMs();
-        acms = result.data;
-      } else {
-        acms = await getACMsFromDatabase(message.query);
-      }
+    chrome.storage.sync.get('settings', async (settingsResult) => {
+      const apiResult = await fiduCoreAPI.getAllACMs();
+      const acms = apiResult.data;
       sendResponse({ success: true, acms });
     });
   } catch (error) {
@@ -445,16 +416,9 @@ async function handleGetACMs(message, sendResponse) {
 
 async function handleClearAllACMs(message, sendResponse) {
   try {
-    chrome.storage.sync.get('settings', async (result) => {
-      const useFiduCore = result.settings?.useFiduCore ?? false;
-      
-      let clearResult;
-      if (useFiduCore) {
-        // For Fidu Core, we might need to implement a bulk delete or get all and delete individually
-        clearResult = { success: true, message: 'Bulk delete not implemented for Fidu Core' };
-      } else {
-        clearResult = await clearAllACMsFromDatabase();
-      }
+    chrome.storage.sync.get('settings', async (settingsResult) => {
+      // For Fidu Core, we might need to implement a bulk delete or get all and delete individually
+      const clearResult = { success: true, message: 'Bulk delete not implemented for Fidu Core' };
       sendResponse({ success: true, result: clearResult });
     });
   } catch (error) {
@@ -464,7 +428,7 @@ async function handleClearAllACMs(message, sendResponse) {
 }
 
 /**
- * Database Functionality
+ * Database Functionality (No longer used - FIDU Core is now the default)
  */
 
 // Database configuration

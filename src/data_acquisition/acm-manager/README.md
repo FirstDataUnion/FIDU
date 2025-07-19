@@ -9,11 +9,11 @@ A Chrome extension for capturing, organizing, and managing conversations with AI
 - Provides a clean interface for viewing and managing captured conversations
 - Supports manual and periodic capture of conversations
 - Specialized capture mechanisms for different chatbot platforms
-- **NEW**: User authentication with FIDU Core backend
-- **NEW**: Secure token-based authentication
-- **NEW**: User registration and login system
-- **NEW**: Profile management and selection
-- **NEW**: Automatic profile assignment to data packets
+- **User authentication with FIDU Core backend** (default)
+- **Secure token-based authentication**
+- **User registration and login system**
+- **Profile management and selection**
+- **Automatic profile assignment to data packets**
 
 ## Installation
 
@@ -35,13 +35,12 @@ A Chrome extension for capturing, organizing, and managing conversations with AI
 
 ### Authentication (FIDU Core Backend)
 
-To use the FIDU Core backend with authentication:
+The extension now uses FIDU Core backend by default. To configure authentication:
 
 1. **Configure Identity Service**: Go to the extension options and set the FIDU Identity Service URL:
    - Leave empty to use production: `https://identity.firstdataunion.org` (default)
    - Enter a custom URL for development or testing environments
-2. **Enable FIDU Core**: Go to the extension options and check "Use FIDU Core Backend"
-3. **Configure Server URL**: Set the FIDU Core server URL (default: `http://127.0.0.1:4000/api/v1`)
+2. **Configure Server URL**: Set the FIDU Core server URL (default: `http://127.0.0.1:4000/api/v1`)
 4. **Register/Login**: Click the ACM Manager icon and use the authentication section to:
    - Register a new account with email, password, first name, and last name
    - Login with your existing credentials
@@ -89,7 +88,6 @@ Access the options page by:
 
 #### FIDU Core Settings
 - **FIDU Core Server URL**: Configure the backend server address
-- **Use FIDU Core Backend**: Enable/disable backend integration
 - **Require Authentication**: Force authentication for all backend requests
 - **Auto-login on startup**: Automatically authenticate when extension loads
 
@@ -110,7 +108,8 @@ Access the options page by:
 
 This extension uses:
 - JavaScript for core functionality
-- IndexedDB for local storage of conversations
+- FIDU Core backend for data storage (primary)
+- IndexedDB for local storage (fallback, no longer used)
 - Chrome Extension Manifest V3
 - JWT-based authentication for FIDU Core integration
 

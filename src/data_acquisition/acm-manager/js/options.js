@@ -18,7 +18,7 @@ const defaultSettings = {
   showCaptureIndicator: true,
   highlightCapturedMessages: false,
   captureFrequency: 60, // Default capture frequency in seconds
-  useFiduCore: false, // Default to not using Fidu Core backend
+  useFiduCore: true, // Default to using Fidu Core backend
   
   // FIDU Identity Service settings
   fiduIdentityUrl: '', // Default to empty (will use production)
@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const showCaptureIndicatorEl = document.getElementById('showCaptureIndicator');
   const highlightCapturedMessagesEl = document.getElementById('highlightCapturedMessages');
   const captureFrequencyEl = document.getElementById('captureFrequency');
-  const useFiduCoreEl = document.getElementById('useFiduCore');
 
   // FIDU Identity Service settings
   const fiduIdentityUrlEl = document.getElementById('fiduIdentityUrl');
@@ -97,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showCaptureIndicatorEl.checked = settings.showCaptureIndicator;
       highlightCapturedMessagesEl.checked = settings.highlightCapturedMessages;
       captureFrequencyEl.value = settings.captureFrequency || 60;
-      useFiduCoreEl.checked = settings.useFiduCore ?? false;
       
       // FIDU Identity Service settings
       fiduIdentityUrlEl.value = settings.fiduIdentityUrl || defaultSettings.fiduIdentityUrl;
@@ -128,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showCaptureIndicator: showCaptureIndicatorEl.checked,
       highlightCapturedMessages: highlightCapturedMessagesEl.checked,
       captureFrequency: parseInt(captureFrequencyEl.value, 10) || 60,
-      useFiduCore: useFiduCoreEl.checked,
+      useFiduCore: true, // Always use FIDU Core backend
       
       // FIDU Identity Service settings
       fiduIdentityUrl: fiduIdentityUrlEl.value.trim(),
@@ -178,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showCaptureIndicatorEl.checked = defaultSettings.showCaptureIndicator;
       highlightCapturedMessagesEl.checked = defaultSettings.highlightCapturedMessages;
       captureFrequencyEl.value = defaultSettings.captureFrequency;
-      useFiduCoreEl.checked = defaultSettings.useFiduCore;
       
       // FIDU Identity Service settings
       fiduIdentityUrlEl.value = defaultSettings.fiduIdentityUrl;
