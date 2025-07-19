@@ -5,7 +5,7 @@ from typing import Dict
 import httpx
 from fastapi import Request, HTTPException
 from fastapi.responses import StreamingResponse
-from .config import proxy_config
+from .config import get_proxy_config
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class NLPWorkbenchProxy:
 
     def __init__(self, api_key: str = None):
         """Initialize the proxy with optional API key."""
-        config = proxy_config.get_nlp_workbench_config()
+        config = get_proxy_config().get_nlp_workbench_config()
         self.base_url = config["base_url"]
         self.api_key = api_key or config["api_key"]
         self.timeout = config["timeout"]

@@ -1,0 +1,12 @@
+************* Module fidu_core.main
+src/fidu_core/main.py:41:0: C0116: Missing function or method docstring (missing-function-docstring)
+src/fidu_core/main.py:49:4: W0105: String statement has no effect (pointless-string-statement)
+src/fidu_core/main.py:5:0: C0411: standard import "threading.Timer" should be placed before third party import "dotenv.load_dotenv" (wrong-import-order)
+src/fidu_core/main.py:6:0: C0411: standard import "webbrowser" should be placed before third party import "dotenv.load_dotenv" (wrong-import-order)
+src/fidu_core/main.py:7:0: C0411: standard import "sys" should be placed before third party import "dotenv.load_dotenv" (wrong-import-order)
+src/fidu_core/main.py:8:0: C0411: standard import "time" should be placed before third party import "dotenv.load_dotenv" (wrong-import-order)
+src/fidu_core/main.py:9:0: C0411: standard import "pathlib.Path" should be placed before third party import "dotenv.load_dotenv" (wrong-import-order)
+
+-----------------------------------
+Your code has been rated at 9.36/10
+

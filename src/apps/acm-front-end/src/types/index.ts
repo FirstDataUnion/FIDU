@@ -27,10 +27,10 @@ export interface Prompt {
 export interface User {
   id: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
+  name?: string;
   create_timestamp?: string;
   update_timestamp?: string;
+  profiles: Profile[];
 }
 
 export interface Profile {

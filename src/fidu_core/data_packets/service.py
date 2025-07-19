@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import List
 from .schema import DataPacketInternal, DataPacketQueryParamsInternal
 from .store import DataPacketStoreInterface
-from ..profiles.service import ProfileService
 from .exceptions import (
     DataPacketPermissionError,
     DataPacketNotFoundError,
@@ -17,16 +16,13 @@ from .exceptions import (
 class DataPacketService:
     """Service layer for data packets."""
 
-    def __init__(
-        self, store: DataPacketStoreInterface, profile_service: ProfileService
-    ) -> None:
+    def __init__(self, store: DataPacketStoreInterface) -> None:
         """Initialize the service layer.
 
         Args:
             store: The storage layer object to use for storing and retrieving data packets
         """
         self.store = store
-        self.profile_service = profile_service
 
     def create_data_packet(
         self, request_id: str, data_packet: DataPacketInternal
@@ -42,8 +38,7 @@ class DataPacketService:
 
         Raises:
             DataPacketAlreadyExistsError: If a data packet with the same ID already exists
-            DataPacketPermissionError: If the profile does not belong to the user
-            ProfileNotFoundError: If the profile does not exist
+            DataPacketValidationError: If the data packet is invalid
         """
 
         user_id = data_packet.user_id
@@ -57,11 +52,6 @@ class DataPacketService:
             raise DataPacketValidationError(
                 "Profile ID is required to create a data packet"
             )
-
-        # Will also raise an exception if the profile does not exist
-        profile = self.profile_service.get_profile(profile_id)
-        if profile.user_id != user_id:
-            raise DataPacketPermissionError(data_packet.id, user_id)
 
         # Set timestamps
         data_packet.create_timestamp = self._get_current_timestamp()

@@ -1,11 +1,12 @@
 """Data Packet submission endpoints for the FIDU API."""
 
 from typing import List
-from fastapi import FastAPI, HTTPException, Depends, status, Response
+from fastapi import FastAPI, HTTPException, Depends, status, Response, Request
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer
 from fastapi.encoders import jsonable_encoder
 from fidu_core.security import JWTManager
+from fidu_core.identity_service.client import get_user_from_identity_service
+from fidu_core.users.schema import IdentityServiceUser
 from .schema import (
     DataPacket,
     DataPacketCreateRequest,
@@ -23,8 +24,13 @@ from .exceptions import (
     DataPacketPermissionError,
 )
 
-# OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/login")
+
+def get_authorization_token(request: Request) -> str:
+    """Extract the authorization token from the request headers."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:]  # Remove "Bearer " prefix
+    return auth_header
 
 
 class DataPacketAPI:
@@ -84,48 +90,64 @@ class DataPacketAPI:
         """Set up exception handlers for converting service exceptions to HTTP responses."""
 
         @self.app.exception_handler(DataPacketNotFoundError)
-        async def handle_data_packet_not_found(request, exc: DataPacketNotFoundError):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        async def handle_data_packet_not_found(
+            _request: Request,
+            exc: DataPacketNotFoundError,
+        ) -> Response:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)}
+            )
 
         @self.app.exception_handler(DataPacketAlreadyExistsError)
         async def handle_data_packet_already_exists(
-            request, exc: DataPacketAlreadyExistsError
-        ):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+            _request: Request,
+            exc: DataPacketAlreadyExistsError,
+        ) -> Response:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)}
+            )
 
         @self.app.exception_handler(DataPacketValidationError)
         async def handle_data_packet_validation_error(
-            request, exc: DataPacketValidationError
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            _request: Request,
+            exc: DataPacketValidationError,
+        ) -> Response:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
             )
 
         @self.app.exception_handler(DataPacketPermissionError)
         async def handle_data_packet_permission_error(
-            request, exc: DataPacketPermissionError
-        ):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+            _request: Request,
+            exc: DataPacketPermissionError,
+        ) -> Response:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exc)}
+            )
 
         @self.app.exception_handler(DataPacketError)
         # pylint: disable=unused-argument
-        async def handle_data_packet_error(request, exc: DataPacketError):
+        async def handle_data_packet_error(
+            _request: Request, exc: DataPacketError
+        ) -> Response:
             print(f"Data packet error: {exc}")
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An unexpected error occurred while processing the data packet",
+                content={
+                    "detail": "An unexpected error occurred while processing the data packet"
+                },
             )
 
     async def create_data_packet(
         self,
         data_packet_create_request: DataPacketCreateRequest,
-        token: str = Depends(oauth2_scheme),
+        authorization: str = Depends(get_authorization_token),
     ) -> Response:
         """Create a data packet in the system.
 
         Args:
             data_packet_create_request: a request containing the data packet to be created
-            token: The JWT token from the Authorization header
+            authorization: The JWT token from the Authorization header
 
         Returns:
             The created data packet
@@ -133,15 +155,25 @@ class DataPacketAPI:
         Raises:
             HTTPException: If the token is invalid or the user is not authorized
         """
-        # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        # Validate the request by requesting the User from the identity service
+
+        user: IdentityServiceUser | None = await get_user_from_identity_service(
+            authorization
+        )
+        user_id = user.id if user else ""
+        profile_ids = [profile.id for profile in user.profiles] if user else []
 
         # Convert to internal model
         internal_data_packet = DataPacketInternal(
             **data_packet_create_request.data_packet.model_dump()
         )
         internal_data_packet.user_id = user_id
+
+        # Assert that profile ID is in the list of profile IDs
+        if data_packet_create_request.data_packet.profile_id not in profile_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Profile ID not found"
+            )
 
         # Pass data packet to service layer to be processed and stored
         # Service layer will handle all error cases and raise appropriate exceptions
@@ -157,13 +189,13 @@ class DataPacketAPI:
     async def update_data_packet(
         self,
         data_packet_update_request: DataPacketUpdateRequest,
-        token: str = Depends(oauth2_scheme),
+        authorization: str = Depends(get_authorization_token),
     ) -> Response:
         """Update a data packet in the system.
 
         Args:
             data_packet_update_request: a request containing the data packet to be updated
-            token: The JWT token from the Authorization header
+            authorization: The JWT token from the Authorization header
 
         Returns:
             The updated data packet
@@ -172,8 +204,10 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        user: IdentityServiceUser | None = await get_user_from_identity_service(
+            authorization
+        )
+        user_id = user.id if user else ""
 
         # Convert to internal model
         internal_data_packet = DataPacketInternal(
@@ -194,32 +228,38 @@ class DataPacketAPI:
         return JSONResponse(content=jsonable_encoder(response_data_packet))
 
     async def delete_data_packet(
-        self, data_packet_id: str, token: str = Depends(oauth2_scheme)
+        self,
+        data_packet_id: str,
+        authorization: str = Depends(get_authorization_token),
     ) -> Response:
         """Delete a data packet from the system.
 
         Args:
             data_packet_id: the ID of the data packet to be deleted
-            token: The JWT token from the Authorization header
+            authorization: The JWT token from the Authorization header
 
         Raises:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        user: IdentityServiceUser | None = await get_user_from_identity_service(
+            authorization
+        )
+        user_id = user.id if user else ""
 
         self.service.delete_data_packet(user_id, data_packet_id)
         return JSONResponse(content={"message": "Data packet deleted successfully"})
 
     async def get_data_packet(
-        self, data_packet_id: str, token: str = Depends(oauth2_scheme)
+        self,
+        data_packet_id: str,
+        authorization: str = Depends(get_authorization_token),
     ) -> Response:
         """Get a data packet from the system by its ID.
 
         Args:
             data_packet_id: the ID of the data packet to be retrieved
-            token: The JWT token from the Authorization header
+            authorization: The JWT token from the Authorization header
 
         Returns:
             The data packet
@@ -228,8 +268,11 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+
+        user: IdentityServiceUser | None = await get_user_from_identity_service(
+            authorization
+        )
+        user_id = user.id if user else ""
 
         data_packet = self.service.get_data_packet(user_id, data_packet_id)
 
@@ -243,13 +286,13 @@ class DataPacketAPI:
         query_params: DataPacketQueryParams = Depends(
             DataPacketQueryParams.as_query_params
         ),
-        token: str = Depends(oauth2_scheme),
+        authorization: str = Depends(get_authorization_token),
     ) -> Response:
         """List data packets with filtering and pagination.
 
         Args:
             query: Query parameters for filtering and pagination
-            token: The JWT token from the Authorization header
+            authorization: The JWT token from the Authorization header
 
         Returns:
             A list of data packets for the authenticated user
@@ -257,9 +300,12 @@ class DataPacketAPI:
         Raises:
             HTTPException: If the token is invalid
         """
+
         # Validate token and get user ID
-        token_data = self.jwt_manager.verify_token_or_raise(token)
-        user_id = token_data.user_id
+        user: IdentityServiceUser | None = await get_user_from_identity_service(
+            authorization
+        )
+        user_id = user.id if user else ""
 
         # Convert to internal query params
         internal_query_params = DataPacketQueryParamsInternal(

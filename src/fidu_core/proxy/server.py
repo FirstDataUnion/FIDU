@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .router import create_proxy_router
-from .config import proxy_config
+from .config import get_proxy_config
 
 
 def create_proxy_app() -> FastAPI:
@@ -18,7 +18,7 @@ def create_proxy_app() -> FastAPI:
     )
 
     # Configure CORS
-    config = proxy_config.get_proxy_server_config()
+    config = get_proxy_config().get_proxy_server_config()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config["cors_origins"],
@@ -43,7 +43,7 @@ def run_proxy_server(host: str = None, port: int = None):
     """Run the standalone proxy server."""
     app = create_proxy_app()
 
-    config = proxy_config.get_proxy_server_config()
+    config = get_proxy_config().get_proxy_server_config()
     host = host or config["host"]
     port = port or config["port"]
 
