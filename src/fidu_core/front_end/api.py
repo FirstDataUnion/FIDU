@@ -10,7 +10,6 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer
-from fidu_core.security import JWTManager, PasswordHasher
 from fidu_core.data_packets.service import DataPacketService
 from fidu_core.data_packets.schema import DataPacketQueryParamsInternal
 from fidu_core.data_packets.exceptions import DataPacketError
@@ -55,8 +54,6 @@ class FrontEndAPI:
         """
         self.app = app
         self.data_packet_service = data_packet_service
-        self.jwt_manager = JWTManager()
-        self.password_hasher = PasswordHasher()
 
         templates_dir = BASE_PATH / "fidu_core" / "front_end" / "templates"
 
@@ -145,9 +142,7 @@ class FrontEndAPI:
                 # Fetch user from identity service
                 user = await get_user_from_identity_service(token)
                 return user.id if user else None
-        # TODO: This is not the right kind of exception to catch here, should adjust what is
-        # returned from jwt_manager
-        # Catch unauthed exceptions from jwt_manager
+        # Catch unauthed exceptions
         except HTTPException:
             pass
         return None

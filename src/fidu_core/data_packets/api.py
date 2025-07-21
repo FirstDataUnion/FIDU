@@ -4,7 +4,6 @@ from typing import List
 from fastapi import FastAPI, HTTPException, Depends, status, Response, Request
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from fidu_core.security import JWTManager
 from fidu_core.identity_service.client import get_user_from_identity_service
 from fidu_core.users.schema import IdentityServiceUser
 from .schema import (
@@ -45,7 +44,6 @@ class DataPacketAPI:
         """
         self.service = service
         self.app = app
-        self.jwt_manager = JWTManager()
         self._setup_routes()
         self._setup_exception_handlers()
 
