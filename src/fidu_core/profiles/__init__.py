@@ -4,8 +4,8 @@ FIDU Core Profiles Package
 This package provides profile management functionality for the FIDU system.
 """
 
-from .schema import Profile
+from .schema import IdentityServiceProfile
 
 __all__ = [
-    "Profile",
+    "IdentityServiceProfile",
 ]

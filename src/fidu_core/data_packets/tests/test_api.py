@@ -30,7 +30,8 @@ from ..exceptions import (
 )
 from ...security.jwt import TokenData
 from ...identity_service.client import get_user_from_identity_service
-from ...users.schema import IdentityServiceUser, IdentityServiceProfile
+from ...users.schema import IdentityServiceUser
+from ...profiles.schema import IdentityServiceProfile
 
 
 @pytest.fixture

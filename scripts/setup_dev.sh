@@ -81,7 +81,7 @@ cd ../../..
 # Install mypy type stubs
 echo "📝 Installing mypy type stubs..."
 # MyPy often fails on the first attempt to install the type stubs due to 
-# being unable to find certain venv files (often argon2) despite them existing. 
+# being unable to find certain venv files despite them existing. 
 # Reactivating the .venv seems to be the most reliable way to make it find the 
 # existing files. 
 source .venv/bin/activate 
