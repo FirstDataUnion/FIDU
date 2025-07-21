@@ -4,7 +4,8 @@ import os
 import logging
 import httpx
 from fastapi import HTTPException
-from fidu_core.users.schema import IdentityServiceUser, IdentityServiceProfile
+from fidu_core.users.schema import IdentityServiceUser
+from fidu_core.profiles.schema import IdentityServiceProfile
 
 logger = logging.getLogger(__name__)
 
