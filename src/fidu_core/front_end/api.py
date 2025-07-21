@@ -142,7 +142,7 @@ class FrontEndAPI:
                 # Fetch user from identity service
                 user = await get_user_from_identity_service(token)
                 return user.id if user else None
-        # Catch unauthed exceptions 
+        # Catch unauthed exceptions
         except HTTPException:
             pass
         return None
