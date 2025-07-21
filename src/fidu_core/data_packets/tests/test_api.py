@@ -28,7 +28,6 @@ from ..exceptions import (
     DataPacketPermissionError,
     DataPacketError,
 )
-from ...security.jwt import TokenData
 from ...identity_service.client import get_user_from_identity_service
 from ...users.schema import IdentityServiceUser
 from ...profiles.schema import IdentityServiceProfile
@@ -59,12 +58,6 @@ def api(app, mock_service):
 def test_client(app):
     """Create a test client for the FastAPI app."""
     return TestClient(app)
-
-
-@pytest.fixture
-def sample_token_data():
-    """Create sample token data for testing."""
-    return TokenData(user_id="test_user_123")
 
 
 @pytest.fixture
@@ -155,7 +148,6 @@ class TestExceptionHandlers:
         api,
         test_client,
         mock_service,
-        sample_token_data,
         sample_identity_service_user,
     ):
         """Test that exception handler returns a 404 if the data packet is not found."""
@@ -183,7 +175,6 @@ class TestExceptionHandlers:
         api,
         test_client,
         mock_service,
-        sample_token_data,
         sample_identity_service_user,
     ):
         """Test that exception handler returns a 409 if the data packet already exists."""
@@ -211,7 +202,6 @@ class TestExceptionHandlers:
         api,
         test_client,
         mock_service,
-        sample_token_data,
         sample_identity_service_user,
     ):
         """Test that exception handler returns a 400 if the data packet validation error."""
@@ -236,7 +226,6 @@ class TestExceptionHandlers:
         api,
         test_client,
         mock_service,
-        sample_token_data,
         sample_identity_service_user,
     ):
         """Test that exception handler returns a 403 if the data packet permission error."""
@@ -264,7 +253,6 @@ class TestExceptionHandlers:
         api,
         test_client,
         mock_service,
-        sample_token_data,
         sample_identity_service_user,
     ):
         """Test that exception handler returns a 500 if a general data packet error occurs."""

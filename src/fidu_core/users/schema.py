@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from fidu_core.profiles.schema import IdentityServiceProfile
 
+
 class IdentityServiceUser(BaseModel):
     """Model for representing Users from the Identity Service.
     This model aligns with the Identity service definition, and should not be changed.

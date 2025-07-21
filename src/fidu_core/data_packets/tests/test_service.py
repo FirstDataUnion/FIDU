@@ -17,7 +17,7 @@ from ..exceptions import (
     DataPacketAlreadyExistsError,
     DataPacketPermissionError,
 )
-from fidu_core.profiles.schema import ProfileInternal
+from fidu_core.profiles.schema import IdentityServiceProfile
 
 
 @pytest.fixture
@@ -41,11 +41,13 @@ def sample_timestamp():
 @pytest.fixture
 def sample_profile():
     """Create a sample profile for testing."""
-    return ProfileInternal(
+    return IdentityServiceProfile(
         id="test_profile_123",
         user_id="test_user_123",
-        name="Test Profile",
-        description="A test profile",
+        display_name="Test Profile",
+        is_active=True,
+        created_at=datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2025, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
     )
 
 
