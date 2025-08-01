@@ -33,7 +33,7 @@ There is a basic front end that allows users to view their raw stored data and m
 - **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
 - **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and you should treat it, for now, like an unencrypted file on your locla machine. If someone gains access to your local machine, they will be able to see what is stored in the FIDU Core. This is an experimental alpha, and we cannot yet guarantee the security of data stored.
 
-### ACM Manager
+### FIDU-Chat-Grabber
 
 A Chrome plugin that allows the automatic capture of conversations with chatbots. Supports:
 - ChatGPT
@@ -57,7 +57,7 @@ Links to download pre-compiled versions: https://github.com/FirstDataUnion/FIDU/
 
 Once downloaded, you can run the executable to start the local FIDU Core server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
 
-### ACM Manager
+### FIDU-Chat-Grabber
 
 More detailed information on this plugin can be found here:  
 https://github.com/FirstDataUnion/FIDU/blob/main/src/data_acquisition/acm-manager/README.md
