@@ -1,0 +1,161 @@
+<!-- Data Packets List -->
+<div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <!-- Filters -->
+    <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-0">
+                <label for="profile-filter" class="block text-sm font-medium text-gray-700">Profile</label>
+                <select id="profile-filter" name="profile_id" 
+                        hx-get="/data-packets/list" 
+                        hx-target="#data-packets-list" 
+                        hx-trigger="change"
+                        hx-include="[name='tags'], [name='limit']"
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                    <option value="">All Profiles</option>
+                    {% if available_profiles %}
+                        {% for profile in available_profiles %}
+                        <option value="{{ profile.id }}" {% if query_params.profile_id == profile.id %}selected{% endif %}>
+                            {{ profile.display_name }}
+                        </option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+            
+            <div class="flex-1 min-w-0">
+                <label for="tags-filter" class="block text-sm font-medium text-gray-700">Tags</label>
+                <input type="text" id="tags-filter" name="tags" placeholder="Enter tags (comma separated)"
+                       value="{{ query_params.tags }}"
+                       hx-get="/data-packets/list" 
+                       hx-target="#data-packets-list" 
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-include="[name='profile_id'], [name='limit']"
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            
+            <div class="w-32">
+                <label for="limit-filter" class="block text-sm font-medium text-gray-700">Limit</label>
+                <select id="limit-filter" name="limit" 
+                        hx-get="/data-packets/list" 
+                        hx-target="#data-packets-list" 
+                        hx-trigger="change"
+                        hx-include="[name='profile_id'], [name='tags']"
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                    <option value="10" {% if query_params.limit == "10" %}selected{% endif %}>10</option>
+                    <option value="25" {% if query_params.limit == "25" %}selected{% endif %}>25</option>
+                    <option value="50" {% if query_params.limit == "50" %}selected{% endif %}>50</option>
+                    <option value="100" {% if query_params.limit == "100" %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Packets -->
+    <ul class="divide-y divide-gray-200">
+        {% if data_packets %}
+            {% for packet in data_packets %}
+            <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center flex-1 min-w-0">
+                        <div class="flex-shrink-0">
+                            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-1 min-w-0">
+                            <div class="flex items-center">
+                                <p class="text-sm font-medium text-gray-900 truncate">
+                                    {{ packet.id }}
+                                </p>
+                            </div>
+                            <div class="mt-1 flex items-center text-sm text-gray-500">
+                                <p>Profile ID: {{ packet.profile_id }}</p>
+                                <span class="mx-2">•</span>
+                                <p>Created: {{ packet.create_timestamp.strftime('%Y-%m-%d %H:%M') if packet.create_timestamp else 'Unknown' }}</p>
+                            </div>
+                            {% if packet.tags %}
+                            <div class="mt-1 flex flex-wrap gap-1">
+                                {% for tag in packet.tags %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ tag }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="mt-1 flex items-center text-sm text-gray-500">
+                                <p>Data:</p>
+                            </div>
+                            <div id="data-container-{{ packet.id }}" class="bg-gray-100 border border-gray-200 rounded text-sm text-gray-500 max-h-32 overflow-auto transition-all duration-300 ease-in-out">
+                                <pre class="text-xs text-gray-700 p-2 whitespace-pre-wrap break-words">{{ packet.data | tojson(indent=2) }}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        <button id="expand-btn-{{ packet.id }}" 
+                                class="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                                onclick="toggleDataExpansion('{{ packet.id }}')">
+                            Expand
+                        </button>
+                        <button class="text-red-600 hover:text-red-900 text-sm font-medium" 
+                                hx-delete="/data-packets/delete?data_packet_id={{ packet.id }}" 
+                                hx-target="this" 
+                                hx-trigger="click"
+                                hx-swap="none"
+                                hx-on::after-request="if(event.detail.xhr.status === 200) { 
+                                    showSuccess('Data packet deleted successfully'); 
+                                    htmx.ajax('GET', '/data-packets/list', {
+                                        target: '#data-packets-list', 
+                                        swap: 'innerHTML', 
+                                        values: {
+                                            profile_id: document.getElementById('profile-filter').value,
+                                            tags: document.getElementById('tags-filter').value,
+                                            limit: document.getElementById('limit-filter').value
+                                        }
+                                    }); 
+                                }">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        {% else %}
+            <li class="px-4 py-8 sm:px-6">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No data packets</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        {% if query_params.profile_id or query_params.tags %}
+                            No data packets found with the current filters.
+                        {% else %}
+                            Get started by creating your first data packet.
+                        {% endif %}
+                    </p>
+                </div>
+            </li>
+        {% endif %}
+    </ul>
+</div>
+
+<script>
+function toggleDataExpansion(packetId) {
+    const dataContainer = document.getElementById(`data-container-${packetId}`);
+    const expandBtn = document.getElementById(`expand-btn-${packetId}`);
+    
+    if (dataContainer.classList.contains('max-h-32')) {
+        // Expand the container
+        dataContainer.classList.remove('max-h-32');
+        dataContainer.classList.add('max-h-96');
+        expandBtn.textContent = 'Minimize';
+    } else {
+        // Minimize the container
+        dataContainer.classList.remove('max-h-96');
+        dataContainer.classList.add('max-h-32');
+        expandBtn.textContent = 'Expand';
+    }
+}
+</script> 

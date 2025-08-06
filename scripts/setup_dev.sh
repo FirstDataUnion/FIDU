@@ -103,14 +103,14 @@ if [ ! -f ".env" ]; then
     fi
 fi
 
-# Install npm dependencies for acm-front-end
-echo "📦 Installing npm dependencies for acm-front-end..."
-if [ ! -d "src/apps/acm-front-end" ]; then
-    echo "❌ acm-front-end directory not found"
+# Install npm dependencies for chat-lab
+echo "📦 Installing npm dependencies for chat-lab..."
+if [ ! -d "src/apps/chat-lab" ]; then
+    echo "❌ chat-lab directory not found"
     exit 1
 fi
 
-cd src/apps/acm-front-end
+cd src/apps/chat-lab
 if ! npm install --legacy-peer-deps; then
     echo "❌ Failed to install npm dependencies"
     exit 1
@@ -175,7 +175,7 @@ M###################@%=           =+@MH%
 The virtual environment has been activated automatically.
 You can now run the server with:
 
-uvicorn src.fidu_core.main:app --port 4000 --reload
+uvicorn src.fidu_vault.main:app --port 4000 --reload
 
 Code quality checks will run automatically before each push.
 To manage hooks, use: ./scripts/manage_hooks.sh status

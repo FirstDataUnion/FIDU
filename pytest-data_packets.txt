@@ -6,55 +6,55 @@ configfile: pyproject.toml
 plugins: cov-6.2.1, anyio-3.7.1
 collecting ... collected 76 items
 
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestInfrastructure::test_store_initialization PASSED [  1%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestInfrastructure::test_database_tables_created PASSED [  2%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_minimal_row_converts_to_packet_correctly PASSED [  3%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_tags_converts_to_packet_correctly PASSED [  5%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_data_converts_to_packet_correctly PASSED [  6%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_tags_and_data_converts_to_packet_correctly PASSED [  7%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestSyncTagsToJunctionTable::test_removes_existing_tags PASSED [  9%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestSyncTagsToJunctionTable::test_inserts_new_tags PASSED [ 10%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_correctly PASSED [ 11%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_with_tags_correctly PASSED [ 13%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_with_data_correctly PASSED [ 14%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_creates_timestamps_if_not_provided PASSED [ 15%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_returns_packet_already_exists_exception_on_duplicate_id PASSED [ 17%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_returns_existing_packet_on_request_id_collision_with_same_profile_id PASSED [ 18%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_raises_exception_on_request_id_collision_with_different_profile_id PASSED [ 19%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_only_tags_correctly PASSED [ 21%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_only_data_correctly PASSED [ 22%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_tags_and_data_correctly PASSED [ 23%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_packet_not_found_exception_on_missing_packet PASSED [ 25%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_existing_packet_on_idempotent_request PASSED [ 26%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_existing_packet_on_idempotent_request_with_different_values PASSED [ 27%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_latest_packet_on_idempotent_request PASSED [ 28%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_all_packets_correctly PASSED [ 30%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_empty_list_if_no_packets_found PASSED [ 31%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_empty_list_if_no_packets_found_for_user PASSED [ 32%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_profile_id PASSED [ 34%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_from_timestamp PASSED [ 35%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_to_timestamp PASSED [ 36%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_single_tag PASSED [ 38%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_multiple_tags PASSED [ 39%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_all_parameters PASSED [ 40%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_limits_results PASSED [ 42%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_offsets_results PASSED [ 43%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_sorts_results_by_create_timestamp_ascending PASSED [ 44%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_sorts_results_by_create_timestamp_descending PASSED [ 46%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestDeleteDataPacket::test_deletes_packet_correctly PASSED [ 47%]
-src/fidu_core/data_packets/store/tests/test_local_sql.py::TestDeleteDataPacket::test_returns_packet_not_found_exception_on_missing_packet PASSED [ 48%]
-src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_404_if_data_packet_not_found FAILED [ 50%]
-src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_409_if_data_packet_already_exists FAILED [ 51%]
-src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_400_if_data_packet_validation_error FAILED [ 52%]
-src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_403_if_data_packet_permission_error FAILED [ 53%]
-src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_500_if_data_packet_error FAILED [ 55%]
-src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_passes_request_to_service FAILED [ 56%]
-src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_422_if_request_id_is_missing PASSED [ 57%]
-src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_422_if_data_packet_is_missing PASSED [ 59%]
-src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_409_if_data_packet_already_exists_error_raised_from_service FAILED [ 60%]
-src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_401_if_invalid_token FAILED [ 61%]
-src/fidu_core/data_packets/tests/test_api.py::TestUpdateDataPacket::test_passes_request_to_service FAILED [ 63%]
-src/fidu_core/data_packets/tests/test_api.py::TestUpdateDataPacket::test_raises_404_if_data_packet_not_found FAILED [ 64%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestInfrastructure::test_store_initialization PASSED [  1%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestInfrastructure::test_database_tables_created PASSED [  2%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_minimal_row_converts_to_packet_correctly PASSED [  3%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_tags_converts_to_packet_correctly PASSED [  5%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_data_converts_to_packet_correctly PASSED [  6%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestRowToDataPacket::test_row_with_tags_and_data_converts_to_packet_correctly PASSED [  7%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestSyncTagsToJunctionTable::test_removes_existing_tags PASSED [  9%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestSyncTagsToJunctionTable::test_inserts_new_tags PASSED [ 10%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_correctly PASSED [ 11%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_with_tags_correctly PASSED [ 13%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_stores_packet_with_data_correctly PASSED [ 14%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_creates_timestamps_if_not_provided PASSED [ 15%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_returns_packet_already_exists_exception_on_duplicate_id PASSED [ 17%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_returns_existing_packet_on_request_id_collision_with_same_profile_id PASSED [ 18%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestStoreDataPacket::test_raises_exception_on_request_id_collision_with_different_profile_id PASSED [ 19%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_only_tags_correctly PASSED [ 21%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_only_data_correctly PASSED [ 22%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_updates_packet_with_tags_and_data_correctly PASSED [ 23%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_packet_not_found_exception_on_missing_packet PASSED [ 25%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_existing_packet_on_idempotent_request PASSED [ 26%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_existing_packet_on_idempotent_request_with_different_values PASSED [ 27%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestUpdateDataPacket::test_returns_latest_packet_on_idempotent_request PASSED [ 28%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_all_packets_correctly PASSED [ 30%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_empty_list_if_no_packets_found PASSED [ 31%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_returns_empty_list_if_no_packets_found_for_user PASSED [ 32%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_profile_id PASSED [ 34%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_from_timestamp PASSED [ 35%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_to_timestamp PASSED [ 36%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_single_tag PASSED [ 38%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_multiple_tags PASSED [ 39%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_filters_by_all_parameters PASSED [ 40%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_limits_results PASSED [ 42%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_offsets_results PASSED [ 43%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_sorts_results_by_create_timestamp_ascending PASSED [ 44%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestListDataPackets::test_sorts_results_by_create_timestamp_descending PASSED [ 46%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestDeleteDataPacket::test_deletes_packet_correctly PASSED [ 47%]
+src/fidu_vault/data_packets/store/tests/test_local_sql.py::TestDeleteDataPacket::test_returns_packet_not_found_exception_on_missing_packet PASSED [ 48%]
+src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_404_if_data_packet_not_found FAILED [ 50%]
+src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_409_if_data_packet_already_exists FAILED [ 51%]
+src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_400_if_data_packet_validation_error FAILED [ 52%]
+src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_403_if_data_packet_permission_error FAILED [ 53%]
+src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_500_if_data_packet_error FAILED [ 55%]
+src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_passes_request_to_service FAILED [ 56%]
+src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_422_if_request_id_is_missing PASSED [ 57%]
+src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_422_if_data_packet_is_missing PASSED [ 59%]
+src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_409_if_data_packet_already_exists_error_raised_from_service FAILED [ 60%]
+src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_401_if_invalid_token FAILED [ 61%]
+src/fidu_vault/data_packets/tests/test_api.py::TestUpdateDataPacket::test_passes_request_to_service FAILED [ 63%]
+src/fidu_vault/data_packets/tests/test_api.py::TestUpdateDataPacket::test_raises_404_if_data_packet_not_found FAILED [ 64%]
 
 =================================== FAILURES ===================================
 ___________ TestExceptionHandlers.test_404_if_data_packet_not_found ____________
@@ -87,7 +87,7 @@ ___________ TestExceptionHandlers.test_404_if_data_packet_not_found ____________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:128: in test_404_if_data_packet_not_found
+src/fidu_vault/data_packets/tests/test_api.py:128: in test_404_if_data_packet_not_found
     response = test_client.get(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:479: in get
     return super().get(
@@ -157,9 +157,9 @@ src/fidu_core/data_packets/tests/test_api.py:128: in test_404_if_data_packet_not
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:287: in get_data_packet
+src/fidu_vault/data_packets/api.py:287: in get_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -214,7 +214,7 @@ _________ TestExceptionHandlers.test_409_if_data_packet_already_exists _________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:144: in test_409_if_data_packet_already_exists
+src/fidu_vault/data_packets/tests/test_api.py:144: in test_409_if_data_packet_already_exists
     response = test_client.get(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:479: in get
     return super().get(
@@ -284,9 +284,9 @@ src/fidu_core/data_packets/tests/test_api.py:144: in test_409_if_data_packet_alr
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:287: in get_data_packet
+src/fidu_vault/data_packets/api.py:287: in get_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -341,7 +341,7 @@ ________ TestExceptionHandlers.test_400_if_data_packet_validation_error ________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:160: in test_400_if_data_packet_validation_error
+src/fidu_vault/data_packets/tests/test_api.py:160: in test_400_if_data_packet_validation_error
     response = test_client.get(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:479: in get
     return super().get(
@@ -411,9 +411,9 @@ src/fidu_core/data_packets/tests/test_api.py:160: in test_400_if_data_packet_val
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:287: in get_data_packet
+src/fidu_vault/data_packets/api.py:287: in get_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -468,7 +468,7 @@ ________ TestExceptionHandlers.test_403_if_data_packet_permission_error ________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:176: in test_403_if_data_packet_permission_error
+src/fidu_vault/data_packets/tests/test_api.py:176: in test_403_if_data_packet_permission_error
     response = test_client.get(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:479: in get
     return super().get(
@@ -538,9 +538,9 @@ src/fidu_core/data_packets/tests/test_api.py:176: in test_403_if_data_packet_per
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:287: in get_data_packet
+src/fidu_vault/data_packets/api.py:287: in get_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -595,7 +595,7 @@ _____________ TestExceptionHandlers.test_500_if_data_packet_error ______________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:190: in test_500_if_data_packet_error
+src/fidu_vault/data_packets/tests/test_api.py:190: in test_500_if_data_packet_error
     response = test_client.get(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:479: in get
     return super().get(
@@ -665,9 +665,9 @@ src/fidu_core/data_packets/tests/test_api.py:190: in test_500_if_data_packet_err
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:287: in get_data_packet
+src/fidu_vault/data_packets/api.py:287: in get_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -722,7 +722,7 @@ _____________ TestCreateDataPacket.test_passes_request_to_service ______________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:224: in test_passes_request_to_service
+src/fidu_vault/data_packets/tests/test_api.py:224: in test_passes_request_to_service
     response = test_client.post(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:552: in post
     return super().post(
@@ -792,9 +792,9 @@ src/fidu_core/data_packets/tests/test_api.py:224: in test_passes_request_to_serv
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:158: in create_data_packet
+src/fidu_vault/data_packets/api.py:158: in create_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -849,7 +849,7 @@ _ TestCreateDataPacket.test_raises_409_if_data_packet_already_exists_error_raise
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:301: in test_raises_409_if_data_packet_already_exists_error_raised_from_service
+src/fidu_vault/data_packets/tests/test_api.py:301: in test_raises_409_if_data_packet_already_exists_error_raised_from_service
     response = test_client.post(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:552: in post
     return super().post(
@@ -919,9 +919,9 @@ src/fidu_core/data_packets/tests/test_api.py:301: in test_raises_409_if_data_pac
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:158: in create_data_packet
+src/fidu_vault/data_packets/api.py:158: in create_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -976,7 +976,7 @@ ____________ TestCreateDataPacket.test_raises_401_if_invalid_token _____________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:327: in test_raises_401_if_invalid_token
+src/fidu_vault/data_packets/tests/test_api.py:327: in test_raises_401_if_invalid_token
     response = test_client.post(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:552: in post
     return super().post(
@@ -1046,9 +1046,9 @@ src/fidu_core/data_packets/tests/test_api.py:327: in test_raises_401_if_invalid_
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:158: in create_data_packet
+src/fidu_vault/data_packets/api.py:158: in create_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -1103,7 +1103,7 @@ _____________ TestUpdateDataPacket.test_passes_request_to_service ______________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:362: in test_passes_request_to_service
+src/fidu_vault/data_packets/tests/test_api.py:362: in test_passes_request_to_service
     response = test_client.put(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:583: in put
     return super().put(
@@ -1173,9 +1173,9 @@ src/fidu_core/data_packets/tests/test_api.py:362: in test_passes_request_to_serv
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:213: in update_data_packet
+src/fidu_vault/data_packets/api.py:213: in update_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -1230,7 +1230,7 @@ ________ TestUpdateDataPacket.test_raises_404_if_data_packet_not_found _________
 E   httpcore.ConnectError: All connection attempts failed
 
 The above exception was the direct cause of the following exception:
-src/fidu_core/data_packets/tests/test_api.py:407: in test_raises_404_if_data_packet_not_found
+src/fidu_vault/data_packets/tests/test_api.py:407: in test_raises_404_if_data_packet_not_found
     response = test_client.put(
 .venv/lib/python3.13/site-packages/starlette/testclient.py:583: in put
     return super().put(
@@ -1300,9 +1300,9 @@ src/fidu_core/data_packets/tests/test_api.py:407: in test_raises_404_if_data_pac
 .venv/lib/python3.13/site-packages/fastapi/routing.py:213: in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src/fidu_core/data_packets/api.py:213: in update_data_packet
+src/fidu_vault/data_packets/api.py:213: in update_data_packet
     user: IdentityServiceUser | None = await get_user_from_identity_service(
-src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
+src/fidu_vault/identity_service/client.py:25: in get_user_from_identity_service
     response = await client.get(
 .venv/lib/python3.13/site-packages/httpx/_client.py:1768: in get
     return await self.request(
@@ -1328,15 +1328,15 @@ src/fidu_core/identity_service/client.py:25: in get_user_from_identity_service
     raise mapped_exc(message) from exc
 E   httpx.ConnectError: All connection attempts failed
 =========================== short test summary info ============================
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_404_if_data_packet_not_found
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_409_if_data_packet_already_exists
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_400_if_data_packet_validation_error
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_403_if_data_packet_permission_error
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestExceptionHandlers::test_500_if_data_packet_error
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_passes_request_to_service
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_409_if_data_packet_already_exists_error_raised_from_service
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_401_if_invalid_token
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestUpdateDataPacket::test_passes_request_to_service
-FAILED src/fidu_core/data_packets/tests/test_api.py::TestUpdateDataPacket::test_raises_404_if_data_packet_not_found
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_404_if_data_packet_not_found
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_409_if_data_packet_already_exists
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_400_if_data_packet_validation_error
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_403_if_data_packet_permission_error
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestExceptionHandlers::test_500_if_data_packet_error
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_passes_request_to_service
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_409_if_data_packet_already_exists_error_raised_from_service
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestCreateDataPacket::test_raises_401_if_invalid_token
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestUpdateDataPacket::test_passes_request_to_service
+FAILED src/fidu_vault/data_packets/tests/test_api.py::TestUpdateDataPacket::test_raises_404_if_data_packet_not_found
 !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 10 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
 ======================== 10 failed, 39 passed in 19.62s ========================

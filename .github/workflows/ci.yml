@@ -80,25 +80,25 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: src/apps/acm-front-end/package-lock.json
+        cache-dependency-path: src/apps/chat-lab/package-lock.json
         
     - name: Install frontend dependencies
-      working-directory: src/apps/acm-front-end
+      working-directory: src/apps/chat-lab
       run: |
         npm ci --legacy-peer-deps
         
     - name: Run frontend linting
-      working-directory: src/apps/acm-front-end
+      working-directory: src/apps/chat-lab
       run: |
         npm run lint
         
     - name: Run frontend type checking
-      working-directory: src/apps/acm-front-end
+      working-directory: src/apps/chat-lab
       run: |
         npx tsc --noEmit
         
     - name: Build frontend
-      working-directory: src/apps/acm-front-end
+      working-directory: src/apps/chat-lab
       run: |
         npm run build
 
@@ -133,7 +133,7 @@ jobs:
     - name: Test API endpoints
       run: |
         # Start the server in background and test endpoints
-        # uvicorn src.fidu_core.main:app --host 0.0.0.0 --port 8000 &
+        # uvicorn src.fidu_vault.main:app --host 0.0.0.0 --port 8000 &
         # sleep 5
         # curl -f http://localhost:8000/health || exit 1
         echo "API endpoint tests placeholder - add your API test commands here"
@@ -186,7 +186,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -e ".[dev]"
-        cd src/apps/acm-front-end && npm ci --legacy-peer-deps
+        cd src/apps/chat-lab && npm ci --legacy-peer-deps
         
     - name: Verify Python package builds
       run: |
@@ -194,7 +194,7 @@ jobs:
         python -m build
         
     - name: Verify frontend builds
-      working-directory: src/apps/acm-front-end
+      working-directory: src/apps/chat-lab
       run: |
         npm run build
 

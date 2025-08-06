@@ -22,7 +22,7 @@ The application will collect user data via an extensible ecosystem of data colle
 
 ## Current Functionality
 
-### FIDU Core
+### FIDU Vault
 
 A locally run server that must be running to use other apps. It manages the storage and retrieval of user data and currently offers local storage only.
 
@@ -33,7 +33,7 @@ There is a basic front end that allows users to view their raw stored data and m
 - **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
 - **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and avoid storing any sensitive data in the application. This is an experimental alpha, and we cannot yet guarantee the security of data stored.
 
-### ACM Manager
+### FIDU Chat Grabber
 
 A Chrome plugin that allows the automatic capture of conversations with chatbots. Supports:
 - ChatGPT
@@ -42,14 +42,14 @@ A Chrome plugin that allows the automatic capture of conversations with chatbots
 - Poe
 - Perplexity
 
-Conversations are stored in FIDU Core and will be available for use in future application layer programs.
+Conversations are stored in FIDU Vault and will be available for use in future application layer programs.
 
 **IMPORTANT:**  
-Currently, the ACM-Manager plugin can only store data if the FIDU Server is running on your machine, and there is no mechanism (yet) to hold data for later use.
+Currently, the FIDU-Chat-Grabber plugin can only store data if the FIDU Server is running on your machine, and there is no mechanism (yet) to hold data for later use.
 
 ## Installation
 
-### FIDU Core
+### FIDU Vault
 
 We currently provide three versions of the pre-built FIDU program: Windows, macOS, and Linux.
 
@@ -57,25 +57,25 @@ We currently provide three versions of the pre-built FIDU program: Windows, macO
 
 Coming Soon: Links to download these.
 
-Once downloaded, you can run the executable to start the local FIDU Core server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
+Once downloaded, you can run the executable to start the local FIDU Vault server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
 
-### ACM Manager
+### FIDU Chat Grabber
 
 More detailed information on this plugin can be found here:  
-https://github.com/FirstDataUnion/FIDU/blob/main/src/data_acquisition/acm-manager/README.md
+https://github.com/FirstDataUnion/FIDU/blob/main/src/data_acquisition/fidu-chat-grabber/README.md
 
 To install it into Chrome, perform the following:
 
 1. Open Chrome and navigate to chrome://extensions/
 2. Enable "Developer mode" (toggle in the top right)
-3. Click "Load unpacked" and select the extension directory (.../FIDU/src/data_acquisition/acm-manager)
-4. The ACM Manager icon should appear in your Chrome toolbar
+3. Click "Load unpacked" and select the extension directory (.../FIDU/src/data_acquisition/fidu-chat-grabber)
+4. The FIDU Chat Grabber icon should appear in your Chrome toolbar
 
-Once installed, use the plugin option box in the top right of your browser to log into your FIDU account. Any conversations in the supported chatbots in Chrome will be automatically saved to FIDU Core.
+Once installed, use the plugin option box in the top right of your browser to log into your FIDU account. Any conversations in the supported chatbots in Chrome will be automatically saved to FIDU Vault.
 
 ## Running in Developer Mode
 
-You may also run the FIDU Core server in development mode. To do this, run the following command from the project root to install all development dependencies:
+You may also run the FIDU Vault server in development mode. To do this, run the following command from the project root to install all development dependencies:
 
 ```sh
 source scripts/setup_dev.sh
@@ -86,14 +86,14 @@ It will also create and activate a Python venv, into which all requirements will
 Then a dev server can be run via either:
 
 ```sh
-uvicorn src.fidu_core.main:app --port 4000 --reload
+uvicorn src.fidu_vault.main:app --port 4000 --reload
 ```
 (this provides automatic hot-reload functionality)
 
 or
 
 ```sh
-.venv/bin/python src/fidu_core/main.py
+.venv/bin/python src/fidu_vault/main.py
 ```
 (no hot-reload)
 

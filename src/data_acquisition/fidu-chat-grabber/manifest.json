@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "FIDU Chat Grabber",
+  "description": "Captures and manages conversations from various chatbot platforms",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://poe.com/*",
+    "https://www.perplexity.ai/*",
+    "http://localhost:4000/*",
+    "http://127.0.0.1:4000/*"
+  ],
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://poe.com/*",
+        "https://www.perplexity.ai/*"
+      ],
+      "js": ["js/content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "pages/popup.html",
+    "default_title": "FIDU Chat Grabber"
+  },
+  "icons": {
+    "16": "images/icon16.svg",
+    "48": "images/icon48.svg",
+    "128": "images/icon128.svg"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["pages/viewer.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+} 

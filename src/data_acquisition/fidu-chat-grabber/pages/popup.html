@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDU Chat Grabber</title>
+    <style>
+        body {
+            width: 350px;
+            min-height: 400px;
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+        
+
+        
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button.primary {
+            background: #2196f3;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background: #1976d2;
+        }
+        
+        button.secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        button.danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        button.danger:hover {
+            background: #d32f2f;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        
+        .auth-section {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .auth-section h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .settings {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .settings h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
+        
+        .settings-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .settings-group:last-child {
+            border-bottom: none;
+            margin-bottom: 15px;
+        }
+        
+        .settings-group h4 {
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .settings-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .settings-buttons button {
+            flex: 1;
+        }
+        
+        .status-message {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .status-message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-message.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .auth-buttons button {
+            flex: 1;
+        }
+        
+        .user-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .profile-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+        }
+        
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .selected-profile-info {
+            font-size: 12px;
+            color: #666;
+            padding: 5px 0;
+        }
+        
+        #fiduAuthContainer {
+            min-height: 400px;
+            border: none;
+            width: 100%;
+        }
+        
+        #fiduAuthContainer iframe {
+            border: none;
+            width: 100%;
+            min-height: 400px;
+        }
+        
+        #settingsSection {
+            display: none;
+        }
+        
+        .error-message {
+            color: #f44336;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            color: #4caf50;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FIDU Chat Grabber</h1>
+    </div>
+    
+    <div class="status" id="status">Checking status...</div>
+    
+    <div class="auth-section">
+        <div id="authStatus" class="auth-status">
+            <div id="userInfo" class="user-info" style="display: none;">
+                <div id="userEmail"></div>
+                <div id="userName"></div>
+            </div>
+            
+            <div id="profileSection" class="profile-section" style="display: none;">
+                <div class="profile-header">
+                    <span>Selected Profile:</span>
+                    <button id="manageProfilesBtn" class="secondary">Manage</button>
+                </div>
+                <div id="selectedProfileInfo" class="selected-profile-info">
+                    <span id="selectedProfileName">No profile selected</span>
+                </div>
+            </div>
+            
+            <div class="auth-buttons">
+                <button id="toggleAuthBtn" class="primary">Login</button>
+            </div>
+        </div>
+        
+        <!-- FIDU SDK Auth Container -->
+        <div id="fiduAuthContainer" style="display: none;"></div>
+    </div>
+    
+
+    
+    <div class="actions">
+        <button id="viewConversationsBtn" class="primary">View Conversations</button>
+        <button id="exportBtn" class="secondary">Export Conversations</button>
+        <button id="settingsBtn" class="secondary">Settings</button>
+    </div>
+    
+    <div id="settingsSection" class="settings">
+        <h3>Settings</h3>
+        
+        <!-- FIDU Vault Settings -->
+        <div class="settings-group">
+            <h4>FIDU Vault Settings</h4>
+            <div class="form-group">
+                <label for="baseUrlInput">FIDU Vault API URL:</label>
+                <input type="url" id="baseUrlInput" placeholder="http://localhost:4000/api/v1" value="http://localhost:4000/api/v1">
+            </div>
+            
+            <div class="form-group">
+                <label for="requireAuth">Require Authentication:</label>
+                <input type="checkbox" id="requireAuth" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="autoLogin">Auto-login on startup:</label>
+                <input type="checkbox" id="autoLogin">
+            </div>
+        </div>
+        
+        <!-- FIDU Identity Service Settings -->
+        <div class="settings-group">
+            <h4>FIDU Identity Service Settings</h4>
+            <div class="form-group">
+                <label for="fiduIdentityUrl">Identity Service URL:</label>
+                <input type="url" id="fiduIdentityUrl" placeholder="https://identity.firstdataunion.org">
+                <small style="color: #666;">Leave empty to use production (https://identity.firstdataunion.org)</small>
+            </div>
+        </div>
+        
+        <!-- Capture Settings -->
+        <div class="settings-group">
+            <h4>Capture Settings</h4>
+            <div class="form-group">
+                <label for="autoCaptureEnabled">Automatically capture conversations:</label>
+                <input type="checkbox" id="autoCaptureEnabled" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="captureFrequency">Capture Frequency (seconds):</label>
+                <input type="number" id="captureFrequency" min="10" max="300" value="60">
+            </div>
+            
+            <div class="form-group">
+                <label for="showCaptureIndicator">Show capture indicator on page:</label>
+                <input type="checkbox" id="showCaptureIndicator" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="highlightCapturedMessages">Highlight captured messages:</label>
+                <input type="checkbox" id="highlightCapturedMessages">
+            </div>
+        </div>
+        
+        <!-- Supported Chatbots -->
+        <div class="settings-group">
+            <h4>Supported Chatbots</h4>
+            <div class="form-group">
+                <label for="enableChatGPT">ChatGPT:</label>
+                <input type="checkbox" id="enableChatGPT" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="enableClaude">Claude:</label>
+                <input type="checkbox" id="enableClaude" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="enableBard">Google Gemini:</label>
+                <input type="checkbox" id="enableBard" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="enablePoe">Poe:</label>
+                <input type="checkbox" id="enablePoe" checked>
+            </div>
+            
+            <div class="form-group">
+                <label for="enablePerplexity">Perplexity:</label>
+                <input type="checkbox" id="enablePerplexity" checked>
+            </div>
+        </div>
+        
+        <!-- Storage Settings -->
+        <div class="settings-group">
+            <h4>Storage Settings</h4>
+            <div class="form-group">
+                <label for="maxStorageSize">Maximum storage size (MB):</label>
+                <input type="number" id="maxStorageSize" value="50" min="1" max="500">
+            </div>
+            
+            <div class="form-group">
+                <label for="autoExportEnabled">Auto-export when storage limit is reached:</label>
+                <input type="checkbox" id="autoExportEnabled">
+            </div>
+            
+            <div class="form-group">
+                <label for="dataCleanupPolicy">Data cleanup policy:</label>
+                <select id="dataCleanupPolicy">
+                    <option value="none">Keep all data</option>
+                    <option value="oldest">Remove oldest conversations first</option>
+                    <option value="manual">Ask before removing</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="settings-buttons">
+            <button id="resetSettingsBtn" class="secondary">Reset to Defaults</button>
+            <button id="saveSettingsBtn" class="primary">Save Settings</button>
+        </div>
+        
+        <div id="settingsStatus" class="status-message" style="display: none;"></div>
+    </div>
+    
+    <!-- FIDU SDK Scripts -->
+    <script src="../js/fidu-config.js"></script>
+    <script src="../js/fidu-sdk.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/fidu-auth-init.js"></script>
+    <script src="../js/popup.js"></script>
+</body>
+</html> 

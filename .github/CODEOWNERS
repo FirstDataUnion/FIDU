@@ -2,10 +2,10 @@
 * @evenoli
 
 # Python backend code
-src/fidu_core/ @evenoli
+src/fidu_vault/ @evenoli
 
 # Frontend application
-src/apps/acm-front-end/ @evenoli
+src/apps/chat-lab/ @evenoli
 
 # Data acquisition tools
 src/data_acquisition/ @evenoli
