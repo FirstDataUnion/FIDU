@@ -20,7 +20,7 @@ class TestGetUserFromIdentityService:
         """Test that function raises 401 when no token is provided."""
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service(""))
-        
+
         assert exc_info.value.status_code == 401
         assert "Authorization token is required" in str(exc_info.value.detail)
 
@@ -28,7 +28,7 @@ class TestGetUserFromIdentityService:
         """Test that function raises 401 when token is None."""
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service(None))
-        
+
         assert exc_info.value.status_code == 401
         assert "Authorization token is required" in str(exc_info.value.detail)
 
@@ -52,25 +52,25 @@ class TestGetUserFromIdentityService:
                 "login_count": 5,
                 "created_at": "2024-01-01T12:00:00Z",
                 "updated_at": "2024-01-02T12:00:00Z",
-                "profiles": []
+                "profiles": [],
             }
         }
-        
+
         # Mock the client context manager
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function
         result = asyncio.run(get_user_from_identity_service("valid_token"))
-        
+
         # Assertions
         assert result is not None
         assert isinstance(result, IdentityServiceUser)
         assert result.id == "test_user_123"
         assert result.name == "John Doe"
         assert result.email == "test@example.com"
-        
+
         # Verify the request was made correctly
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
@@ -83,11 +83,11 @@ class TestGetUserFromIdentityService:
         mock_client = AsyncMock()
         mock_client.get.side_effect = ConnectError("Connection failed")
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function and expect exception
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service("valid_token"))
-        
+
         assert exc_info.value.status_code == 503
         assert "Identity service is currently unavailable" in str(exc_info.value.detail)
 
@@ -98,11 +98,11 @@ class TestGetUserFromIdentityService:
         mock_client = AsyncMock()
         mock_client.get.side_effect = TimeoutException("Request timed out")
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function and expect exception
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service("valid_token"))
-        
+
         assert exc_info.value.status_code == 503
         assert "Identity service request timed out" in str(exc_info.value.detail)
 
@@ -112,16 +112,18 @@ class TestGetUserFromIdentityService:
         # Mock the response for HTTPStatusError
         mock_response = AsyncMock()
         mock_response.status_code = 401
-        
+
         # Mock the client to raise HTTPStatusError
         mock_client = AsyncMock()
-        mock_client.get.side_effect = HTTPStatusError("401 Unauthorized", request=None, response=mock_response)
+        mock_client.get.side_effect = HTTPStatusError(
+            "401 Unauthorized", request=None, response=mock_response
+        )
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function and expect exception
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service("invalid_token"))
-        
+
         assert exc_info.value.status_code == 401
         assert "Invalid or expired token" in str(exc_info.value.detail)
 
@@ -131,16 +133,18 @@ class TestGetUserFromIdentityService:
         # Mock the response for HTTPStatusError
         mock_response = AsyncMock()
         mock_response.status_code = 403
-        
+
         # Mock the client to raise HTTPStatusError
         mock_client = AsyncMock()
-        mock_client.get.side_effect = HTTPStatusError("403 Forbidden", request=None, response=mock_response)
+        mock_client.get.side_effect = HTTPStatusError(
+            "403 Forbidden", request=None, response=mock_response
+        )
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function and expect exception
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_user_from_identity_service("forbidden_token"))
-        
+
         assert exc_info.value.status_code == 403
         assert "Access forbidden" in str(exc_info.value.detail)
 
@@ -161,26 +165,26 @@ class TestCreateProfile:
                 "display_name": "Test Profile",
                 "is_active": True,
                 "created_at": "2024-01-01T12:00:00Z",
-                "updated_at": "2024-01-02T12:00:00Z"
+                "updated_at": "2024-01-02T12:00:00Z",
             }
         }
-        
+
         # Mock the client context manager
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Call the function
         result = asyncio.run(create_profile("valid_token", "Test Profile"))
-        
+
         # Assertions
         assert result is not None
         assert isinstance(result, IdentityServiceProfile)
         assert result.id == "test_profile_123"
         assert result.display_name == "Test Profile"
-        
+
         # Verify the request was made correctly
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
         assert "Bearer valid_token" in call_args[1]["headers"]["Authorization"]
-        assert call_args[1]["json"]["display_name"] == "Test Profile" 
+        assert call_args[1]["json"]["display_name"] == "Test Profile"
