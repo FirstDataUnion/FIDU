@@ -78,10 +78,10 @@ def main():
         print("✓ PyInstaller build completed successfully")
 
         # Show output location
-        dist_path = Path("dist/main")
+        dist_path = Path("dist/fidu_vault_0_0_2")
         if dist_path.exists():
             print(f"\nExecutable created at: {dist_path.absolute()}")
-            print(f"To run the application: {dist_path / 'main'}")
+            print(f"To run the application: {dist_path / 'fidu_vault_0_0_2'}")
         else:
             print("Warning: Expected output directory not found")
 

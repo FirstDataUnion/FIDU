@@ -10,12 +10,13 @@ import { Box, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 import { useAppDispatch } from '../../hooks/redux';
 import { initializeAuth } from '../../store/slices/authSlice';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
+import { getIdentityServiceUrl } from '../../utils/environment';
 
 const FIDU_SDK_ID = 'fidu-sdk-script';
 
 const getFiduHost = () => {
-  // Use the same logic as fetchCurrentUser
-  return import.meta.env.VITE_IDENTITY_SERVICE_URL || ' https://identity.firstdataunion.org';
+  // Use the environment utility for consistency
+  return getIdentityServiceUrl();
 };
 
 const FiduAuthLogin: React.FC = () => {
@@ -74,12 +75,22 @@ const FiduAuthLogin: React.FC = () => {
         document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
         // Re-initialize Redux auth state (fetches profiles, etc.)
         await dispatch(initializeAuth());
-      } catch {
-        setError('Authentication succeeded, but failed to fetch user info.');
+      } catch (error) {
+        // Clear tokens if user info fetching fails to prevent loops
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('current_profile');
+        document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+        setError('Authentication succeeded, but failed to fetch user info. Please try again.');
       }
     });
 
     fidu.on('onAuthError', (_err: any) => {
+      // Clear any existing auth data to prevent loops
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('current_profile');
+      document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
       setError('Authentication failed. Please try again.');
     });
 
