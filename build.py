@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Build script for FIDU Core application with PyInstaller.
-This script ensures the ACM Lab frontend is built before creating the executable.
+Build script for FIDU Vault application with PyInstaller.
+This script ensures the Chat Lab frontend is built before creating the executable.
 """
 
 import subprocess
@@ -33,7 +33,7 @@ def run_command(command, cwd=None, check=True):
 
 def main():
     """Main build function."""
-    print("Starting FIDU Core build process...")
+    print("Starting FIDU Vault build process...")
 
     # Check if we're in the right directory
     if not Path("main.spec").exists():
@@ -42,32 +42,32 @@ def main():
         )
         sys.exit(1)
 
-    # Build the ACM Lab frontend first
-    acm_frontend_dir = Path("src/apps/acm-front-end")
-    if acm_frontend_dir.exists():
-        print("\n1. Building ACM Lab frontend...")
+    # Build the FIDU Chat Lab frontend first
+    chat_lab_dir = Path("src/apps/chat-lab")
+    if chat_lab_dir.exists():
+        print("\n1. Building FIDU Chat Lab frontend...")
         try:
             # Install dependencies if needed
-            if not (acm_frontend_dir / "node_modules").exists():
+            if not (chat_lab_dir / "node_modules").exists():
                 print("Installing npm dependencies...")
-                run_command("npm install", cwd=acm_frontend_dir)
+                run_command("npm install", cwd=chat_lab_dir)
 
             # Build the frontend
             print("Building frontend...")
-            run_command("npm run build", cwd=acm_frontend_dir)
+            run_command("npm run build", cwd=chat_lab_dir)
 
             # Check if build was successful
-            dist_dir = acm_frontend_dir / "dist"
+            dist_dir = chat_lab_dir / "dist"
             if not dist_dir.exists() or not (dist_dir / "index.html").exists():
                 raise Exception("Frontend build failed - dist/index.html not found")
 
-            print("✓ ACM Lab frontend built successfully")
+            print("✓ FIDU Chat Lab frontend built successfully")
 
         except Exception as e:
-            print(f"Error building ACM Lab frontend: {e}")
+            print(f"Error building FIDU Chat Lab frontend: {e}")
             sys.exit(1)
     else:
-        print("Warning: ACM Lab frontend directory not found, skipping frontend build")
+        print("Warning: FIDU Chat Lab frontend directory not found, skipping frontend build")
 
     # Build with PyInstaller
     print("\n2. Building executable with PyInstaller...")

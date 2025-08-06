@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDU Chat Grabber Frontend Features - Technical Description</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+        }
+        h1 {
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 30px;
+            border-bottom: 1px solid #ecf0f1;
+            padding-bottom: 5px;
+        }
+        .mermaid {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .priority-high {
+            background-color: #ffcccc;
+        }
+        .priority-medium {
+            background-color: #ffffcc;
+        }
+        .priority-low {
+            background-color: #ccffcc;
+        }
+        .feature-category {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+            <h1>FIDU Chat Grabber Frontend Features</h1>
+    <p>Technical Description and Feature Roadmap</p>
+
+    <div class="section">
+        <h2>1. Feature Overview and Prioritization</h2>
+        <p>
+            This document outlines the frontend features for the FIDU Chat Grabber, organized by development priority.
+            Core features are essential for MVP functionality, while additional features can be implemented
+            based on user feedback and resource availability.
+        </p>
+
+        <div class="mermaid">
+            graph TD
+                subgraph "Core Features (MVP)"
+                    CF1[Browse & Search Conversations]
+                    CF2[Categorize & Tag]
+                    CF3[Context Selection]
+                    CF4[Export Functions]
+                    CF5[Basic CRUD Operations]
+                end
+                
+                subgraph "Enhanced Features (Phase 2)"
+                    EF1[Smart Context Building]
+                    EF2[Persona Management]
+                    EF3[Advanced Search]
+                    EF4[API Integration]
+                end
+                
+                subgraph "Advanced Features (Phase 3)"
+                    AF1[Analytics Dashboard]
+                    AF2[Collaboration Tools]
+                    AF3[Automation Workflows]
+                    AF4[Model Comparison]
+                end
+                
+                CF1 --> EF3
+                CF2 --> EF1
+                CF3 --> EF1
+                CF4 --> EF4
+                EF1 --> AF3
+                EF3 --> AF1
+                EF4 --> AF4
+                
+                classDef core fill:#ffcccc,stroke:#cc0000;
+                classDef enhanced fill:#ffffcc,stroke:#cccc00;
+                classDef advanced fill:#ccffcc,stroke:#00cc00;
+                class CF1,CF2,CF3,CF4,CF5 core;
+                class EF1,EF2,EF3,EF4 enhanced;
+                class AF1,AF2,AF3,AF4 advanced;
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Core Features (Must-Have for MVP)</h2>
+        
+        <div class="feature-category">
+            <h3>2.1 Browse & Search Conversations</h3>
+            <p><strong>Priority:</strong> <span class="priority-high">HIGH</span> | <strong>Complexity:</strong> Medium</p>
+            
+            <h4>Technical Requirements:</h4>
+            <ul>
+                <li>Paginated list view with infinite scroll</li>
+                <li>Full-text search across conversation content</li>
+                <li>Filter by date, chatbot source, length</li>
+                <li>Sort by relevance, date, or custom criteria</li>
+            </ul>
+
+            <div class="mermaid">
+                graph LR
+                    subgraph "Browse Component"
+                        UI[Conversation List UI]
+                        SR[Search/Filter Bar]
+                        LV[List View]
+                        PG[Pagination Logic]
+                    end
+                    
+                    subgraph "Backend Services"
+                        API[REST API]
+                        QE[Query Engine]
+                        DB[(IndexedDB)]
+                    end
+                    
+                    SR -->|Query| API
+                    API -->|Search| QE
+                    QE -->|Results| DB
+                    DB -->|Conversations| PG
+                    PG -->|Display| LV
+                    
+                    classDef component fill:#d5e8d4,stroke:#82b366;
+                    classDef service fill:#dae8fc,stroke:#6c8ebf;
+                    class UI,SR,LV,PG component;
+                    class API,QE,DB service;
+            </div>
+
+            <h4>Implementation Details:</h4>
+            <pre><code>// React Component Structure
+interface ConversationBrowserProps {
+    onSelectConversation: (conversation: Conversation) => void;
+    filters?: FilterOptions;
+}
+
+interface FilterOptions {
+    dateRange?: DateRange;
+    sources?: ChatbotSource[];
+    searchQuery?: string;
+    tags?: string[];
+}
+
+// API Endpoint
+GET /api/conversations?page={page}&limit={limit}&search={query}&filters={filters}</code></pre>
+        </div>
+
+        <div class="feature-category">
+            <h3>2.2 Categorize & Tag System</h3>
+            <p><strong>Priority:</strong> <span class="priority-high">HIGH</span> | <strong>Complexity:</strong> Medium</p>
+            
+            <h4>Technical Requirements:</h4>
+            <ul>
+                <li>Manual tagging interface</li>
+                <li>Auto-tagging suggestions using keyword extraction</li>
+                <li>Hierarchical category structure</li>
+                <li>Bulk tagging operations</li>
+            </ul>
+
+            <div class="mermaid">
+                graph TD
+                    subgraph "Tagging System"
+                        TI[Tag Input]
+                        AS[Auto-Suggest Engine]
+                        TM[Tag Manager]
+                        CM[Category Manager]
+                    end
+                    
+                    subgraph "Processing"
+                        KE[Keyword Extractor]
+                        ML[ML Classifier]
+                    end
+                    
+                    TI -->|User Input| TM
+                    AS -->|Suggestions| TI
+                    KE -->|Keywords| AS
+                    ML -->|Categories| AS
+                    TM -->|Store| DB[(Database)]
+                    CM -->|Hierarchy| TM
+                    
+                    classDef ui fill:#d5e8d4,stroke:#82b366;
+                    classDef process fill:#fff2cc,stroke:#d6b656;
+                    class TI,AS,TM,CM ui;
+                    class KE,ML process;
+            </div>
+
+            <h4>Data Structure:</h4>
+            <pre><code>interface Tag {
+    id: string;
+    name: string;
+    color?: string;
+    autoGenerated: boolean;
+    confidence?: number;
+}
+
+interface Category {
+    id: string;
+    name: string;
+    parentId?: string;
+    description?: string;
+    tags: string[];
+}</code></pre>
+        </div>
+
+        <div class="feature-category">
+            <h3>2.3 Context Selection & Assembly</h3>
+            <p><strong>Priority:</strong> <span class="priority-high">HIGH</span> | <strong>Complexity:</strong> High</p>
+            
+            <h4>Technical Requirements:</h4>
+            <ul>
+                <li>Multi-select interface for conversations</li>
+                <li>Drag-and-drop context ordering</li>
+                <li>Context preview with token counting</li>
+                <li>Save context collections</li>
+            </ul>
+
+            <div class="mermaid">
+                graph LR
+                    subgraph "Selection Interface"
+                        MS[Multi-Select List]
+                        DD[Drag & Drop Area]
+                        CP[Context Preview]
+                        TC[Token Counter]
+                    end
+                    
+                    subgraph "Context Engine"
+                        CA[Context Assembler]
+                        CC[Context Collections]
+                        CV[Context Validator]
+                    end
+                    
+                    MS -->|Selected Conversations| DD
+                    DD -->|Ordered List| CA
+                    CA -->|Preview| CP
+                    CA -->|Count| TC
+                    CA -->|Save| CC
+                    CV -->|Validate| CA
+                    
+                    classDef ui fill:#d5e8d4,stroke:#82b366;
+                    classDef engine fill:#dae8fc,stroke:#6c8ebf;
+                    class MS,DD,CP,TC ui;
+                    class CA,CC,CV engine;
+            </div>
+        </div>
+
+        <div class="feature-category">
+            <h3>2.4 Export Functions</h3>
+            <p><strong>Priority:</strong> <span class="priority-high">HIGH</span> | <strong>Complexity:</strong> Low</p>
+            
+            <h4>Technical Requirements:</h4>
+            <ul>
+                <li>Copy to clipboard (formatted text)</li>
+                <li>Export as JSON/Markdown</li>
+                <li>Format templates for different LLMs</li>
+                <li>Batch export capabilities</li>
+            </ul>
+
+            <pre><code>interface ExportOptions {
+    format: 'clipboard' | 'json' | 'markdown' | 'txt';
+    template?: LLMTemplate;
+    includeMetadata: boolean;
+    tokenLimit?: number;
+}
+
+enum LLMTemplate {
+    CHATGPT = 'chatgpt',
+    CLAUDE = 'claude',
+    GEMINI = 'gemini',
+    GENERIC = 'generic'
+}</code></pre>
+        </div>
+
+        <div class="feature-category">
+            <h3>2.5 Basic CRUD Operations</h3>
+            <p><strong>Priority:</strong> <span class="priority-high">HIGH</span> | <strong>Complexity:</strong> Low</p>
+            
+            <h4>Technical Requirements:</h4>
+            <ul>
+                <li>Delete individual conversations</li>
+                <li>Bulk delete operations</li>
+                <li>Edit conversation metadata</li>
+                <li>Archive/unarchive functionality</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. Enhanced Features (Phase 2)</h2>
+        
+        <div class="feature-category">
+            <h3>3.1 Smart Context Building</h3>
+            <p><strong>Priority:</strong> <span class="priority-medium">MEDIUM</span> | <strong>Complexity:</strong> High</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Context templates for common scenarios</li>
+                <li>AI-powered context recommendations</li>
+                <li>Context versioning and history</li>
+                <li>Automatic context optimization</li>
+            </ul>
+
+            <div class="mermaid">
+                graph TD
+                    subgraph "Smart Context System"
+                        PR[Prompt Analyzer]
+                        CR[Context Recommender]
+                        CT[Context Templates]
+                        CO[Context Optimizer]
+                    end
+                    
+                    subgraph "ML Pipeline"
+                        SE[Semantic Embeddings]
+                        SM[Similarity Matching]
+                        RA[Relevance Algorithm]
+                    end
+                    
+                    PR -->|Analyze| SE
+                    SE -->|Vectors| SM
+                    SM -->|Matches| CR
+                    CT -->|Templates| CR
+                    CR -->|Suggestions| CO
+                    RA -->|Score| CO
+                    
+                    classDef smart fill:#e1bee7,stroke:#9c27b0;
+                    classDef ml fill:#ffccbc,stroke:#ff5722;
+                    class PR,CR,CT,CO smart;
+                    class SE,SM,RA ml;
+            </div>
+        </div>
+
+        <div class="feature-category">
+            <h3>3.2 Persona Management</h3>
+            <p><strong>Priority:</strong> <span class="priority-medium">MEDIUM</span> | <strong>Complexity:</strong> Medium</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Create and manage user personas</li>
+                <li>Associate conversations with personas</li>
+                <li>Persona-specific context defaults</li>
+                <li>Privacy controls per persona</li>
+            </ul>
+
+            <pre><code>interface Persona {
+    id: string;
+    name: string;
+    description?: string;
+    defaultContext?: string;
+    privacyLevel: 'private' | 'shared' | 'public';
+    associatedConversations: string[];
+    preferences: PersonaPreferences;
+}</code></pre>
+        </div>
+
+        <div class="feature-category">
+            <h3>3.3 Advanced Search & Discovery</h3>
+            <p><strong>Priority:</strong> <span class="priority-medium">MEDIUM</span> | <strong>Complexity:</strong> High</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Semantic search using embeddings</li>
+                <li>Cross-model comparison search</li>
+                <li>Timeline visualization</li>
+                <li>Search result clustering</li>
+            </ul>
+        </div>
+
+        <div class="feature-category">
+            <h3>3.4 Direct API Integration</h3>
+            <p><strong>Priority:</strong> <span class="priority-medium">MEDIUM</span> | <strong>Complexity:</strong> Medium</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>In-app LLM interaction</li>
+                <li>Response capture and storage</li>
+                <li>API key management UI</li>
+                <li>Usage tracking and limits</li>
+            </ul>
+
+            <div class="mermaid">
+                graph LR
+                    subgraph "API Integration Layer"
+                        AKM[API Key Manager]
+                        ARI[API Request Interface]
+                        RH[Response Handler]
+                        UT[Usage Tracker]
+                    end
+                    
+                    subgraph "External APIs"
+                        NCS[NLP-Cloud-Servers]
+                        OAI[OpenAI Direct]
+                        ANT[Anthropic Direct]
+                    end
+                    
+                    AKM -->|Keys| ARI
+                    ARI -->|Request| NCS
+                    ARI -->|Request| OAI
+                    ARI -->|Request| ANT
+                    NCS -->|Response| RH
+                    OAI -->|Response| RH
+                    ANT -->|Response| RH
+                    RH -->|Track| UT
+                    
+                    classDef internal fill:#d5e8d4,stroke:#82b366;
+                    classDef external fill:#ffccbc,stroke:#ff5722;
+                    class AKM,ARI,RH,UT internal;
+                    class NCS,OAI,ANT external;
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>4. Advanced Features (Phase 3)</h2>
+        
+        <div class="feature-category">
+            <h3>4.1 Analytics Dashboard</h3>
+            <p><strong>Priority:</strong> <span class="priority-low">LOW</span> | <strong>Complexity:</strong> High</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Conversation frequency over time</li>
+                <li>Topic analysis and trends</li>
+                <li>Model performance comparison</li>
+                <li>Token usage analytics</li>
+                <li>Knowledge extraction reports</li>
+            </ul>
+
+            <div class="mermaid">
+                graph TD
+                    subgraph "Analytics Engine"
+                        DE[Data Extractor]
+                        TA[Topic Analyzer]
+                        PA[Performance Analyzer]
+                        KE[Knowledge Extractor]
+                    end
+                    
+                    subgraph "Visualization"
+                        CD[Charts Dashboard]
+                        TL[Timeline View]
+                        WC[Word Clouds]
+                        NW[Network Graphs]
+                    end
+                    
+                    DE -->|Data| TA
+                    DE -->|Data| PA
+                    DE -->|Data| KE
+                    TA -->|Topics| CD
+                    TA -->|Trends| TL
+                    TA -->|Keywords| WC
+                    KE -->|Relations| NW
+                    
+                    classDef engine fill:#c5e1a5,stroke:#689f38;
+                    classDef viz fill:#b2dfdb,stroke:#00796b;
+                    class DE,TA,PA,KE engine;
+                    class CD,TL,WC,NW viz;
+            </div>
+        </div>
+
+        <div class="feature-category">
+            <h3>4.2 Collaboration Tools</h3>
+            <p><strong>Priority:</strong> <span class="priority-low">LOW</span> | <strong>Complexity:</strong> High</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Shared context libraries</li>
+                <li>Team workspaces</li>
+                <li>Annotation and comments</li>
+                <li>Access control and permissions</li>
+            </ul>
+        </div>
+
+        <div class="feature-category">
+            <h3>4.3 Workflow Automation</h3>
+            <p><strong>Priority:</strong> <span class="priority-low">LOW</span> | <strong>Complexity:</strong> Very High</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Scheduled context summaries</li>
+                <li>Trigger-based actions</li>
+                <li>Context processing pipelines</li>
+                <li>Custom workflow builder</li>
+            </ul>
+
+            <pre><code>interface Workflow {
+    id: string;
+    name: string;
+    trigger: WorkflowTrigger;
+    actions: WorkflowAction[];
+    schedule?: CronExpression;
+}
+
+interface WorkflowTrigger {
+    type: 'schedule' | 'event' | 'condition';
+    config: TriggerConfig;
+}
+
+interface WorkflowAction {
+    type: 'summarize' | 'export' | 'notify' | 'process';
+    params: ActionParams;
+}</code></pre>
+        </div>
+
+        <div class="feature-category">
+            <h3>4.4 Model Comparison Suite</h3>
+            <p><strong>Priority:</strong> <span class="priority-low">LOW</span> | <strong>Complexity:</strong> Medium</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>A/B testing interface</li>
+                <li>Side-by-side response comparison</li>
+                <li>Performance metrics tracking</li>
+                <li>Cost-benefit analysis</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>5. Technical Architecture for Frontend Features</h2>
+        
+        <h3>5.1 Component Architecture</h3>
+        
+        <div class="mermaid">
+            graph TD
+                subgraph "UI Layer"
+                    APP[App Container]
+                    RT[Router]
+                    LY[Layout Components]
+                    PG[Pages]
+                    CM[Common Components]
+                end
+                
+                subgraph "State Management"
+                    RX[Redux Store]
+                    SA[Sagas/Thunks]
+                    SL[Selectors]
+                    AC[Actions/Reducers]
+                end
+                
+                subgraph "Service Layer"
+                    API[API Client]
+                    WS[WebSocket Client]
+                    ST[Storage Service]
+                    AU[Auth Service]
+                end
+                
+                subgraph "Utilities"
+                    FRM[Formatters]
+                    VAL[Validators]
+                    HLP[Helpers]
+                    CNS[Constants]
+                end
+                
+                APP --> RT
+                RT --> PG
+                PG --> CM
+                PG --> RX
+                RX --> SA
+                SA --> API
+                RX --> SL
+                API --> ST
+                WS --> ST
+                AU --> API
+                CM --> FRM
+                CM --> VAL
+                
+                classDef ui fill:#e3f2fd,stroke:#1976d2;
+                classDef state fill:#f3e5f5,stroke:#7b1fa2;
+                classDef service fill:#e8f5e9,stroke:#388e3c;
+                classDef util fill:#fff3e0,stroke:#f57c00;
+                
+                class APP,RT,LY,PG,CM ui;
+                class RX,SA,SL,AC state;
+                class API,WS,ST,AU service;
+                class FRM,VAL,HLP,CNS util;
+        </div>
+
+        <h3>5.2 Data Flow Architecture</h3>
+        
+        <div class="mermaid">
+            sequenceDiagram
+                participant U as User
+                participant UI as UI Component
+                participant RX as Redux Store
+                participant API as API Service
+                participant BE as Backend
+                participant DB as IndexedDB
+                
+                U->>UI: Interact (click, type, etc)
+                UI->>RX: Dispatch Action
+                RX->>RX: Update State
+                RX->>API: Trigger API Call
+                API->>BE: HTTP Request
+                BE->>DB: Query Data
+                DB->>BE: Return Data
+                BE->>API: HTTP Response
+                API->>RX: Update State
+                RX->>UI: Re-render
+                UI->>U: Display Update
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>6. Development Roadmap</h2>
+        
+        <table>
+            <tr>
+                <th>Phase</th>
+                <th>Features</th>
+                <th>Timeline</th>
+                <th>Dependencies</th>
+            </tr>
+            <tr class="priority-high">
+                <td>MVP (Core)</td>
+                <td>
+                    <ul>
+                        <li>Browse & Search</li>
+                        <li>Basic Tagging</li>
+                        <li>Context Selection</li>
+                        <li>Export to Clipboard</li>
+                        <li>CRUD Operations</li>
+                    </ul>
+                </td>
+                <td>2-3 months</td>
+                <td>Backend API, Database Schema</td>
+            </tr>
+            <tr class="priority-medium">
+                <td>Phase 2</td>
+                <td>
+                    <ul>
+                        <li>Smart Context Building</li>
+                        <li>Persona Management</li>
+                        <li>Advanced Search</li>
+                        <li>API Integration</li>
+                    </ul>
+                </td>
+                <td>3-4 months</td>
+                <td>MVP Complete, ML Services</td>
+            </tr>
+            <tr class="priority-low">
+                <td>Phase 3</td>
+                <td>
+                    <ul>
+                        <li>Analytics Dashboard</li>
+                        <li>Collaboration Tools</li>
+                        <li>Workflow Automation</li>
+                        <li>Model Comparison</li>
+                    </ul>
+                </td>
+                <td>4-6 months</td>
+                <td>Phase 2 Complete, User Feedback</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>7. Technology Stack Recommendations</h2>
+        
+        <h3>7.1 Frontend Technologies</h3>
+        <table>
+            <tr>
+                <th>Category</th>
+                <th>Technology</th>
+                <th>Rationale</th>
+            </tr>
+            <tr>
+                <td>Framework</td>
+                <td>React 18+ with TypeScript</td>
+                <td>Type safety, large ecosystem, concurrent features</td>
+            </tr>
+            <tr>
+                <td>State Management</td>
+                <td>Redux Toolkit + RTK Query</td>
+                <td>Predictable state, caching, optimistic updates</td>
+            </tr>
+            <tr>
+                <td>UI Components</td>
+                <td>Material-UI v5 or Ant Design</td>
+                <td>Comprehensive component library, customizable</td>
+            </tr>
+            <tr>
+                <td>Data Visualization</td>
+                <td>D3.js + Recharts</td>
+                <td>Flexibility for custom visualizations</td>
+            </tr>
+            <tr>
+                <td>Text Editor</td>
+                <td>Monaco Editor or CodeMirror</td>
+                <td>Rich text editing for prompts and contexts</td>
+            </tr>
+            <tr>
+                <td>Build Tool</td>
+                <td>Vite</td>
+                <td>Fast builds, modern tooling</td>
+            </tr>
+        </table>
+
+        <h3>7.2 Key Libraries</h3>
+        <ul>
+            <li><strong>react-beautiful-dnd:</strong> Drag and drop for context ordering</li>
+            <li><strong>fuse.js:</strong> Client-side fuzzy search</li>
+            <li><strong>date-fns:</strong> Date manipulation and formatting</li>
+            <li><strong>react-markdown:</strong> Markdown rendering</li>
+            <li><strong>react-window:</strong> Virtualization for large lists</li>
+            <li><strong>react-hook-form:</strong> Form management</li>
+        </ul>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: { 
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

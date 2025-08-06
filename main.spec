@@ -2,13 +2,13 @@
 
 
 a = Analysis(
-    ['src/fidu_core/main.py'],
+    ['src/fidu_vault/main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('src/fidu_core/front_end/static', 'fidu_core/front_end/static'),
-        ('src/fidu_core/front_end/templates', 'fidu_core/front_end/templates'),
-        ('src/apps/acm-front-end/dist', 'apps/acm-front-end/dist'),
+            ('src/fidu_vault/front_end/static', 'fidu_vault/front_end/static'),
+    ('src/fidu_vault/front_end/templates', 'fidu_vault/front_end/templates'),
+        ('src/apps/chat-lab/dist', 'apps/chat-lab/dist'),
     ],
     clean=True,
     hiddenimports=[

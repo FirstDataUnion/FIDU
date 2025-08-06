@@ -1,0 +1,81 @@
+/* Custom styles for FIDU Vault Frontend */
+
+/* Smooth transitions for HTMX swaps */
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+}
+
+.htmx-added {
+    opacity: 0;
+    animation: fadeIn 300ms ease-in forwards;
+}
+
+/* Custom loading states */
+.htmx-request .loading-indicator {
+    display: block;
+}
+
+.loading-indicator {
+    display: none;
+}
+
+/* Form validation styles */
+.form-error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-success {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Custom button states */
+.btn-loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: button-loading-spinner 1s ease infinite;
+}
+
+@keyframes button-loading-spinner {
+    from {
+        transform: rotate(0turn);
+    }
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+    .nav-tabs {
+        flex-direction: column;
+        space-y: 0;
+    }
+    
+    .nav-tabs a {
+        border-bottom: none;
+        border-left: 2px solid transparent;
+        padding: 0.5rem 1rem;
+    }
+    
+    .nav-tabs a.active {
+        border-left-color: #3b82f6;
+    }
+} 

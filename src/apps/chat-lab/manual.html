@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDU Chat Lab (AI Conversation Manager) - User Manual</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+        
+        .header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-top: 0;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+        
+        .section h3 {
+            color: #495057;
+            margin-top: 1.5rem;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .feature-card h4 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+        
+        .success {
+            background: #d1edff;
+            border: 1px solid #74b9ff;
+            color: #0066cc;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+        
+        .toc {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        
+        .toc a {
+            text-decoration: none;
+            color: #667eea;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        .step {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        .step-number {
+            background: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        
+        .mermaid {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+        
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .screenshot {
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+        
+        .screenshot figcaption {
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 FIDU Chat Lab User Manual</h1>
+        <p>AI Conversation Manager - Complete Installation, Setup & Usage Guide</p>
+    </div>
+
+    <div class="toc">
+        <h3>📋 Table of Contents</h3>
+        <ul>
+            <li><a href="#overview">📖 Overview</a></li>
+            <li><a href="#installation">⚙️ Installation</a></li>
+            <li><a href="#running">🚀 Running the Application</a></li>
+            <li><a href="#usage">📱 How to Use</a></li>
+            <li><a href="#features">🎯 Feature Guide</a></li>
+            <li><a href="#troubleshooting">🔧 Troubleshooting</a></li>
+            <li><a href="#advanced">🔬 Advanced Usage</a></li>
+        </ul>
+    </div>
+
+    <section id="overview" class="section">
+        <h2>📖 Overview</h2>
+        <p>FIDU Chat Lab (AI Conversation Manager) is a comprehensive React-based web application designed to help you organize, manage, and analyze your AI conversations across multiple platforms (ChatGPT, Claude, Gemini, etc.).</p>
+        
+        <div class="mermaid">
+            graph TD
+                A[FIDU Chat Lab Application] --> B[Conversations]
+                A --> C[Contexts]
+                A --> D[Tags]
+                A --> E[Prompt Lab]
+                A --> F[Personas]
+                A --> G[Memories]
+                A --> H[Settings]
+                
+                B --> B1[View & Search]
+                B --> B2[Tag Management]
+                B --> B3[Context Building]
+                
+                C --> C1[Project Contexts]
+                C --> C2[Reference Materials]
+                C --> C3[Knowledge Bases]
+                
+                D --> D1[Create Tags]
+                D --> D2[Tag Analytics]
+                D --> D3[Auto-tagging]
+                
+                E --> E1[System Prompts]
+                E --> E2[Model Testing]
+                E --> E3[Template Management]
+        </div>
+
+        <h3>🎯 Key Features</h3>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>💬 Conversation Management</h4>
+                <p>Organize conversations from multiple AI platforms with search, filtering, and tagging capabilities.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🏷️ Advanced Tagging</h4>
+                <p>Create custom tags with colors, categories, and analytics to organize your content effectively.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📁 Context Building</h4>
+                <p>Build reusable contexts from conversations, files, and references for better AI interactions.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🧪 Prompt Lab</h4>
+                <p>Test and refine prompts with different models and system configurations.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="installation" class="section">
+        <h2>⚙️ Installation</h2>
+        
+        <h3>📋 Prerequisites</h3>
+        <div class="warning">
+            <strong>⚠️ Requirements:</strong>
+            <ul>
+                <li>Node.js (version 18.0 or higher)</li>
+                <li>npm or yarn package manager</li>
+                <li>Git (for cloning the repository)</li>
+                <li>Modern web browser (Chrome, Firefox, Safari, Edge)</li>
+            </ul>
+        </div>
+
+        <h3>🔽 Step-by-Step Installation</h3>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Clone the Repository</strong>
+            <div class="code-block">
+git clone https://github.com/yourusername/chat-lab.git
+cd chat-lab
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Install Dependencies</strong>
+            <div class="code-block">
+npm install
+# or if you prefer yarn
+yarn install
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Environment Setup (Optional)</strong>
+            <p>Create a <code>.env</code> file in the root directory if you need custom configurations:</p>
+            <div class="code-block">
+# .env file
+VITE_API_BASE_URL=http://localhost:3000
+        VITE_APP_TITLE=FIDU Chat Lab - AI Conversation Manager
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Verify Installation</strong>
+            <div class="code-block">
+npm run dev
+            </div>
+            <p>If successful, you should see output similar to:</p>
+            <div class="code-block">
+VITE v6.3.5  ready in 249 ms
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+            </div>
+        </div>
+
+        <div class="success">
+            <strong>✅ Installation Complete!</strong> Your FIDU Chat Lab application is now installed and ready to use.
+        </div>
+    </section>
+
+    <section id="running" class="section">
+        <h2>🚀 Running the Application</h2>
+        
+        <h3>🏃‍♂️ Development Mode</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Start Development Server</strong>
+            <div class="code-block">
+npm run dev
+            </div>
+            <p>This will start the development server with hot-reload capabilities.</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Access the Application</strong>
+            <p>Open your web browser and navigate to:</p>
+            <div class="code-block">
+http://localhost:5173
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>📝 Port Notes:</strong>
+            <ul>
+                <li>If port 5173 is in use, Vite will automatically try the next available port (5174, 5175, etc.)</li>
+                <li>The actual URL will be displayed in your terminal</li>
+                <li>Use <code>Ctrl+C</code> to stop the development server</li>
+            </ul>
+        </div>
+
+        <h3>🏭 Production Build</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Build for Production</strong>
+            <div class="code-block">
+npm run build
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Preview Production Build</strong>
+            <div class="code-block">
+npm run preview
+            </div>
+        </div>
+
+        <div class="mermaid">
+            graph LR
+                A[npm run dev] --> B[Development Server]
+                B --> C[http://localhost:5173]
+                
+                D[npm run build] --> E[Production Build]
+                E --> F[dist/ folder]
+                
+                G[npm run preview] --> H[Preview Server]
+                H --> I[Production Preview]
+        </div>
+    </section>
+
+    <section id="usage" class="section">
+        <h2>📱 How to Use</h2>
+        
+        <h3>🎯 Getting Started</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>First Launch</strong>
+            <p>When you first open FIDU Chat Lab, you'll see the main dashboard with navigation in the sidebar.</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Navigation Overview</strong>
+            <div class="mermaid">
+                graph TD
+                    A[Main Menu] --> B[Main Section]
+                    A --> C[Data Section]
+                    A --> D[System Section]
+                    
+                    B --> B1[Dashboard]
+                    B --> B2[Prompt Lab]
+                    
+                    C --> C1[Conversations]
+                    C --> C2[Contexts]
+                    C --> C3[Tags]
+                    C --> C4[Memories]
+                    C --> C5[Personas]
+                    
+                    D --> D1[Settings]
+                    D --> D2[Import/Export]
+            </div>
+        </div>
+
+        <h3>📊 User Interface Layout</h3>
+        <div class="mermaid">
+            graph TD
+                A[FIDU Chat Lab Interface] --> B[Left Sidebar]
+                A --> C[Main Content Area]
+                A --> D[Action Buttons]
+                
+                B --> B1[Navigation Menu]
+                B --> B2[Section Groups]
+                
+                C --> C1[Page Header]
+                C --> C2[Search & Filters]
+                C --> C3[Content Grid/List]
+                C --> C4[Pagination]
+                
+                D --> D1[Create/Add FAB]
+                D --> D2[Bulk Actions]
+                D --> D3[Export/Import]
+        </div>
+    </section>
+
+    <section id="features" class="section">
+        <h2>🎯 Feature Guide</h2>
+        
+        <h3>💬 Conversations Management</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Viewing Conversations</strong>
+            <p>Navigate to <strong>Data → Conversations</strong> to see all your AI conversations.</p>
+            <ul>
+                <li>View conversations in a grid layout</li>
+                <li>See platform indicators (ChatGPT, Claude, Gemini)</li>
+                <li>Check message counts and last update times</li>
+                <li>View attached tags with custom colors</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Search and Filter</strong>
+            <div class="code-block">
+🔍 Search by: Title, Content, Tags
+🏷️ Filter by: Platform, Tags, Date Range
+📊 Sort by: Date, Title, Message Count
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Tag Management on Conversations</strong>
+            <p>Click the 🏷️ tag icon on any conversation card to:</p>
+            <ul>
+                <li>Add existing tags</li>
+                <li>Create new tags</li>
+                <li>Remove tags</li>
+                <li>See tag colors and categories</li>
+            </ul>
+        </div>
+
+        <h3>🏷️ Tags System</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Creating Tags</strong>
+            <p>Navigate to <strong>Data → Tags</strong> and click the "+" button to create new tags:</p>
+            <ul>
+                <li>Choose a descriptive name</li>
+                <li>Select a category (General, Technology, Personal, Work)</li>
+                <li>Pick a color for visual organization</li>
+                <li>Add an optional description</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Tag Analytics</strong>
+            <p>View usage statistics for your tags:</p>
+            <ul>
+                <li>Total usage count</li>
+                <li>Recent activity</li>
+                <li>Associated conversations and contexts</li>
+            </ul>
+        </div>
+
+        <div class="mermaid">
+            graph TD
+                A[Tag Management] --> B[Create Tags]
+                A --> C[Organize by Category]
+                A --> D[Color Coding]
+                A --> E[Usage Analytics]
+                
+                B --> B1[Name & Description]
+                B --> B2[Category Selection]
+                B --> B3[Color Assignment]
+                
+                C --> C1[General]
+                C --> C2[Technology]
+                C --> C3[Personal]
+                C --> C4[Work]
+                
+                E --> E1[Usage Count]
+                E --> E2[Recent Activity]
+                E --> E3[Associated Items]
+        </div>
+
+        <h3>📁 Contexts Management</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Creating Contexts</strong>
+            <p>Navigate to <strong>Data → Contexts</strong> and click the "+" button:</p>
+            <ul>
+                <li><strong>Project:</strong> For specific development projects</li>
+                <li><strong>Reference:</strong> For documentation and guides</li>
+                <li><strong>Knowledge:</strong> For learning materials</li>
+                <li><strong>Template:</strong> For reusable structures</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Context Features</strong>
+            <ul>
+                <li>Add files and links to contexts</li>
+                <li>Tag contexts for organization</li>
+                <li>Set public/private visibility</li>
+                <li>Track token counts</li>
+                <li>Associate with conversations</li>
+            </ul>
+        </div>
+
+        <h3>🧪 Prompt Lab</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Testing Prompts</strong>
+            <p>Navigate to <strong>Main → Prompt Lab</strong> to:</p>
+            <ul>
+                <li>Test different system prompts</li>
+                <li>Compare AI model responses</li>
+                <li>Save successful prompt templates</li>
+                <li>Manage prompt variations</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>System Prompt Management</strong>
+            <ul>
+                <li>Create custom system prompts</li>
+                <li>Organize by categories</li>
+                <li>Test with different models</li>
+                <li>Track usage and effectiveness</li>
+            </ul>
+        </div>
+
+        <h3>🎭 Personas</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Managing AI Personas</strong>
+            <p>Navigate to <strong>Data → Personas</strong> to:</p>
+            <ul>
+                <li>Create specialized AI personalities</li>
+                <li>Define expertise areas</li>
+                <li>Set communication styles</li>
+                <li>Associate with specific use cases</li>
+            </ul>
+        </div>
+
+        <h3>🧠 Memories</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Knowledge Storage</strong>
+            <p>Navigate to <strong>Data → Memories</strong> to:</p>
+            <ul>
+                <li>Store important facts and preferences</li>
+                <li>Create searchable knowledge base</li>
+                <li>Organize by topics and relevance</li>
+                <li>Reference in future conversations</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="troubleshooting" class="section">
+        <h2>🔧 Troubleshooting</h2>
+        
+        <h3>❌ Common Issues</h3>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Port Already in Use</strong>
+            <div class="warning">
+                <strong>Problem:</strong> "Port 5173 is in use"<br>
+                <strong>Solution:</strong> Vite will automatically find the next available port. Check the terminal output for the actual URL.
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Dependencies Issues</strong>
+            <div class="warning">
+                <strong>Problem:</strong> npm install errors<br>
+                <strong>Solution:</strong>
+                <div class="code-block">
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Browser Compatibility</strong>
+            <div class="warning">
+                <strong>Problem:</strong> Page not loading correctly<br>
+                <strong>Solution:</strong>
+                <ul>
+                    <li>Use a modern browser (Chrome 90+, Firefox 88+, Safari 14+)</li>
+                    <li>Clear browser cache and cookies</li>
+                    <li>Disable browser extensions temporarily</li>
+                    <li>Check browser console for errors (F12)</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3>🔍 Debug Mode</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Enable Debug Logging</strong>
+            <p>Add this to your <code>.env</code> file:</p>
+            <div class="code-block">
+VITE_DEBUG=true
+VITE_LOG_LEVEL=debug
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Check Browser Console</strong>
+            <p>Press <code>F12</code> to open developer tools and check the console for errors.</p>
+        </div>
+    </section>
+
+    <section id="advanced" class="section">
+        <h2>🔬 Advanced Usage</h2>
+        
+        <h3>⚡ Performance Optimization</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Large Datasets</strong>
+            <ul>
+                <li>Use search and filters to limit displayed items</li>
+                <li>Archive old conversations to improve performance</li>
+                <li>Regularly clean up unused tags</li>
+            </ul>
+        </div>
+
+        <h3>📤 Import/Export</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Exporting Data</strong>
+            <p>Navigate to <strong>System → Settings</strong> to export your data:</p>
+            <ul>
+                <li>Export conversations as JSON or Markdown</li>
+                <li>Export tags with usage statistics</li>
+                <li>Export contexts with all attachments</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Importing Data</strong>
+            <ul>
+                <li>Import from ChatGPT exports</li>
+                <li>Import from Claude conversation files</li>
+                <li>Bulk import tagged conversations</li>
+            </ul>
+        </div>
+
+        <h3>🔧 Customization</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Theme Customization</strong>
+            <p>Navigate to <strong>System → Settings</strong> to customize:</p>
+            <ul>
+                <li>Choose between light and dark themes</li>
+                <li>Adjust grid vs. list view preferences</li>
+                <li>Configure default sort orders</li>
+            </ul>
+        </div>
+
+        <div class="mermaid">
+            graph TD
+                A[Advanced Features] --> B[Performance]
+                A --> C[Data Management]
+                A --> D[Customization]
+                
+                B --> B1[Search Optimization]
+                B --> B2[Archive Management]
+                B --> B3[Cache Control]
+                
+                C --> C1[Import/Export]
+                C --> C2[Backup/Restore]
+                C --> C3[Data Migration]
+                
+                D --> D1[Theme Settings]
+                D --> D2[Layout Preferences]
+                D --> D3[Default Configurations]
+        </div>
+
+        <h3>🚀 Keyboard Shortcuts</h3>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Navigation</h4>
+                <ul>
+                    <li><code>Ctrl + /</code> - Focus search</li>
+                    <li><code>Ctrl + K</code> - Quick command</li>
+                    <li><code>Esc</code> - Close dialogs</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>Actions</h4>
+                <ul>
+                    <li><code>Ctrl + N</code> - New item</li>
+                    <li><code>Ctrl + E</code> - Edit selected</li>
+                    <li><code>Delete</code> - Delete selected</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <div class="success" style="margin-top: 2rem;">
+        <h3>🎉 You're All Set!</h3>
+        <p>You now have everything you need to effectively use FIDU Chat Lab (AI Conversation Manager). Start by creating some tags, importing your conversations, and building your first context. Happy organizing! 🚀</p>
+    </div>
+
+    <footer style="text-align: center; margin-top: 3rem; padding: 2rem; color: #6c757d; border-top: 1px solid #e9ecef;">
+        <p>FIDU Chat Lab (AI Conversation Manager) - Built with ❤️ using React, TypeScript, and Material-UI</p>
+        <p>For support or feature requests, please check the project repository.</p>
+    </footer>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#667eea',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#667eea',
+                lineColor: '#666',
+                secondaryColor: '#f8f9fa',
+                tertiaryColor: '#e9ecef'
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add copy functionality to code blocks
+        document.querySelectorAll('.code-block').forEach(block => {
+            block.addEventListener('click', function() {
+                navigator.clipboard.writeText(this.textContent).then(() => {
+                    // Visual feedback
+                    const originalBg = this.style.backgroundColor;
+                    this.style.backgroundColor = '#28a745';
+                    setTimeout(() => {
+                        this.style.backgroundColor = originalBg;
+                    }, 200);
+                });
+            });
+            
+            // Add cursor pointer to indicate clickable
+            block.style.cursor = 'pointer';
+            block.title = 'Click to copy';
+        });
+    </script>
+</body>
+</html> 
