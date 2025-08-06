@@ -31,7 +31,7 @@ There is a basic front end that allows users to view their raw stored data and m
 **IMPORTANT:**
 
 - **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
-- **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and avoid storing any sensitive data in the application. This is an experimental alpha, and we cannot yet guarantee the security of data stored.
+- **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and you should treat it, for now, like an unencrypted file on your locla machine. If someone gains access to your local machine, they will be able to see what is stored in the FIDU Core. This is an experimental alpha, and we cannot yet guarantee the security of data stored.
 
 ### FIDU Chat Grabber
 
@@ -39,13 +39,12 @@ A Chrome plugin that allows the automatic capture of conversations with chatbots
 - ChatGPT
 - Claude
 - Google Gemini
-- Poe
-- Perplexity
 
 Conversations are stored in FIDU Vault and will be available for use in future application layer programs.
 
 **IMPORTANT:**  
-Currently, the FIDU-Chat-Grabber plugin can only store data if the FIDU Server is running on your machine, and there is no mechanism (yet) to hold data for later use.
+Currently, the FIDU-Chat-Grabber plugin can only store data if the FIDU Server is running on your machine.
+
 
 ## Installation
 
@@ -55,7 +54,7 @@ We currently provide three versions of the pre-built FIDU program: Windows, macO
 
 **NOTE:** Due to early alpha status, our testing of support on all versions of these OSes is limited. Please feel free to report any issues to us!
 
-Coming Soon: Links to download these.
+Links to download pre-compiled versions: https://github.com/FirstDataUnion/FIDU/releases
 
 Once downloaded, you can run the executable to start the local FIDU Vault server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
 
