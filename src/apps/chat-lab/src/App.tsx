@@ -8,6 +8,7 @@ import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
 import AuthWrapper from './components/auth/AuthWrapper';
+import { logEnvironmentInfo } from './utils/environment';
 
 // Import pages (we'll create these next)
 import ConversationsPage from './pages/ConversationsPage';
@@ -28,6 +29,9 @@ const AppContent: React.FC<AppContentProps> = () => {
   const { isInitialized: authInitialized, isLoading: authLoading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
+    // Log environment info for debugging
+    logEnvironmentInfo();
+    
     if (isInitialized) {
       dispatch(fetchSettings());
       dispatch(initializeAuth());

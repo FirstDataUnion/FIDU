@@ -1,8 +1,5 @@
 import type { Profile, User } from "../../types";
-
-export const getIdentityServiceUrl = () => {
-  return import.meta.env.VITE_IDENTITY_SERVICE_URL || ' https://identity.firstdataunion.org';
-};
+import { getIdentityServiceUrl } from "../../utils/environment";
 
 export async function fetchCurrentUser(token: string) {
   const res = await fetch(`${getIdentityServiceUrl()}/user`, {
@@ -22,7 +19,7 @@ export async function fetchCurrentUser(token: string) {
   };
 
   return user;
-} 
+}
 
 export function externalProfileToInternalProfile(externalProfile: any): Profile {
   return {
