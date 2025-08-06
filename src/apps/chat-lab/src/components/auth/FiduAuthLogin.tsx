@@ -81,6 +81,7 @@ const FiduAuthLogin: React.FC = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('current_profile');
         document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+        console.error('Error fetching user info:', error);
         setError('Authentication succeeded, but failed to fetch user info. Please try again.');
       }
     });
