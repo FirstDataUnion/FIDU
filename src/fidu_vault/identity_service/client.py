@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 IDENTITY_SERVICE_DEFAULT_URL = "https://identity.firstdataunion.org"
 
 
+# pylint: disable=too-many-branches
 async def get_user_from_identity_service(token: str) -> IdentityServiceUser | None:
     """Fetch a user from the identity service by user_id."""
     identity_service_url = os.getenv(
@@ -25,7 +26,9 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{identity_service_url}/user", headers=headers, follow_redirects=False)
+            response = await client.get(
+                f"{identity_service_url}/user", headers=headers, follow_redirects=False
+            )
             if response.status_code == 200:
                 try:
                     response_data = response.json()
@@ -34,12 +37,14 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
                     return None
                 except Exception as e:
                     logging.error("Failed to parse response JSON: %s", str(e))
-                    raise HTTPException(status_code=500, detail="Invalid response from identity service")
+                    raise HTTPException(
+                        status_code=500, detail="Invalid response from identity service"
+                    ) from e
             if response.status_code == 401:
                 raise HTTPException(status_code=401, detail="Invalid or expired token")
             if response.status_code == 403:
                 raise HTTPException(status_code=403, detail="Access forbidden")
-            
+
             logging.error("Failed to fetch user: %s", response.text)
             raise HTTPException(status_code=500, detail="Identity service error")
     except httpx.ConnectError as e:
@@ -61,15 +66,17 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
     except httpx.HTTPStatusError as e:
         # Handle specific HTTP status errors
         if e.response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        elif e.response.status_code == 403:
-            raise HTTPException(status_code=403, detail="Access forbidden")
-        else:
-            logger.error("HTTP status error from identity service: %s", str(e))
             raise HTTPException(
-                status_code=503,
-                detail="Unable to communicate with identity service. Please try again later.",
+                status_code=401, detail="Invalid or expired token"
             ) from e
+        if e.response.status_code == 403:
+            raise HTTPException(status_code=403, detail="Access forbidden") from e
+
+        logger.error("HTTP status error from identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to communicate with identity service. Please try again later.",
+        ) from e
     except httpx.HTTPError as e:
         logger.error("HTTP error connecting to identity service: %s", str(e))
         raise HTTPException(

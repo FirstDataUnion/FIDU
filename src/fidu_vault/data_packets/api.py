@@ -5,7 +5,6 @@ from fastapi import FastAPI, HTTPException, Depends, status, Response, Request
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fidu_vault.identity_service.client import get_user_from_identity_service
-from fidu_vault.users.schema import IdentityServiceUser
 from .schema import (
     DataPacket,
     DataPacketCreateRequest,
@@ -155,9 +154,12 @@ class DataPacketAPI:
         """
         # Validate the request by requesting the User from the identity service
 
-        user: IdentityServiceUser = await get_user_from_identity_service(
-            authorization
-        )
+        user = await get_user_from_identity_service(authorization)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
         user_id = user.id
         profile_ids = [profile.id for profile in user.profiles]
 
@@ -202,9 +204,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        user: IdentityServiceUser = await get_user_from_identity_service(
-            authorization
-        )
+        user = await get_user_from_identity_service(authorization)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
         user_id = user.id
 
         # Convert to internal model
@@ -240,9 +245,12 @@ class DataPacketAPI:
             HTTPException: If the token is invalid or the user is not authorized
         """
         # Validate token and get user ID
-        user: IdentityServiceUser = await get_user_from_identity_service(
-            authorization
-        )
+        user = await get_user_from_identity_service(authorization)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
         user_id = user.id
 
         self.service.delete_data_packet(user_id, data_packet_id)
@@ -267,9 +275,12 @@ class DataPacketAPI:
         """
         # Validate token and get user ID
 
-        user: IdentityServiceUser = await get_user_from_identity_service(
-            authorization
-        )
+        user = await get_user_from_identity_service(authorization)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
         user_id = user.id
 
         data_packet = self.service.get_data_packet(user_id, data_packet_id)
@@ -300,9 +311,12 @@ class DataPacketAPI:
         """
 
         # Validate token and get user ID
-        user: IdentityServiceUser = await get_user_from_identity_service(
-            authorization
-        )
+        user = await get_user_from_identity_service(authorization)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
         user_id = user.id
 
         # Convert to internal query params

@@ -108,10 +108,10 @@ def create_app():
             name="static",
         )
 
-    # Note: Static files are now handled by the route handlers below
     if chat_lab_build_dir.exists():
         print(
-            f"[{time.time() - start_time:.2f}s] FIDU Chat Lab frontend found at {chat_lab_build_dir}"
+            f"""[{time.time() - start_time:.2f}s]
+             FIDU Chat Lab frontend found at {chat_lab_build_dir}"""
         )
     else:
         print(
@@ -146,7 +146,7 @@ def create_app():
 
     # Add proxy router for external API requests
     # This is used to proxy requests from the FIDU-Chat-Lab to external APIs as we are serving
-# the FIDU-Chat-Lab from the same server as the FIDU Vault API for now. When this changes,
+    # the FIDU-Chat-Lab from the same server as the FIDU Vault API for now. When this changes,
     # we can remove this.
 
     print(f"[{time.time() - start_time:.2f}s] Creating proxy router...")

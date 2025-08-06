@@ -67,7 +67,9 @@ def main():
             print(f"Error building FIDU Chat Lab frontend: {e}")
             sys.exit(1)
     else:
-        print("Warning: FIDU Chat Lab frontend directory not found, skipping frontend build")
+        print(
+            "Warning: FIDU Chat Lab frontend directory not found, skipping frontend build"
+        )
 
     # Build with PyInstaller
     print("\n2. Building executable with PyInstaller...")
