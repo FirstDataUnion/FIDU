@@ -1,6 +1,7 @@
 """Client for interacting with the identity service."""
 
 import os
+import json
 import logging
 import httpx
 from fastapi import HTTPException
@@ -35,7 +36,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
                     if "user" in response_data:
                         return IdentityServiceUser(**response_data["user"])
                     return None
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
                     logging.error("Failed to parse response JSON: %s", str(e))
                     raise HTTPException(
                         status_code=500, detail="Invalid response from identity service"
@@ -112,8 +113,15 @@ async def create_profile(
                 json={"display_name": display_name},
             )
             if response.status_code == 201:
-                if "profile" in response.json():
-                    return IdentityServiceProfile(**response.json()["profile"])
+                try:
+                    response_data = response.json()
+                    if "profile" in response_data:
+                        return IdentityServiceProfile(**response_data["profile"])
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.error("Failed to parse response JSON: %s", str(e))
+                    raise HTTPException(
+                        status_code=500, detail="Invalid response from identity service"
+                    ) from e
 
                 logger.error(
                     "Error converting identity service response to IdentityServiceProfile: %s",
@@ -127,9 +135,10 @@ async def create_profile(
                     status_code=409, detail="Profile with that name already exists"
                 )
 
+            # Use response.text instead of response.json() to avoid JSON parsing errors
             logger.error(
                 "Identity service error: %s code: %s",
-                response.json(),
+                response.text,
                 response.status_code,
             )
             raise HTTPException(status_code=500, detail="Identity service error")
