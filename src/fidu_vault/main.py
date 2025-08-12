@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from fidu_vault.utils.db import close_connection
+from fidu_vault.utils.db import close_connection, get_db_path, migrate_existing_db
 from fidu_vault.data_packets import (
     DataPacketService,
     DataPacketAPI,
@@ -48,6 +48,21 @@ def create_app():
     # Get the base path
     base_path = get_base_path()
     print(f"[{time.time() - start_time:.2f}s] Base path determined: {base_path}")
+
+    # Log the database location
+    db_path = get_db_path()
+    print(f"[{time.time() - start_time:.2f}s] Database will be created at: {db_path}")
+
+    # Attempt to migrate existing database if needed
+    print(
+        f"[{time.time() - start_time:.2f}s] Checking for existing database to migrate..."
+    )
+    if migrate_existing_db():
+        print(f"[{time.time() - start_time:.2f}s] Database migration check completed")
+    else:
+        print(
+            f"[{time.time() - start_time:.2f}s] Warning: Database migration encountered issues"
+        )
 
     # Define paths relative to the base path
     if getattr(sys, "frozen", False):

@@ -127,7 +127,7 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                 packet_dict["data"] = {}
 
             return DataPacketInternal(**packet_dict)
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             raise DataPacketError(
                 f"Failed to convert database row to DataPacket: {e}"
             ) from e
