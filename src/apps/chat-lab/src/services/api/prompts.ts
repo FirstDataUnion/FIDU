@@ -212,7 +212,22 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
       let agentCallback = null;
       switch (selectedModel) {
         case "gpt-3.5-turbo":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPTGeneralAgent.bind(nlpWorkbenchAPIClient);
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT35TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "gpt-4.0-turbo":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "gpt-4o":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT4oGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "claude-3-opus":
+          agentCallback = nlpWorkbenchAPIClient.executeClaude3OpusGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "claude-3-sonnet":
+          agentCallback = nlpWorkbenchAPIClient.executeClaude3SonnetGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "claude-3-haiku":
+          agentCallback = nlpWorkbenchAPIClient.executeClaude3HaikuGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
         default:
           throw new Error(`Unsupported model: ${selectedModel}`);

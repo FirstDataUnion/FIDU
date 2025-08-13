@@ -562,7 +562,12 @@ export default function PromptLabPage() {
   ];
 
   const models = [
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', maxTokens: 128000 },
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', maxTokens: 4096 },
+    { id: 'gpt-4.0-turbo', name: 'GPT-4.0 Turbo', provider: 'OpenAI', maxTokens: 8192 },
+    { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', maxTokens: 128000 },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic', maxTokens: 20000 },
+    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic', maxTokens: 40000, },
+    { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic', maxTokens: 50000 },
   ]
 
   // Optimized token calculation - memoized to prevent recalculation
