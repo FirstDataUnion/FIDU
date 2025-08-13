@@ -109,7 +109,73 @@ const NLP_WORKBENCH_API_CONFIG = {
       );
       return response.data;
     }
+
+    /**
+     * Execute an ChatGPT 3.5 Turbo General chat Agent with input text
+     */
+    async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755007425582490606/execute',
+        { input }
+      );
+      return response.data;
+    }
   
+    /**
+     * Execute an ChatGPT 4.0 Turbo General chat Agent with input text
+     */
+    async executeChatGPT40TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755007458371087422/execute',
+        { input }
+      );
+      return response.data;
+    }
+  
+    /**
+     * Execute an ChatGPT 4o General chat Agent with input text
+     */
+    async executeChatGPT4oGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755008314136173601/execute',
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute an Claude 3 Opus General chat Agent with input text
+     */
+    async executeClaude3OpusGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755008341384405976/execute',
+        { input }
+      );
+      return response.data;
+    }
+  
+    /**
+     * Execute an Claude 3 Sonnet General chat Agent with input text
+     */
+    async executeClaude3SonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755008385886004593/execute',
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute an Claude 3 Haiku General chat Agent with input text
+     */
+    async executeClaude3HaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        '/agents/agent-1755008467359243995/execute',
+        { input }
+      );
+      return response.data;
+    }
+    
     /**
      * Get execution status by ID
      */
