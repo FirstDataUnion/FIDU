@@ -15,6 +15,15 @@ const FIDU_VAULT_API_CONFIG = {
 export class FiduVaultAPIClient {
   private client: AxiosInstance;
 
+  // Helper function to clear all auth tokens consistently
+  private clearAllAuthTokens() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('fiduToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('current_profile');
+    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+  }
+
   constructor(config: AxiosRequestConfig = {}) {
     this.client = axios.create({
       ...FIDU_VAULT_API_CONFIG,
@@ -51,11 +60,9 @@ export class FiduVaultAPIClient {
           // Handle authentication errors
           if (error.response.status === 401) {
             // Clear auth data and redirect to login
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('current_profile');
-            // Reload the page to trigger auth flow
-            window.location.reload();
+            this.clearAllAuthTokens();
+            // Don't reload the page - let the auth state handle the redirect
+            // window.location.reload();
             return Promise.reject(new ApiError(
               error.response.status,
               'Authentication required. Please log in.',

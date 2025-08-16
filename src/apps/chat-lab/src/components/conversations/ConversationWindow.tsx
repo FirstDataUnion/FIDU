@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -9,13 +9,15 @@ import {
   CircularProgress,
   Drawer,
   TextField,
-  Button
+  Button,
+  Tooltip
 } from '@mui/material';
 import {
   Close as CloseIcon,
   SmartToy as BotIcon,
   Person as UserIcon,
-  Send as SendIcon
+  Send as SendIcon,
+  Minimize as MinimizeIcon
 } from '@mui/icons-material';
 
 // Conversation input component with internal state management
@@ -82,7 +84,7 @@ const ConversationInput = ({
 
 interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
   model?: string;
@@ -96,6 +98,9 @@ interface ConversationWindowProps {
   isSendingFollowUp: boolean;
   error: string | null;
   onSendMessage: (message: string) => void;
+  conversationId?: string;
+  title?: string;
+  onMinimize?: () => void;
 }
 
 export const ConversationWindow: React.FC<ConversationWindowProps> = ({
@@ -105,13 +110,68 @@ export const ConversationWindow: React.FC<ConversationWindowProps> = ({
   selectedModel,
   isSendingFollowUp,
   error,
-  onSendMessage
+  onSendMessage,
+  conversationId,
+  title,
+  onMinimize
 }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }
+  }, [messages]);
+
+  // Auto-scroll to bottom when follow-up is being sent
+  useEffect(() => {
+    if (isSendingFollowUp && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }
+  }, [isSendingFollowUp]);
+
+  // Auto-scroll to bottom when new messages are added (for better UX)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end'
+        });
+      }
+    }, 100); // Small delay to ensure DOM is updated
+
+    return () => clearTimeout(timeoutId);
+  }, [messages.length]);
+
+  const handleMinimize = () => {
+    if (onMinimize) {
+      onMinimize();
+    }
+  };
+
+  const handleClose = () => {
+    // Only close if explicitly requested (close button), otherwise minimize
+    if (onMinimize) {
+      onMinimize();
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <Drawer
       anchor="right"
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       sx={{
         '& .MuiDrawer-paper': {
           width: { xs: '100%', sm: 600, md: 700 },
@@ -131,34 +191,64 @@ export const ConversationWindow: React.FC<ConversationWindowProps> = ({
           backgroundColor: 'background.paper'
         }}>
           <BotIcon color="primary" />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Conversation
-          </Typography>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="h6" noWrap>
+              {title || 'Conversation'}
+            </Typography>
+            {conversationId && (
+              <Typography variant="caption" color="text.secondary" noWrap>
+                ID: {conversationId.substring(0, 8)}...
+              </Typography>
+            )}
+          </Box>
           <Chip 
             label={selectedModel || 'Model'} 
             size="small" 
             color="primary"
           />
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
+          {onMinimize && (
+            <Tooltip title="Minimize (Ctrl+M)">
+              <IconButton onClick={handleMinimize} size="small">
+                <MinimizeIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Close (Ctrl+W)">
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         {/* Messages */}
-        <Box sx={{ 
-          flexGrow: 1, 
-          overflow: 'auto', 
-          p: 2,
-          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
-        }}>
+        <Box 
+          ref={messagesContainerRef}
+          sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto', 
+            p: 2,
+            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
+          }}
+        >
           <Stack spacing={2}>
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <Box
                 key={message.id}
                 sx={{
                   display: 'flex',
                   justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
-                  mb: 2
+                  mb: 2,
+                  animation: index === messages.length - 1 ? 'fadeInUp 0.3s ease-out' : 'none',
+                  '@keyframes fadeInUp': {
+                    '0%': {
+                      opacity: 0,
+                      transform: 'translateY(10px)'
+                    },
+                    '100%': {
+                      opacity: 1,
+                      transform: 'translateY(0)'
+                    }
+                  }
                 }}
               >
                 <Box
@@ -233,6 +323,9 @@ export const ConversationWindow: React.FC<ConversationWindowProps> = ({
                 </Box>
               </Box>
             )}
+
+            {/* Invisible element for auto-scrolling */}
+            <div ref={messagesEndRef} />
           </Stack>
         </Box>
 

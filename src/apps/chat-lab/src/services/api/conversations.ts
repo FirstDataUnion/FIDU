@@ -1,6 +1,6 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate } from '../../types';
-import { v5 as uuidv5 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
 
 export interface ConversationsResponse {
@@ -34,6 +34,46 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
     };
   }
 
+  // Transform original prompt data if it exists
+  let originalPrompt: Conversation['originalPrompt'] | undefined;
+  if (packet.data.originalPrompt) {
+    originalPrompt = {
+      promptText: packet.data.originalPrompt.promptText,
+      context: packet.data.originalPrompt.contextId ? {
+        id: packet.data.originalPrompt.contextId,
+        title: packet.data.originalPrompt.contextTitle || 'Unknown Context',
+        body: packet.data.originalPrompt.contextDescription || '',
+        tokenCount: 0, // We don't store this in the conversation
+        createdAt: packet.create_timestamp,
+        updatedAt: packet.update_timestamp,
+        tags: [],
+        conversationIds: [],
+        conversationMetadata: {
+          totalMessages: 0,
+          lastAddedAt: packet.create_timestamp,
+          platforms: []
+        }
+      } : null,
+      systemPrompt: {
+        id: packet.data.originalPrompt.systemPromptId,
+        name: packet.data.originalPrompt.systemPromptName,
+        content: packet.data.originalPrompt.systemPromptContent,
+        description: '', // We don't store this in the conversation
+        tokenCount: 0, // We don't store this in the conversation
+        isDefault: false,
+        isSystem: true,
+        category: 'Technical',
+        modelCompatibility: [],
+        createdAt: packet.create_timestamp,
+        updatedAt: packet.update_timestamp,
+        tags: []
+      },
+      metadata: {
+        estimatedTokens: packet.data.originalPrompt.estimatedTokens
+      }
+    };
+  }
+
   return {
     id: packet.id,
     title: packet.data.conversationTitle || packet.data.conversationUrl,
@@ -46,17 +86,18 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
     isArchived: packet.data.isArchived || false,
     isFavorite: packet.data.isFavorite || false,
     participants: packet.data.participants || [],
-    status: packet.data.status || 'active'
+    status: packet.data.status || 'active',
+    originalPrompt
   };
 };
 
-const transformConversationToDataPacket = (profile_id: string, conversation: Partial<Conversation>, messages: Message[]): ConversationDataPacket => {
+const transformConversationToDataPacket = (profile_id: string, conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']): ConversationDataPacket => {
   return {
     id: conversation.id || crypto.randomUUID(),
     profile_id: profile_id,
     create_timestamp: '',
     update_timestamp: '',
-    tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags || [])],
+    tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
     data: {
       sourceChatbot: (conversation.platform || 'other').toUpperCase(),
       interactions: messages.map((message) => ({
@@ -71,18 +112,29 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
       isArchived: conversation.isArchived || false,
       isFavorite: conversation.isFavorite || false,
       participants: conversation.participants || [],
-      status: conversation.status || 'active'
+      status: conversation.status || 'active',
+      // Include original prompt information if available
+      originalPrompt: originalPrompt ? {
+        promptText: originalPrompt.promptText,
+        contextId: originalPrompt.context?.id,
+        contextTitle: originalPrompt.context?.title,
+        contextDescription: originalPrompt.context?.body,
+        systemPromptId: originalPrompt.systemPrompt.id,
+        systemPromptContent: originalPrompt.systemPrompt.content,
+        systemPromptName: originalPrompt.systemPrompt.name,
+        estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
+      } : undefined
     }
   };
 };
 
-const transformConversationToDataPacketUpdate = (conversation: Partial<Conversation>, messages: Message[]): ConversationDataPacketUpdate => {
+const transformConversationToDataPacketUpdate = (conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']): ConversationDataPacketUpdate => {
   if (!conversation.id) {
     throw new Error('Conversation ID is required to update conversation');
   }
   return {
     id: conversation.id,
-    tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags || [])],
+    tags: conversation.tags || [], // Preserve existing tags for updates
     data: {
       sourceChatbot: (conversation.platform || 'other').toUpperCase(),
       interactions: messages.map((message) => ({
@@ -97,15 +149,26 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
       isArchived: conversation.isArchived || false,
       isFavorite: conversation.isFavorite || false,
       participants: conversation.participants || [],
-      status: conversation.status || 'active'
+      status: conversation.status || 'active',
+      // Include original prompt information if available
+      originalPrompt: originalPrompt ? {
+        promptText: originalPrompt.promptText,
+        contextId: originalPrompt.context?.id,
+        contextTitle: originalPrompt.context?.title,
+        contextDescription: originalPrompt.context?.body,
+        systemPromptId: originalPrompt.systemPrompt.id,
+        systemPromptContent: originalPrompt.systemPrompt.content,
+        systemPromptName: originalPrompt.systemPrompt.name,
+        estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
+      } : undefined
     }
   };
 };
 
 export const conversationsApi = {
 
-  createConversation: async (profile_id: string, conversation: Partial<Conversation>, messages: Message[]) => {
-    const dataPacket = transformConversationToDataPacket(profile_id, conversation, messages);
+  createConversation: async (profile_id: string, conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']) => {
+    const dataPacket = transformConversationToDataPacket(profile_id, conversation, messages, originalPrompt);
     const content = `${profile_id}-${conversation.id}-create`;
     const namespace = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // UUID namespace for creates
     const request_id = uuidv5(content, namespace); // Generate UUID 
@@ -117,11 +180,11 @@ export const conversationsApi = {
     return transformDataPacketToConversation(response.data);
   },
 
-  updateConversation: async (conversation: Partial<Conversation>, messages: Message[]) => {
-    const dataPacket = transformConversationToDataPacketUpdate(conversation, messages);
+  updateConversation: async (conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']) => {
+    const dataPacket = transformConversationToDataPacketUpdate(conversation, messages, originalPrompt);
     // Currently don't see a strong need for a deterministic request_id here, we could 
     // seed one from timestamp, but i see it causing more problems than it'd fix. 
-    const request_id = crypto.randomUUID().toString()
+    const request_id = uuidv4().toString()
     const dataPacketUpdateRequest = {
       request_id,
       data_packet: dataPacket

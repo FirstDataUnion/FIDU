@@ -12,15 +12,64 @@ export interface Conversation {
   isFavorite: boolean;
   participants: string[];
   status: 'active' | 'archived' | 'deleted';
+  // Original prompt information for conversation restart
+  originalPrompt?: {
+    promptText: string;
+    context?: Context | null;
+    systemPrompt: SystemPrompt;
+    metadata?: {
+      estimatedTokens: number;
+    };
+  };
+}
+
+// Context interface for prompt context
+export interface Context {
+  id: string;
+  title: string;
+  body: string;
+  tokenCount: number;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+  // Conversation references for building context over time
+  conversationIds?: string[];
+  // Metadata about conversations in this context
+  conversationMetadata?: {
+    totalMessages: number;
+    lastAddedAt: string;
+    platforms: string[];
+  };
+}
+
+// System Prompt interface
+export interface SystemPrompt {
+  id: string;
+  name: string;
+  content: string;
+  description: string;
+  tokenCount: number;
+  isDefault: boolean;
+  isSystem: boolean; // true for built-in system prompts, false for user-created
+  category?: string;
+  modelCompatibility?: string[];
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
 }
 
 export interface Prompt {
   id: string;
   title: string;
-  prompt: string;
+  promptText: string;           // Main prompt text
+  context: Context | null;      // Optional context object
+  systemPrompt: SystemPrompt;   // System prompt (always present)
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  metadata?: {
+    estimatedTokens: number;
+  };
 }
 
 // Authentication Types
@@ -92,6 +141,17 @@ export interface ConversationDataPacket {
     isFavorite: boolean;
     participants: string[];
     status: 'active' | 'archived' | 'deleted';
+    // Original prompt information for conversation restart
+    originalPrompt?: {
+      promptText: string;
+      contextId?: string;
+      contextTitle?: string;
+      contextDescription?: string;
+      systemPromptId: string;
+      systemPromptContent: string;
+      systemPromptName: string;
+      estimatedTokens: number;
+    };
   };
 }
 
@@ -113,6 +173,17 @@ export interface ConversationDataPacketUpdate {
     isFavorite: boolean;
     participants: string[];
     status: 'active' | 'archived' | 'deleted';
+    // Original prompt information for conversation restart
+    originalPrompt?: {
+      promptText: string;
+      contextId?: string;
+      contextTitle?: string;
+      contextDescription?: string;
+      systemPromptId: string;
+      systemPromptContent: string;
+      systemPromptName: string;
+      estimatedTokens: number;
+    };
   };
 }
 
@@ -124,7 +195,13 @@ export interface PromptDataPacket {
   tags: string[];
   data: {
     prompt_title: string;
-    prompt: string;
+    prompt_text: string;                    // Main prompt text
+    context_id?: string;                    // Reference to context if present
+    context_title?: string;                 // Context title for easier reference
+    system_prompt_id: string;               // Reference to system prompt
+    system_prompt_content: string;          // Full system prompt content
+    system_prompt_name: string;             // System prompt name
+    estimated_tokens: number;
   };
 }
 

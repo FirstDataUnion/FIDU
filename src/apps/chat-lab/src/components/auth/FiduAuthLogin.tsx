@@ -25,6 +25,15 @@ const FiduAuthLogin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const sdkLoaded = useRef(false);
 
+  // Helper function to clear all auth tokens consistently
+  const clearAllAuthTokens = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('fiduToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('current_profile');
+    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+  };
+
   // Inject SDK script if not present
   useEffect(() => {
     if (document.getElementById(FIDU_SDK_ID)) {
@@ -77,10 +86,7 @@ const FiduAuthLogin: React.FC = () => {
         await dispatch(initializeAuth());
       } catch (error) {
         // Clear tokens if user info fetching fails to prevent loops
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('current_profile');
-        document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+        clearAllAuthTokens();
         console.error('Error fetching user info:', error);
         setError('Authentication succeeded, but failed to fetch user info. Please try again.');
       }
@@ -88,10 +94,7 @@ const FiduAuthLogin: React.FC = () => {
 
     fidu.on('onAuthError', (_err: any) => {
       // Clear any existing auth data to prevent loops
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('current_profile');
-      document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+      clearAllAuthTokens();
       setError('Authentication failed. Please try again.');
     });
 
