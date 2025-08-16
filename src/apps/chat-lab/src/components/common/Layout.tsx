@@ -104,10 +104,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const mainMenuItems = [
-    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
+    { text: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
     { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
-    { text: 'Prompt Lab / Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
-    { text: 'Personas', icon: <PersonaIcon />, path: '/personas' },
+    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
+    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
   ];
 
 
