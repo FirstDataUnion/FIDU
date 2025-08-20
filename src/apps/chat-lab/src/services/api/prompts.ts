@@ -106,11 +106,9 @@ const transformPromptToDataPacket = (prompt: Prompt, profileId: string): {
   };
 };
 
-// Factory function to create prompts API with settings
-export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefined) => {
-  const nlpWorkbenchAPIClient = getApiKeyFromSettings 
-    ? createNLPWorkbenchAPIClientWithSettings(getApiKeyFromSettings)
-    : createNLPWorkbenchAPIClientWithSettings(() => undefined);
+// Factory function to create prompts API
+export const createPromptsApi = () => {
+  const nlpWorkbenchAPIClient = createNLPWorkbenchAPIClientWithSettings();
 
   return {
     getAll: async (queryParams?: DataPacketQueryParams, page = 1, limit = 20) => {
@@ -143,7 +141,7 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
         if (!response.data) {
           console.error('No data received from API');
           return {
-            conversations: [],
+            prompts: [],
             total: 0,
             page: 1,
             limit: 20

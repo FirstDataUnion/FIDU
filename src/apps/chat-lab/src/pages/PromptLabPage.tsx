@@ -500,10 +500,10 @@ export default function PromptLabPage() {
   // Get settings for API key access
   const { settings } = useAppSelector((state) => state.settings);
 
-  // Create prompts API with settings-based API key provider
+  // Create prompts API
   const promptsApi = useMemo(() => {
-    return createPromptsApi(() => settings.apiKeys?.nlpWorkbench);
-  }, [settings.apiKeys?.nlpWorkbench]);
+    return createPromptsApi();
+  }, []);
 
   // Current prompt object state
   const [currentPrompt, setCurrentPrompt] = useState<PromptObject>({

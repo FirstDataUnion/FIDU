@@ -11,23 +11,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     base: '/fidu-chat-lab/',
     server: {
-      proxy: {
-        '^/api/nlp-workbench/.*': {
-          target: 'https://wb.nlp-processing.com',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/nlp-workbench/, '/api/public'),
-          configure: (proxy, _options) => {
-            proxy.on('proxyReq', (proxyReq, _req, _res) => {
-              // Add the API key header on the server side
-              if (env.VITE_NLP_WORKBENCH_AGENT_API_KEY) {
-                proxyReq.setHeader('X-API-Key', env.VITE_NLP_WORKBENCH_AGENT_API_KEY);
-              } else {
-                console.warn('NLP Workbench API key not set. Please set VITE_NLP_WORKBENCH_AGENT_API_KEY environment variable.');
-              }
-            });
-          }
-        }
-      }
+      // NLP workbench proxy removed - now using gateway service directly
     }
   }
 })

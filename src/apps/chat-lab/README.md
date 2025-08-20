@@ -10,17 +10,24 @@ For development, you can create a `.env` file in the root directory:
 ```bash
 # Development environment
 VITE_IDENTITY_SERVICE_URL=https://dev.identity.firstdataunion.org
-VITE_NLP_WORKBENCH_AGENT_API_KEY=your_api_key_here
+VITE_GATEWAY_URL=https://dev.gateway.firstdataunion.org
 ```
 
 ### Production
-For production builds, ensure the correct identity service URL is set:
+For production builds, ensure the correct URLs are set:
 
 ```bash
 # Production environment
 VITE_IDENTITY_SERVICE_URL=https://identity.firstdataunion.org
-VITE_NLP_WORKBENCH_AGENT_API_KEY=your_api_key_here
+VITE_GATEWAY_URL=https://gateway.firstdataunion.org
 ```
+
+### Gateway Service
+The application now routes all NLP Workbench API calls through a gateway service:
+- **Production Gateway**: `https://gateway.firstdataunion.org/api/`
+- **Development Gateway**: `https://dev.gateway.firstdataunion.org/api/`
+
+All NLP Workbench requests are automatically prefixed with `/api/nlp-workbench/` and sent through the configured gateway.
 
 ## Building for Production
 

@@ -59,8 +59,8 @@ const transformSystemPromptToDataPacket = (systemPrompt: any, profileId: string)
   };
 };
 
-// Factory function to create systemPrompts API with settings
-export const createSystemPromptsApi = (_getApiKeyFromSettings?: () => string | undefined) => {
+// Factory function to create systemPrompts API
+export const createSystemPromptsApi = () => {
   return {
     getAll: async (queryParams?: any, page = 1, limit = 20, profileId?: string) => {
       try {
