@@ -44,8 +44,8 @@ const transformContextToDataPacket = (context: any, profileId: string): ContextD
   };
 };
 
-// Factory function to create contexts API with settings
-export const createContextsApi = (_getApiKeyFromSettings?: () => string | undefined) => {
+// Factory function to create contexts API
+export const createContextsApi = () => {
   return {
     getAll: async (queryParams?: any, page = 1, limit = 20, profileId?: string) => {
       try {

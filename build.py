@@ -57,14 +57,14 @@ def setup_macos_build_environment():
         return
 
     print("\nSetting up macOS build environment...")
-    
+
     # Check current architecture
     current_arch = platform.machine()
-    target_arch = os.environ.get('TARGET_ARCH', None)
-    build_universal = os.environ.get('BUILD_UNIVERSAL', 'false').lower() == 'true'
-    
+    target_arch = os.environ.get("TARGET_ARCH", None)
+    build_universal = os.environ.get("BUILD_UNIVERSAL", "false").lower() == "true"
+
     print(f"Current system architecture: {current_arch}")
-    
+
     if target_arch:
         print(f"Target architecture: {target_arch}")
         if target_arch != current_arch:
@@ -75,7 +75,7 @@ def setup_macos_build_environment():
         print("🌐 Building universal binary (Intel + Apple Silicon)")
     else:
         print(f"✅ Building for current architecture: {current_arch}")
-    
+
     # Check if we need to install/update PyInstaller
     try:
         import PyInstaller
@@ -100,14 +100,14 @@ def setup_macos_build_environment():
     # Recommend Python 3.8+ for better macOS compatibility
     if python_version < (3, 8):
         print("Warning: Python 3.8+ recommended for better macOS compatibility")
-    
+
     # Check for cross-compilation requirements
-    if target_arch == 'arm64' and current_arch == 'x86_64':
+    if target_arch == "arm64" and current_arch == "x86_64":
         print("\n🍎 ARM64 Cross-compilation Setup:")
         print("   - Ensure Xcode Command Line Tools are installed")
         print("   - Verify clang supports ARM64 targeting")
         print("   - Consider using --universal for better compatibility")
-    
+
     elif build_universal:
         print("\n🌐 Universal Binary Setup:")
         print("   - Will create binary that works on both Intel and Apple Silicon")
