@@ -496,9 +496,6 @@ export default function PromptLabPage() {
 
   // Get auth state for profile ID
   const { currentProfile } = useAppSelector((state) => state.auth);
-  
-  // Get settings for API key access
-  const { settings } = useAppSelector((state) => state.settings);
 
   // Create prompts API
   const promptsApi = useMemo(() => {
