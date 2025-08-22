@@ -20,6 +20,7 @@ import ContextsPage from './pages/ContextsPage';
 import SystemPromptsPage from './pages/SystemPromptsPage';
 import PromptLabPage from './pages/PromptLabPage';
 import PersonasPage from './pages/PersonasPage';
+import EmbellishmentsPage from './pages/EmbellishmentsPage';
 
 interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
 
@@ -141,6 +142,7 @@ const AppContent: React.FC<AppContentProps> = () => {
               <Route path="/system-prompts" element={<SystemPromptsPage />} />
               <Route path="/prompt-lab" element={<PromptLabPage />} />
               <Route path="/personas" element={<PersonasPage />} />
+              <Route path="/embellishments" element={<EmbellishmentsPage />} />
               <Route path="/memories" element={<MemoriesPage />} />
               <Route path="/tags" element={<TagsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
