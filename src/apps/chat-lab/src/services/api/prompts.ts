@@ -206,11 +206,27 @@ export const createPromptsApi = () => {
       context: any,
       prompt: string,
       selectedModel: string,
-      profileId?: string
+      profileId?: string,
+      systemPrompt?: any
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
       }
+
+      // Log the received parameters for debugging
+      console.log('executePrompt called with:', {
+        conversationMessages: conversationMessages.length,
+        context,
+        contextType: typeof context,
+        contextKeys: context ? Object.keys(context) : 'null',
+        contextBody: context?.body,
+        contextTitle: context?.title,
+        prompt,
+        selectedModel,
+        profileId,
+        systemPrompt,
+        systemPromptContent: systemPrompt?.content
+      });
 
       // Format conversation history for the AI model
       const formatConversationHistory = (messages: Message[]): string => {
@@ -224,10 +240,48 @@ export const createPromptsApi = () => {
       };
 
       // Build the complete prompt with conversation history
-      let agentPrompt = prompt;
-      if (context && conversationMessages.length > 0) {
-        agentPrompt = `
-        Given the following existing background context: ${context}
+      let agentPrompt = '';
+      
+      // Start with system prompt if available
+      if (systemPrompt?.content) {
+        agentPrompt = `${systemPrompt.content}\n\n`;
+      }
+      
+      // Helper function to safely get context content
+      const getContextContent = (ctx: any): string => {
+        console.log('getContextContent called with:', ctx);
+        console.log('ctx type:', typeof ctx);
+        console.log('ctx keys:', ctx ? Object.keys(ctx) : 'null');
+        
+        if (!ctx) {
+          console.log('Context is null/undefined, returning empty string');
+          return '';
+        }
+        
+        if (typeof ctx === 'string') {
+          console.log('Context is a string, returning as-is:', ctx);
+          return ctx;
+        }
+        
+        if (ctx.body && typeof ctx.body === 'string') {
+          console.log('Context has body property, returning body:', ctx.body);
+          return ctx.body;
+        }
+        
+        if (ctx.title && typeof ctx.title === 'string') {
+          console.log('Context has title property, returning title:', ctx.title);
+          return ctx.title;
+        }
+        
+        console.log('Context has unexpected structure, converting to string:', ctx);
+        return String(ctx);
+      };
+      
+      const contextContent = getContextContent(context);
+      
+      if (contextContent && conversationMessages.length > 0) {
+        agentPrompt += `
+        Given the following existing background context: ${contextContent}
 
         And the following conversation history: ${formatConversationHistory(conversationMessages)}
 
@@ -237,9 +291,9 @@ export const createPromptsApi = () => {
 
         Prompt: ${prompt}
         `
-      } else if (context) {
-        agentPrompt = `
-        Given the following existing background context: ${context}
+      } else if (contextContent) {
+        agentPrompt += `
+        Given the following existing background context: ${contextContent}
         
         Answer the following prompt, keeping the existing context of the conversation in mind, 
         treating it as either a previous part of the same conversation, or just as a framing 
@@ -255,7 +309,18 @@ export const createPromptsApi = () => {
         continuing the flow of the conversation:
 
         Prompt: ${prompt}`
+      } else {
+        // No context or conversation history, just use the prompt as is
+        agentPrompt = prompt;
       }
+
+      // Log the final prompt for debugging
+      console.log('Final agent prompt:', agentPrompt);
+      console.log('Context object:', context);
+      console.log('System prompt:', systemPrompt);
+      console.log('Context content extracted:', contextContent);
+      console.log('Agent prompt length:', agentPrompt.length);
+      console.log('Agent prompt preview:', agentPrompt.substring(0, 200) + '...');
 
       let agentCallback = null;
       switch (selectedModel) {
