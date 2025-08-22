@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import Layout from './components/common/Layout';
 import TagsPage from './pages/TagsPage';
 import ContextsPage from './pages/ContextsPage';
+import SystemPromptsPage from './pages/SystemPromptsPage';
 import PromptLabPage from './pages/PromptLabPage';
 import PersonasPage from './pages/PersonasPage';
 
@@ -133,16 +134,17 @@ const AppContent: React.FC<AppContentProps> = () => {
         {authInitialized && (
           <Layout>
             <Routes>
-              <Route path="/" element={<Navigate to="/conversations" replace />} />
+              <Route path="/" element={<Navigate to="/prompt-lab" replace />} />
               <Route path="/conversations" element={<ConversationsPage />} />
               <Route path="/conversations/:id" element={<ConversationsPage />} />
               <Route path="/contexts" element={<ContextsPage />} />
+              <Route path="/system-prompts" element={<SystemPromptsPage />} />
               <Route path="/prompt-lab" element={<PromptLabPage />} />
               <Route path="/personas" element={<PersonasPage />} />
               <Route path="/memories" element={<MemoriesPage />} />
               <Route path="/tags" element={<TagsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/conversations" replace />} />
+              <Route path="*" element={<Navigate to="/prompt-lab" replace />} />
             </Routes>
           </Layout>
         )}

@@ -44,6 +44,7 @@ import {
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchTags } from '../store/slices/tagsSlice';
+import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation, ConversationsState, Tag } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
 import { getPlatformColor, formatDate } from '../utils/conversationUtils';
@@ -52,6 +53,7 @@ const ConversationsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { items: conversations = [], loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: tags = [] } = useAppSelector((state) => state.tags as any);
+  const { items: contexts } = useAppSelector((state) => state.contexts);
 
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
@@ -69,6 +71,13 @@ const ConversationsPage: React.FC = () => {
   const [showContextBuilder, setShowContextBuilder] = useState(false);
   const [contextPreview, setContextPreview] = useState('');
   const [estimatedTokens, setEstimatedTokens] = useState(0);
+  
+  // Add to Context Dialog State
+  const [showAddToContextDialog, setShowAddToContextDialog] = useState(false);
+  const [selectedConversationForContext, setSelectedConversationForContext] = useState<Conversation | null>(null);
+  const [selectedContextId, setSelectedContextId] = useState<string>('');
+  const [newContextTitle, setNewContextTitle] = useState<string>('');
+  const [isAddingToContext, setIsAddingToContext] = useState(false);
 
   // Tag Management State
   const [showTagDialog, setShowTagDialog] = useState(false);
@@ -85,6 +94,9 @@ const ConversationsPage: React.FC = () => {
       limit: 20
     }));
     dispatch(fetchTags());
+    if (currentProfile?.id) {
+      dispatch(fetchContexts(currentProfile.id));
+    }
   }, [dispatch, isAuthenticated, currentProfile]);
 
   const handleRefresh = () => {
@@ -142,13 +154,7 @@ const ConversationsPage: React.FC = () => {
     return 0;
   });
 
-  const handleContextSelection = (conversationId: string) => {
-    setSelectedForContext(prev => 
-      prev.includes(conversationId) 
-        ? prev.filter(id => id !== conversationId)
-        : [...prev, conversationId]
-    );
-  };
+
 
   const buildContextPreview = () => {
     const selectedConversations = conversations.filter((c: Conversation) => selectedForContext.includes(c.id));
@@ -159,6 +165,72 @@ const ConversationsPage: React.FC = () => {
     setContextPreview(context);
     setEstimatedTokens(Math.ceil(context.length / 4)); // Rough token estimation
     setShowContextBuilder(true);
+  };
+
+  const handleAddToContext = async (conversation: Conversation) => {
+    setSelectedConversationForContext(conversation);
+    setSelectedContextId('');
+    setNewContextTitle(`${conversation.title} Context`);
+    setShowAddToContextDialog(true);
+  };
+
+  const handleAddToContextSubmit = async () => {
+    if (!selectedConversationForContext || !currentProfile?.id) return;
+    
+    setIsAddingToContext(true);
+    try {
+      // Fetch conversation messages to get the full content
+      const messages = await dispatch(fetchConversationMessages(selectedConversationForContext.id)).unwrap();
+      
+      // Prepare conversation data
+      const conversationData = {
+        title: selectedConversationForContext.title,
+        messages: messages || [],
+        platform: selectedConversationForContext.platform
+      };
+      
+      let targetContextId = selectedContextId;
+      
+      // If no context selected, create a new one
+      if (!selectedContextId) {
+        const newContext = await dispatch(createContext({
+          contextData: {
+            title: newContextTitle,
+            body: ``,
+            tags: ['conversation-context'],
+            conversationIds: [],
+            conversationMetadata: {
+              totalMessages: 0,
+              lastAddedAt: new Date().toISOString(),
+              platforms: []
+            }
+          },
+          profileId: currentProfile.id
+        })).unwrap();
+        targetContextId = newContext.id;
+      }
+      
+      // Add to context
+      await dispatch(addConversationToContext({
+        contextId: targetContextId,
+        conversationId: selectedConversationForContext.id,
+        conversationData,
+        profileId: currentProfile.id
+      })).unwrap();
+      
+      setShowAddToContextDialog(false);
+      setSelectedConversationForContext(null);
+      setSelectedContextId('');
+      setNewContextTitle('');
+      
+      // Show success message or refresh contexts
+      // You could add a snackbar here
+      
+    } catch (error) {
+      console.error('Error adding conversation to context:', error);
+    } finally {
+      setIsAddingToContext(false);
+    }
   };
 
   const exportContext = (format: 'clipboard' | 'json' | 'markdown') => {
@@ -243,10 +315,10 @@ const ConversationsPage: React.FC = () => {
                 size="small" 
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  handleContextSelection(conversation.id);
+                  handleAddToContext(conversation);
                 }}
                 title="Add to Context"
-                color={isSelectedForContext ? 'primary' : 'default'}
+                color="default"
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -729,6 +801,93 @@ const ConversationsPage: React.FC = () => {
             startIcon={<ExportIcon />}
           >
             Export JSON
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add to Context Dialog */}
+      <Dialog
+        open={showAddToContextDialog}
+        onClose={() => setShowAddToContextDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Add Conversation to Context
+          <Typography variant="body2" color="text.secondary">
+            {selectedConversationForContext?.title}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Select a context to add this conversation to, or create a new one:
+            </Typography>
+            
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Select Context</InputLabel>
+              <Select
+                value={selectedContextId}
+                label="Select Context"
+                onChange={(e) => setSelectedContextId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>Create New Context</em>
+                </MenuItem>
+                {contexts.map((context) => (
+                  <MenuItem key={context.id} value={context.id}>
+                    {context.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {selectedContextId && (
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Selected Context:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {contexts.find(c => c.id === selectedContextId)?.body || 'No description available'}
+                </Typography>
+              </Box>
+            )}
+            
+            {!selectedContextId && (
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  New Context:
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Context Title"
+                  value={newContextTitle}
+                  onChange={(e) => setNewContextTitle(e.target.value)}
+                  placeholder="Enter context title"
+                  sx={{ mb: 2 }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  A new context will be created with the title above
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowAddToContextDialog(false);
+            setSelectedConversationForContext(null);
+            setSelectedContextId('');
+            setNewContextTitle('');
+          }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleAddToContextSubmit}
+            disabled={isAddingToContext}
+          >
+            {isAddingToContext ? 'Adding...' : 'Add to Context'}
           </Button>
         </DialogActions>
       </Dialog>

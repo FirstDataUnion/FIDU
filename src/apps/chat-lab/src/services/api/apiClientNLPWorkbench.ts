@@ -1,10 +1,10 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiError, type ErrorResponse } from './apiClients';
+import { getGatewayUrl } from '../../utils/environment';
 
 // NLP Workbench API Configuration
 const NLP_WORKBENCH_API_CONFIG = {
-    baseURL: '/api/nlp-workbench',
     timeout: 30000, // Longer timeout for NLP processing
     headers: {
       'Content-Type': 'application/json',
@@ -27,17 +27,8 @@ const NLP_WORKBENCH_API_CONFIG = {
   // NLP Workbench API client class
   export class NLPWorkbenchAPIClient {
     private client: AxiosInstance;
-    private apiKey: string;
-    private getApiKeyFromSettings?: () => string | undefined;
 
-    constructor(apiKey?: string, getApiKeyFromSettings?: () => string | undefined) {
-      this.getApiKeyFromSettings = getApiKeyFromSettings;
-      this.apiKey = apiKey || import.meta.env.VITE_NLP_WORKBENCH_AGENT_API_KEY || '';
-      
-      if (!this.apiKey && !this.getApiKeyFromSettings) {
-        console.warn('NLP Workbench API key not provided. Please set VITE_NLP_WORKBENCH_AGENT_API_KEY environment variable or configure in settings.');
-      }
-  
+    constructor() {
       this.client = axios.create({
         ...NLP_WORKBENCH_API_CONFIG,
       });
@@ -45,25 +36,19 @@ const NLP_WORKBENCH_API_CONFIG = {
       this.setupInterceptors();
     }
 
-    private getCurrentApiKey(): string {
-      // First try to get from settings
-      if (this.getApiKeyFromSettings) {
-        const settingsApiKey = this.getApiKeyFromSettings();
-        if (settingsApiKey) {
-          return settingsApiKey;
-        }
-      }
-      // Fall back to constructor-provided key or environment variable
-      return this.apiKey;
+    private getBaseUrl(): string {
+      const gatewayUrl = getGatewayUrl();
+      return `${gatewayUrl}/api/nlp-workbench`;
     }
   
     private setupInterceptors(): void {
+      // Request interceptor to add auth token
       this.client.interceptors.request.use(
         (config: InternalAxiosRequestConfig) => {
-          // Add API key from settings if available
-          const currentApiKey = this.getCurrentApiKey();
-          if (currentApiKey) {
-            config.headers['X-API-Key'] = currentApiKey;
+          // Get auth token from localStorage
+          const token = localStorage.getItem('auth_token');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
           }
           return config;
         },
@@ -71,7 +56,7 @@ const NLP_WORKBENCH_API_CONFIG = {
           return Promise.reject(error);
         }
       );
-  
+
       // Response interceptor
       this.client.interceptors.response.use(
         (response: AxiosResponse) => response,
@@ -104,7 +89,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeChatGPTGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1751898508584306066/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1751898508584306066/execute`,
         { input }
       );
       return response.data;
@@ -115,7 +100,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755007425582490606/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755007425582490606/execute`,
         { input }
       );
       return response.data;
@@ -126,7 +111,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeChatGPT40TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755007458371087422/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755007458371087422/execute`,
         { input }
       );
       return response.data;
@@ -137,7 +122,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeChatGPT4oGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755008314136173601/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755008314136173601/execute`,
         { input }
       );
       return response.data;
@@ -148,7 +133,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeClaude3OpusGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755008341384405976/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755008341384405976/execute`,
         { input }
       );
       return response.data;
@@ -159,7 +144,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeClaude3SonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755008385886004593/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755008385886004593/execute`,
         { input }
       );
       return response.data;
@@ -170,7 +155,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async executeClaude3HaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        '/agents/agent-1755008467359243995/execute',
+        `${this.getBaseUrl()}/api/public/agents/agent-1755008467359243995/execute`,
         { input }
       );
       return response.data;
@@ -181,7 +166,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      */
     async getExecutionStatus(executionId: string): Promise<NLPWorkbenchExecutionStatus> {
       const response = await this.client.get<NLPWorkbenchExecutionStatus>(
-        `/executions/${executionId}`
+        `${this.getBaseUrl()}/api/public/executions/${executionId}`
       );
       return response.data;
     }
@@ -230,10 +215,9 @@ const NLP_WORKBENCH_API_CONFIG = {
   // Create and export a default instance for NLP Workbench API
   export const nlpWorkbenchAPIClient = new NLPWorkbenchAPIClient();
   
-  // Export a function to create new instances with custom API key
-  export const createNLPWorkbenchAPIClient = (apiKey: string) => new NLPWorkbenchAPIClient(apiKey);
+  // Export a function to create new instances (kept for backward compatibility)
+  export const createNLPWorkbenchAPIClient = () => new NLPWorkbenchAPIClient();
   
-  // Export a function to create new instances with settings-based API key provider
-  export const createNLPWorkbenchAPIClientWithSettings = (getApiKeyFromSettings: () => string | undefined) => 
-    new NLPWorkbenchAPIClient(undefined, getApiKeyFromSettings);
+  // Export a function to create new instances with settings-based API key provider (kept for backward compatibility)
+  export const createNLPWorkbenchAPIClientWithSettings = () => new NLPWorkbenchAPIClient();
   

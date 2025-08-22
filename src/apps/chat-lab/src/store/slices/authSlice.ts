@@ -6,6 +6,18 @@ import type {
   Profile, 
 } from '../../types';
 
+// Helper function to clear all auth tokens consistently
+const clearAllAuthTokens = () => {
+  // Clear localStorage
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('fiduToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('current_profile');
+  
+  // Clear cookie
+  document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+};
+
 // Async thunks
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
@@ -89,9 +101,7 @@ export const initializeAuth = createAsyncThunk(
       return null;
     } catch (error: any) {
       // Clear invalid auth data
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('current_profile');
+      clearAllAuthTokens();
       return rejectWithValue(error.message || 'Failed to initialize auth');
     }
   }
@@ -121,13 +131,7 @@ const authSlice = createSlice({
       state.error = null;
       
       // Clear localStorage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('fiduToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('current_profile');
-
-      // Clear cookie
-      document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+      clearAllAuthTokens();
     },
     
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
