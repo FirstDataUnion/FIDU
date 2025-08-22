@@ -16,20 +16,22 @@ def run_command(command, cwd=None, check=True, env=None):
     print(f"Running: {command}")
     if cwd:
         print(f"Working directory: {cwd}")
-    
+
     # Set up environment variables for better macOS compatibility
     if env is None:
         env = os.environ.copy()
-    
-    if platform.system() == 'Darwin':
+
+    if platform.system() == "Darwin":
         # macOS-specific environment variables for better compatibility
-        env.update({
-            'MACOSX_DEPLOYMENT_TARGET': '10.15',  # Target Catalina as minimum
-            'PYTHON_CONFIGURE_OPTS': '--enable-framework',
-            'LDFLAGS': '-Wl,-rpath,@executable_path/../Frameworks',
-            'CFLAGS': '-I/usr/local/include',
-        })
-        
+        env.update(
+            {
+                "MACOSX_DEPLOYMENT_TARGET": "10.15",  # Target Catalina as minimum
+                "PYTHON_CONFIGURE_OPTS": "--enable-framework",
+                "LDFLAGS": "-Wl,-rpath,@executable_path/../Frameworks",
+                "CFLAGS": "-I/usr/local/include",
+            }
+        )
+
         # Ensure we're using the right Python version
         print(f"Building on macOS {platform.mac_ver()[0]}")
         print(f"Targeting minimum macOS version: 10.15 (Catalina)")
@@ -51,27 +53,32 @@ def run_command(command, cwd=None, check=True, env=None):
 
 def setup_macos_build_environment():
     """Set up macOS-specific build environment."""
-    if platform.system() != 'Darwin':
+    if platform.system() != "Darwin":
         return
-    
+
     print("\nSetting up macOS build environment...")
-    
+
     # Check if we need to install/update PyInstaller
     try:
         import PyInstaller
+
         print(f"PyInstaller version: {PyInstaller.__version__}")
-        
+
         # Recommend updating to latest version for better macOS compatibility
-        if PyInstaller.__version__ < '5.0':
-            print("Warning: Consider updating PyInstaller to version 5.0+ for better macOS compatibility")
+        if PyInstaller.__version__ < "5.0":
+            print(
+                "Warning: Consider updating PyInstaller to version 5.0+ for better macOS compatibility"
+            )
     except ImportError:
         print("PyInstaller not found. Installing...")
         run_command("pip install --upgrade pyinstaller")
-    
+
     # Check Python version
     python_version = sys.version_info
-    print(f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}")
-    
+    print(
+        f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+    )
+
     # Recommend Python 3.8+ for better macOS compatibility
     if python_version < (3, 8):
         print("Warning: Python 3.8+ recommended for better macOS compatibility")
@@ -80,7 +87,7 @@ def setup_macos_build_environment():
 def main():
     """Main build function."""
     print("Starting FIDU Vault build process...")
-    
+
     # Set up macOS-specific environment if needed
     setup_macos_build_environment()
 
@@ -125,12 +132,12 @@ def main():
     try:
         # Use specific PyInstaller flags for better macOS compatibility
         pyinstaller_cmd = "pyinstaller main.spec"
-        
-        if platform.system() == 'Darwin':
+
+        if platform.system() == "Darwin":
             # Add macOS-specific flags
             pyinstaller_cmd += " --clean --noconfirm"
             print("Using macOS-optimized PyInstaller configuration")
-        
+
         run_command(pyinstaller_cmd)
         print("✓ PyInstaller build completed successfully")
 
@@ -139,9 +146,9 @@ def main():
         if dist_path.exists():
             print(f"\nExecutable created at: {dist_path.absolute()}")
             print(f"To run the application: {dist_path / 'fidu_vault_0_0_2'}")
-            
+
             # macOS-specific post-build instructions
-            if platform.system() == 'Darwin':
+            if platform.system() == "Darwin":
                 print("\nmacOS Build Notes:")
                 print("- If you encounter 'damaged' errors on newer macOS versions:")
                 print("  1. Right-click the app and select 'Open'")
