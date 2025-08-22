@@ -15,66 +15,48 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
   Paper,
   InputAdornment,
   Fab,
   Alert,
   CircularProgress,
-  Switch,
-  FormControlLabel,
   ListItemIcon,
   ListItemText,
   Stack,
-  Collapse,
-  Divider,
   Autocomplete
 } from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material';
+
 import {
   Add as AddIcon,
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  ContentCopy as CopyIcon,
-  Archive as ArchiveIcon,
-  UnarchiveOutlined as UnarchiveIcon,
   FolderOutlined as FolderIcon,
-  LinkOutlined as LinkIcon,
-  AttachFile as FileIcon,
-  ExpandLess,
-  ExpandMore,
-  Star as StarIcon,
-  Share as ShareIcon,
-  Download as DownloadIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
   Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { fetchTags } from '../store/slices/tagsSlice';
-// import { fetchContexts, createContext, updateContext, deleteContext } from '../store/slices/contextsSlice';
+import { fetchContexts, createContext, updateContext, deleteContext } from '../store/slices/contextsSlice';
 
 export default function ContextsPage() {
   const dispatch = useAppDispatch();
-  const { loading, error } = useAppSelector((state) => state.contexts || { loading: false, error: null });
+  const { currentProfile } = useAppSelector((state) => state.auth);
+  const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
   const { items: tags } = useAppSelector((state) => state.tags as any);
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterBy, setFilterBy] = useState('all');
-  const [sortBy, setSortBy] = useState('updated');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showArchived, setShowArchived] = useState(false);
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
   const [selectedContext, setSelectedContext] = useState<any>(null);
-  const [contextMenuAnchor, setContextMenuAnchor] = useState<null | HTMLElement>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Tag Management State
   const [showTagDialog, setShowTagDialog] = useState(false);
@@ -83,100 +65,35 @@ export default function ContextsPage() {
   
   // Form states
   const [contextForm, setContextForm] = useState({
-    name: '',
-    description: '',
-    type: 'project',
-    isPublic: false,
+    title: '',
+    body: '',
     tags: [] as string[]
   });
   
-  // File/Link expansion states
-  const [expandedContexts, setExpandedContexts] = useState<Set<string>>(new Set());
+  // View/Edit form state
+  const [viewEditForm, setViewEditForm] = useState({
+    title: '',
+    body: ''
+  });
+  
+  // Loading states
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isViewEditing, setIsViewEditing] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTags());
-    // dispatch(fetchContexts());
-  }, [dispatch]);
-
-  // Mock data since we don't have the slice yet
-  const mockContexts = [
-    {
-      id: 'ctx-1',
-      name: 'React Development',
-      description: 'Complete React.js development context with hooks, patterns, and best practices',
-      type: 'project',
-      isPublic: false,
-      isArchived: false,
-      isFavorite: true,
-      tags: ['React', 'TypeScript', 'Frontend'],
-      files: [
-        { id: 'f1', name: 'component-patterns.md', size: 2048, type: 'markdown' },
-        { id: 'f2', name: 'hooks-examples.ts', size: 1024, type: 'typescript' }
-      ],
-      links: [
-        { id: 'l1', title: 'React Documentation', url: 'https://react.dev', description: 'Official React docs' }
-      ],
-      conversationIds: ['conv-1', 'conv-2'],
-      tokenCount: 15420,
-      createdAt: new Date('2024-01-10'),
-      updatedAt: new Date('2024-01-15'),
-      createdBy: 'user-1'
-    },
-    {
-      id: 'ctx-2',
-      name: 'API Architecture',
-      description: 'REST API design patterns, authentication, and database schemas',
-      type: 'reference',
-      isPublic: true,
-      isArchived: false,
-      isFavorite: false,
-      tags: ['API', 'Backend', 'Database'],
-      files: [
-        { id: 'f3', name: 'api-spec.yaml', size: 4096, type: 'yaml' },
-        { id: 'f4', name: 'auth-flow.md', size: 1536, type: 'markdown' }
-      ],
-      links: [
-        { id: 'l2', title: 'OpenAPI Spec', url: 'https://swagger.io/specification/', description: 'OpenAPI 3.0 specification' }
-      ],
-      conversationIds: ['conv-3'],
-      tokenCount: 8750,
-      createdAt: new Date('2024-01-08'),
-      updatedAt: new Date('2024-01-12'),
-      createdBy: 'user-1'
-    },
-    {
-      id: 'ctx-3',
-      name: 'Data Science Toolkit',
-      description: 'Machine learning algorithms, data preprocessing, and visualization libraries',
-      type: 'knowledge',
-      isPublic: false,
-      isArchived: true,
-      isFavorite: false,
-      tags: ['ML', 'Python', 'Data Science'],
-      files: [
-        { id: 'f5', name: 'ml-cheatsheet.pdf', size: 8192, type: 'pdf' }
-      ],
-      links: [],
-      conversationIds: ['conv-4', 'conv-5'],
-      tokenCount: 12300,
-      createdAt: new Date('2024-01-05'),
-      updatedAt: new Date('2024-01-10'),
-      createdBy: 'user-1'
+    if (currentProfile?.id) {
+      dispatch(fetchContexts(currentProfile.id));
     }
-  ];
+  }, [dispatch, currentProfile?.id]);
 
-  const filteredContexts = mockContexts.filter(context => {
-    if (!showArchived && context.isArchived) return false;
-    if (filterBy !== 'all') {
-      if (filterBy === 'favorites' && !context.isFavorite) return false;
-      if (filterBy === 'public' && !context.isPublic) return false;
-      if (filterBy !== 'favorites' && filterBy !== 'public' && context.type !== filterBy) return false;
-    }
+  const filteredContexts = (contexts || []).filter(context => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
-        context.name.toLowerCase().includes(query) ||
-        context.description.toLowerCase().includes(query) ||
+        context.title.toLowerCase().includes(query) ||
+        context.body.toLowerCase().includes(query) ||
         context.tags.some(tag => tag.toLowerCase().includes(query))
       );
     }
@@ -185,21 +102,19 @@ export default function ContextsPage() {
 
   const handleContextMenuOpen = (event: React.MouseEvent<HTMLElement>, context: any) => {
     event.stopPropagation();
-    setContextMenuAnchor(event.currentTarget);
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
     setSelectedContext(context);
   };
 
   const handleContextMenuClose = () => {
-    setContextMenuAnchor(null);
+    setContextMenuPosition(null);
     setSelectedContext(null);
   };
 
   const handleCreateContext = () => {
     setContextForm({
-      name: '',
-      description: '',
-      type: 'project',
-      isPublic: false,
+      title: '',
+      body: '',
       tags: []
     });
     setCreateDialogOpen(true);
@@ -208,10 +123,8 @@ export default function ContextsPage() {
   const handleEditContext = () => {
     if (selectedContext) {
       setContextForm({
-        name: selectedContext.name,
-        description: selectedContext.description,
-        type: selectedContext.type,
-        isPublic: selectedContext.isPublic,
+        title: selectedContext.title,
+        body: selectedContext.body,
         tags: selectedContext.tags
       });
       setEditDialogOpen(true);
@@ -219,42 +132,101 @@ export default function ContextsPage() {
     handleContextMenuClose();
   };
 
-  const toggleExpanded = (contextId: string) => {
-    setExpandedContexts(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(contextId)) {
-        newSet.delete(contextId);
-      } else {
-        newSet.add(contextId);
-      }
-      return newSet;
+  const handleCreateContextSubmit = async () => {
+    if (!currentProfile?.id || !contextForm.title.trim()) return;
+    
+    setIsCreating(true);
+    try {
+      await dispatch(createContext({ 
+        contextData: {
+          title: contextForm.title.trim(),
+          body: contextForm.body.trim(),
+          tags: contextForm.tags
+        }, 
+        profileId: currentProfile.id 
+      })).unwrap();
+      
+      setCreateDialogOpen(false);
+      setContextForm({ title: '', body: '', tags: [] });
+    } catch (error) {
+      console.error('Error creating context:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleUpdateContextSubmit = async () => {
+    if (!currentProfile?.id || !selectedContext || !contextForm.title.trim()) return;
+    
+    setIsUpdating(true);
+    try {
+      await dispatch(updateContext({ 
+        context: {
+          id: selectedContext.id,
+          title: contextForm.title.trim(),
+          body: contextForm.body.trim(),
+          tags: contextForm.tags
+        }, 
+        profileId: currentProfile.id 
+      })).unwrap();
+      
+      setEditDialogOpen(false);
+      setSelectedContext(null);
+      setContextForm({ title: '', body: '', tags: [] });
+    } catch (error) {
+      console.error('Error updating context:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteContext = async () => {
+    if (!selectedContext) return;
+    
+    try {
+      await dispatch(deleteContext(selectedContext.id)).unwrap();
+      handleContextMenuClose();
+    } catch (error) {
+      console.error('Error deleting context:', error);
+    }
+  };
+
+  const handleViewEditContext = (context: any) => {
+    setSelectedContext(context);
+    setViewEditForm({
+      title: context.title,
+      body: context.body
     });
+    setViewEditDialogOpen(true);
   };
 
-  const formatFileSize = (bytes: number) => {
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
+  const handleViewEditSubmit = async () => {
+    if (!selectedContext || !currentProfile?.id) return;
+    
+    setIsViewEditing(true);
+    try {
+      await dispatch(updateContext({ 
+        context: {
+          id: selectedContext.id,
+          title: viewEditForm.title.trim(),
+          body: viewEditForm.body.trim()
+        }, 
+        profileId: currentProfile.id 
+      })).unwrap();
+      
+      setViewEditDialogOpen(false);
+      setSelectedContext(null);
+      setViewEditForm({ title: '', body: '' });
+    } catch (error) {
+      console.error('Error updating context:', error);
+    } finally {
+      setIsViewEditing(false);
     }
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'project': return '#2196F3';
-      case 'reference': return '#4CAF50';
-      case 'knowledge': return '#FF9800';
-      case 'template': return '#9C27B0';
-      default: return '#757575';
-    }
-  };
+
 
   const ContextCard = ({ context }: { context: any }) => {
-    const isExpanded = expandedContexts.has(context.id);
-    
     return (
       <Card 
         sx={{ 
@@ -275,7 +247,14 @@ export default function ContextsPage() {
             <IconButton
               size="small"
               onClick={(e) => handleTagManagement(context, e)}
-              sx={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
+              sx={{ 
+                backgroundColor: 'background.paper',
+                border: 1,
+                borderColor: 'divider',
+                '&:hover': {
+                  backgroundColor: 'action.hover'
+                }
+              }}
               title="Manage Tags"
             >
               <TagIcon fontSize="small" />
@@ -283,54 +262,34 @@ export default function ContextsPage() {
             <IconButton
               size="small"
               onClick={(e) => handleContextMenuOpen(e, context)}
-              sx={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
+              sx={{ 
+                backgroundColor: 'background.paper',
+                border: 1,
+                borderColor: 'divider',
+                '&:hover': {
+                  backgroundColor: 'action.hover'
+                }
+              }}
             >
               <MoreVertIcon fontSize="small" />
             </IconButton>
           </Box>
         </Box>
-        
-        {/* Favorite star */}
-        {context.isFavorite && (
-          <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}>
-            <StarIcon sx={{ color: '#FFD700', fontSize: 20 }} />
-          </Box>
-        )}
 
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-          {/* Type indicator */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Box
-              sx={{
-                width: 4,
-                height: 20,
-                backgroundColor: getTypeColor(context.type),
-                borderRadius: 2,
-                mr: 1
-              }}
-            />
-            <Chip 
-              label={context.type} 
-              size="small" 
-              sx={{ 
-                backgroundColor: getTypeColor(context.type),
-                color: 'white',
-                fontSize: '0.7rem'
-              }} 
-            />
-            {context.isPublic && (
-              <Chip 
-                label="Public" 
-                size="small" 
-                variant="outlined"
-                sx={{ ml: 1, fontSize: '0.7rem' }}
-              />
-            )}
-          </Box>
-
-          {/* Title and description */}
-          <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, lineHeight: 1.2 }}>
-            {context.name}
+          {/* Title and body */}
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              mb: 1, 
+              fontWeight: 600, 
+              lineHeight: 1.2,
+              pr: 8, // Add right padding to prevent overlap with buttons
+              wordBreak: 'break-word', // Allow long words to break
+              overflowWrap: 'break-word' // Modern CSS for better word breaking
+            }}
+          >
+            {context.title}
           </Typography>
           <Typography 
             variant="body2" 
@@ -338,12 +297,12 @@ export default function ContextsPage() {
             sx={{ 
               mb: 2,
               display: '-webkit-box',
-              WebkitLineClamp: 2,
+              WebkitLineClamp: 3,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden'
             }}
           >
-            {context.description}
+            {context.body}
           </Typography>
 
           {/* Tags */}
@@ -366,78 +325,23 @@ export default function ContextsPage() {
 
           {/* Stats */}
           <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <FolderIcon fontSize="small" />
-              {context.files.length} files
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <LinkIcon fontSize="small" />
-              {context.links.length} links
-            </Box>
             <Box>
               {context.tokenCount.toLocaleString()} tokens
             </Box>
           </Box>
-
-          {/* Files and Links Expansion */}
-          {(context.files.length > 0 || context.links.length > 0) && (
-            <Box>
-              <Button
-                size="small"
-                onClick={() => toggleExpanded(context.id)}
-                endIcon={isExpanded ? <ExpandLess /> : <ExpandMore />}
-                sx={{ fontSize: '0.75rem', p: 0.5 }}
-              >
-                View Details
-              </Button>
-              
-              <Collapse in={isExpanded}>
-                <Box sx={{ mt: 1, pl: 1 }}>
-                  {context.files.length > 0 && (
-                    <Box sx={{ mb: 1 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                        Files:
-                      </Typography>
-                      {context.files.map((file: any) => (
-                        <Box key={file.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                          <FileIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                          <Typography variant="caption">{file.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            ({formatFileSize(file.size)})
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                  
-                  {context.links.length > 0 && (
-                    <Box>
-                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                        Links:
-                      </Typography>
-                      {context.links.map((link: any) => (
-                        <Box key={link.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                          <LinkIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                          <Typography variant="caption" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
-                            {link.title}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </Box>
-              </Collapse>
-            </Box>
-          )}
         </CardContent>
 
         <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
           <Typography variant="caption" color="text.secondary">
-            Updated {context.updatedAt.toLocaleDateString()}
+            Updated {new Date(context.updatedAt).toLocaleDateString()}
           </Typography>
           <Box>
-            <Button size="small" variant="outlined">
-              Use Context
+            <Button 
+              size="small" 
+              variant="outlined"
+              onClick={() => handleViewEditContext(context)}
+            >
+              View/Edit
             </Button>
           </Box>
         </CardActions>
@@ -476,14 +380,14 @@ export default function ContextsPage() {
   };
 
   // Get unique tags for autocomplete
-  const allTags = [...new Set(mockContexts.flatMap(c => c.tags))];
+  const allTags = [...new Set((contexts || []).flatMap(c => c.tags))];
 
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-          Contexts [COMING SOON]
+          Contexts
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Manage your conversation contexts, references, and knowledge bases
@@ -510,51 +414,10 @@ export default function ContextsPage() {
                 }}
               />
             </Box>
-            <Box sx={{ width: { xs: '50%', md: '150px' } }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Filter</InputLabel>
-                <Select
-                  value={filterBy}
-                  label="Filter"
-                  onChange={(e: SelectChangeEvent) => setFilterBy(e.target.value)}
-                >
-                  <MenuItem value="all">All Types</MenuItem>
-                  <MenuItem value="project">Projects</MenuItem>
-                  <MenuItem value="reference">References</MenuItem>
-                  <MenuItem value="knowledge">Knowledge</MenuItem>
-                  <MenuItem value="template">Templates</MenuItem>
-                  <MenuItem value="favorites">Favorites</MenuItem>
-                  <MenuItem value="public">Public</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            <Box sx={{ width: { xs: '50%', md: '150px' } }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Sort</InputLabel>
-                <Select
-                  value={sortBy}
-                  label="Sort"
-                  onChange={(e: SelectChangeEvent) => setSortBy(e.target.value)}
-                >
-                  <MenuItem value="updated">Last Updated</MenuItem>
-                  <MenuItem value="created">Date Created</MenuItem>
-                  <MenuItem value="name">Name</MenuItem>
-                  <MenuItem value="tokens">Token Count</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+
           </Stack>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showArchived}
-                  onChange={(e) => setShowArchived(e.target.checked)}
-                  size="small"
-                />
-              }
-              label="Show Archived"
-            />
+
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton
                 size="small"
@@ -608,7 +471,7 @@ export default function ContextsPage() {
             No contexts found
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {searchQuery || filterBy !== 'all' ? 'Try adjusting your search or filters' : 'Create your first context to get started'}
+            {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
             Create Context
@@ -628,9 +491,14 @@ export default function ContextsPage() {
 
       {/* Context Menu */}
       <Menu
-        anchorEl={contextMenuAnchor}
-        open={Boolean(contextMenuAnchor)}
+        open={Boolean(contextMenuPosition)}
         onClose={handleContextMenuClose}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenuPosition
+            ? { top: contextMenuPosition.y, left: contextMenuPosition.x }
+            : undefined
+        }
       >
         <MenuItem onClick={handleEditContext}>
           <ListItemIcon>
@@ -638,32 +506,8 @@ export default function ContextsPage() {
           </ListItemIcon>
           <ListItemText>Edit</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleContextMenuClose}>
-          <ListItemIcon>
-            <CopyIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Duplicate</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleContextMenuClose}>
-          <ListItemIcon>
-            <ShareIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Share</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleContextMenuClose}>
-          <ListItemIcon>
-            <DownloadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Export</ListItemText>
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleContextMenuClose}>
-          <ListItemIcon>
-            {selectedContext?.isArchived ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
-          </ListItemIcon>
-          <ListItemText>{selectedContext?.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleContextMenuClose} sx={{ color: 'error.main' }}>
+
+        <MenuItem onClick={handleDeleteContext} sx={{ color: 'error.main' }}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} />
           </ListItemIcon>
@@ -678,48 +522,30 @@ export default function ContextsPage() {
           <Box sx={{ pt: 1 }}>
             <TextField
               fullWidth
-              label="Context Name"
-              value={contextForm.name}
-              onChange={(e) => setContextForm(prev => ({ ...prev, name: e.target.value }))}
+              label="Context Title"
+              value={contextForm.title}
+              onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
               sx={{ mb: 2 }}
             />
             <TextField
               fullWidth
-              label="Description"
+              label="Context Body"
               multiline
-              rows={3}
-              value={contextForm.description}
-              onChange={(e) => setContextForm(prev => ({ ...prev, description: e.target.value }))}
+              rows={4}
+              value={contextForm.body}
+              onChange={(e) => setContextForm(prev => ({ ...prev, body: e.target.value }))}
               sx={{ mb: 2 }}
-            />
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={contextForm.type}
-                label="Type"
-                onChange={(e: SelectChangeEvent) => setContextForm(prev => ({ ...prev, type: e.target.value }))}
-              >
-                <MenuItem value="project">Project</MenuItem>
-                <MenuItem value="reference">Reference</MenuItem>
-                <MenuItem value="knowledge">Knowledge</MenuItem>
-                <MenuItem value="template">Template</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={contextForm.isPublic}
-                  onChange={(e) => setContextForm(prev => ({ ...prev, isPublic: e.target.checked }))}
-                />
-              }
-              label="Make Public"
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setCreateDialogOpen(false)}>
-            Create Context
+          <Button 
+            variant="contained" 
+            onClick={handleCreateContextSubmit}
+            disabled={isCreating || !contextForm.title.trim()}
+          >
+            {isCreating ? 'Creating...' : 'Create Context'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -731,48 +557,70 @@ export default function ContextsPage() {
           <Box sx={{ pt: 1 }}>
             <TextField
               fullWidth
-              label="Context Name"
-              value={contextForm.name}
-              onChange={(e) => setContextForm(prev => ({ ...prev, name: e.target.value }))}
+              label="Context Title"
+              value={contextForm.title}
+              onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
               sx={{ mb: 2 }}
             />
             <TextField
               fullWidth
-              label="Description"
+              label="Context Body"
               multiline
-              rows={3}
-              value={contextForm.description}
-              onChange={(e) => setContextForm(prev => ({ ...prev, description: e.target.value }))}
+              rows={4}
+              value={contextForm.body}
+              onChange={(e) => setContextForm(prev => ({ ...prev, body: e.target.value }))}
               sx={{ mb: 2 }}
-            />
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={contextForm.type}
-                label="Type"
-                onChange={(e: SelectChangeEvent) => setContextForm(prev => ({ ...prev, type: e.target.value }))}
-              >
-                <MenuItem value="project">Project</MenuItem>
-                <MenuItem value="reference">Reference</MenuItem>
-                <MenuItem value="knowledge">Knowledge</MenuItem>
-                <MenuItem value="template">Template</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={contextForm.isPublic}
-                  onChange={(e) => setContextForm(prev => ({ ...prev, isPublic: e.target.checked }))}
-                />
-              }
-              label="Make Public"
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setEditDialogOpen(false)}>
-            Save Changes
+          <Button 
+            variant="contained" 
+            onClick={handleUpdateContextSubmit}
+            disabled={isUpdating || !contextForm.title.trim()}
+          >
+            {isUpdating ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View/Edit Context Dialog */}
+      <Dialog open={viewEditDialogOpen} onClose={() => setViewEditDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          View/Edit Context
+          <Typography variant="body2" color="text.secondary">
+            {selectedContext?.title}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Context Title"
+              value={viewEditForm.title}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, title: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Context Content"
+              multiline
+              rows={18}
+              value={viewEditForm.body}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, body: e.target.value }))}
+              sx={{ fontFamily: 'monospace' }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewEditDialogOpen(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleViewEditSubmit}
+            disabled={isViewEditing || !viewEditForm.title.trim() || !viewEditForm.body.trim()}
+          >
+            {isViewEditing ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -8,6 +8,7 @@ import uiSlice from './slices/uiSlice';
 import settingsSlice from './slices/settingsSlice';
 import tagsSlice from './slices/tagsSlice';
 import contextsSlice from './slices/contextsSlice';
+import systemPromptsSlice from './slices/systemPromptsSlice';
 import promptLabSlice from './slices/promptLabSlice';
 import personasSlice from './slices/personasSlice';
 import searchSlice from './slices/searchSlice';
@@ -21,6 +22,7 @@ export const store = configureStore({
     settings: settingsSlice,
     tags: tagsSlice,
     contexts: contextsSlice,
+    systemPrompts: systemPromptsSlice,
     promptLab: promptLabSlice,
     personas: personasSlice,
     search: searchSlice,

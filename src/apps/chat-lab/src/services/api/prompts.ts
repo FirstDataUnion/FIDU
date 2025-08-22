@@ -1,6 +1,6 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import { createNLPWorkbenchAPIClientWithSettings } from './apiClientNLPWorkbench';
-import type { PromptDataPacket, DataPacketQueryParams, Prompt, Message } from '../../types';
+import type { PromptDataPacket, DataPacketQueryParams, Prompt, Message, Context, SystemPrompt } from '../../types';
 
 const DEFAULT_WAIT_TIME_MS = 10000;
 const DEFAULT_POLL_INTERVAL_MS = 1500;
@@ -15,18 +15,56 @@ interface PromptsResponse {
 const transformDataPacketToPrompt = (packet: PromptDataPacket): Prompt => {
   // Add validation to ensure required fields exist
   
-  if (!packet.data?.prompt) {
+  if (!packet.data?.prompt_text || !packet.data?.system_prompt_content) {
     console.warn('Data packet missing required fields:', packet);
     throw new Error('Invalid data packet format');
   }
 
+  // Reconstruct context if present
+  const context: Context | null = packet.data.context_id && packet.data.context_title ? {
+    id: packet.data.context_id,
+    title: packet.data.context_title,
+    body: '', // We don't store the full description in the data packet
+    tokenCount: 0,   // We don't store this in the data packet
+    createdAt: packet.create_timestamp,
+    updatedAt: packet.update_timestamp,
+    tags: [],
+    conversationIds: [],
+    conversationMetadata: {
+      totalMessages: 0,
+      lastAddedAt: packet.create_timestamp,
+      platforms: []
+    }
+  } : null;
+
+  // Reconstruct system prompt
+  const systemPrompt: SystemPrompt = {
+    id: packet.data.system_prompt_id,
+    name: packet.data.system_prompt_name,
+    content: packet.data.system_prompt_content,
+    description: '', // We don't store the full description in the data packet
+    tokenCount: 0,   // We don't store this in the data packet
+    isDefault: false,
+    isSystem: true,
+    category: 'Technical',
+    modelCompatibility: [],
+    createdAt: packet.create_timestamp,
+    updatedAt: packet.update_timestamp,
+    tags: []
+  };
+
   return {
     id: packet.id,
     title: packet.data.prompt_title,
-		prompt: packet.data.prompt,
+    promptText: packet.data.prompt_text,
+    context,
+    systemPrompt,
     createdAt: packet.create_timestamp,
     updatedAt: packet.update_timestamp,
     tags: packet.tags || [],
+    metadata: {
+      estimatedTokens: packet.data.estimated_tokens || 0
+    }
   };
 };
 
@@ -36,31 +74,41 @@ const transformPromptToDataPacket = (prompt: Prompt, profileId: string): {
   tags: string[];
   data: {
     prompt_title: string;
-    prompt: string;
+    prompt_text: string;
+    context_id?: string;
+    context_title?: string;
+    system_prompt_id: string;
+    system_prompt_content: string;
+    system_prompt_name: string;
+    estimated_tokens: number;
   };
 } => {
   // Add validation to ensure required fields exist
-  if (!prompt.prompt) {
+  if (!prompt.promptText || !prompt.systemPrompt) {
     console.warn('Prompt missing required fields:', prompt);
-    throw new Error('Invalid prompt format: prompt is required');
+    throw new Error('Invalid prompt format: promptText and systemPrompt are required');
   }
 
   return {
     id: prompt.id,
     profile_id: profileId,
-            tags: ["FIDU-CHAT-LAB-Prompt", ...(prompt.tags || [])],
+    tags: ["FIDU-CHAT-LAB-Prompt", ...(prompt.tags || [])],
     data: {
       prompt_title: prompt.title || "Untitled Prompt",
-      prompt: prompt.prompt,
+      prompt_text: prompt.promptText,
+      context_id: prompt.context?.id,
+      context_title: prompt.context?.title,
+      system_prompt_id: prompt.systemPrompt.id,
+      system_prompt_content: prompt.systemPrompt.content,
+      system_prompt_name: prompt.systemPrompt.name,
+      estimated_tokens: prompt.metadata?.estimatedTokens || 0,
     },
   };
 };
 
-// Factory function to create prompts API with settings
-export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefined) => {
-  const nlpWorkbenchAPIClient = getApiKeyFromSettings 
-    ? createNLPWorkbenchAPIClientWithSettings(getApiKeyFromSettings)
-    : createNLPWorkbenchAPIClientWithSettings(() => undefined);
+// Factory function to create prompts API
+export const createPromptsApi = () => {
+  const nlpWorkbenchAPIClient = createNLPWorkbenchAPIClientWithSettings();
 
   return {
     getAll: async (queryParams?: DataPacketQueryParams, page = 1, limit = 20) => {
@@ -93,7 +141,7 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
         if (!response.data) {
           console.error('No data received from API');
           return {
-            conversations: [],
+            prompts: [],
             total: 0,
             page: 1,
             limit: 20
@@ -158,11 +206,27 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
       context: any,
       prompt: string,
       selectedModel: string,
-      profileId?: string
+      profileId?: string,
+      systemPrompt?: any
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
       }
+
+      // Log the received parameters for debugging
+      console.log('executePrompt called with:', {
+        conversationMessages: conversationMessages.length,
+        context,
+        contextType: typeof context,
+        contextKeys: context ? Object.keys(context) : 'null',
+        contextBody: context?.body,
+        contextTitle: context?.title,
+        prompt,
+        selectedModel,
+        profileId,
+        systemPrompt,
+        systemPromptContent: systemPrompt?.content
+      });
 
       // Format conversation history for the AI model
       const formatConversationHistory = (messages: Message[]): string => {
@@ -176,10 +240,48 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
       };
 
       // Build the complete prompt with conversation history
-      let agentPrompt = prompt;
-      if (context && conversationMessages.length > 0) {
-        agentPrompt = `
-        Given the following existing background context: ${context}
+      let agentPrompt = '';
+      
+      // Start with system prompt if available
+      if (systemPrompt?.content) {
+        agentPrompt = `${systemPrompt.content}\n\n`;
+      }
+      
+      // Helper function to safely get context content
+      const getContextContent = (ctx: any): string => {
+        console.log('getContextContent called with:', ctx);
+        console.log('ctx type:', typeof ctx);
+        console.log('ctx keys:', ctx ? Object.keys(ctx) : 'null');
+        
+        if (!ctx) {
+          console.log('Context is null/undefined, returning empty string');
+          return '';
+        }
+        
+        if (typeof ctx === 'string') {
+          console.log('Context is a string, returning as-is:', ctx);
+          return ctx;
+        }
+        
+        if (ctx.body && typeof ctx.body === 'string') {
+          console.log('Context has body property, returning body:', ctx.body);
+          return ctx.body;
+        }
+        
+        if (ctx.title && typeof ctx.title === 'string') {
+          console.log('Context has title property, returning title:', ctx.title);
+          return ctx.title;
+        }
+        
+        console.log('Context has unexpected structure, converting to string:', ctx);
+        return String(ctx);
+      };
+      
+      const contextContent = getContextContent(context);
+      
+      if (contextContent && conversationMessages.length > 0) {
+        agentPrompt += `
+        Given the following existing background context: ${contextContent}
 
         And the following conversation history: ${formatConversationHistory(conversationMessages)}
 
@@ -189,9 +291,9 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
 
         Prompt: ${prompt}
         `
-      } else if (context) {
-        agentPrompt = `
-        Given the following existing background context: ${context}
+      } else if (contextContent) {
+        agentPrompt += `
+        Given the following existing background context: ${contextContent}
         
         Answer the following prompt, keeping the existing context of the conversation in mind, 
         treating it as either a previous part of the same conversation, or just as a framing 
@@ -207,7 +309,18 @@ export const createPromptsApi = (getApiKeyFromSettings?: () => string | undefine
         continuing the flow of the conversation:
 
         Prompt: ${prompt}`
+      } else {
+        // No context or conversation history, just use the prompt as is
+        agentPrompt = prompt;
       }
+
+      // Log the final prompt for debugging
+      console.log('Final agent prompt:', agentPrompt);
+      console.log('Context object:', context);
+      console.log('System prompt:', systemPrompt);
+      console.log('Context content extracted:', contextContent);
+      console.log('Agent prompt length:', agentPrompt.length);
+      console.log('Agent prompt preview:', agentPrompt.substring(0, 200) + '...');
 
       let agentCallback = null;
       switch (selectedModel) {

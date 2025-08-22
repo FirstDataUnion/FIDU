@@ -2,11 +2,16 @@
 
 import sys
 import platform
+import os
 
 # macOS-specific configurations
 if platform.system() == 'Darwin':
     # Target minimum macOS version for better compatibility
     target_macos_version = '10.15'  # Catalina - good baseline for modern apps
+    
+    # Check if we're building for a specific architecture
+    target_arch = os.environ.get('TARGET_ARCH', None)
+    build_universal = os.environ.get('BUILD_UNIVERSAL', 'false').lower() == 'true'
     
     # Additional macOS-specific hidden imports
     macos_hidden_imports = [
@@ -84,6 +89,24 @@ if platform.system() == 'Darwin':
 
 pyz = PYZ(a.pure)
 
+# Determine target architecture for macOS builds
+if platform.system() == 'Darwin':
+    if target_arch == 'arm64':
+        target_arch = 'arm64'
+        print(f"Building for ARM64 (Apple Silicon) architecture")
+    elif target_arch == 'x86_64':
+        target_arch = 'x86_64'
+        print(f"Building for x86_64 (Intel) architecture")
+    elif build_universal:
+        target_arch = None  # Universal binary
+        print(f"Building universal binary (Intel + Apple Silicon)")
+    else:
+        # Default to current system architecture
+        target_arch = None
+        print(f"Building for current system architecture")
+else:
+    target_arch = None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -97,7 +120,7 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
+    target_arch=target_arch,  # Set target architecture for cross-compilation
     codesign_identity=None,
     entitlements_file=None,
 )
@@ -138,6 +161,20 @@ if platform.system() == 'Darwin':
                                 os.unlink(file_path)
                         except OSError:
                             pass
+        
+        # Add architecture information to the build
+        if target_arch:
+            arch_file = os.path.join(dist_dir, 'main', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write(f"Built for: {target_arch}\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write(f"Target macOS: {target_macos_version}+\n")
+        elif build_universal:
+            arch_file = os.path.join(dist_dir, 'main', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write("Built for: Universal (Intel + Apple Silicon)\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write(f"Target macOS: {target_macos_version}+\n")
     
     # Register the post-processing function
     coll.post_process = post_process_macos

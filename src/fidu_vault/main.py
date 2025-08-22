@@ -19,6 +19,11 @@ from fidu_vault.data_packets import (
     DataPacketAPI,
     LocalSqlDataPacketStore,
 )
+from fidu_vault.api_keys import (
+    APIKeyService,
+    APIKeyAPI,
+    LocalSqlAPIKeyStore,
+)
 from fidu_vault.front_end.api import FrontEndAPI
 from fidu_vault.proxy.router import create_proxy_router
 
@@ -141,22 +146,25 @@ def create_app():
     # Each store will get its own thread-local connection when needed
     print(f"[{time.time() - start_time:.2f}s] Creating stores...")
     data_packet_store = LocalSqlDataPacketStore()
+    api_key_store = LocalSqlAPIKeyStore()
     print(f"[{time.time() - start_time:.2f}s] Stores created")
 
     # Create service layer objects
     print(f"[{time.time() - start_time:.2f}s] Creating services...")
     data_packet_service = DataPacketService(data_packet_store)
+    api_key_service = APIKeyService(api_key_store)
     print(f"[{time.time() - start_time:.2f}s] Services created")
 
     # Create API layer objects (for external API access)
     print(f"[{time.time() - start_time:.2f}s] Creating APIs...")
     DataPacketAPI(fast_api_app, data_packet_service)
+    APIKeyAPI(fast_api_app, api_key_service)
     print(f"[{time.time() - start_time:.2f}s] APIs created")
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
     # and a basic profile page - now using service layers directly
     print(f"[{time.time() - start_time:.2f}s] Creating front end API...")
-    FrontEndAPI(fast_api_app, data_packet_service)
+    FrontEndAPI(fast_api_app, data_packet_service, api_key_service)
     print(f"[{time.time() - start_time:.2f}s] Front end API created")
 
     # Add proxy router for external API requests

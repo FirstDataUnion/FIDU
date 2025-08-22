@@ -13,6 +13,8 @@ from fastapi.security import HTTPBearer
 from fidu_vault.data_packets.service import DataPacketService
 from fidu_vault.data_packets.schema import DataPacketQueryParamsInternal
 from fidu_vault.data_packets.exceptions import DataPacketError
+from fidu_vault.api_keys.schema import APIKeyQueryParams, APIKeyCreate, APIKeyUpdate
+from fidu_vault.api_keys.exceptions import APIKeyError
 from fidu_vault.identity_service.client import (
     get_user_from_identity_service,
     create_profile,
@@ -45,15 +47,18 @@ class FrontEndAPI:
         self,
         app: FastAPI,
         data_packet_service: DataPacketService,
+        api_key_service=None,
     ) -> None:
         """Initialize the frontend API.
 
         Args:
             app: The FastAPI app to mount the API on
             data_packet_service: The data packet service layer
+            api_key_service: The API key service layer (optional)
         """
         self.app = app
         self.data_packet_service = data_packet_service
+        self.api_key_service = api_key_service
 
         templates_dir = BASE_PATH / "fidu_vault" / "front_end" / "templates"
 
@@ -125,6 +130,43 @@ class FrontEndAPI:
             self.apps_page,
             methods=["GET"],
             response_model=None,
+        )
+        self.app.add_api_route(
+            "/api-keys",
+            self.api_keys_page,
+            methods=["GET"],
+            response_model=None,
+        )
+        self.app.add_api_route(
+            "/api-keys/add",
+            self.add_api_key,
+            methods=["POST"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+
+        self.app.add_api_route(
+            "/api-keys/{api_key_id}/delete",
+            self.delete_api_key,
+            methods=["DELETE"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+
+        self.app.add_api_route(
+            "/api-keys/{api_key_id}/update",
+            self.update_api_key,
+            methods=["PUT"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+
+        self.app.add_api_route(
+            "/api-keys/list",
+            self.api_keys_list,
+            methods=["GET"],
+            response_model=None,
+            response_class=HTMLResponse,
         )
 
     async def _get_current_user_id(self, request: Request) -> Optional[str]:
@@ -450,3 +492,205 @@ class FrontEndAPI:
         except (ValueError, TypeError) as e:
             logger.error("Create profile error: %s", e)
             return HTMLResponse("Error creating profile.", status_code=500)
+
+    async def api_keys_page(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Serve the API keys page."""
+        try:
+            user = await get_user_from_identity_service(
+                request.cookies.get("auth_token") or ""
+            )
+
+            # Get API keys for the current user
+            api_keys = []
+            if user and self.api_key_service:
+                try:
+                    # Get API keys for the user
+                    api_keys = self.api_key_service.list_api_keys(
+                        APIKeyQueryParams(user_id=user.id)
+                    )
+                except (APIKeyError, HTTPException) as e:
+                    logger.error("Error fetching API keys: %s", e)
+                    api_keys = []
+
+            response = self.templates.TemplateResponse(
+                "api_keys.html",
+                {"request": request, "user": user, "api_keys": api_keys},
+            )
+            return HTMLResponse(
+                content=self._decode_body(response.body), status_code=200
+            )
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            raise e
+
+    async def add_api_key(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Handle API key creation or update (HTMX endpoint)."""
+        try:
+            user = await get_user_from_identity_service(
+                request.cookies.get("auth_token") or ""
+            )
+            if not user:
+                raise HTTPException(
+                    status_code=401, detail="Invalid authentication token"
+                )
+
+            form_data = await request.form()
+            provider = str(form_data.get("provider", ""))
+            api_key = str(form_data.get("api_key", ""))
+
+            if not all([provider, api_key]):
+                return HTMLResponse(
+                    "All required fields must be filled.", status_code=400
+                )
+
+            if not self.api_key_service:
+                raise HTTPException(
+                    status_code=500, detail="API key service not available"
+                )
+
+            # Check if an API key already exists for this provider and user
+            existing_api_key = self.api_key_service.get_api_key_by_provider(
+                provider, user.id
+            )
+
+            if existing_api_key:
+                # Update existing API key
+                api_key_update = APIKeyUpdate(id=existing_api_key.id, api_key=api_key)
+
+                self.api_key_service.update_api_key(api_key_update)
+                logger.info("Updated API key for provider %s", provider)
+            else:
+                # Create new API key
+                api_key_create = APIKeyCreate(
+                    provider=provider, api_key=api_key, user_id=user.id
+                )
+
+                self.api_key_service.create_api_key(api_key_create)
+                logger.info("Created API key for provider %s", provider)
+
+            # Return updated API keys list
+            return await self.api_keys_list(request)
+
+        except HTTPException as e:
+            raise e
+        except (ValueError, TypeError) as e:
+            logger.error("Add/Update API key error: %s", e)
+            return HTMLResponse("Error adding/updating API key.", status_code=500)
+        except (APIKeyError, AttributeError, KeyError, RuntimeError) as e:
+            logger.error("Unexpected error in add_api_key: %s", e)
+            return HTMLResponse("Internal server error.", status_code=500)
+
+    async def delete_api_key(
+        self, request: Request, api_key_id: str
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Handle API key deletion (HTMX endpoint)."""
+        try:
+            user = await get_user_from_identity_service(
+                request.cookies.get("auth_token") or ""
+            )
+            if not user:
+                raise HTTPException(
+                    status_code=401, detail="Invalid authentication token"
+                )
+
+            # Delete the API key using the service
+            if self.api_key_service:
+                self.api_key_service.delete_api_key(api_key_id)
+                logger.info("Deleted API key %s", api_key_id)
+            else:
+                logger.warning("API key service not available")
+
+            # Return updated API keys list
+            return await self.api_keys_list(request)
+
+        except HTTPException as e:
+            raise e
+        except (ValueError, TypeError) as e:
+            logger.error("Delete API key error: %s", e)
+            return HTMLResponse("Error deleting API key.", status_code=500)
+        except (APIKeyError, AttributeError, KeyError, RuntimeError) as e:
+            logger.error("Unexpected error in delete_api_key: %s", e)
+            return HTMLResponse("Internal server error.", status_code=500)
+
+    async def update_api_key(
+        self, request: Request, api_key_id: str
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Handle API key updates (HTMX endpoint)."""
+        try:
+            user = await get_user_from_identity_service(
+                request.cookies.get("auth_token") or ""
+            )
+            if not user:
+                raise HTTPException(
+                    status_code=401, detail="Invalid authentication token"
+                )
+
+            form_data = await request.form()
+            api_key = str(form_data.get("api_key", ""))
+
+            if not api_key:
+                return HTMLResponse("API key value is required.", status_code=400)
+
+            if not self.api_key_service:
+                raise HTTPException(
+                    status_code=500, detail="API key service not available"
+                )
+
+            # Update the API key
+            api_key_update = APIKeyUpdate(id=api_key_id, api_key=api_key)
+
+            self.api_key_service.update_api_key(api_key_update)
+            logger.info("Updated API key %s", api_key_id)
+
+            # Return updated API keys list
+            return await self.api_keys_list(request)
+
+        except HTTPException as e:
+            raise e
+        except (ValueError, TypeError) as e:
+            logger.error("Update API key error: %s", e)
+            return HTMLResponse("Error updating API key.", status_code=500)
+        except (APIKeyError, AttributeError, KeyError, RuntimeError) as e:
+            logger.error("Unexpected error in update_api_key: %s", e)
+            return HTMLResponse("Internal server error.", status_code=500)
+
+    async def api_keys_list(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
+        """Serve the API keys list (HTMX endpoint)."""
+        try:
+            user = await get_user_from_identity_service(
+                request.cookies.get("auth_token") or ""
+            )
+
+            # Get API keys for the current user
+            api_keys = []
+            if user and self.api_key_service:
+                try:
+                    # Get API keys for the user
+                    api_keys = self.api_key_service.list_api_keys(
+                        APIKeyQueryParams(user_id=user.id)
+                    )
+                except (APIKeyError, HTTPException) as e:
+                    logger.error("Error fetching API keys: %s", e)
+                    api_keys = []
+
+            response = self.templates.TemplateResponse(
+                "api_keys_list.html",
+                {"request": request, "api_keys": api_keys},
+            )
+            return HTMLResponse(
+                content=self._decode_body(response.body), status_code=200
+            )
+        except HTTPException as e:
+            if e.status_code == 401:
+                return RedirectResponse(url="/", status_code=302)
+            raise e
+        except (ValueError, TypeError) as e:
+            logger.error("API keys list error: %s", e)
+            return HTMLResponse("Error loading API keys.", status_code=500)

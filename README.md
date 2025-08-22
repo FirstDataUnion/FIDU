@@ -96,6 +96,12 @@ or
 ```
 (no hot-reload)
 
+IMPORTANT: 
+The Chat-Lab link in the FIDU Vault front end app runs the built version of the chat lab and may not have your most up to date changes in them. 
+
+You should either build the latest changes bu running 'npm run build' in the chat-lab directory, or running that chat lab with the command npm run dev 
+from the chat-lab directory. This second approach is preffered if you are making changes, as it offers hot reloading of any changes you make. 
+
 ## Contributing
 
 We do not have a contribution process in place just yet. However, we're working on it, and would love to hear any thoughts you have in the meantime!
