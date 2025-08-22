@@ -1,6 +1,6 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import { createNLPWorkbenchAPIClientWithSettings } from './apiClientNLPWorkbench';
-import type { PromptDataPacket, DataPacketQueryParams, Prompt, Message } from '../../types';
+import type { PromptDataPacket, DataPacketQueryParams, Prompt, Message, Context, SystemPrompt } from '../../types';
 
 const DEFAULT_WAIT_TIME_MS = 10000;
 const DEFAULT_POLL_INTERVAL_MS = 1500;
@@ -15,18 +15,56 @@ interface PromptsResponse {
 const transformDataPacketToPrompt = (packet: PromptDataPacket): Prompt => {
   // Add validation to ensure required fields exist
   
-  if (!packet.data?.prompt) {
+  if (!packet.data?.prompt_text || !packet.data?.system_prompt_content) {
     console.warn('Data packet missing required fields:', packet);
     throw new Error('Invalid data packet format');
   }
 
+  // Reconstruct context if present
+  const context: Context | null = packet.data.context_id && packet.data.context_title ? {
+    id: packet.data.context_id,
+    title: packet.data.context_title,
+    body: '', // We don't store the full description in the data packet
+    tokenCount: 0,   // We don't store this in the data packet
+    createdAt: packet.create_timestamp,
+    updatedAt: packet.update_timestamp,
+    tags: [],
+    conversationIds: [],
+    conversationMetadata: {
+      totalMessages: 0,
+      lastAddedAt: packet.create_timestamp,
+      platforms: []
+    }
+  } : null;
+
+  // Reconstruct system prompt
+  const systemPrompt: SystemPrompt = {
+    id: packet.data.system_prompt_id,
+    name: packet.data.system_prompt_name,
+    content: packet.data.system_prompt_content,
+    description: '', // We don't store the full description in the data packet
+    tokenCount: 0,   // We don't store this in the data packet
+    isDefault: false,
+    isSystem: true,
+    category: 'Technical',
+    modelCompatibility: [],
+    createdAt: packet.create_timestamp,
+    updatedAt: packet.update_timestamp,
+    tags: []
+  };
+
   return {
     id: packet.id,
     title: packet.data.prompt_title,
-		prompt: packet.data.prompt,
+    promptText: packet.data.prompt_text,
+    context,
+    systemPrompt,
     createdAt: packet.create_timestamp,
     updatedAt: packet.update_timestamp,
     tags: packet.tags || [],
+    metadata: {
+      estimatedTokens: packet.data.estimated_tokens || 0
+    }
   };
 };
 
@@ -36,22 +74,34 @@ const transformPromptToDataPacket = (prompt: Prompt, profileId: string): {
   tags: string[];
   data: {
     prompt_title: string;
-    prompt: string;
+    prompt_text: string;
+    context_id?: string;
+    context_title?: string;
+    system_prompt_id: string;
+    system_prompt_content: string;
+    system_prompt_name: string;
+    estimated_tokens: number;
   };
 } => {
   // Add validation to ensure required fields exist
-  if (!prompt.prompt) {
+  if (!prompt.promptText || !prompt.systemPrompt) {
     console.warn('Prompt missing required fields:', prompt);
-    throw new Error('Invalid prompt format: prompt is required');
+    throw new Error('Invalid prompt format: promptText and systemPrompt are required');
   }
 
   return {
     id: prompt.id,
     profile_id: profileId,
-            tags: ["FIDU-CHAT-LAB-Prompt", ...(prompt.tags || [])],
+    tags: ["FIDU-CHAT-LAB-Prompt", ...(prompt.tags || [])],
     data: {
       prompt_title: prompt.title || "Untitled Prompt",
-      prompt: prompt.prompt,
+      prompt_text: prompt.promptText,
+      context_id: prompt.context?.id,
+      context_title: prompt.context?.title,
+      system_prompt_id: prompt.systemPrompt.id,
+      system_prompt_content: prompt.systemPrompt.content,
+      system_prompt_name: prompt.systemPrompt.name,
+      estimated_tokens: prompt.metadata?.estimatedTokens || 0,
     },
   };
 };
