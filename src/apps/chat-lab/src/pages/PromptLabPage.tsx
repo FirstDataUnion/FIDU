@@ -1,14 +1,18 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  Button,
   TextField,
+  Button,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  ListItemIcon,
   Chip,
-  IconButton,
+  Paper,
+  Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,183 +20,75 @@ import {
   Stack,
   InputAdornment,
   CircularProgress,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  List,
-  ListItem,
-  ListItemSecondaryAction,
-  Paper
+  Alert
 } from '@mui/material';
 import {
-  Save as SaveIcon,
-  ContentCopy as CopyIcon,
+  Send as SendIcon,
+  Add as AddIcon,
+  Chat as ChatIcon,
+  SmartToy as ModelIcon,
+  ChevronLeft as ChevronLeftIcon,
   Search as SearchIcon,
-  Close as CloseIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as ExecuteIcon,
-  Settings as SettingsIcon,
-  BookmarkBorder as BookmarkIcon,
-  Description as ContextIcon,
-  SmartToy as SystemPromptIcon,
-  Check as CheckIcon
+  ChatBubbleOutline as ChatBubbleIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
-import { createPromptsApi } from '../services/api/prompts';
+import { useNavigate } from 'react-router-dom';
 import { fetchContexts } from '../store/slices/contextsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
-import type { DataPacketQueryParams, Conversation, Message, Context, SystemPrompt } from '../types';
-import { ConversationManager } from '../components/conversations/ConversationManager';
 import { conversationsApi } from '../services/api/conversations';
+import type { Conversation, Message, Context, SystemPrompt } from '../types';
 
-// New interfaces for the updated prompt structure
-interface PromptObject {
-  id: string;
-  title: string;
-  promptText: string;
-  context: Context | null;
-  systemPrompt: SystemPrompt;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-  metadata?: {
-    estimatedTokens: number;
-  };
-}
-
-interface LoadSavedPromptModalProps {
+// Modal Components
+interface ModelSelectionModalProps {
   open: boolean;
   onClose: () => void;
-  onLoadPrompt: (prompt: PromptObject) => void;
-  savedPrompts: PromptObject[];
-  loading: boolean;
-  error: string | null;
-  onRefresh: () => void;
+  onSelectModel: (model: string) => void;
+  selectedModel: string;
 }
 
-interface ContextSelectionModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSelectContext: (context: Context) => void;
-  contexts: Context[];
-  loading: boolean;
-  error: string | null;
-  onRefresh?: () => void;
-}
-
-interface SystemPromptSelectionModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSelectSystemPrompt: (systemPrompt: SystemPrompt) => void;
-  systemPrompts: SystemPrompt[];
-  loading: boolean;
-  error: string | null;
-  onRefresh?: () => void;
-}
-
-// Load Saved Prompt Modal Component
-function LoadSavedPromptModal({ 
-  open, 
-  onClose, 
-  onLoadPrompt, 
-  savedPrompts, 
-  loading, 
-  error,
-  onRefresh
-}: LoadSavedPromptModalProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredPrompts = useMemo(() => {
-    if (!searchQuery.trim()) return savedPrompts;
-    const query = searchQuery.toLowerCase();
-    return savedPrompts.filter(prompt => 
-      prompt.promptText.toLowerCase().includes(query) ||
-      prompt.tags.some(tag => tag.toLowerCase().includes(query))
-    );
-  }, [savedPrompts, searchQuery]);
+function ModelSelectionModal({ open, onClose, onSelectModel, selectedModel }: ModelSelectionModalProps) {
+  const models = [
+    { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
+    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic' },
+    { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
+    { id: 'gemini-ultra', name: 'Gemini Ultra', provider: 'Google' },
+    { id: 'gemini-pro', name: 'Gemini Pro', provider: 'Google' }
+  ];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Load Saved Prompt
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={onRefresh}
-            disabled={loading}
-            size="small"
-          >
-            Refresh
-          </Button>
-        </Box>
-      </DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Select Target Model</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            fullWidth
-            placeholder="Search saved prompts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
-            }}
-          />
-          
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
-
-          {error && (
-            <Alert severity="error">{error}</Alert>
-          )}
-
-          {!loading && !error && filteredPrompts.length === 0 && (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body1" color="text.secondary">
-                {searchQuery ? 'No prompts match your search' : 'No saved prompts yet'}
-              </Typography>
-            </Box>
-          )}
-
-          {!loading && !error && filteredPrompts.length > 0 && (
-            <List>
-              {filteredPrompts.map((prompt) => (
-                <ListItem key={prompt.id} divider>
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
-                      {prompt.promptText.substring(0, 100) + (prompt.promptText.length > 100 ? '...' : '')}
-                    </Typography>
-                    <Box component="div" sx={{ mb: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
-                      Context: {prompt.context?.title || 'None'} | System: {prompt.systemPrompt.name}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {prompt.tags.map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
-                      ))}
-                    </Box>
-                  </Box>
-                  <ListItemSecondaryAction>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => onLoadPrompt(prompt)}
-                    >
-                      Load
-                    </Button>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
-          )}
+          {models.map((model) => (
+            <ListItemButton
+              key={model.id}
+              onClick={() => onSelectModel(model.id)}
+              selected={selectedModel === model.id}
+              sx={{
+                borderRadius: 1,
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                <ModelIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary={model.name}
+                secondary={model.provider}
+              />
+            </ListItemButton>
+          ))}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -202,45 +98,26 @@ function LoadSavedPromptModal({
   );
 }
 
-// Context Selection Modal Component
-function ContextSelectionModal({ 
-  open, 
-  onClose, 
-  onSelectContext, 
-  contexts, 
-  loading, 
-  error,
-  onRefresh
-}: ContextSelectionModalProps) {
+interface ContextSelectionModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSelectContext: (context: Context) => void;
+  contexts: Context[];
+  loading: boolean;
+  error: string | null;
+}
+
+function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredContexts = useMemo(() => {
-    if (!searchQuery.trim()) return contexts;
-    const query = searchQuery.toLowerCase();
-    return contexts.filter(context => 
-              context.title.toLowerCase().includes(query) ||
-        context.body.toLowerCase().includes(query)
-    );
-  }, [contexts, searchQuery]);
+  const filteredContexts = contexts.filter(context => 
+    context.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    context.body.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Select Context
-          {onRefresh && (
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={onRefresh}
-              disabled={loading}
-              size="small"
-            >
-              Refresh
-            </Button>
-          )}
-        </Box>
-      </DialogTitle>
+      <DialogTitle>Select Context</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -283,26 +160,18 @@ function ContextSelectionModal({
                     <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
                       {context.title}
                     </Typography>
-                    <Box component="div" sx={{ mb: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {context.body.length > 150 
                         ? `${context.body.substring(0, 150)}...` 
                         : context.body
                       }
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    </Typography>
                       <Chip 
                         label={`${context.tokenCount} tokens`} 
                         size="small" 
                         variant="outlined"
                       />
-                      <Chip 
-                        label="Active" 
-                        size="small" 
-                        color="success"
-                      />
                     </Box>
-                  </Box>
-                  <ListItemSecondaryAction>
                     <Button
                       size="small"
                       variant="contained"
@@ -310,7 +179,6 @@ function ContextSelectionModal({
                     >
                       Select
                     </Button>
-                  </ListItemSecondaryAction>
                 </ListItem>
               ))}
             </List>
@@ -324,215 +192,26 @@ function ContextSelectionModal({
   );
 }
 
-// View Prompt Modal Component
-function ViewPromptModal({ 
-  open, 
-  onClose, 
-  currentPrompt 
-}: { 
+interface SystemPromptSelectionModalProps {
   open: boolean; 
   onClose: () => void; 
-  currentPrompt: PromptObject; 
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const formattedPrompt = useMemo(() => {
-    let prompt = `${currentPrompt.systemPrompt.content}\n\n`;
-    
-    if (currentPrompt.context) {
-      prompt += `Given the following context:\n${currentPrompt.context.body}\n\n`;
-    }
-    
-    prompt += `Respond to the following prompt:\n${currentPrompt.promptText}`;
-    
-    return prompt;
-  }, [currentPrompt]);
-
-  const handleCopyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(formattedPrompt);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>View Formatted Prompt</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Prompt as it will be sent to the model:
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={copied ? <CheckIcon /> : <CopyIcon />}
-              onClick={handleCopyToClipboard}
-              size="small"
-            >
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
-            </Button>
-          </Box>
-          
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              p: 2, 
-              bgcolor: 'background.paper',
-              fontFamily: 'monospace',
-              whiteSpace: 'normal',
-              wordWrap: 'break-word',
-              maxHeight: '400px',
-              overflow: 'auto'
-            }}
-          >
-            <Typography variant="body2" component="pre" sx={{ 
-              margin: 0, 
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'break-word'
-            }}>
-              {formattedPrompt}
-            </Typography>
-          </Paper>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
-  );
+  onSelectSystemPrompt: (systemPrompt: SystemPrompt) => void;
+  systemPrompts: SystemPrompt[];
+  loading: boolean;
+  error: string | null;
 }
 
-// Context Preview Modal Component
-function ContextPreviewModal({ 
-  open, 
-  onClose, 
-  context 
-}: { 
-  open: boolean; 
-  onClose: () => void; 
-  context: Context | null; 
-}) {
-  const [copied, setCopied] = useState(false);
-
-  // Don't render if no context
-  if (!context) {
-    return null;
-  }
-
-  const handleCopyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(context.body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {context.title}
-          <Button
-            variant="outlined"
-            startIcon={copied ? <CheckIcon /> : <CopyIcon />}
-            onClick={handleCopyToClipboard}
-            size="small"
-          >
-            {copied ? 'Copied!' : 'Copy to Clipboard'}
-          </Button>
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Chip 
-              label={`${context.tokenCount} tokens`} 
-              size="small" 
-              variant="outlined"
-            />
-            <Chip 
-              label="Active" 
-              size="small" 
-              color="success"
-            />
-          </Box>
-          
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              p: 2, 
-              bgcolor: 'background.paper',
-              fontFamily: 'monospace',
-              whiteSpace: 'normal',
-              wordWrap: 'break-word',
-              maxHeight: '400px',
-              overflow: 'auto'
-            }}
-          >
-            <Typography variant="body2" component="pre" sx={{ 
-              margin: 0, 
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'break-word'
-            }}>
-              {context.body}
-            </Typography>
-          </Paper>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// System Prompt Selection Modal Component
-function SystemPromptSelectionModal({ 
-  open, 
-  onClose, 
-  onSelectSystemPrompt, 
-  systemPrompts, 
-  loading, 
-  error,
-  onRefresh
-}: SystemPromptSelectionModalProps) {
+function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error }: SystemPromptSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-      const filteredSystemPrompts = useMemo(() => {
-      if (!searchQuery.trim()) return systemPrompts;
-      const query = searchQuery.toLowerCase();
-      return systemPrompts.filter(sp => 
-        sp.name.toLowerCase().includes(query) ||
-        sp.description.toLowerCase().includes(query)
-      );
-    }, [systemPrompts, searchQuery]);
+  const filteredSystemPrompts = systemPrompts.filter(sp => 
+    sp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    sp.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Select System Prompt
-          {onRefresh && (
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={onRefresh}
-              disabled={loading}
-              size="small"
-            >
-              Refresh
-            </Button>
-          )}
-        </Box>
-      </DialogTitle>
+      <DialogTitle>Select System Prompt</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -580,23 +259,15 @@ function SystemPromptSelectionModal({
                         <Chip label="Default" size="small" color="primary" />
                       )}
                     </Box>
-                    <Box component="div" sx={{ mb: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {systemPrompt.description}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    </Typography>
                       <Chip 
                         label={`${systemPrompt.tokenCount} tokens`} 
                         size="small" 
                         variant="outlined"
                       />
-                      <Chip 
-                        label={systemPrompt.isDefault ? 'Default' : 'Custom'} 
-                        size="small" 
-                        variant="outlined"
-                      />
                     </Box>
-                  </Box>
-                  <ListItemSecondaryAction>
                     <Button
                       size="small"
                       variant="contained"
@@ -604,7 +275,6 @@ function SystemPromptSelectionModal({
                     >
                       Select
                     </Button>
-                  </ListItemSecondaryAction>
                 </ListItem>
               ))}
             </List>
@@ -619,143 +289,31 @@ function SystemPromptSelectionModal({
 }
 
 export default function PromptLabPage() {
-
-  // Get auth state for profile ID
-  const { currentProfile } = useAppSelector((state) => state.auth);
-  const { items: fetchedContexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
-  const { items: fetchedSystemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { currentProfile } = useAppSelector((state) => state.auth);
+  const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
+  const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
 
-  // Create prompts API
-  const promptsApi = useMemo(() => {
-    return createPromptsApi();
-  }, []);
+  // State for the chat interface
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [selectedContext, setSelectedContext] = useState<Context | null>(null);
+  const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null);
+  const [embellishments, setEmbellishments] = useState<string[]>([]);
 
-  // Current prompt object state
-  const [currentPrompt, setCurrentPrompt] = useState<PromptObject>({
-    id: '',
-    title: '',
-    promptText: '',
-    context: null,
-    systemPrompt: {
-      id: 'default',
-      name: 'Default Assistant',
-      content: 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user queries.',
-      description: 'Default system prompt for general assistance',
-      tokenCount: 25,
-      isDefault: true,
-      isSystem: true,
-      category: 'General',
-      modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
-      createdAt: new Date('2024-01-10').toISOString(),
-      updatedAt: new Date('2024-01-10').toISOString(),
-      tags: ['general', 'assistant', 'default']
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    tags: [],
-    metadata: {
-      estimatedTokens: 0
-    }
-  });
+  // State for the right sidebar
+  const [conversationsDrawerOpen, setConversationsDrawerOpen] = useState(false);
+  const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
 
   // Modal states
-  const [loadSavedModalOpen, setLoadSavedModalOpen] = useState(false);
-  const [contextSelectionModalOpen, setContextSelectionModalOpen] = useState(false);
-  const [systemPromptSelectionModalOpen, setSystemPromptSelectionModalOpen] = useState(false);
-  const [savePromptDialog, setSavePromptDialog] = useState(false);
-  const [viewPromptModalOpen, setViewPromptModalOpen] = useState(false);
-  const [contextPreviewModalOpen, setContextPreviewModalOpen] = useState(false);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
 
-  // Save dialog states
-  const [promptTitle, setPromptTitle] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
-
-  // Data states
-  const [savedPrompts, setSavedPrompts] = useState<PromptObject[]>([]);
-  const [models] = useState([
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
-    { id: 'gpt-4.0-turbo', name: 'GPT-4.0 Turbo', provider: 'OpenAI' },
-    { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
-    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic' },
-    { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
-  ]);
-  const [selectedModel, setSelectedModel] = useState('');
-
-  // Loading states
-  const [loadingSavedPrompts, setLoadingSavedPrompts] = useState(false);
-
-  // Error states
-  const [savedPromptsError, setSavedPromptsError] = useState<string | null>(null);
-
-  // Execution states
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [executionError, setExecutionError] = useState<string | null>(null);
-  const [isSendingFollowUp, setIsSendingFollowUp] = useState(false);
-
-  // Conversation management state
-  const [conversationTabs, setConversationTabs] = useState<Array<{
-    id: string;
-    conversation: Conversation;
-    messages: Message[];
-    isMinimized: boolean;
-    isActive: boolean;
-    title: string;
-    model: string;
-    unreadCount: number;
-  }>>([]);
-
-  // Load saved prompts from API
-  const loadSavedPrompts = useCallback(async () => {
-    if (!currentProfile) return;
-    
-    setLoadingSavedPrompts(true);
-    setSavedPromptsError(null);
-    
-    try {
-      const queryParams: DataPacketQueryParams = {
-        tags: ["FIDU-CHAT-LAB-Prompt", "FIDU-CHAT-LAB-Saved"],
-        profile_id: currentProfile.id,
-        limit: 100,
-        offset: 0,
-        sort_order: "desc"
-      };
-      
-      const response = await promptsApi.getAll(queryParams);
-      if ('prompts' in response) {
-        // Transform the API response to PromptObject format
-        const transformedPrompts: PromptObject[] = response.prompts.map(prompt => ({
-          id: prompt.id,
-          title: prompt.title,
-          promptText: prompt.promptText,
-          context: prompt.context,
-          systemPrompt: prompt.systemPrompt,
-          createdAt: prompt.createdAt,
-          updatedAt: prompt.updatedAt,
-          tags: prompt.tags,
-          metadata: prompt.metadata
-        }));
-        setSavedPrompts(transformedPrompts);
-      }
-    } catch (error: any) {
-      console.error('Error loading saved prompts:', error);
-      setSavedPromptsError(error.message || 'Failed to load saved prompts');
-    } finally {
-      setLoadingSavedPrompts(false);
-    }
-  }, [currentProfile, promptsApi]);
-
-  // Load data when profile changes
-  useEffect(() => {
-    if (currentProfile) {
-      loadSavedPrompts();
-    }
-  }, [currentProfile, loadSavedPrompts]);
-
-  // Fetch contexts and system prompts from API
+  // Load contexts and system prompts
   useEffect(() => {
     if (currentProfile) {
       dispatch(fetchContexts(currentProfile.id));
@@ -763,774 +321,543 @@ export default function PromptLabPage() {
     }
   }, [currentProfile, dispatch]);
 
-  // Update default system prompt when system prompts are loaded
+  // Set default system prompt when loaded
   useEffect(() => {
-    // Check if we have any system prompts available (either from API or built-in)
-    if (fetchedSystemPrompts.length > 0 && currentPrompt.systemPrompt.id === 'default') {
-      const defaultSystemPrompt = fetchedSystemPrompts.find(sp => sp.isDefault) || fetchedSystemPrompts[0];
-      
-      if (defaultSystemPrompt) {
-        setCurrentPrompt(prev => ({
-          ...prev,
-          systemPrompt: defaultSystemPrompt
-        }));
+    if (systemPrompts.length > 0 && !selectedSystemPrompt) {
+      const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
+      if (defaultPrompt) {
+        setSelectedSystemPrompt(defaultPrompt);
       }
     }
+  }, [systemPrompts, selectedSystemPrompt]);
+
+  // Load recent conversations
+  const loadRecentConversations = useCallback(async () => {
+    if (!currentProfile) return;
     
-    // If we still don't have a proper system prompt and we're not loading, 
-    // try to find a default one from the available prompts
-    if (fetchedSystemPrompts.length > 0 && 
-        currentPrompt.systemPrompt.id === 'default' && 
-        !systemPromptsLoading) {
-      const defaultSystemPrompt = fetchedSystemPrompts.find(sp => sp.isDefault) || fetchedSystemPrompts[0];
-      if (defaultSystemPrompt) {
-        setCurrentPrompt(prev => ({
-          ...prev,
-          systemPrompt: defaultSystemPrompt
-        }));
-      }
-    }
-  }, [fetchedSystemPrompts, currentPrompt.systemPrompt.id, systemPromptsLoading]);
-
-  // Monitor system prompt changes for debugging
-  useEffect(() => {
-    console.log('System prompt updated:', {
-      id: currentPrompt.systemPrompt.id,
-      name: currentPrompt.systemPrompt.name,
-      content: currentPrompt.systemPrompt.content,
-      isDefault: currentPrompt.systemPrompt.isDefault
-    });
-  }, [currentPrompt.systemPrompt]);
-
-  // Reset context preview modal when context becomes null
-  useEffect(() => {
-    if (!currentPrompt.context) {
-      setContextPreviewModalOpen(false);
-    }
-  }, [currentPrompt.context]);
-
-  // Calculate total tokens
-  const totalTokens = useMemo(() => {
-    let total = 0;
-    total += Math.ceil(currentPrompt.promptText.length / 4); // Approximate tokens
-    if (currentPrompt.context) {
-      total += currentPrompt.context.tokenCount;
-    }
-    total += currentPrompt.systemPrompt.tokenCount;
-    return total;
-  }, [currentPrompt]);
-
-  // Handle loading a saved prompt
-  const handleLoadSavedPrompt = (prompt: PromptObject) => {
-    setCurrentPrompt(prompt);
-    setLoadSavedModalOpen(false);
-  };
-
-  // Handle selecting a context
-  const handleSelectContext = (context: Context) => {
-    console.log('Context selected:', context);
-    console.log('Context body:', context.body);
-    console.log('Context title:', context.title);
-    
-    setCurrentPrompt(prev => ({ ...prev, context }));
-    setContextSelectionModalOpen(false);
-  };
-
-  // Handle selecting a system prompt
-  const handleSelectSystemPrompt = (systemPrompt: SystemPrompt) => {
-    setCurrentPrompt(prev => ({ ...prev, systemPrompt }));
-    setSystemPromptSelectionModalOpen(false);
-  };
-
-  // Handle saving the prompt
-  const handleSavePrompt = () => {
-    if (!currentPrompt.promptText.trim()) {
-      setSaveError('Please enter prompt text before saving');
-      return;
-    }
-    
-    const defaultTitle = currentPrompt.promptText.substring(0, 50) + (currentPrompt.promptText.length > 50 ? '...' : '');
-    setPromptTitle(defaultTitle);
-    setSavePromptDialog(true);
-  };
-
-  // Handle save confirmation
-  const handleSaveConfirm = async () => {
-    if (!currentPrompt.promptText.trim() || !promptTitle.trim()) {
-      setSaveError('Please fill in all required fields');
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError(null);
-    setSaveSuccess(null);
-
+    setLoadingConversations(true);
     try {
-      // Create a prompt object for saving
-      const promptToSave: PromptObject = {
-        id: `prompt-${Date.now()}`,
-        title: promptTitle,
-        promptText: currentPrompt.promptText,
-        context: currentPrompt.context,
-        systemPrompt: currentPrompt.systemPrompt,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: [...currentPrompt.tags, 'FIDU-CHAT-LAB-Saved'],
-        metadata: {
-          estimatedTokens: totalTokens
-        }
-      };
-
-      // Save to FIDU Vault via API
-      const savedPrompt = await promptsApi.savePrompt(promptToSave, currentProfile?.id);
-      
-      // Update local state with the saved prompt
-      setSavedPrompts(prev => [savedPrompt, ...prev]);
-      setSaveSuccess('Prompt saved successfully!');
-      
-      // Auto-close dialog after 2 seconds
-      setTimeout(() => {
-        setSavePromptDialog(false);
-        setPromptTitle('');
-        setSaveError(null);
-        setSaveSuccess(null);
-        setIsSaving(false);
-      }, 2000);
-      
-    } catch (error: any) {
-      console.error('Error saving prompt:', error);
-      setSaveError(error.message || 'Failed to save prompt');
-      setIsSaving(false);
-    }
-  };
-
-  // Handle executing the prompt
-  const handleExecute = async () => {
-    if (!currentPrompt.promptText.trim()) {
-      setExecutionError('Please enter prompt text before executing');
-      return;
-    }
-
-    if (!selectedModel) {
-      setExecutionError('Please select a model before executing');
-      return;
-    }
-
-    if (!currentProfile) {
-      setExecutionError('Please select a profile before executing');
-      return;
-    }
-
-    setIsExecuting(true);
-    setExecutionError(null);
-
-    try {
-      // Execute the prompt via API
-      console.log('Executing prompt with:', {
-        context: currentPrompt.context,
-        contextType: typeof currentPrompt.context,
-        contextKeys: currentPrompt.context ? Object.keys(currentPrompt.context) : 'null',
-        contextBody: currentPrompt.context?.body,
-        contextTitle: currentPrompt.context?.title,
-        systemPrompt: currentPrompt.systemPrompt,
-        systemPromptContent: currentPrompt.systemPrompt?.content,
-        promptText: currentPrompt.promptText,
-        model: selectedModel
-      });
-      
-      const executionResult = await promptsApi.executePrompt(
-        [], // No previous messages for initial prompt
-        currentPrompt.context,
-        currentPrompt.promptText,
-        selectedModel,
-        currentProfile.id,
-        currentPrompt.systemPrompt
-      );
-
-      // Create conversation messages from the execution result
-      const userMessage = {
-        id: `msg-usr-${Date.now()}`,
-        role: 'user' as const,
-        content: currentPrompt.promptText,
-        timestamp: new Date().toISOString(),
-        platform: selectedModel,
-        conversationId: 'execution-conversation',
-        isEdited: false
-      };
-
-      const assistantMessage = {
-        id: executionResult.id,
-        role: 'assistant' as const,
-        content: executionResult.responses.content,
-        timestamp: executionResult.timestamp,
-        platform: selectedModel,
-        conversationId: 'execution-conversation',
-        isEdited: false
-      };
-
-      // Create a new conversation with the original prompt information
-      const newConversation: Partial<Conversation> = {
-        id: uuidv4(), // Generate unique ID for new conversation
-        title: currentPrompt.title || currentPrompt.promptText.substring(0, 50) + '...',
-        platform: selectedModel.toLowerCase() as 'chatgpt' | 'claude' | 'gemini' | 'other',
-        tags: ['FIDU-CHAT-LAB-Conversation'],
-        isArchived: false,
-        isFavorite: false,
-        participants: ['User', 'AI Assistant'],
-        status: 'active' as const,
-        originalPrompt: {
-          promptText: currentPrompt.promptText,
-          context: currentPrompt.context,
-          systemPrompt: currentPrompt.systemPrompt,
-          metadata: {
-            estimatedTokens: totalTokens
-          }
-        }
-      };
-
-      // Save the conversation to FIDU Vault
-      const savedConversation = await conversationsApi.createConversation(
-        currentProfile.id,
-        newConversation,
-        [userMessage, assistantMessage],
-        newConversation.originalPrompt
-      );
-
-      // Create new conversation tab
-      const newTab = {
-        id: savedConversation.id,
-        conversation: savedConversation,
-        messages: [userMessage, assistantMessage],
-        isMinimized: false,
-        isActive: true,
-        title: savedConversation.title,
-        model: selectedModel,
-        unreadCount: 0
-      };
-
-      // Add new tab and deactivate others
-      setConversationTabs(prev => 
-        prev.map(tab => ({ ...tab, isActive: false })).concat(newTab)
-      );
-      
-    } catch (error: any) {
-      console.error('Error executing prompt:', error);
-      setExecutionError(error.message || 'Failed to execute prompt');
+      const response = await conversationsApi.getAll({}, 1, 5, currentProfile.id);
+      setRecentConversations(response.conversations);
+    } catch (error) {
+      console.error('Error loading recent conversations:', error);
     } finally {
-      setIsExecuting(false);
+      setLoadingConversations(false);
     }
-  };
+  }, [currentProfile]);
 
-  // Handle closing conversation
-  const handleCloseConversation = (conversationId: string) => {
-    setConversationTabs(prev => prev.filter(tab => tab.id !== conversationId));
-  };
+  useEffect(() => {
+    loadRecentConversations();
+  }, [loadRecentConversations]);
 
-  // Handle minimizing conversation
-  const handleMinimizeConversation = (conversationId: string) => {
-    setConversationTabs(prev => 
-      prev.map(tab => 
-        tab.id === conversationId 
-          ? { ...tab, isMinimized: true, isActive: false }
-          : tab
-      )
-    );
-  };
+  // Handle sending a message
+  const handleSendMessage = async () => {
+    if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompt) return;
 
-  // Handle activating conversation
-  const handleActivateConversation = (conversationId: string) => {
-    setConversationTabs(prev => 
-      prev.map(tab => ({
-        ...tab,
-        isActive: tab.id === conversationId,
-        isMinimized: tab.id === conversationId ? false : tab.isMinimized
-      }))
-    );
-  };
-
-  // Handle sending follow-up messages
-  const handleSendFollowUpMessage = async (conversationId: string, message: string) => {
-    if (!currentProfile || !selectedModel) {
-      setExecutionError('Cannot send message: missing profile or model');
-      return;
-    }
-
-    const conversationTab = conversationTabs.find(tab => tab.id === conversationId);
-    if (!conversationTab) {
-      setExecutionError('Conversation not found');
-      return;
-    }
-
-    setIsSendingFollowUp(true);
-    setExecutionError(null);
-
-    // Add user message to conversation
     const userMessage: Message = {
-      id: `msg-usr-${Date.now()}`,
+      id: `msg-${Date.now()}-user`,
+      conversationId: 'current',
+      content: currentMessage,
       role: 'user',
-      content: message,
       timestamp: new Date().toISOString(),
       platform: selectedModel,
-      conversationId: conversationId,
       isEdited: false
     };
 
-    // Add user message to local state immediately
-    setConversationTabs(prev => 
-      prev.map(tab => 
-        tab.id === conversationId 
-          ? { ...tab, messages: [...tab.messages, userMessage] }
-          : tab
-      )
-    );
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentMessage('');
 
-    try {
-      // Execute the follow-up message via API
-      console.log('Executing follow-up with:', {
-        context: conversationTab.conversation.originalPrompt?.context,
-        contextType: typeof conversationTab.conversation.originalPrompt?.context,
-        contextKeys: conversationTab.conversation.originalPrompt?.context ? Object.keys(conversationTab.conversation.originalPrompt.context) : 'null',
-        contextBody: conversationTab.conversation.originalPrompt?.context?.body,
-        contextTitle: conversationTab.conversation.originalPrompt?.context?.title,
-        systemPrompt: conversationTab.conversation.originalPrompt?.systemPrompt,
-        systemPromptContent: conversationTab.conversation.originalPrompt?.systemPrompt?.content,
-        message: message,
-        model: selectedModel
-      });
-      
-      const executionResult = await promptsApi.executePrompt(
-        [...conversationTab.messages, userMessage], // Pass previous messages + new user message for context
-        conversationTab.conversation.originalPrompt?.context || null,
-        message,
-        selectedModel,
-        currentProfile.id,
-        conversationTab.conversation.originalPrompt?.systemPrompt
-      );
-
-      // Create assistant message from the execution result
-      const assistantMessage: Message = {
-        id: executionResult.id,
+    // TODO: Implement actual AI response logic
+    // For now, just add a placeholder response
+    setTimeout(() => {
+      const aiMessage: Message = {
+        id: `msg-${Date.now()}-ai`,
+        conversationId: 'current',
+        content: 'This is a placeholder response. The actual AI integration will be implemented later.',
         role: 'assistant',
-        content: executionResult.responses.content,
-        timestamp: executionResult.timestamp,
+        timestamp: new Date().toISOString(),
         platform: selectedModel,
-        conversationId: conversationId,
         isEdited: false
       };
+      setMessages(prev => [...prev, aiMessage]);
+    }, 1000);
+  };
 
-      // Add assistant message to conversation
-      setConversationTabs(prev => 
-        prev.map(tab => 
-          tab.id === conversationId 
-            ? { ...tab, messages: [...tab.messages, assistantMessage] }
-            : tab
-        )
-      );
-
-      // Update the conversation in FIDU Vault with new messages
-      const updatedMessages = [...conversationTab.messages, userMessage, assistantMessage];
-      await conversationsApi.updateConversation(
-        conversationTab.conversation,
-        updatedMessages,
-        conversationTab.conversation.originalPrompt
-      );
-
-    } catch (error: any) {
-      console.error('Error sending follow-up message:', error);
-      setExecutionError(error.message || 'Failed to send follow-up message');
-    } finally {
-      setIsSendingFollowUp(false);
+  // Handle conversation selection
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      const messages = await conversationsApi.getMessages(conversation.id);
+      setMessages(messages);
+      // TODO: Update the current conversation context
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
     }
   };
 
+  // Handle adding embellishment
+  const handleAddEmbellishment = () => {
+    const newEmbellishment = prompt('Enter embellishment:');
+    if (newEmbellishment && newEmbellishment.trim()) {
+      setEmbellishments(prev => [...prev, newEmbellishment.trim()]);
+    }
+  };
+
+  // Handle removing embellishment
+  const handleRemoveEmbellishment = (index: number) => {
+    setEmbellishments(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h4" sx={{ fontWeight: 600 }}>
-            Prompt Lab
-          </Typography>
-          {conversationTabs.length > 0 && (
-            <Chip
-              label={`${conversationTabs.length} conversation${conversationTabs.length > 1 ? 's' : ''} open`}
-              color="primary"
-              variant="outlined"
-              size="small"
-            />
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* Main Chat Area */}
+      <Box sx={{ 
+        flex: 1, 
+        overflow: 'hidden', 
+        position: 'relative',
+        pb: 0 // No bottom padding needed since prompt bar is fixed
+      }}>
+        {/* Messages Container */}
+        <Box sx={{ 
+          height: '100%', 
+          overflowY: 'auto', 
+          p: 3,
+          pb: 32, // Add bottom padding to account for fixed prompt bar height
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2
+        }}>
+          {messages.length === 0 ? (
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              height: '100%',
+              color: 'text.secondary'
+            }}>
+              <ChatIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+              <Typography variant="h5" sx={{ mb: 1, opacity: 0.7 }}>
+                FIDU CHAT LAB
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.5 }}>
+                Start a conversation by typing a message below
+              </Typography>
+            </Box>
+          ) : (
+            messages.map((message) => (
+              <Box
+                key={message.id}
+                sx={{
+                  display: 'flex',
+                  justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                  mb: 2
+                }}
+              >
+                <Paper
+                  sx={{
+                    p: 2,
+                    maxWidth: '70%',
+                    backgroundColor: message.role === 'user' ? 'primary.main' : 'grey.100',
+                    color: message.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                    borderRadius: 2,
+                    position: 'relative'
+                  }}
+                >
+                  {message.role === 'assistant' && (
+                    <Avatar sx={{ 
+                      width: 24, 
+                      height: 24, 
+                      position: 'absolute', 
+                      top: -12, 
+                      left: -12,
+                      bgcolor: 'primary.main'
+                    }}>
+                      <ModelIcon fontSize="small" />
+                    </Avatar>
+                  )}
+                  <Typography variant="body1">
+                    {message.content}
+                  </Typography>
+                </Paper>
+              </Box>
+            ))
           )}
         </Box>
-        <Typography variant="body1" color="text.secondary">
-          Design, construct, optimize, and send your AI prompts to a range of models
-        </Typography>
       </Box>
 
-      {/* Main Content */}
-      <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
-        gap: 3 
-      }}>
-        {/* Left Panel - Prompt Designer */}
-        <Box>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Construct Your Prompt
-              </Typography>
+                        {/* Fixed Bottom Prompt Bar */}
+        <Box sx={{ 
+          position: 'fixed',
+          bottom: 0,
+          left: 240, // Account for sidebar width
+          right: 0,
+          backgroundColor: 'background.default',
+          p: 3,
+          zIndex: 1000
+        }}>
+          {/* Container to center content within chat window */}
+          <Box sx={{ 
+            maxWidth: 800,
+            mx: 'auto',
+            px: 2
+          }}>
+            {/* Dropdown Controls */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'center' }}>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={() => setModelModalOpen(true)}
+                sx={{ 
+                  minWidth: 200,
+                  borderRadius: 2,
+                  backgroundColor: 'background.paper',
+                  boxShadow: 1,
+                  '&:hover': {
+                    boxShadow: 2
+                  }
+                }}
+              >
+                {selectedModel || 'Select Target Model ▾'}
+              </Button>
+              
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={() => setContextModalOpen(true)}
+                sx={{ 
+                  minWidth: 150,
+                  borderRadius: 2,
+                  backgroundColor: 'background.paper',
+                  boxShadow: 1,
+                  '&:hover': {
+                    boxShadow: 2
+                  }
+                }}
+              >
+                Context: {selectedContext?.title || 'None'}
+              </Button>
+              
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={() => setSystemPromptModalOpen(true)}
+                sx={{ 
+                  minWidth: 180,
+                  borderRadius: 2,
+                  backgroundColor: 'background.paper',
+                  boxShadow: 1,
+                  '&:hover': {
+                    boxShadow: 2
+                  }
+                }}
+              >
+                System Prompt: {selectedSystemPrompt?.name || 'Default'}
+              </Button>
+            </Box>
 
-              <Stack spacing={3}>
-                {/* Load from Saved */}
-                <Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<BookmarkIcon />}
-                    onClick={() => setLoadSavedModalOpen(true)}
-                    fullWidth
-                    sx={{ justifyContent: 'flex-start' }}
-                  >
-                    Load from Saved
-                  </Button>
-                </Box>
+            {/* Message Input Container */}
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 2, 
+              alignItems: 'flex-end',
+              maxWidth: 800,
+              mx: 'auto'
+            }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={1}
+                placeholder="Type your message..."
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    backgroundColor: 'background.paper',
+                    boxShadow: 1
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <ChatIcon color="action" />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSendMessage}
+                disabled={!currentMessage.trim()}
+                sx={{ 
+                  minWidth: 56, 
+                  height: 56, 
+                  borderRadius: '50%',
+                  boxShadow: 2,
+                  '&:hover': {
+                    boxShadow: 3
+                  }
+                }}
+              >
+                <SendIcon />
+              </Button>
+            </Box>
 
-                {/* Add Prompt Text */}
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                    Prompt Text
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={6}
-                    placeholder="Write your prompt here..."
-                    value={currentPrompt.promptText}
-                    onChange={(e) => setCurrentPrompt(prev => ({ 
-                      ...prev, 
-                      promptText: e.target.value,
-                      updatedAt: new Date().toISOString()
-                    }))}
-                    variant="outlined"
-                  />
-                </Box>
-
-                {/* Add Context */}
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                    Context
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={contextsLoading ? <CircularProgress size={16} /> : <ContextIcon />}
-                      onClick={() => setContextSelectionModalOpen(true)}
-                      disabled={contextsLoading}
-                      sx={{ flexGrow: 1, justifyContent: 'flex-start' }}
-                    >
-                      {contextsLoading ? 'Loading Contexts...' : (currentPrompt.context ? currentPrompt.context.title : `Select Context (${fetchedContexts.length} available)`)}
-                    </Button>
-                    {currentPrompt.context && (
-                      <IconButton
-                        onClick={() => setCurrentPrompt(prev => ({ ...prev, context: null }))}
-                        size="small"
-                      >
-                        <CloseIcon />
-                      </IconButton>
-                    )}
-                  </Box>
-                  {contextsError && (
-                    <Alert severity="error" sx={{ mt: 1 }}>
-                      {contextsError}
-                    </Alert>
-                  )}
-                  {currentPrompt.context && (
-                    <Paper variant="outlined" sx={{ p: 2, mt: 1, bgcolor: 'background.paper' }}>
-                      <Typography component="div" variant="body2" color="text.secondary">
-                        {(() => {
-                          console.log('Displaying context:', currentPrompt.context);
-                          if (!currentPrompt.context) return 'No context available';
-                          console.log('Context body:', currentPrompt.context.body);
-                          return currentPrompt.context.body && currentPrompt.context.body.length > 200 
-                            ? `${currentPrompt.context.body.substring(0, 200)}...` 
-                            : currentPrompt.context.body || 'No context body available';
-                        })()}
-                      </Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                        <Chip 
-                          label={`${currentPrompt.context?.tokenCount || 0} tokens`} 
-                          size="small" 
-                        />
-                        {currentPrompt.context && currentPrompt.context.body && currentPrompt.context.body.length > 200 && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() => currentPrompt.context && setContextPreviewModalOpen(true)}
-                          >
-                            View Full
-                          </Button>
-                        )}
-                      </Box>
-                    </Paper>
-                  )}
-                </Box>
-
-                {/* System Prompt */}
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                    System Prompt
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={systemPromptsLoading ? <CircularProgress size={16} /> : <SystemPromptIcon />}
-                      onClick={() => setSystemPromptSelectionModalOpen(true)}
-                      disabled={systemPromptsLoading}
-                      sx={{ flexGrow: 1, justifyContent: 'flex-start' }}
-                    >
-                      {systemPromptsLoading ? 'Loading System Prompts...' : `${currentPrompt.systemPrompt.name} (${fetchedSystemPrompts.length} available)`}
-                    </Button>
-                    <IconButton
-                      size="small"
-                      disabled
-                    >
-                      <SettingsIcon />
-                    </IconButton>
-                  </Box>
-                  {systemPromptsError && (
-                    <Alert severity="error" sx={{ mt: 1 }}>
-                      {systemPromptsError}
-                    </Alert>
-                  )}
-                  <Paper variant="outlined" sx={{ p: 2, mt: 1, bgcolor: 'background.paper' }}>
-                    <Typography component="div" variant="body2" color="text.secondary">
-                      {currentPrompt.systemPrompt.content}
-                    </Typography>
-                    <Chip 
-                      label={`${currentPrompt.systemPrompt.tokenCount} tokens`} 
-                      size="small" 
-                      sx={{ mt: 1 }}
-                    />
-                  </Paper>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Right Panel - Prompt Stack & Execution */}
-        <Box>
-          <Stack spacing={3}>
-            {/* Prompt Stack Preview */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Prompt Stack
+            {/* Embellishments Bar */}
+            <Box sx={{ 
+              mt: 2, 
+              display: 'flex', 
+              justifyContent: 'center'
+            }}>
+              <Paper
+                onClick={handleAddEmbellishment}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 2,
+                  py: 1.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  backgroundColor: 'grey.900',
+                  color: 'white',
+                  minWidth: 200,
+                  boxShadow: 1,
+                  '&:hover': {
+                    backgroundColor: 'grey.800',
+                    boxShadow: 2
+                  }
+                }}
+              >
+                <AddIcon sx={{ color: 'white' }} />
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Add Embellishments
                 </Typography>
-                
-                <Stack spacing={2}>
-                  {/* System Prompt */}
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      System Prompt
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                      {currentPrompt.systemPrompt.content.substring(0, 100)}...
-                    </Typography>
-                  </Box>
+              </Paper>
+            </Box>
 
-                  {/* Context */}
-                  {currentPrompt.context && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Context
-                      </Typography>
-                      <Typography variant="body2">
-                        {currentPrompt.context.title}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* User Prompt */}
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      User Prompt
-                    </Typography>
-                    <Typography variant="body2">
-                      {currentPrompt.promptText || 'No prompt text entered'}
-                    </Typography>
-                  </Box>
-
-                  {/* Token Count */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography component="div" variant="body2" color="text.secondary">
-                      Total Tokens
-                    </Typography>
-                    <Chip label={totalTokens} size="small" color="primary" />
-                  </Box>
-
-                  {/* Save Button */}
-                  <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSavePrompt}
-                    fullWidth
-                  >
-                    Save Prompt
-                  </Button>
-
-                  {/* View Prompt Button */}
-                  <Button
-                    variant="outlined"
-                    startIcon={<CopyIcon />}
-                    onClick={() => setViewPromptModalOpen(true)}
-                    fullWidth
-                  >
-                    View Prompt
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-
-            {/* Execution Controls */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Execute
-                </Typography>
-                
-                <Stack spacing={2}>
-                  {/* Model Selection */}
-                  <FormControl fullWidth>
-                    <InputLabel>Select Model</InputLabel>
-                    <Select
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      label="Select Model"
-                    >
-                      {models.map((model) => (
-                        <MenuItem key={model.id} value={model.id}>
-                          {model.name} ({model.provider})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  {/* Execute Button */}
-                  <Button
-                    variant="contained"
+            {/* Active Embellishments */}
+            {embellishments.length > 0 && (
+              <Box sx={{ 
+                mt: 1, 
+                display: 'flex', 
+                gap: 1, 
+                flexWrap: 'wrap',
+                justifyContent: 'center'
+              }}>
+                {embellishments.map((embellishment, index) => (
+                  <Chip 
+                    key={index}
+                    label={embellishment}
+                    onDelete={() => handleRemoveEmbellishment(index)}
                     color="primary"
-                    startIcon={<ExecuteIcon />}
-                    onClick={handleExecute}
-                    disabled={!selectedModel || !currentPrompt.promptText.trim() || isExecuting}
-                    fullWidth
-                  >
-                    {isExecuting ? 'Executing...' : 'Execute'}
-                  </Button>
-
-                  {executionError && (
-                    <Alert severity="error">
-                      {executionError}
-                    </Alert>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Stack>
+                    variant="filled"
+                    size="small" 
+                  />
+                ))}
+              </Box>
+            )}
+          </Box>
         </Box>
+
+            {/* Right Sidebar - Recent Conversations */}
+      <Drawer
+        anchor="right"
+        open={conversationsDrawerOpen}
+        onClose={() => setConversationsDrawerOpen(false)}
+        variant="persistent"
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: 300,
+            boxSizing: 'border-box',
+            borderLeft: 1,
+            borderColor: 'divider',
+            backgroundColor: 'rgba(147, 112, 219, 0.1)', // Light purple background
+            backdropFilter: 'blur(10px)'
+          }
+        }}
+      >
+        <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              mb: 2, 
+              color: 'primary.main',
+              fontWeight: 600,
+              textAlign: 'center'
+            }}
+          >
+            Recent Conversations:
+          </Typography>
+          
+          {loadingConversations ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <List sx={{ flex: 1 }}>
+                {recentConversations.map((conversation) => (
+                  <ListItem key={conversation.id} disablePadding>
+                    <ListItemButton 
+                      onClick={() => handleSelectConversation(conversation)}
+                      sx={{ 
+                        borderRadius: 2,
+                        mb: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        backgroundColor: 'background.paper',
+                        '&:hover': {
+                          backgroundColor: 'rgba(147, 112, 219, 0.1)',
+                          borderColor: 'primary.main'
+                        }
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 500,
+                              lineHeight: 1.3,
+                              mb: 0.5
+                            }}
+                          >
+                            {conversation.title}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: 'text.secondary',
+                              lineHeight: 1.4,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {conversation.lastMessage || 'No messages'}
+                          </Typography>
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+              
+              {/* View All Button */}
+              <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate('/conversations')}
+                  sx={{
+                    borderRadius: 2,
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    '&:hover': {
+                      backgroundColor: 'primary.main',
+                      color: 'primary.contrastText'
+                    }
+                  }}
+                >
+                  View All
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Drawer>
+
+      {/* Chat History Tab */}
+      <Box
+        onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
+        sx={{
+          position: 'fixed',
+          right: conversationsDrawerOpen ? 300 : 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 1000,
+          cursor: 'pointer',
+          transition: 'right 0.3s ease'
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1.5,
+            py: 1.5,
+            borderRadius: '8px 0 0 8px',
+            backgroundColor: 'primary.main',
+            color: 'primary.contrastText',
+            boxShadow: 2,
+            '&:hover': {
+              backgroundColor: 'primary.dark',
+              boxShadow: 4
+            }
+          }}
+        >
+          <ChevronLeftIcon 
+            sx={{ 
+              fontSize: 18,
+              transform: conversationsDrawerOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.3s ease'
+            }} 
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ChatBubbleIcon sx={{ fontSize: 20 }} />
+            <RefreshIcon sx={{ fontSize: 16, opacity: 0.8 }} />
+          </Box>
+        </Paper>
       </Box>
 
       {/* Modals */}
-      <LoadSavedPromptModal
-        open={loadSavedModalOpen}
-        onClose={() => setLoadSavedModalOpen(false)}
-        onLoadPrompt={handleLoadSavedPrompt}
-        savedPrompts={savedPrompts}
-        loading={loadingSavedPrompts}
-        error={savedPromptsError}
-        onRefresh={loadSavedPrompts}
+      <ModelSelectionModal
+        open={modelModalOpen}
+        onClose={() => setModelModalOpen(false)}
+        onSelectModel={(model) => {
+          setSelectedModel(model);
+          setModelModalOpen(false);
+        }}
+        selectedModel={selectedModel}
       />
 
       <ContextSelectionModal
-        open={contextSelectionModalOpen}
-        onClose={() => setContextSelectionModalOpen(false)}
-        onSelectContext={handleSelectContext}
-        contexts={fetchedContexts}
+        open={contextModalOpen}
+        onClose={() => setContextModalOpen(false)}
+        onSelectContext={(context) => {
+          setSelectedContext(context);
+          setContextModalOpen(false);
+        }}
+        contexts={contexts}
         loading={contextsLoading}
         error={contextsError}
-        onRefresh={() => dispatch(fetchContexts(currentProfile?.id))}
       />
 
       <SystemPromptSelectionModal
-        open={systemPromptSelectionModalOpen}
-        onClose={() => setSystemPromptSelectionModalOpen(false)}
-        onSelectSystemPrompt={handleSelectSystemPrompt}
-        systemPrompts={fetchedSystemPrompts}
+        open={systemPromptModalOpen}
+        onClose={() => setSystemPromptModalOpen(false)}
+        onSelectSystemPrompt={(systemPrompt) => {
+          setSelectedSystemPrompt(systemPrompt);
+          setSystemPromptModalOpen(false);
+        }}
+        systemPrompts={systemPrompts}
         loading={systemPromptsLoading}
         error={systemPromptsError}
-        onRefresh={() => dispatch(fetchSystemPrompts(currentProfile?.id))}
-      />
-
-      <ViewPromptModal
-        open={viewPromptModalOpen}
-        onClose={() => setViewPromptModalOpen(false)}
-        currentPrompt={currentPrompt}
-      />
-
-      <ContextPreviewModal
-        open={contextPreviewModalOpen && !!currentPrompt.context}
-        onClose={() => setContextPreviewModalOpen(false)}
-        context={currentPrompt.context}
-      />
-
-      {/* Save Prompt Dialog */}
-      <Dialog 
-        open={savePromptDialog} 
-        onClose={isSaving ? undefined : () => setSavePromptDialog(false)} 
-        maxWidth="sm" 
-        fullWidth
-      >
-        <DialogTitle>Save Prompt</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              fullWidth
-              label="Title"
-              value={promptTitle}
-              onChange={(e) => setPromptTitle(e.target.value)}
-              placeholder="Enter a title for your prompt"
-              disabled={isSaving}
-            />
-            {saveError && (
-              <Alert severity="error">{saveError}</Alert>
-            )}
-            {saveSuccess && (
-              <Alert severity="success">{saveSuccess}</Alert>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSavePromptDialog(false)} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSaveConfirm} 
-            variant="contained"
-            disabled={!promptTitle.trim() || isSaving}
-            startIcon={isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Conversation Manager */}
-      <ConversationManager
-        conversations={conversationTabs}
-        onCloseConversation={handleCloseConversation}
-        onMinimizeConversation={handleMinimizeConversation}
-        onActivateConversation={handleActivateConversation}
-        onSendMessage={handleSendFollowUpMessage}
-        isSendingFollowUp={isSendingFollowUp}
-        error={executionError}
       />
     </Box>
   );
