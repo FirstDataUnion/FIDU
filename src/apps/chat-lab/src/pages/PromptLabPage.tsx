@@ -39,8 +39,10 @@ import {
   SmartToy as SystemPromptIcon,
   Check as CheckIcon
 } from '@mui/icons-material';
-import { useAppSelector } from '../store';
+import { useAppSelector, useAppDispatch } from '../store';
 import { createPromptsApi } from '../services/api/prompts';
+import { fetchContexts } from '../store/slices/contextsSlice';
+import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import type { DataPacketQueryParams, Conversation, Message, Context, SystemPrompt } from '../types';
 import { ConversationManager } from '../components/conversations/ConversationManager';
 import { conversationsApi } from '../services/api/conversations';
@@ -77,6 +79,7 @@ interface ContextSelectionModalProps {
   contexts: Context[];
   loading: boolean;
   error: string | null;
+  onRefresh?: () => void;
 }
 
 interface SystemPromptSelectionModalProps {
@@ -86,6 +89,7 @@ interface SystemPromptSelectionModalProps {
   systemPrompts: SystemPrompt[];
   loading: boolean;
   error: string | null;
+  onRefresh?: () => void;
 }
 
 // Load Saved Prompt Modal Component
@@ -205,7 +209,8 @@ function ContextSelectionModal({
   onSelectContext, 
   contexts, 
   loading, 
-  error 
+  error,
+  onRefresh
 }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -220,7 +225,22 @@ function ContextSelectionModal({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select Context</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Select Context
+          {onRefresh && (
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={onRefresh}
+              disabled={loading}
+              size="small"
+            >
+              Refresh
+            </Button>
+          )}
+        </Box>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -264,7 +284,10 @@ function ContextSelectionModal({
                       {context.title}
                     </Typography>
                     <Box component="div" sx={{ mb: 1, color: 'text.secondary', fontSize: '0.875rem' }}>
-                      {context.body}
+                      {context.body.length > 150 
+                        ? `${context.body.substring(0, 150)}...` 
+                        : context.body
+                      }
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Chip 
@@ -384,6 +407,93 @@ function ViewPromptModal({
   );
 }
 
+// Context Preview Modal Component
+function ContextPreviewModal({ 
+  open, 
+  onClose, 
+  context 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  context: Context | null; 
+}) {
+  const [copied, setCopied] = useState(false);
+
+  // Don't render if no context
+  if (!context) {
+    return null;
+  }
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(context.body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {context.title}
+          <Button
+            variant="outlined"
+            startIcon={copied ? <CheckIcon /> : <CopyIcon />}
+            onClick={handleCopyToClipboard}
+            size="small"
+          >
+            {copied ? 'Copied!' : 'Copy to Clipboard'}
+          </Button>
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Chip 
+              label={`${context.tokenCount} tokens`} 
+              size="small" 
+              variant="outlined"
+            />
+            <Chip 
+              label="Active" 
+              size="small" 
+              color="success"
+            />
+          </Box>
+          
+          <Paper 
+            variant="outlined" 
+            sx={{ 
+              p: 2, 
+              bgcolor: 'background.paper',
+              fontFamily: 'monospace',
+              whiteSpace: 'normal',
+              wordWrap: 'break-word',
+              maxHeight: '400px',
+              overflow: 'auto'
+            }}
+          >
+            <Typography variant="body2" component="pre" sx={{ 
+              margin: 0, 
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'break-word'
+            }}>
+              {context.body}
+            </Typography>
+          </Paper>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // System Prompt Selection Modal Component
 function SystemPromptSelectionModal({ 
   open, 
@@ -391,7 +501,8 @@ function SystemPromptSelectionModal({
   onSelectSystemPrompt, 
   systemPrompts, 
   loading, 
-  error 
+  error,
+  onRefresh
 }: SystemPromptSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -406,7 +517,22 @@ function SystemPromptSelectionModal({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select System Prompt</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Select System Prompt
+          {onRefresh && (
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={onRefresh}
+              disabled={loading}
+              size="small"
+            >
+              Refresh
+            </Button>
+          )}
+        </Box>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -496,6 +622,9 @@ export default function PromptLabPage() {
 
   // Get auth state for profile ID
   const { currentProfile } = useAppSelector((state) => state.auth);
+  const { items: fetchedContexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
+  const { items: fetchedSystemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
+  const dispatch = useAppDispatch();
 
   // Create prompts API
   const promptsApi = useMemo(() => {
@@ -510,17 +639,17 @@ export default function PromptLabPage() {
     context: null,
     systemPrompt: {
       id: 'default',
-      name: 'Default Technical Assistant',
-      content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
-      description: 'General technical assistance with focus on software development',
-      tokenCount: 42,
+      name: 'Default Assistant',
+      content: 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user queries.',
+      description: 'Default system prompt for general assistance',
+      tokenCount: 25,
       isDefault: true,
       isSystem: true,
-      category: 'Technical',
+      category: 'General',
       modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
       createdAt: new Date('2024-01-10').toISOString(),
       updatedAt: new Date('2024-01-10').toISOString(),
-      tags: ['technical', 'development', 'assistant']
+      tags: ['general', 'assistant', 'default']
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -536,6 +665,7 @@ export default function PromptLabPage() {
   const [systemPromptSelectionModalOpen, setSystemPromptSelectionModalOpen] = useState(false);
   const [savePromptDialog, setSavePromptDialog] = useState(false);
   const [viewPromptModalOpen, setViewPromptModalOpen] = useState(false);
+  const [contextPreviewModalOpen, setContextPreviewModalOpen] = useState(false);
 
   // Save dialog states
   const [promptTitle, setPromptTitle] = useState('');
@@ -545,8 +675,6 @@ export default function PromptLabPage() {
 
   // Data states
   const [savedPrompts, setSavedPrompts] = useState<PromptObject[]>([]);
-  const [contexts, setContexts] = useState<Context[]>([]);
-  const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [models] = useState([
     { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
     { id: 'gpt-4.0-turbo', name: 'GPT-4.0 Turbo', provider: 'OpenAI' },
@@ -627,74 +755,59 @@ export default function PromptLabPage() {
     }
   }, [currentProfile, loadSavedPrompts]);
 
-  // Mock data loading for contexts and system prompts (replace with actual API calls later)
+  // Fetch contexts and system prompts from API
   useEffect(() => {
-    // Load mock contexts
-    setContexts([
-              {
-          id: 'ctx-1',
-          title: 'React Development Patterns',
-          body: 'Best practices and patterns for React development including hooks, state management, and performance optimization.',
-          tokenCount: 4500,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          tags: [],
-          conversationIds: [],
-          conversationMetadata: {
-            totalMessages: 0,
-            lastAddedAt: new Date().toISOString(),
-            platforms: []
-          }
-        },
-        {
-          id: 'ctx-2',
-          title: 'API Design Guidelines',
-          body: 'RESTful API design principles, GraphQL patterns, and authentication strategies.',
-          tokenCount: 3200,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          tags: [],
-          conversationIds: [],
-          conversationMetadata: {
-            totalMessages: 0,
-            lastAddedAt: new Date().toISOString(),
-            platforms: []
-          }
-        }
-    ]);
+    if (currentProfile) {
+      dispatch(fetchContexts(currentProfile.id));
+      dispatch(fetchSystemPrompts(currentProfile.id));
+    }
+  }, [currentProfile, dispatch]);
 
-    // Load mock system prompts
-    setSystemPrompts([
-      {
-        id: 'sys-1',
-        name: 'Technical Assistant',
-        content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
-        description: 'General technical assistance with focus on software development',
-        tokenCount: 42,
-        isDefault: true,
-        isSystem: true,
-        category: 'Technical',
-        modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
-        createdAt: new Date('2024-01-10').toISOString(),
-        updatedAt: new Date('2024-01-10').toISOString(),
-        tags: ['technical', 'development', 'assistant']
-      },
-      {
-        id: 'sys-2',
-        name: 'Code Reviewer',
-        content: 'You are an expert code reviewer. Analyze code for best practices, potential bugs, security issues, and performance improvements. Provide constructive feedback with specific examples.',
-        description: 'Specialized in code review and analysis',
-        tokenCount: 38,
-        isDefault: false,
-        isSystem: true,
-        category: 'Development',
-        modelCompatibility: ['claude-3-opus', 'gpt-4-turbo'],
-        createdAt: new Date('2024-01-12').toISOString(),
-        updatedAt: new Date('2024-01-12').toISOString(),
-        tags: ['code-review', 'development', 'quality']
+  // Update default system prompt when system prompts are loaded
+  useEffect(() => {
+    // Check if we have any system prompts available (either from API or built-in)
+    if (fetchedSystemPrompts.length > 0 && currentPrompt.systemPrompt.id === 'default') {
+      const defaultSystemPrompt = fetchedSystemPrompts.find(sp => sp.isDefault) || fetchedSystemPrompts[0];
+      
+      if (defaultSystemPrompt) {
+        setCurrentPrompt(prev => ({
+          ...prev,
+          systemPrompt: defaultSystemPrompt
+        }));
       }
-    ]);
-  }, []);
+    }
+    
+    // If we still don't have a proper system prompt and we're not loading, 
+    // try to find a default one from the available prompts
+    if (fetchedSystemPrompts.length > 0 && 
+        currentPrompt.systemPrompt.id === 'default' && 
+        !systemPromptsLoading) {
+      const defaultSystemPrompt = fetchedSystemPrompts.find(sp => sp.isDefault) || fetchedSystemPrompts[0];
+      if (defaultSystemPrompt) {
+        setCurrentPrompt(prev => ({
+          ...prev,
+          systemPrompt: defaultSystemPrompt
+        }));
+      }
+    }
+  }, [fetchedSystemPrompts, currentPrompt.systemPrompt.id, systemPromptsLoading]);
+
+  // Monitor system prompt changes for debugging
+  useEffect(() => {
+    console.log('System prompt updated:', {
+      id: currentPrompt.systemPrompt.id,
+      name: currentPrompt.systemPrompt.name,
+      content: currentPrompt.systemPrompt.content,
+      isDefault: currentPrompt.systemPrompt.isDefault
+    });
+  }, [currentPrompt.systemPrompt]);
+
+  // Reset context preview modal when context becomes null
+  useEffect(() => {
+    if (!currentPrompt.context) {
+      setContextPreviewModalOpen(false);
+    }
+  }, [currentPrompt.context]);
 
   // Calculate total tokens
   const totalTokens = useMemo(() => {
@@ -715,6 +828,10 @@ export default function PromptLabPage() {
 
   // Handle selecting a context
   const handleSelectContext = (context: Context) => {
+    console.log('Context selected:', context);
+    console.log('Context body:', context.body);
+    console.log('Context title:', context.title);
+    
     setCurrentPrompt(prev => ({ ...prev, context }));
     setContextSelectionModalOpen(false);
   };
@@ -809,12 +926,25 @@ export default function PromptLabPage() {
 
     try {
       // Execute the prompt via API
+      console.log('Executing prompt with:', {
+        context: currentPrompt.context,
+        contextType: typeof currentPrompt.context,
+        contextKeys: currentPrompt.context ? Object.keys(currentPrompt.context) : 'null',
+        contextBody: currentPrompt.context?.body,
+        contextTitle: currentPrompt.context?.title,
+        systemPrompt: currentPrompt.systemPrompt,
+        systemPromptContent: currentPrompt.systemPrompt?.content,
+        promptText: currentPrompt.promptText,
+        model: selectedModel
+      });
+      
       const executionResult = await promptsApi.executePrompt(
         [], // No previous messages for initial prompt
         currentPrompt.context,
         currentPrompt.promptText,
         selectedModel,
-        currentProfile.id
+        currentProfile.id,
+        currentPrompt.systemPrompt
       );
 
       // Create conversation messages from the execution result
@@ -956,12 +1086,25 @@ export default function PromptLabPage() {
 
     try {
       // Execute the follow-up message via API
+      console.log('Executing follow-up with:', {
+        context: conversationTab.conversation.originalPrompt?.context,
+        contextType: typeof conversationTab.conversation.originalPrompt?.context,
+        contextKeys: conversationTab.conversation.originalPrompt?.context ? Object.keys(conversationTab.conversation.originalPrompt.context) : 'null',
+        contextBody: conversationTab.conversation.originalPrompt?.context?.body,
+        contextTitle: conversationTab.conversation.originalPrompt?.context?.title,
+        systemPrompt: conversationTab.conversation.originalPrompt?.systemPrompt,
+        systemPromptContent: conversationTab.conversation.originalPrompt?.systemPrompt?.content,
+        message: message,
+        model: selectedModel
+      });
+      
       const executionResult = await promptsApi.executePrompt(
         [...conversationTab.messages, userMessage], // Pass previous messages + new user message for context
         conversationTab.conversation.originalPrompt?.context || null,
         message,
         selectedModel,
-        currentProfile.id
+        currentProfile.id,
+        conversationTab.conversation.originalPrompt?.systemPrompt
       );
 
       // Create assistant message from the execution result
@@ -1078,11 +1221,12 @@ export default function PromptLabPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Button
                       variant="outlined"
-                      startIcon={<ContextIcon />}
+                      startIcon={contextsLoading ? <CircularProgress size={16} /> : <ContextIcon />}
                       onClick={() => setContextSelectionModalOpen(true)}
+                      disabled={contextsLoading}
                       sx={{ flexGrow: 1, justifyContent: 'flex-start' }}
                     >
-                                              {currentPrompt.context ? currentPrompt.context.title : 'Select Context'}
+                      {contextsLoading ? 'Loading Contexts...' : (currentPrompt.context ? currentPrompt.context.title : `Select Context (${fetchedContexts.length} available)`)}
                     </Button>
                     {currentPrompt.context && (
                       <IconButton
@@ -1093,16 +1237,38 @@ export default function PromptLabPage() {
                       </IconButton>
                     )}
                   </Box>
+                  {contextsError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      {contextsError}
+                    </Alert>
+                  )}
                   {currentPrompt.context && (
                     <Paper variant="outlined" sx={{ p: 2, mt: 1, bgcolor: 'background.paper' }}>
                       <Typography component="div" variant="body2" color="text.secondary">
-                        {currentPrompt.context.body}
+                        {(() => {
+                          console.log('Displaying context:', currentPrompt.context);
+                          if (!currentPrompt.context) return 'No context available';
+                          console.log('Context body:', currentPrompt.context.body);
+                          return currentPrompt.context.body && currentPrompt.context.body.length > 200 
+                            ? `${currentPrompt.context.body.substring(0, 200)}...` 
+                            : currentPrompt.context.body || 'No context body available';
+                        })()}
                       </Typography>
-                      <Chip 
-                        label={`${currentPrompt.context.tokenCount} tokens`} 
-                        size="small" 
-                        sx={{ mt: 1 }}
-                      />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                        <Chip 
+                          label={`${currentPrompt.context?.tokenCount || 0} tokens`} 
+                          size="small" 
+                        />
+                        {currentPrompt.context && currentPrompt.context.body && currentPrompt.context.body.length > 200 && (
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => currentPrompt.context && setContextPreviewModalOpen(true)}
+                          >
+                            View Full
+                          </Button>
+                        )}
+                      </Box>
                     </Paper>
                   )}
                 </Box>
@@ -1115,11 +1281,12 @@ export default function PromptLabPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Button
                       variant="outlined"
-                      startIcon={<SystemPromptIcon />}
+                      startIcon={systemPromptsLoading ? <CircularProgress size={16} /> : <SystemPromptIcon />}
                       onClick={() => setSystemPromptSelectionModalOpen(true)}
+                      disabled={systemPromptsLoading}
                       sx={{ flexGrow: 1, justifyContent: 'flex-start' }}
                     >
-                      {currentPrompt.systemPrompt.name}
+                      {systemPromptsLoading ? 'Loading System Prompts...' : `${currentPrompt.systemPrompt.name} (${fetchedSystemPrompts.length} available)`}
                     </Button>
                     <IconButton
                       size="small"
@@ -1128,6 +1295,11 @@ export default function PromptLabPage() {
                       <SettingsIcon />
                     </IconButton>
                   </Box>
+                  {systemPromptsError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      {systemPromptsError}
+                    </Alert>
+                  )}
                   <Paper variant="outlined" sx={{ p: 2, mt: 1, bgcolor: 'background.paper' }}>
                     <Typography component="div" variant="body2" color="text.secondary">
                       {currentPrompt.systemPrompt.content}
@@ -1281,24 +1453,32 @@ export default function PromptLabPage() {
         open={contextSelectionModalOpen}
         onClose={() => setContextSelectionModalOpen(false)}
         onSelectContext={handleSelectContext}
-        contexts={contexts}
-        loading={false}
-        error={null}
+        contexts={fetchedContexts}
+        loading={contextsLoading}
+        error={contextsError}
+        onRefresh={() => dispatch(fetchContexts(currentProfile?.id))}
       />
 
       <SystemPromptSelectionModal
         open={systemPromptSelectionModalOpen}
         onClose={() => setSystemPromptSelectionModalOpen(false)}
         onSelectSystemPrompt={handleSelectSystemPrompt}
-        systemPrompts={systemPrompts}
-        loading={false}
-        error={null}
+        systemPrompts={fetchedSystemPrompts}
+        loading={systemPromptsLoading}
+        error={systemPromptsError}
+        onRefresh={() => dispatch(fetchSystemPrompts(currentProfile?.id))}
       />
 
       <ViewPromptModal
         open={viewPromptModalOpen}
         onClose={() => setViewPromptModalOpen(false)}
         currentPrompt={currentPrompt}
+      />
+
+      <ContextPreviewModal
+        open={contextPreviewModalOpen && !!currentPrompt.context}
+        onClose={() => setContextPreviewModalOpen(false)}
+        context={currentPrompt.context}
       />
 
       {/* Save Prompt Dialog */}

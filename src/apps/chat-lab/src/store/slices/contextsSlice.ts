@@ -27,13 +27,61 @@ export interface ContextsState {
   selectedContext: Context | null;
 }
 
+// Built-in contexts (these will always be available)
+export const builtInContexts: Context[] = [
+  {
+    id: 'ctx-builtin-1',
+    title: 'React Development Patterns',
+    body: 'Best practices and patterns for React development including hooks, state management, and performance optimization. Covers modern React patterns, custom hooks, context API, and performance best practices.',
+    tokenCount: 45,
+    createdAt: new Date('2024-01-10').toISOString(),
+    updatedAt: new Date('2024-01-10').toISOString(),
+    tags: ['react', 'development', 'patterns'],
+    conversationIds: [],
+    conversationMetadata: {
+      totalMessages: 0,
+      lastAddedAt: new Date('2024-01-10').toISOString(),
+      platforms: []
+    }
+  },
+  {
+    id: 'ctx-builtin-2',
+    title: 'API Design Guidelines',
+    body: 'RESTful API design principles, GraphQL patterns, authentication strategies, and best practices for building scalable and maintainable APIs.',
+    tokenCount: 32,
+    createdAt: new Date('2024-01-12').toISOString(),
+    updatedAt: new Date('2024-01-12').toISOString(),
+    tags: ['api', 'design', 'rest', 'graphql'],
+    conversationIds: [],
+    conversationMetadata: {
+      totalMessages: 0,
+      lastAddedAt: new Date('2024-01-12').toISOString(),
+      platforms: []
+    }
+  },
+  {
+    id: 'ctx-builtin-3',
+    title: 'Software Architecture Principles',
+    body: 'Core principles of software architecture including SOLID principles, design patterns, microservices, and architectural decision making.',
+    tokenCount: 38,
+    createdAt: new Date('2024-01-15').toISOString(),
+    updatedAt: new Date('2024-01-15').toISOString(),
+    tags: ['architecture', 'design-patterns', 'principles'],
+    conversationIds: [],
+    conversationMetadata: {
+      totalMessages: 0,
+      lastAddedAt: new Date('2024-01-15').toISOString(),
+      platforms: []
+    }
+  }
+];
+
 const initialState: ContextsState = {
-  items: [],
+  items: builtInContexts,
   loading: false,
   error: null,
   selectedContext: null,
 };
-
 
 
 // Async actions
@@ -128,11 +176,14 @@ const contextsSlice = createSlice({
       })
       .addCase(fetchContexts.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.contexts;
+        // Combine built-in contexts with user-created ones
+        state.items = [...builtInContexts, ...action.payload.contexts];
       })
       .addCase(fetchContexts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch contexts';
+        // Even if API fails, we still have built-in contexts
+        state.items = builtInContexts;
       })
       .addCase(createContext.fulfilled, (state, action) => {
         state.items.push(action.payload);
