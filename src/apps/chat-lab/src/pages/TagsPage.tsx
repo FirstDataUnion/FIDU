@@ -601,7 +601,7 @@ const TagsPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowCreateDialog(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button onClick={handleCreateTag} variant="contained">Create</Button>
         </DialogActions>
       </Dialog>
@@ -658,7 +658,7 @@ const TagsPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowEditDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowEditDialog(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button onClick={handleSaveEditTag} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
@@ -701,7 +701,7 @@ const TagsPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAutoTagDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowAutoTagDialog(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button onClick={generateAutoTags} variant="contained">Generate Tags</Button>
         </DialogActions>
       </Dialog>

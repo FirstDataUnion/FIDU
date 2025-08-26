@@ -273,12 +273,10 @@ export class DatabaseService {
         request.onsuccess = () => {
           const messages = request.result as Message[];
           console.log('DatabaseService.getMessages result:', messages);
-          // Convert Date objects to ISO strings for Redux serialization
+          // All timestamps are now strings, no need for conversion
           const serializedMessages = messages.map(message => ({
             ...message,
-            timestamp: message.timestamp instanceof Date 
-              ? message.timestamp.toISOString() 
-              : message.timestamp
+            timestamp: message.timestamp
           }));
           // Sort by timestamp
           serializedMessages.sort((a, b) => {
@@ -298,12 +296,10 @@ export class DatabaseService {
 
   async saveMessage(message: Message): Promise<void> {
     return this.transaction(STORES.MESSAGES, 'readwrite', async (stores) => {
-      // Ensure timestamp is stored as Date object in database
+      // All timestamps are now strings, no need for conversion
       const messageToSave = {
         ...message,
-        timestamp: message.timestamp instanceof Date 
-          ? message.timestamp 
-          : new Date(message.timestamp)
+        timestamp: message.timestamp
       };
       const request = stores[STORES.MESSAGES].put(messageToSave);
       return new Promise((resolve, reject) => {
@@ -394,12 +390,10 @@ export class DatabaseService {
       return new Promise((resolve, reject) => {
         request.onsuccess = () => {
           const tags = request.result as Tag[];
-          // Convert Date objects to ISO strings for Redux serialization
+          // All timestamps are now strings, no need for conversion
           const serializedTags = tags.map(tag => ({
             ...tag,
-            createdAt: tag.createdAt instanceof Date 
-              ? tag.createdAt.toISOString() 
-              : tag.createdAt
+            createdAt: tag.createdAt
           }));
           // Sort by usage count (most used first)
           serializedTags.sort((a, b) => b.usageCount - a.usageCount);
@@ -551,7 +545,7 @@ export class DatabaseService {
       memories,
       tags,
       settings,
-      exportedAt: new Date(),
+      exportedAt: new Date().toISOString(),
       version: this.version.toString()
     };
   }

@@ -25,10 +25,11 @@ const transformDataPacketToPrompt = (packet: PromptDataPacket): Prompt => {
     id: packet.data.context_id,
     title: packet.data.context_title,
     body: '', // We don't store the full description in the data packet
-    tokenCount: 0,   // We don't store this in the data packet
+    tokenCount: 0,
     createdAt: packet.create_timestamp,
     updatedAt: packet.update_timestamp,
     tags: [],
+    isBuiltIn: false, // Custom contexts from FIDU Vault
     conversationIds: [],
     conversationMetadata: {
       totalMessages: 0,
@@ -42,15 +43,14 @@ const transformDataPacketToPrompt = (packet: PromptDataPacket): Prompt => {
     id: packet.data.system_prompt_id,
     name: packet.data.system_prompt_name,
     content: packet.data.system_prompt_content,
-    description: '', // We don't store the full description in the data packet
+
     tokenCount: 0,   // We don't store this in the data packet
     isDefault: false,
-    isSystem: true,
+    isBuiltIn: true,
     category: 'Technical',
-    modelCompatibility: [],
+    
     createdAt: packet.create_timestamp,
-    updatedAt: packet.update_timestamp,
-    tags: []
+    updatedAt: packet.update_timestamp
   };
 
   return {
@@ -207,7 +207,8 @@ export const createPromptsApi = () => {
       prompt: string,
       selectedModel: string,
       profileId?: string,
-      systemPrompt?: any
+      systemPrompt?: any,
+      embellishments?: any[]
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
@@ -247,11 +248,19 @@ export const createPromptsApi = () => {
         agentPrompt = `${systemPrompt.content}\n\n`;
       }
       
+      // Add embellishment instructions if any are selected
+      if (embellishments && embellishments.length > 0) {
+        const selectedInstructions = embellishments
+          .map(embellishment => embellishment.instructions)
+          .filter(instruction => instruction && instruction.length > 0);
+        
+        if (selectedInstructions.length > 0) {
+          agentPrompt += `Additional Instructions:\n${selectedInstructions.join('\n')}\n\n`;
+        }
+      }
+      
       // Helper function to safely get context content
       const getContextContent = (ctx: any): string => {
-        console.log('getContextContent called with:', ctx);
-        console.log('ctx type:', typeof ctx);
-        console.log('ctx keys:', ctx ? Object.keys(ctx) : 'null');
         
         if (!ctx) {
           console.log('Context is null/undefined, returning empty string');
@@ -264,12 +273,10 @@ export const createPromptsApi = () => {
         }
         
         if (ctx.body && typeof ctx.body === 'string') {
-          console.log('Context has body property, returning body:', ctx.body);
           return ctx.body;
         }
         
         if (ctx.title && typeof ctx.title === 'string') {
-          console.log('Context has title property, returning title:', ctx.title);
           return ctx.title;
         }
         
@@ -313,14 +320,6 @@ export const createPromptsApi = () => {
         // No context or conversation history, just use the prompt as is
         agentPrompt = prompt;
       }
-
-      // Log the final prompt for debugging
-      console.log('Final agent prompt:', agentPrompt);
-      console.log('Context object:', context);
-      console.log('System prompt:', systemPrompt);
-      console.log('Context content extracted:', contextContent);
-      console.log('Agent prompt length:', agentPrompt.length);
-      console.log('Agent prompt preview:', agentPrompt.substring(0, 200) + '...');
 
       let agentCallback = null;
       switch (selectedModel) {

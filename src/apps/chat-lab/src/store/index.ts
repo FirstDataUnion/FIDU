@@ -13,6 +13,7 @@ import promptLabSlice from './slices/promptLabSlice';
 import personasSlice from './slices/personasSlice';
 import searchSlice from './slices/searchSlice';
 import authSlice from './slices/authSlice';
+import embellishmentsSlice from './slices/embellishmentsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -27,6 +28,7 @@ export const store = configureStore({
     personas: personasSlice,
     search: searchSlice,
     auth: authSlice,
+    embellishments: embellishmentsSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

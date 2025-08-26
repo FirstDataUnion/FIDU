@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { UIState, Notification } from '../../types';
 
 const initialState: UIState = {
@@ -21,16 +21,16 @@ const uiSlice = createSlice({
     toggleSidebar: (state) => {
       state.sidebarOpen = !state.sidebarOpen;
     },
-    setSidebarOpen: (state, action) => {
+    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.sidebarOpen = action.payload;
     },
-    setCurrentPage: (state, action) => {
+    setCurrentPage: (state, action: PayloadAction<string>) => {
       state.currentPage = action.payload;
     },
-    addNotification: (state, action) => {
+    addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'timestamp' | 'read'>>) => {
       const notification: Notification = {
         id: Date.now().toString(),
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         read: false,
         ...action.payload,
       };
@@ -41,13 +41,13 @@ const uiSlice = createSlice({
         state.notifications = state.notifications.slice(0, 50);
       }
     },
-    markNotificationRead: (state, action) => {
+    markNotificationRead: (state, action: PayloadAction<string>) => {
       const notification = state.notifications.find(n => n.id === action.payload);
       if (notification) {
         notification.read = true;
       }
     },
-    removeNotification: (state, action) => {
+    removeNotification: (state, action: PayloadAction<string>) => {
       state.notifications = state.notifications.filter(n => n.id !== action.payload);
     },
     clearAllNotifications: (state) => {
@@ -56,16 +56,16 @@ const uiSlice = createSlice({
     markAllNotificationsRead: (state) => {
       state.notifications.forEach(n => n.read = true);
     },
-    openModal: (state, action) => {
+    openModal: (state, action: PayloadAction<keyof UIState['modals']>) => {
       const modalName = action.payload;
       if (modalName in state.modals) {
-        state.modals[modalName as keyof typeof state.modals] = true;
+        state.modals[modalName] = true;
       }
     },
-    closeModal: (state, action) => {
+    closeModal: (state, action: PayloadAction<keyof UIState['modals']>) => {
       const modalName = action.payload;
       if (modalName in state.modals) {
-        state.modals[modalName as keyof typeof state.modals] = false;
+        state.modals[modalName] = false;
       }
     },
     closeAllModals: (state) => {
@@ -73,7 +73,7 @@ const uiSlice = createSlice({
         state.modals[key as keyof typeof state.modals] = false;
       });
     },
-    setDraggedItem: (state, action) => {
+    setDraggedItem: (state, action: PayloadAction<UIState['draggedItem']>) => {
       state.draggedItem = action.payload;
     },
     clearDraggedItem: (state) => {

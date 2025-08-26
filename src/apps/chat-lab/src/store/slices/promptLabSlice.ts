@@ -10,7 +10,7 @@ export interface SystemPrompt {
   modelCompatibility: string[];
   category: string;
   isDefault: boolean;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface PromptTemplate {
@@ -21,7 +21,7 @@ export interface PromptTemplate {
   contextIds: string[];
   description: string;
   tokenCount: number;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ModelResponse {
@@ -30,7 +30,7 @@ export interface ModelResponse {
   tokenCount: number;
   timeMs: number;
   cost: number;
-  timestamp: Date;
+  timestamp: string;
 }
 
 export interface PromptExecution {
@@ -40,7 +40,7 @@ export interface PromptExecution {
   contextIds: string[];
   models: string[];
   responses: ModelResponse[];
-  createdAt: Date;
+  createdAt: string;
   bestResponseModel?: string;
 }
 
@@ -93,7 +93,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
     category: 'Technical',
     isDefault: true,
-    createdAt: new Date('2024-01-10')
+    createdAt: new Date('2024-01-10').toISOString()
   },
   {
     id: 'sys-2',
@@ -104,7 +104,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     modelCompatibility: ['claude-3-opus', 'gpt-4-turbo'],
     category: 'Development',
     isDefault: false,
-    createdAt: new Date('2024-01-12')
+    createdAt: new Date('2024-01-12').toISOString()
   },
   {
     id: 'sys-3',
@@ -115,7 +115,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     modelCompatibility: ['claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
     category: 'Architecture',
     isDefault: false,
-    createdAt: new Date('2024-01-08')
+    createdAt: new Date('2024-01-08').toISOString()
   },
   {
     id: 'sys-4',
@@ -126,7 +126,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo'],
     category: 'Design',
     isDefault: false,
-    createdAt: new Date('2024-01-15')
+    createdAt: new Date('2024-01-15').toISOString()
   }
 ];
 
@@ -139,7 +139,7 @@ const mockPromptTemplates: PromptTemplate[] = [
     contextIds: [],
     description: 'Template for requesting code reviews',
     tokenCount: 65,
-    createdAt: new Date('2024-01-10')
+    createdAt: new Date('2024-01-10').toISOString()
   },
   {
     id: 'tpl-2',
@@ -149,7 +149,7 @@ const mockPromptTemplates: PromptTemplate[] = [
     contextIds: ['ctx-2'],
     description: 'Template for API design discussions',
     tokenCount: 78,
-    createdAt: new Date('2024-01-12')
+    createdAt: new Date('2024-01-12').toISOString()
   }
 ];
 
@@ -194,7 +194,7 @@ export const executePrompt = createAsyncThunk(
       tokenCount: Math.floor(Math.random() * 1000) + 200,
       timeMs: Math.floor(Math.random() * 5000) + 1000,
       cost: Math.random() * 0.5 + 0.1,
-      timestamp: new Date()
+      timestamp: new Date().toISOString()
     }));
 
     const execution: PromptExecution = {
@@ -204,7 +204,7 @@ export const executePrompt = createAsyncThunk(
       contextIds,
       models,
       responses,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       bestResponseModel: responses[0].model // Mock selection
     };
 
