@@ -385,9 +385,16 @@ function EmbellishmentSelectionModal({ open, onClose, onSelectEmbellishments, se
   };
 
   const handleConfirm = () => {
+    // Filter from embellishments prop and ensure no duplicates
     const selectedEmbellishments: Embellishment[] = embellishments
       .filter((emb: Embellishment) => selectedIds.includes(emb.id));
-    onSelectEmbellishments(selectedEmbellishments);
+    
+    // Ensure no duplicates by using a Map
+    const uniqueEmbellishments = Array.from(
+      new Map(selectedEmbellishments.map(emb => [emb.id, emb])).values()
+    );
+    
+    onSelectEmbellishments(uniqueEmbellishments);
     onClose();
   };
 
@@ -410,7 +417,7 @@ function EmbellishmentSelectionModal({ open, onClose, onSelectEmbellishments, se
             </Box>
           )}
 
-          {embellishments.map((embellishment: Embellishment) => (
+          {embellishments.map((embellishment) => (
             <ListItemButton
               key={embellishment.id}
               onClick={() => handleToggleEmbellishment(embellishment.id)}
@@ -684,12 +691,11 @@ export default function PromptLabPage() {
         );
         setCurrentConversation(updatedConversation);
         
-        // Update recent conversations list
-        setRecentConversations(prev => 
-          prev.map(conv => 
-            conv.id === updatedConversation.id ? updatedConversation : conv
-          )
-        );
+        // Update recent conversations list - ensure no duplicates
+        setRecentConversations(prev => {
+          const filtered = prev.filter(conv => conv.id !== updatedConversation.id);
+          return [updatedConversation, ...filtered.slice(0, 4)];
+        });
       } else {
         // Create new conversation
         const conversationData = {
@@ -718,8 +724,11 @@ export default function PromptLabPage() {
         );
         setCurrentConversation(newConversation);
         
-        // Add to recent conversations
-        setRecentConversations(prev => [newConversation, ...prev.slice(0, 4)]);
+        // Add to recent conversations - ensure no duplicates
+        setRecentConversations(prev => {
+          const filtered = prev.filter(conv => conv.id !== newConversation.id);
+          return [newConversation, ...filtered.slice(0, 4)];
+        });
       }
     } catch (error) {
       console.error('Error saving conversation:', error);
@@ -901,8 +910,8 @@ export default function PromptLabPage() {
   };
 
   // Handle removing embellishment
-  const handleRemoveEmbellishment = (index: number) => {
-    setEmbellishments(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveEmbellishment = (embellishmentId: string) => {
+    setEmbellishments(prev => prev.filter(emb => emb.id !== embellishmentId));
   };
 
   return (
@@ -1410,11 +1419,11 @@ export default function PromptLabPage() {
                 {/* Display embellishments or placeholder text */}
                 {embellishments.length > 0 ? (
                   <>
-                    {embellishments.map((embellishment, index) => (
+                    {embellishments.map((embellishment) => (
                       <Chip
                         key={embellishment.id}
                         label={embellishment.name}
-                        onDelete={() => handleRemoveEmbellishment(index)}
+                        onDelete={() => handleRemoveEmbellishment(embellishment.id)}
                         color="primary"
                         variant="filled"
                         size="small"
