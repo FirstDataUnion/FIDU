@@ -214,21 +214,6 @@ export const createPromptsApi = () => {
         throw new Error('Profile ID is required to execute a prompt');
       }
 
-      // Log the received parameters for debugging
-      console.log('executePrompt called with:', {
-        conversationMessages: conversationMessages.length,
-        context,
-        contextType: typeof context,
-        contextKeys: context ? Object.keys(context) : 'null',
-        contextBody: context?.body,
-        contextTitle: context?.title,
-        prompt,
-        selectedModel,
-        profileId,
-        systemPrompt,
-        systemPromptContent: systemPrompt?.content
-      });
-
       // Format conversation history for the AI model
       const formatConversationHistory = (messages: Message[]): string => {
         return messages
@@ -240,15 +225,15 @@ export const createPromptsApi = () => {
           .join('\n\n');
       };
 
-      // Build the complete prompt with conversation history
+      // Build the complete prompt - ALWAYS include all available resources
       let agentPrompt = '';
       
-      // Start with system prompt if available
+      // 1. ALWAYS start with system prompt if available
       if (systemPrompt?.content) {
         agentPrompt = `${systemPrompt.content}\n\n`;
       }
       
-      // Add embellishment instructions if any are selected
+      // 2. ALWAYS add embellishment instructions if any are selected
       if (embellishments && embellishments.length > 0) {
         const selectedInstructions = embellishments
           .map(embellishment => embellishment.instructions)
@@ -259,16 +244,13 @@ export const createPromptsApi = () => {
         }
       }
       
-      // Helper function to safely get context content
+      // 3. Helper function to safely get context content
       const getContextContent = (ctx: any): string => {
-        
         if (!ctx) {
-          console.log('Context is null/undefined, returning empty string');
           return '';
         }
         
         if (typeof ctx === 'string') {
-          console.log('Context is a string, returning as-is:', ctx);
           return ctx;
         }
         
@@ -280,46 +262,39 @@ export const createPromptsApi = () => {
           return ctx.title;
         }
         
-        console.log('Context has unexpected structure, converting to string:', ctx);
         return String(ctx);
       };
       
       const contextContent = getContextContent(context);
       
-      if (contextContent && conversationMessages.length > 0) {
-        agentPrompt += `
-        Given the following existing background context: ${contextContent}
-
-        And the following conversation history: ${formatConversationHistory(conversationMessages)}
-
-        Answer the following prompt, keeping the existing context of the conversation in mind, 
-        treating it as either a previous part of the same conversation, or just as a framing 
-        for the following prompt: 
-
-        Prompt: ${prompt}
-        `
-      } else if (contextContent) {
-        agentPrompt += `
-        Given the following existing background context: ${contextContent}
-        
-        Answer the following prompt, keeping the existing context of the conversation in mind, 
-        treating it as either a previous part of the same conversation, or just as a framing 
-        for the following prompt: 
-
-        Prompt: ${prompt}
-        `
-      } else if (conversationMessages.length > 0) {	
-        agentPrompt = `
-        Given the following conversation history: ${formatConversationHistory(conversationMessages)}
-
-        Answer the following prompt, keeping the existing context of the conversation in mind and 
-        continuing the flow of the conversation:
-
-        Prompt: ${prompt}`
-      } else {
-        // No context or conversation history, just use the prompt as is
-        agentPrompt = prompt;
+      // 4. ALWAYS add context if available
+      if (contextContent) {
+        agentPrompt += `Given the following existing background context: ${contextContent}\n\n`;
       }
+      
+      // 5. ALWAYS add conversation history if available
+      if (conversationMessages.length > 0) {
+        const conversationHistory = formatConversationHistory(conversationMessages);
+        agentPrompt += `Given the following conversation history: ${conversationHistory}\n\n`;
+      }
+      
+      // 6. ALWAYS add the instruction and prompt
+      if (contextContent && conversationMessages.length > 0) {
+        // Both context and conversation history available
+        agentPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind, treating it as either a previous part of the same conversation, or just as a framing for the following prompt:\n\n`;
+      } else if (contextContent) {
+        // Only context available
+        agentPrompt += `Answer the following prompt, keeping the existing context in mind:\n\n`;
+      } else if (conversationMessages.length > 0) {
+        // Only conversation history available
+        agentPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind and continuing the flow of the conversation:\n\n`;
+      } else {
+        // Neither context nor conversation history
+        agentPrompt += `Answer the following prompt:\n\n`;
+      }
+      
+      // 7. ALWAYS add the user's prompt
+      agentPrompt += `Prompt: ${prompt}`;
 
       let agentCallback = null;
       switch (selectedModel) {
@@ -352,8 +327,6 @@ export const createPromptsApi = () => {
         DEFAULT_POLL_INTERVAL_MS
       )
       
-      console.log(response);
-
       const chatResponse = response.outputs.results[0]?.output?.result;
       
       return {

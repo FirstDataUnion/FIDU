@@ -173,9 +173,12 @@ export const conversationsApi = {
 
   createConversation: async (profile_id: string, conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']) => {
     const dataPacket = transformConversationToDataPacket(profile_id, conversation, messages, originalPrompt);
-    const content = `${profile_id}-${conversation.id}-create`;
+    
+    // Use the generated conversation ID from the dataPacket, not the undefined conversation.id
+    const content = `${profile_id}-${dataPacket.id}-create`;
     const namespace = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // UUID namespace for creates
     const request_id = uuidv5(content, namespace); // Generate UUID 
+    
     const dataPacketCreateRequest = {
       request_id,
       data_packet: dataPacket
