@@ -6,15 +6,12 @@ export interface SystemPrompt {
   id: string;
   name: string;
   content: string;
-  description: string;
   tokenCount: number;
   isDefault: boolean;
-  isSystem: boolean; // true for built-in system prompts, false for user-created
+  isBuiltIn: boolean; // true for built-in system prompts, false for user-created
   category?: string;
-  modelCompatibility?: string[];
   createdAt: string;
   updatedAt: string;
-  tags: string[];
 }
 
 export interface SystemPromptsState {
@@ -37,29 +34,23 @@ export const builtInSystemPrompts: SystemPrompt[] = [
     id: 'sys-1',
     name: 'Technical Assistant',
     content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
-    description: 'General technical assistance with focus on software development',
     tokenCount: 42,
     isDefault: true,
-    isSystem: true,
+    isBuiltIn: true,
     category: 'Technical',
-    modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
     createdAt: new Date('2024-01-10').toISOString(),
-    updatedAt: new Date('2024-01-10').toISOString(),
-    tags: ['technical', 'development', 'assistant']
+    updatedAt: new Date('2024-01-10').toISOString()
   },
   {
     id: 'sys-2',
     name: 'Code Reviewer',
     content: 'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
-    description: 'Specialized in code review and quality assessment',
     tokenCount: 38,
     isDefault: false,
-    isSystem: true,
+    isBuiltIn: true,
     category: 'Development',
-    modelCompatibility: ['claude-3-opus', 'gpt-4-turbo'],
     createdAt: new Date('2024-01-12').toISOString(),
-    updatedAt: new Date('2024-01-12').toISOString(),
-    tags: ['code-review', 'development', 'quality']
+    updatedAt: new Date('2024-01-12').toISOString()
   }
 ];
 

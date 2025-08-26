@@ -24,6 +24,7 @@ const transformDataPacketToContext = (packet: ContextDataPacket): any => {
     tokenCount: packet.data.token_count || 0,
     createdAt: packet.create_timestamp,
     updatedAt: packet.update_timestamp,
+    isBuiltIn: false, // All contexts from FIDU Vault are custom
     tags: packet.tags.filter(tag => tag !== 'FIDU-CHAT-LAB-Context')
   };
 };

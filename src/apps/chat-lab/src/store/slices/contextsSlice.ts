@@ -10,6 +10,7 @@ export interface Context {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  isBuiltIn: boolean;
   // Conversation references for building context over time
   conversationIds?: string[];
   // Metadata about conversations in this context
@@ -36,6 +37,7 @@ export const builtInContexts: Context[] = [
     tokenCount: 45,
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
+    isBuiltIn: true,
     tags: ['react', 'development', 'patterns'],
     conversationIds: [],
     conversationMetadata: {
@@ -51,6 +53,7 @@ export const builtInContexts: Context[] = [
     tokenCount: 32,
     createdAt: new Date('2024-01-12').toISOString(),
     updatedAt: new Date('2024-01-12').toISOString(),
+    isBuiltIn: true,
     tags: ['api', 'design', 'rest', 'graphql'],
     conversationIds: [],
     conversationMetadata: {
@@ -66,6 +69,7 @@ export const builtInContexts: Context[] = [
     tokenCount: 38,
     createdAt: new Date('2024-01-15').toISOString(),
     updatedAt: new Date('2024-01-15').toISOString(),
+    isBuiltIn: true,
     tags: ['architecture', 'design-patterns', 'principles'],
     conversationIds: [],
     conversationMetadata: {

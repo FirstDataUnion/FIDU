@@ -107,31 +107,99 @@ const FiduAuthLogin: React.FC = () => {
 
   return (
     <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="100vh"
-      bgcolor="background.default"
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        p: 2
+      }}
     >
       <Paper
-        elevation={3}
-        sx={{ p: 4, width: '100%', maxWidth: 400, mx: 2 }}
+        elevation={24}
+        sx={{ 
+          p: 4, 
+          width: '100%', 
+          maxWidth: 450, 
+          mx: 2,
+          borderRadius: 3,
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+            pointerEvents: 'none'
+          }
+        }}
       >
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          gutterBottom 
+          align="center"
+          sx={{ 
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            mb: 1
+          }}
+        >
           Welcome Back
         </Typography>
-        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          Sign in to your FIDU Chat Grabber account
+        <Typography 
+          variant="body1" 
+          color="text.secondary" 
+          align="center" 
+          sx={{ mb: 4, opacity: 0.8 }}
+        >
+          Sign in to your FIDU account to continue
         </Typography>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 3,
+              borderRadius: 2,
+              '& .MuiAlert-icon': {
+                fontSize: '1.5rem'
+              }
+            }}
+          >
+            {error}
+          </Alert>
         )}
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-            <CircularProgress />
+          <Box 
+            display="flex" 
+            flexDirection="column"
+            justifyContent="center" 
+            alignItems="center" 
+            minHeight={250}
+            gap={2}
+          >
+            <CircularProgress size={48} thickness={4} />
+            <Typography variant="body2" color="text.secondary">
+              Loading authentication...
+            </Typography>
           </Box>
         ) : (
-          <div id="fiduAuthContainer" style={{ minHeight: 200 }} />
+          <Box sx={{ minHeight: 250 }}>
+            <div id="fiduAuthContainer" style={{ minHeight: 250 }} />
+          </Box>
         )}
       </Paper>
     </Box>

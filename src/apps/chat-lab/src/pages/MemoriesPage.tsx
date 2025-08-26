@@ -674,7 +674,7 @@ const MemoriesPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowCreateDialog(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button onClick={handleCreateMemory} variant="contained">Add Memory</Button>
         </DialogActions>
       </Dialog>
@@ -749,7 +749,7 @@ const MemoriesPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowEditDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowEditDialog(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button onClick={handleSaveEditMemory} variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>

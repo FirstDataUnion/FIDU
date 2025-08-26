@@ -95,8 +95,8 @@ export default function PersonasPage() {
       },
       isActive: true,
       conversationCount: 45,
-      createdAt: new Date('2024-01-10'),
-      lastUsed: new Date('2024-01-15')
+      createdAt: new Date('2024-01-10').toISOString(),
+      lastUsed: new Date('2024-01-15').toISOString()
     },
     {
       id: 'persona-2',
@@ -112,8 +112,8 @@ export default function PersonasPage() {
       },
       isActive: false,
       conversationCount: 32,
-      createdAt: new Date('2024-01-05'),
-      lastUsed: new Date('2024-01-12')
+      createdAt: new Date('2024-01-05').toISOString(),
+      lastUsed: new Date('2024-01-12').toISOString()
     },
     {
       id: 'persona-3',
@@ -129,8 +129,8 @@ export default function PersonasPage() {
       },
       isActive: false,
       conversationCount: 28,
-      createdAt: new Date('2024-01-08'),
-      lastUsed: new Date('2024-01-13')
+      createdAt: new Date('2024-01-08').toISOString(),
+      lastUsed: new Date('2024-01-13').toISOString()
     },
     {
       id: 'persona-4',
@@ -146,8 +146,8 @@ export default function PersonasPage() {
       },
       isActive: false,
       conversationCount: 15,
-      createdAt: new Date('2024-01-12'),
-      lastUsed: new Date('2024-01-14')
+      createdAt: new Date('2024-01-12').toISOString(),
+      lastUsed: new Date('2024-01-14').toISOString()
     },
     {
       id: 'persona-5',
@@ -163,8 +163,8 @@ export default function PersonasPage() {
       },
       isActive: false,
       conversationCount: 12,
-      createdAt: new Date('2024-01-14'),
-      lastUsed: new Date('2024-01-14')
+      createdAt: new Date('2024-01-14').toISOString(),
+      lastUsed: new Date('2024-01-14').toISOString()
     }
   ];
 
@@ -180,7 +180,7 @@ export default function PersonasPage() {
 
   const filteredPersonas = mockPersonas.filter(persona => {
     if (filterBy === 'active' && !persona.isActive) return false;
-    if (filterBy === 'recent' && new Date().getTime() - persona.lastUsed.getTime() > 7 * 24 * 60 * 60 * 1000) return false;
+    if (filterBy === 'recent' && new Date().getTime() - new Date(persona.lastUsed).getTime() > 7 * 24 * 60 * 60 * 1000) return false;
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -359,7 +359,7 @@ export default function PersonasPage() {
             {persona.conversationCount} chats
           </Box>
           <Box>
-            Last used: {persona.lastUsed.toLocaleDateString()}
+            Last used: {new Date(persona.lastUsed).toLocaleDateString()}
           </Box>
         </Box>
 
@@ -625,9 +625,13 @@ export default function PersonasPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setCreateDialogOpen(false)}>
-            Create Persona
+          <Button onClick={() => setCreateDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleCreatePersona}
+            disabled={loading || !personaForm.name.trim() || !personaForm.description.trim()}
+          >
+            {loading ? 'Creating...' : 'Create Persona'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -697,8 +701,8 @@ export default function PersonasPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setEditDialogOpen(false)}>
+          <Button onClick={() => setEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditPersona}>
             Save Changes
           </Button>
         </DialogActions>

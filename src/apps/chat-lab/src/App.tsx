@@ -7,6 +7,7 @@ import { useDatabase } from './hooks/useDatabase';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
+import { getThemeColors } from './utils/themeColors';
 import AuthWrapper from './components/auth/AuthWrapper';
 import { logEnvironmentInfo } from './utils/environment';
 
@@ -41,16 +42,34 @@ const AppContent: React.FC<AppContentProps> = () => {
   }, [isInitialized, dispatch]);
 
   // Create theme based on user settings
+  const currentMode = settings.theme === 'auto' 
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : settings.theme;
+  
+  const themeColors = getThemeColors(currentMode);
+  
   const theme = createTheme({
     palette: {
-      mode: settings.theme === 'auto' 
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.theme,
+      mode: currentMode,
       primary: {
-        main: '#1976d2',
+        main: themeColors.primary.main,
+        light: themeColors.primary.light,
+        dark: themeColors.primary.dark,
+        contrastText: themeColors.primary.contrastText,
       },
       secondary: {
-        main: '#dc004e',
+        main: themeColors.secondary.main,
+        light: themeColors.secondary.light,
+        dark: themeColors.secondary.dark,
+        contrastText: themeColors.secondary.contrastText,
+      },
+      background: {
+        default: themeColors.background.default,
+        paper: themeColors.background.paper,
+      },
+      text: {
+        primary: themeColors.text.primary,
+        secondary: themeColors.text.secondary,
       },
     },
     typography: {

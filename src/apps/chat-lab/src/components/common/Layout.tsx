@@ -41,6 +41,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
+import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
 
 const drawerWidth = 240;
@@ -207,12 +208,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppBar
         position="fixed"
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
+          backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+          color: 'primary.contrastText'
         }}
       >
         <Toolbar>
@@ -364,7 +367,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <Box
         component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
+        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, height: '100vh' }}
       >
         <Drawer
           variant={isMobile ? 'temporary' : 'permanent'}
@@ -377,6 +380,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              height: '100vh',
+              backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+              color: 'primary.contrastText'
             },
           }}
         >
@@ -392,10 +398,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           width: { md: `calc(100vw - ${drawerWidth}px)` },
           maxWidth: { md: `calc(100vw - ${drawerWidth}px)` },
           overflow: 'hidden',
+          height: '100vh',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        <Toolbar />
-        {children}
+        <Toolbar sx={{ flexShrink: 0 }} />
+        <Box sx={{ flex: 1, overflow: 'hidden' }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

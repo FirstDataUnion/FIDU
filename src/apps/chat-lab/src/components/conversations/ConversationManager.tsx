@@ -271,7 +271,7 @@ export const ConversationManager: React.FC<ConversationManagerProps> = ({
               id: msg.id,
               role: msg.role as 'user' | 'assistant',
               content: msg.content,
-              timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString(),
+              timestamp: msg.timestamp,
               model: msg.platform
             }))}
           selectedModel={activeConversation.model}
