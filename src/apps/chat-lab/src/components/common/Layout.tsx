@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Drawer,
@@ -41,6 +41,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
+import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
 
 const drawerWidth = 240;
@@ -55,13 +56,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { sidebarOpen } = useAppSelector((state) => state.ui);
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [profileMenuAnchorEl, setProfileMenuAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [showCreateProfileDialog, setShowCreateProfileDialog] = React.useState(false);
-  const [newProfileName, setNewProfileName] = React.useState('');
+  // Always keep sidebar open on desktop
+  const sidebarOpen = !isMobile;
+  
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileMenuAnchorEl, setProfileMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -105,9 +108,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const mainMenuItems = [
     { text: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
+    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
+  ];
+
+  const advancedMenuItems = [
     { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
     { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
-    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
+    { text: 'Embellishments', icon: <AddIcon />, path: '/embellishments' },
   ];
 
 
@@ -193,33 +200,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {renderMenuSection('', mainMenuItems)}
       
       <Divider sx={{ my: 1 }} />
+      {renderMenuSection('Advanced', advancedMenuItems)}
+      
+      <Divider sx={{ my: 1 }} />
       {renderMenuSection('System', systemMenuItems)}
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppBar
         position="fixed"
         sx={{
-          width: { md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
-          ml: { md: sidebarOpen ? `${drawerWidth}px` : 0 },
-          transition: theme.transitions.create(['width', 'margin'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.leavingScreen,
-          }),
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` },
+          backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+          color: 'primary.contrastText'
         }}
       >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
+          {isMobile && (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             AI Conversation Memory Lab
           </Typography>
@@ -357,10 +367,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <Box
         component="nav"
-        sx={{ width: { md: sidebarOpen ? drawerWidth : 0 }, flexShrink: { md: 0 } }}
+        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, height: '100vh' }}
       >
         <Drawer
-          variant={isMobile ? 'temporary' : 'persistent'}
+          variant={isMobile ? 'temporary' : 'permanent'}
           open={sidebarOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
@@ -370,6 +380,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              height: '100vh',
+              backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+              color: 'primary.contrastText'
             },
           }}
         >
@@ -382,17 +395,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: sidebarOpen ? `calc(100vw - ${drawerWidth}px)` : '100%' },
-          maxWidth: { md: sidebarOpen ? `calc(100vw - ${drawerWidth}px)` : '100%' },
+          width: { md: `calc(100vw - ${drawerWidth}px)` },
+          maxWidth: { md: `calc(100vw - ${drawerWidth}px)` },
           overflow: 'hidden',
-          transition: theme.transitions.create(['width', 'margin'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.leavingScreen,
-          }),
+          height: '100vh',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        <Toolbar />
-        {children}
+        <Toolbar sx={{ flexShrink: 0 }} />
+        <Box sx={{ flex: 1, overflow: 'hidden' }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

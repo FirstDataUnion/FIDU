@@ -311,17 +311,7 @@ const ConversationsPage: React.FC = () => {
               >
                 <TagIcon fontSize="small" />
               </IconButton>
-              <IconButton 
-                size="small" 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  handleAddToContext(conversation);
-                }}
-                title="Add to Context"
-                color="default"
-              >
-                <AddIcon fontSize="small" />
-              </IconButton>
+
             </Box>
           </Box>
 
@@ -411,7 +401,7 @@ const ConversationsPage: React.FC = () => {
   // Get tag color
   const getTagColor = (tagName: string) => {
     const tag = (tags as Tag[]).find((t: Tag) => t.name === tagName);
-    return tag?.color || '#2196F3';
+    return tag?.color || 'secondary.main';
   };
 
   if (loading) {
@@ -442,10 +432,13 @@ const ConversationsPage: React.FC = () => {
     <Box sx={{ 
       overflow: 'hidden',
       width: '100%',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      height: '100%', // Use full height of parent container
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       {/* Header with Search and Actions */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, flexShrink: 0 }}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -454,9 +447,38 @@ const ConversationsPage: React.FC = () => {
           flexWrap: 'wrap',
           gap: 2
         }}>
-          <Typography variant="h4" sx={{ minWidth: 0, flex: '1 1 auto' }}>
-            Conversations ({filteredConversations.length})
-          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            flex: 1,
+            minWidth: 0
+          }}>
+            {/* Search Bar - Moved inline */}
+            <TextField
+              placeholder="Search conversations, content, or tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ minWidth: 300, flex: 1, maxWidth: 600 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowFilters(!showFilters)}>
+                      <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
+                        <FilterIcon />
+                      </Badge>
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Box>
+          
           <Stack 
             direction="row" 
             spacing={2} 
@@ -471,7 +493,16 @@ const ConversationsPage: React.FC = () => {
               variant="outlined"
               onClick={handleRefresh}
               startIcon={<RefreshIcon />}
-              sx={{ flexShrink: 0 }}
+              sx={{ 
+                flexShrink: 0,
+                color: 'primary.dark',
+                borderColor: 'primary.dark',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                  color: 'primary.contrastText',
+                  borderColor: 'primary.dark'
+                }
+              }}
             >
               Refresh
             </Button>
@@ -486,32 +517,6 @@ const ConversationsPage: React.FC = () => {
               </Button>
             )}
           </Stack>
-        </Box>
-
-        {/* Search Bar */}
-        <Box sx={{ mb: 2 }}>
-          <TextField
-            fullWidth
-            placeholder="Search conversations, content, or tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowFilters(!showFilters)}>
-                    <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
-                      <FilterIcon />
-                    </Badge>
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-          />
         </Box>
 
         {/* Filters Panel */}
@@ -599,7 +604,7 @@ const ConversationsPage: React.FC = () => {
 
       {/* Context Selection Info */}
       {selectedForContext.length > 0 && (
-        <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.50' }}>
+        <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.50', flexShrink: 0 }}>
           <Typography variant="body2" color="primary">
             <strong>{selectedForContext.length} conversations selected for context building</strong>
             <Button 
@@ -618,8 +623,8 @@ const ConversationsPage: React.FC = () => {
       <Box sx={{ 
         display: 'flex', 
         gap: 2, 
-        height: { xs: 'calc(100vh - 300px)', md: 'calc(100vh - 280px)' }, // More flexible height calculation
-        minHeight: '600px',
+        flex: 1, // Take remaining space in flex container
+        minHeight: 0, // Allow flex child to shrink below content size
         maxWidth: '100%', // Ensure we don't exceed viewport width
         overflow: 'hidden', // Prevent horizontal scrolling
         flexDirection: { xs: 'column', md: 'row' } // Stack vertically on small screens
@@ -632,11 +637,13 @@ const ConversationsPage: React.FC = () => {
           overflow: 'hidden',
           minWidth: selectedConversation ? '300px' : 'auto', // Minimum width for readability
           maxWidth: selectedConversation ? '500px' : '600px', // Maximum width to prevent expansion
-          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' } // Responsive height
+          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' }, // Responsive height
+          minHeight: 0, // Ensure flex child can shrink properly
+          maxHeight: '100%' // Prevent exceeding parent height
         }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6">
-              Conversations ({filteredConversations.length})
+              Conversations
             </Typography>
           </Box>
           
@@ -719,12 +726,31 @@ const ConversationsPage: React.FC = () => {
               <Typography variant="h6">
                 Conversation Details
               </Typography>
-              <IconButton 
-                onClick={() => setSelectedConversation(null)}
-                title="Close conversation view"
-              >
-                <CloseIcon />
-              </IconButton>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleAddToContext(selectedConversation)}
+                  startIcon={<AddIcon />}
+                  sx={{ 
+                    backgroundColor: 'background.paper',
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    '&:hover': {
+                      backgroundColor: 'primary.main',
+                      color: 'white'
+                    }
+                  }}
+                >
+                  Add to Context
+                </Button>
+                <IconButton 
+                  onClick={() => setSelectedConversation(null)}
+                  title="Close conversation view"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
             </Box>
             
             <Box sx={{ flex: 1, overflow: 'hidden', p: 2, minWidth: 0 }}>
@@ -781,7 +807,7 @@ const ConversationsPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowContextBuilder(false)}>
+          <Button onClick={() => setShowContextBuilder(false)} sx={{ color: 'primary.dark' }}>
             Cancel
           </Button>
           <Button 
@@ -879,7 +905,7 @@ const ConversationsPage: React.FC = () => {
             setSelectedConversationForContext(null);
             setSelectedContextId('');
             setNewContextTitle('');
-          }}>
+          }} sx={{ color: 'primary.dark' }}>
             Cancel
           </Button>
           <Button 
@@ -921,7 +947,7 @@ const ConversationsPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowTagDialog(false)}>
+          <Button onClick={() => setShowTagDialog(false)} sx={{ color: 'primary.dark' }}>
             Cancel
           </Button>
           <Button onClick={handleSaveTags}>

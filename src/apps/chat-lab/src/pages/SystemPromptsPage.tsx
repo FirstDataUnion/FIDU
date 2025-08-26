@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -7,7 +7,6 @@ import {
   CardActions,
   Button,
   Chip,
-  IconButton,
   Menu,
   MenuItem,
   Dialog,
@@ -17,26 +16,22 @@ import {
   TextField,
   Paper,
   InputAdornment,
-  Fab,
+
   ListItemIcon,
   ListItemText,
   Stack,
   Collapse,
   Divider,
-  Autocomplete
+  DialogContentText
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
   ExpandLess,
   ExpandMore,
-  ViewModule as GridViewIcon,
-  ViewList as ListViewIcon,
-  Tag as TagIcon,
   Settings as SettingsIcon,
   Code as CodeIcon
 } from '@mui/icons-material';
@@ -53,31 +48,32 @@ export default function SystemPromptsPage() {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
-  const { items: tags } = useAppSelector((state) => state.tags as any);
+
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showUserPrompts, setShowUserPrompts] = useState(true);
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<any>(null);
   const [contextMenuAnchor, setContextMenuAnchor] = useState<null | HTMLElement>(null);
   
-  // Tag Management State
-  const [showTagDialog, setShowTagDialog] = useState(false);
-  const [selectedSystemPromptForTags, setSelectedSystemPromptForTags] = useState<any>(null);
-  const [editedTags, setEditedTags] = useState<string[]>([]);
+  // View/Edit form state
+  const [viewEditForm, setViewEditForm] = useState({
+    name: '',
+    content: '',
+    category: ''
+  });
   
   // Form states
   const [systemPromptForm, setSystemPromptForm] = useState({
     name: '',
     content: '',
-    description: '',
-    category: '',
-    tags: [] as string[]
+    category: ''
   });
   
   // Loading states
@@ -92,16 +88,8 @@ export default function SystemPromptsPage() {
   }, [dispatch, currentProfile?.id]);
 
   // Separate built-in and user-created system prompts
-  const builtInPrompts = systemPrompts.filter(sp => sp.isSystem);
-  const userPrompts = systemPrompts.filter(sp => !sp.isSystem);
-
-
-
-  const handleContextMenuOpen = (event: React.MouseEvent<HTMLElement>, systemPrompt: any) => {
-    event.stopPropagation();
-    setContextMenuAnchor(event.currentTarget);
-    setSelectedSystemPrompt(systemPrompt);
-  };
+  const builtInPrompts = systemPrompts.filter(sp => sp.isBuiltIn);
+  const userPrompts = systemPrompts.filter(sp => !sp.isBuiltIn);
 
   const handleContextMenuClose = () => {
     setContextMenuAnchor(null);
@@ -112,9 +100,7 @@ export default function SystemPromptsPage() {
     setSystemPromptForm({
       name: '',
       content: '',
-      description: '',
-      category: '',
-      tags: []
+      category: ''
     });
     setCreateDialogOpen(true);
   };
@@ -124,9 +110,7 @@ export default function SystemPromptsPage() {
       setSystemPromptForm({
         name: selectedSystemPrompt.name,
         content: selectedSystemPrompt.content,
-        description: selectedSystemPrompt.description,
-        category: selectedSystemPrompt.category || '',
-        tags: selectedSystemPrompt.tags
+        category: selectedSystemPrompt.category || ''
       });
       setEditDialogOpen(true);
     }
@@ -142,10 +126,8 @@ export default function SystemPromptsPage() {
         systemPromptData: {
           name: systemPromptForm.name.trim(),
           content: systemPromptForm.content.trim(),
-          description: systemPromptForm.description.trim(),
           category: systemPromptForm.category.trim() || undefined,
-          tags: systemPromptForm.tags,
-          isSystem: false,
+          isBuiltIn: false,
           isDefault: false,
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
           createdAt: new Date().toISOString(),
@@ -155,7 +137,7 @@ export default function SystemPromptsPage() {
       })).unwrap();
       
       setCreateDialogOpen(false);
-      setSystemPromptForm({ name: '', content: '', description: '', category: '', tags: [] });
+      setSystemPromptForm({ name: '', content: '', category: '' });
     } catch (error) {
       console.error('Error creating system prompt:', error);
     } finally {
@@ -173,9 +155,7 @@ export default function SystemPromptsPage() {
           id: selectedSystemPrompt.id,
           name: systemPromptForm.name.trim(),
           content: systemPromptForm.content.trim(),
-          description: systemPromptForm.description.trim(),
           category: systemPromptForm.category.trim() || undefined,
-          tags: systemPromptForm.tags,
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
           updatedAt: new Date().toISOString()
         }, 
@@ -184,7 +164,7 @@ export default function SystemPromptsPage() {
       
       setEditDialogOpen(false);
       setSelectedSystemPrompt(null);
-      setSystemPromptForm({ name: '', content: '', description: '', category: '', tags: [] });
+      setSystemPromptForm({ name: '', content: '', category: '' });
     } catch (error) {
       console.error('Error updating system prompt:', error);
     } finally {
@@ -197,17 +177,43 @@ export default function SystemPromptsPage() {
     
     try {
       await dispatch(deleteSystemPrompt(selectedSystemPrompt.id)).unwrap();
-      handleContextMenuClose();
+      setDeleteDialogOpen(false);
+      setViewEditDialogOpen(false);
+      setSelectedSystemPrompt(null);
     } catch (error) {
       console.error('Error deleting system prompt:', error);
     }
   };
 
-  const handleCopyToClipboard = async (content: string) => {
+  const handleViewEditSystemPrompt = (systemPrompt: any) => {
+    setSelectedSystemPrompt(systemPrompt);
+    setViewEditForm({
+      name: systemPrompt.name,
+      content: systemPrompt.content,
+      category: systemPrompt.category || ''
+    });
+    setViewEditDialogOpen(true);
+  };
+
+  const handleViewEditSubmit = async () => {
+    if (!selectedSystemPrompt || !currentProfile?.id) return;
+    
     try {
-      await navigator.clipboard.writeText(content);
+      await dispatch(updateSystemPrompt({ 
+        systemPrompt: {
+          id: selectedSystemPrompt.id,
+          name: viewEditForm.name.trim(),
+          content: viewEditForm.content.trim(),
+          category: viewEditForm.category.trim() || undefined
+        },
+        profileId: currentProfile.id
+      })).unwrap();
+      
+      setViewEditDialogOpen(false);
+      setSelectedSystemPrompt(null);
+      setViewEditForm({ name: '', content: '', category: '' });
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
+      console.error('Error updating system prompt:', error);
     }
   };
 
@@ -226,76 +232,46 @@ export default function SystemPromptsPage() {
           }
         }}
       >
-        {/* Header with menu - only show for user-created prompts */}
-        {!systemPrompt.isSystem && (
-          <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                onClick={(e) => handleTagManagement(systemPrompt, e)}
-                sx={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
-                title="Manage Tags"
-              >
-                <TagIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={(e) => handleContextMenuOpen(e, systemPrompt)}
-                sx={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
-              >
-                <MoreVertIcon fontSize="small" />
-              </IconButton>
-            </Box>
+        {/* Built-in indicator */}
+        {systemPrompt.isBuiltIn && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              color: 'white',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              zIndex: 2
+            }}
+          >
+            Built-in
           </Box>
         )}
 
+        {/* Header with menu - only show for user-created prompts */}
+        {/* Removed three-dot menu - functionality moved to edit modal */}
+
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-          {/* System indicator */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Box
-              sx={{
-                width: 4,
-                height: 20,
-                backgroundColor: systemPrompt.isSystem ? '#1976d2' : '#4caf50',
-                borderRadius: 2,
-                mr: 1
-              }}
-            />
-            <Chip 
-              label={systemPrompt.isSystem ? 'System' : 'Custom'} 
-              size="small" 
-              sx={{ 
-                backgroundColor: systemPrompt.isSystem ? '#1976d2' : '#4caf50',
-                color: 'white',
-                fontSize: '0.7rem'
-              }} 
-            />
-            {systemPrompt.isDefault && (
+          {/* Default indicator */}
+          {systemPrompt.isDefault && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Chip 
                 label="Default" 
                 size="small" 
                 variant="outlined"
-                sx={{ ml: 1, fontSize: '0.7rem' }}
+                sx={{ fontSize: '0.7rem' }}
               />
-            )}
-          </Box>
+            </Box>
+          )}
 
-          {/* Name and description */}
+          {/* Name */}
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, lineHeight: 1.2 }}>
             {systemPrompt.name}
-          </Typography>
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
-              mb: 2,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
-            }}
-          >
-            {systemPrompt.description}
           </Typography>
 
           {/* Content preview */}
@@ -317,23 +293,7 @@ export default function SystemPromptsPage() {
             {systemPrompt.content}
           </Typography>
 
-          {/* Tags */}
-          <Box sx={{ mb: 2 }}>
-            {systemPrompt.tags.map((tag: string) => (
-              <Chip
-                key={tag}
-                label={tag}
-                size="small"
-                sx={{ 
-                  mr: 0.5, 
-                  mb: 0.5, 
-                  fontSize: '0.7rem',
-                  backgroundColor: getTagColor(tag),
-                  color: 'white'
-                }}
-              />
-            ))}
-          </Box>
+
 
           {/* Stats */}
           <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
@@ -350,16 +310,17 @@ export default function SystemPromptsPage() {
 
         <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
           <Typography variant="caption" color="text.secondary">
-            {systemPrompt.isSystem ? 'Built-in' : `Updated ${new Date(systemPrompt.updatedAt).toLocaleDateString()}`}
+            {!systemPrompt.isBuiltIn && `Updated ${new Date(systemPrompt.updatedAt).toLocaleDateString()}`}
           </Typography>
           <Box>
             <Button 
               size="small" 
               variant="outlined"
-              onClick={() => handleCopyToClipboard(systemPrompt.content)}
-              startIcon={<CopyIcon />}
+              onClick={() => handleViewEditSystemPrompt(systemPrompt)}
+              startIcon={<EditIcon />}
+              sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
             >
-              Copy
+              {systemPrompt.isBuiltIn ? 'View' : 'View/Edit'}
             </Button>
           </Box>
         </CardActions>
@@ -367,49 +328,41 @@ export default function SystemPromptsPage() {
     );
   };
 
-  // Open tag management dialog
-  const handleTagManagement = (systemPrompt: any, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setSelectedSystemPromptForTags(systemPrompt);
-    setEditedTags([...systemPrompt.tags]);
-    setShowTagDialog(true);
-  };
 
-  // Save tag changes
-  const handleSaveTags = () => {
-    if (selectedSystemPromptForTags) {
-      // Here you would dispatch an action to update the system prompt tags
-      console.log('Updating system prompt tags:', {
-        systemPromptId: selectedSystemPromptForTags.id,
-        newTags: editedTags
-      });
-      // For now, we'll just update locally
-      // dispatch(updateSystemPromptTags({ id: selectedSystemPromptForTags.id, tags: editedTags }));
-    }
-    setShowTagDialog(false);
-    setSelectedSystemPromptForTags(null);
-    setEditedTags([]);
-  };
-
-  // Get tag color
-  const getTagColor = (tagName: string) => {
-    const tag = (tags || []).find((t: any) => t.name === tagName);
-    return tag?.color || '#2196F3';
-  };
-
-  // Get unique tags for autocomplete
-  const allTags = [...new Set(systemPrompts.flatMap(sp => sp.tags))];
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ 
+      height: '100%', // Use full height of parent container
+      display: 'flex', 
+      flexDirection: 'column', 
+      position: 'relative',
+      overflow: 'hidden' // Prevent outer page scrolling
+    }}>
+      {/* Scrollable Content Area */}
+      <Box sx={{ 
+        flex: 1, 
+        overflow: 'auto', // Enable scrolling for content
+        p: 3,
+        minHeight: 0 // Ensure flex child can shrink properly
+      }}>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-          System Prompts
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage system prompts that define AI behavior and personality for your conversations
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
+            System Prompts
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage system prompts that define AI behavior and personality for your conversations
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateSystemPrompt}
+          sx={{ borderRadius: 2 }}
+        >
+          Add System Prompt
+        </Button>
       </Box>
 
       {/* Search and Filter Bar */}
@@ -433,20 +386,7 @@ export default function SystemPromptsPage() {
               />
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton
-                size="small"
-                onClick={() => setViewMode('grid')}
-                color={viewMode === 'grid' ? 'primary' : 'default'}
-              >
-                <GridViewIcon />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={() => setViewMode('list')}
-                color={viewMode === 'list' ? 'primary' : 'default'}
-              >
-                <ListViewIcon />
-              </IconButton>
+              {/* Layout changing buttons removed - functionality not implemented */}
             </Box>
           </Stack>
         </Stack>
@@ -537,16 +477,9 @@ export default function SystemPromptsPage() {
           </Button>
         </Box>
       )}
+      </Box>
 
-      {/* FAB */}
-      <Fab
-        color="primary"
-        aria-label="add system prompt"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        onClick={handleCreateSystemPrompt}
-      >
-        <AddIcon />
-      </Fab>
+
 
       {/* Context Menu */}
       <Menu
@@ -589,15 +522,6 @@ export default function SystemPromptsPage() {
             />
             <TextField
               fullWidth
-              label="Description"
-              multiline
-              rows={2}
-              value={systemPromptForm.description}
-              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, description: e.target.value }))}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
               label="Category (optional)"
               value={systemPromptForm.category}
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, category: e.target.value }))}
@@ -613,26 +537,10 @@ export default function SystemPromptsPage() {
               placeholder="You are an expert... (define the AI's role and behavior)"
               sx={{ mb: 2 }}
             />
-            <Autocomplete
-              multiple
-              value={systemPromptForm.tags}
-              onChange={(_, newValue) => {
-                setSystemPromptForm(prev => ({ ...prev, tags: newValue }));
-              }}
-              options={allTags}
-              getOptionLabel={(option) => option}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tags"
-                  placeholder="Add tags"
-                />
-              )}
-            />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleCreateSystemPromptSubmit}
@@ -655,15 +563,7 @@ export default function SystemPromptsPage() {
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))}
               sx={{ mb: 2 }}
             />
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={2}
-              value={systemPromptForm.description}
-              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, description: e.target.value }))}
-              sx={{ mb: 2 }}
-            />
+
             <TextField
               fullWidth
               label="Category (optional)"
@@ -680,26 +580,10 @@ export default function SystemPromptsPage() {
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, content: e.target.value }))}
               sx={{ mb: 2 }}
             />
-            <Autocomplete
-              multiple
-              value={systemPromptForm.tags}
-              onChange={(_, newValue) => {
-                setSystemPromptForm(prev => ({ ...prev, tags: newValue }));
-              }}
-              options={allTags}
-              getOptionLabel={(option) => option}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tags"
-                  placeholder="Add tags"
-                />
-              )}
-            />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleUpdateSystemPromptSubmit}
@@ -710,33 +594,88 @@ export default function SystemPromptsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Tag Management Dialog */}
-      <Dialog open={showTagDialog} onClose={() => setShowTagDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Manage Tags</DialogTitle>
+      {/* View/Edit System Prompt Dialog */}
+      <Dialog open={viewEditDialogOpen} onClose={() => setViewEditDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          {selectedSystemPrompt?.isBuiltIn ? 'View System Prompt' : 'View/Edit System Prompt'}
+          <Typography variant="body2" color="text.secondary">
+            {selectedSystemPrompt?.name}
+          </Typography>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
-            <Autocomplete
-              multiple
-              value={editedTags}
-              onChange={(_, newValue) => {
-                setEditedTags(newValue);
-              }}
-              options={allTags}
-              getOptionLabel={(option) => option}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tags"
-                  placeholder="Add tags"
-                />
-              )}
+            <TextField
+              fullWidth
+              label="System Prompt Name"
+              value={viewEditForm.name}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, name: e.target.value }))}
+              disabled={selectedSystemPrompt?.isBuiltIn}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Category (optional)"
+              value={viewEditForm.category}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, category: e.target.value }))}
+              disabled={selectedSystemPrompt?.isBuiltIn}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="System Prompt Content"
+              multiline
+              rows={12}
+              value={viewEditForm.content}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, content: e.target.value }))}
+              disabled={selectedSystemPrompt?.isBuiltIn}
+              sx={{ fontFamily: 'monospace' }}
             />
           </Box>
         </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+          <Box>
+            {!selectedSystemPrompt?.isBuiltIn && (
+              <Button 
+                onClick={() => setDeleteDialogOpen(true)}
+                color="error"
+                variant="outlined"
+                size="small"
+              >
+                Delete
+              </Button>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={() => setViewEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>
+              {selectedSystemPrompt?.isBuiltIn ? 'Close' : 'Cancel'}
+            </Button>
+            {!selectedSystemPrompt?.isBuiltIn && (
+              <Button 
+                variant="contained" 
+                onClick={handleViewEditSubmit}
+                disabled={!viewEditForm.name.trim() || !viewEditForm.content.trim()}
+              >
+                Save Changes
+              </Button>
+            )}
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete System Prompt</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete "{selectedSystemPrompt?.name}"? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowTagDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveTags}>
-            Save Changes
+          <Button onClick={() => setDeleteDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteSystemPrompt} color="error" variant="contained">
+            Delete
           </Button>
         </DialogActions>
       </Dialog>

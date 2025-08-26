@@ -1,45 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
+  Chip,
   Card,
   CardContent,
   CardActions,
   Button,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
+  TextField,
+  InputAdornment,
+  Paper,
+  Stack,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Paper,
-  InputAdornment,
-  Fab,
-  Alert,
-  CircularProgress,
+  Menu,
+  MenuItem,
   ListItemIcon,
   ListItemText,
-  Stack,
-  Autocomplete
+  Alert,
+  CircularProgress
 } from '@mui/material';
-
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FolderOutlined as FolderIcon,
-  ViewModule as GridViewIcon,
-  ViewList as ListViewIcon,
-  Tag as TagIcon
+  FolderOutlined as FolderIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { fetchTags } from '../store/slices/tagsSlice';
 import { fetchContexts, createContext, updateContext, deleteContext } from '../store/slices/contextsSlice';
+import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 
 export default function ContextsPage() {
   const dispatch = useAppDispatch();
@@ -49,19 +42,15 @@ export default function ContextsPage() {
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
-  // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
   const [selectedContext, setSelectedContext] = useState<any>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [conversationSelectionDialogOpen, setConversationSelectionDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
-  // Tag Management State
-  const [showTagDialog, setShowTagDialog] = useState(false);
-  const [selectedContextForTags, setSelectedContextForTags] = useState<any>(null);
-  const [editedTags, setEditedTags] = useState<string[]>([]);
+
   
   // Form states
   const [contextForm, setContextForm] = useState({
@@ -99,12 +88,6 @@ export default function ContextsPage() {
     }
     return true;
   });
-
-  const handleContextMenuOpen = (event: React.MouseEvent<HTMLElement>, context: any) => {
-    event.stopPropagation();
-    setContextMenuPosition({ x: event.clientX, y: event.clientY });
-    setSelectedContext(context);
-  };
 
   const handleContextMenuClose = () => {
     setContextMenuPosition(null);
@@ -185,7 +168,9 @@ export default function ContextsPage() {
     
     try {
       await dispatch(deleteContext(selectedContext.id)).unwrap();
-      handleContextMenuClose();
+      setDeleteDialogOpen(false);
+      setViewEditDialogOpen(false);
+      setSelectedContext(null);
     } catch (error) {
       console.error('Error deleting context:', error);
     }
@@ -224,9 +209,205 @@ export default function ContextsPage() {
     }
   };
 
+  const handleAddConversationToContext = async (conversation: any) => {
+    if (!selectedContext || !currentProfile?.id) return;
+    
+    try {
+      console.log('Adding conversation to context:', conversation.id);
+      
+      // Fetch the full conversation messages
+      const messagesResult = await dispatch(fetchConversationMessages(conversation.id)).unwrap();
+      console.log('Fetched messages:', messagesResult);
+      
+      if (!messagesResult || messagesResult.length === 0) {
+        console.log('No messages found for conversation');
+        return;
+      }
+      
+      // Format the conversation content with role and message
+      const conversationContent = messagesResult.map((msg: any) => 
+        `${msg.role}: ${msg.content}`
+      ).join('\n\n');
+      
+      // Append conversation content to current form content (not saved context)
+      const updatedBody = viewEditForm.body + '\n\nPast conversation context:\n\n' + conversationContent;
+      
+      console.log('Updated context body:', updatedBody);
+      
+      // Update the context with the new content
+      await dispatch(updateContext({ 
+        context: {
+          id: selectedContext.id,
+          title: selectedContext.title,
+          body: updatedBody
+        }, 
+        profileId: currentProfile.id 
+      })).unwrap();
+      
+      // Update the local form state
+      setViewEditForm(prev => ({
+        ...prev,
+        body: updatedBody
+      }));
+      
+      // Close the conversation selection dialog
+      setConversationSelectionDialogOpen(false);
+      
+      // Show success message (you could add a toast notification here)
+      console.log('Conversation added to context successfully');
+    } catch (error) {
+      console.error('Error adding conversation to context:', error);
+    }
+  };
 
+
+
+  // Conversation Selection List Component
+  const ConversationSelectionList = ({ onConversationSelect }: { 
+    onConversationSelect: (conversation: any) => void; 
+  }) => {
+    const { items: conversations = [], loading: conversationsLoading } = useAppSelector((state) => state.conversations);
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    // Fetch conversations when component mounts
+    useEffect(() => {
+      if (currentProfile?.id) {
+        dispatch(fetchConversations({ 
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc'
+          },
+          page: 1,
+          limit: 100
+        }));
+      }
+    }, [dispatch, currentProfile?.id]);
+    
+    const filteredConversations = conversations.filter(conversation => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          conversation.title.toLowerCase().includes(query) ||
+          conversation.lastMessage?.toLowerCase().includes(query) ||
+          conversation.tags.some((tag: string) => tag.toLowerCase().includes(query))
+        );
+      }
+      return true;
+    });
+    
+    return (
+      <Box sx={{ pt: 1 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search conversations..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ mb: 2 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+        
+        {conversationsLoading ? (
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {filteredConversations.map((conversation) => (
+              <Card 
+                key={conversation.id} 
+                sx={{ 
+                  mb: 1, 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    backgroundColor: 'action.hover',
+                    boxShadow: 2
+                  }
+                }}
+                onClick={() => onConversationSelect(conversation)}
+              >
+                <CardContent sx={{ py: 1.5, px: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+                      {conversation.title}
+                    </Typography>
+                    <Chip
+                      label={conversation.platform.toUpperCase()}
+                      size="small"
+                      sx={{ 
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        ml: 1
+                      }}
+                    />
+                  </Box>
+                  
+                  {conversation.lastMessage && (
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        mb: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}
+                    >
+                      {conversation.lastMessage}
+                    </Typography>
+                  )}
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                             {conversation.tags.slice(0, 3).map((tag: string) => (
+                         <Chip
+                           key={tag}
+                           label={tag}
+                           size="small"
+                           sx={{ 
+                             backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.700' : 'grey.300',
+                             color: (theme) => theme.palette.mode === 'dark' ? 'white' : 'text.primary',
+                             fontSize: '0.7rem'
+                           }}
+                         />
+                       ))}
+                       {conversation.tags.length > 3 && (
+                         <Chip
+                           label={`+${conversation.tags.length - 3}`}
+                           size="small"
+                           sx={{ 
+                             backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.600' : 'grey.200',
+                             color: (theme) => theme.palette.mode === 'dark' ? 'grey.300' : 'text.secondary',
+                             fontSize: '0.7rem'
+                           }}
+                         />
+                       )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {conversation.messageCount} messages
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+      </Box>
+    );
+  };
 
   const ContextCard = ({ context }: { context: any }) => {
+    const isBuiltIn = context.isBuiltIn || false;
+    
     return (
       <Card 
         sx={{ 
@@ -241,42 +422,31 @@ export default function ContextsPage() {
           }
         }}
       >
-        {/* Header with menu */}
-        <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <IconButton
-              size="small"
-              onClick={(e) => handleTagManagement(context, e)}
-              sx={{ 
-                backgroundColor: 'background.paper',
-                border: 1,
-                borderColor: 'divider',
-                '&:hover': {
-                  backgroundColor: 'action.hover'
-                }
-              }}
-              title="Manage Tags"
-            >
-              <TagIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={(e) => handleContextMenuOpen(e, context)}
-              sx={{ 
-                backgroundColor: 'background.paper',
-                border: 1,
-                borderColor: 'divider',
-                '&:hover': {
-                  backgroundColor: 'action.hover'
-                }
-              }}
-            >
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
+        {/* Built-in indicator */}
+        {isBuiltIn && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              color: 'white',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              zIndex: 2
+            }}
+          >
+            Built-in
           </Box>
-        </Box>
+        )}
 
-        <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+        {/* Header with menu */}
+        {/* Removed three-dot menu - functionality moved to edit modal */}
+
+        <CardContent sx={{ flexGrow: 1, pb: 1, pt: isBuiltIn ? 4 : 2 }}>
           {/* Title and body */}
           <Typography 
             variant="h6" 
@@ -333,15 +503,16 @@ export default function ContextsPage() {
 
         <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
           <Typography variant="caption" color="text.secondary">
-            Updated {new Date(context.updatedAt).toLocaleDateString()}
+            {!isBuiltIn && `Updated ${new Date(context.updatedAt).toLocaleDateString()}`}
           </Typography>
           <Box>
             <Button 
               size="small" 
               variant="outlined"
               onClick={() => handleViewEditContext(context)}
+              sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
             >
-              View/Edit
+              {isBuiltIn ? 'View' : 'View/Edit'}
             </Button>
           </Box>
         </CardActions>
@@ -349,49 +520,49 @@ export default function ContextsPage() {
     );
   };
 
-  // Open tag management dialog
-  const handleTagManagement = (context: any, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setSelectedContextForTags(context);
-    setEditedTags([...context.tags]);
-    setShowTagDialog(true);
-  };
 
-  // Save tag changes
-  const handleSaveTags = () => {
-    if (selectedContextForTags) {
-      // Here you would dispatch an action to update the context tags
-      console.log('Updating context tags:', {
-        contextId: selectedContextForTags.id,
-        newTags: editedTags
-      });
-      // For now, we'll just update locally
-      // dispatch(updateContextTags({ id: selectedContextForTags.id, tags: editedTags }));
-    }
-    setShowTagDialog(false);
-    setSelectedContextForTags(null);
-    setEditedTags([]);
-  };
 
   // Get tag color
   const getTagColor = (tagName: string) => {
     const tag = (tags || []).find((t: any) => t.name === tagName);
-    return tag?.color || '#2196F3';
+    return tag?.color || 'secondary.main';
   };
 
-  // Get unique tags for autocomplete
-  const allTags = [...new Set((contexts || []).flatMap(c => c.tags))];
+
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ 
+      height: '100%', // Use full height of parent container
+      display: 'flex', 
+      flexDirection: 'column', 
+      position: 'relative',
+      overflow: 'hidden' // Prevent outer page scrolling
+    }}>
+      {/* Scrollable Content Area */}
+      <Box sx={{ 
+        flex: 1, 
+        overflow: 'auto', // Enable scrolling for content
+        p: 3,
+        minHeight: 0 // Ensure flex child can shrink properly
+      }}>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-          Contexts
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage your conversation contexts, references, and knowledge bases
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
+            Contexts
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage your conversation contexts, references, and knowledge bases
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateContext}
+          sx={{ borderRadius: 2 }}
+        >
+          Add Context
+        </Button>
       </Box>
 
       {/* Search and Filter Bar */}
@@ -419,20 +590,7 @@ export default function ContextsPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
 
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton
-                size="small"
-                onClick={() => setViewMode('grid')}
-                color={viewMode === 'grid' ? 'primary' : 'default'}
-              >
-                <GridViewIcon />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={() => setViewMode('list')}
-                color={viewMode === 'list' ? 'primary' : 'default'}
-              >
-                <ListViewIcon />
-              </IconButton>
+              {/* Layout changing buttons removed - functionality not implemented */}
             </Box>
           </Box>
         </Stack>
@@ -478,16 +636,9 @@ export default function ContextsPage() {
           </Button>
         </Box>
       )}
+      </Box>
 
-      {/* FAB */}
-      <Fab
-        color="primary"
-        aria-label="add context"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        onClick={handleCreateContext}
-      >
-        <AddIcon />
-      </Fab>
+
 
       {/* Context Menu */}
       <Menu
@@ -539,7 +690,7 @@ export default function ContextsPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleCreateContextSubmit}
@@ -574,7 +725,7 @@ export default function ContextsPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleUpdateContextSubmit}
@@ -588,7 +739,7 @@ export default function ContextsPage() {
       {/* View/Edit Context Dialog */}
       <Dialog open={viewEditDialogOpen} onClose={() => setViewEditDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
-          View/Edit Context
+          {selectedContext?.isBuiltIn ? 'View Context' : 'View/Edit Context'}
           <Typography variant="body2" color="text.secondary">
             {selectedContext?.title}
           </Typography>
@@ -600,21 +751,57 @@ export default function ContextsPage() {
               label="Context Title"
               value={viewEditForm.title}
               onChange={(e) => setViewEditForm(prev => ({ ...prev, title: e.target.value }))}
+              disabled={selectedContext?.isBuiltIn}
               sx={{ mb: 2 }}
             />
             <TextField
               fullWidth
               label="Context Content"
               multiline
-              rows={18}
+              rows={12}
               value={viewEditForm.body}
               onChange={(e) => setViewEditForm(prev => ({ ...prev, body: e.target.value }))}
+              disabled={selectedContext?.isBuiltIn}
               sx={{ fontFamily: 'monospace' }}
             />
+            
+
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewEditDialogOpen(false)}>Cancel</Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}>
+            {!selectedContext?.isBuiltIn && (
+              <>
+                <Button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setConversationSelectionDialogOpen(true)}
+                  sx={{
+                    borderColor: 'primary.dark',
+                    color: 'primary.dark',
+                    '&:hover': {
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      borderColor: 'primary.dark',
+                    }
+                  }}
+                >
+                  Add Existing Conversation to Context
+                </Button>
+              </>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={() => setViewEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>Close</Button>
+            {!selectedContext?.isBuiltIn && (
           <Button 
             variant="contained" 
             onClick={handleViewEditSubmit}
@@ -622,38 +809,41 @@ export default function ContextsPage() {
           >
             {isViewEditing ? 'Saving...' : 'Save Changes'}
           </Button>
+            )}
+          </Box>
         </DialogActions>
       </Dialog>
 
-      {/* Tag Management Dialog */}
-      <Dialog open={showTagDialog} onClose={() => setShowTagDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Manage Tags</DialogTitle>
+      {/* Delete Context Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <Autocomplete
-              multiple
-              value={editedTags}
-                              onChange={(_, newValue) => {
-                setEditedTags(newValue);
-              }}
-              options={allTags}
-              getOptionLabel={(option) => option}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tags"
-                  placeholder="Add tags"
-                />
-              )}
-            />
-          </Box>
+          <Typography>
+            Are you sure you want to delete the context "{selectedContext?.title}"? This action cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowTagDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveTags}>
-            Save Changes
+          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
+          <Button onClick={handleDeleteContext} color="error" variant="contained">
+            Delete
           </Button>
         </DialogActions>
+      </Dialog>
+
+
+      {/* Conversation Selection Dialog */}
+      <Dialog open={conversationSelectionDialogOpen} onClose={() => setConversationSelectionDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          Add Conversation to Context
+          <Typography variant="body2" color="text.secondary">
+            Select a conversation to append to "{selectedContext?.title}"
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <ConversationSelectionList 
+            onConversationSelect={handleAddConversationToContext}
+          />
+        </DialogContent>
       </Dialog>
     </Box>
   );

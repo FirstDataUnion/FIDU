@@ -15,8 +15,8 @@ export interface Persona {
   };
   isActive: boolean;
   conversationCount: number;
-  createdAt: Date;
-  lastUsed: Date;
+  createdAt: string;
+  lastUsed: string;
 }
 
 export interface PersonasState {
@@ -49,8 +49,8 @@ const mockPersonas: Persona[] = [
     },
     isActive: true,
     conversationCount: 45,
-    createdAt: new Date('2024-01-10'),
-    lastUsed: new Date('2024-01-15')
+    createdAt: new Date('2024-01-10').toISOString(),
+    lastUsed: new Date('2024-01-15').toISOString()
   },
   {
     id: 'persona-2',
@@ -66,8 +66,8 @@ const mockPersonas: Persona[] = [
     },
     isActive: false,
     conversationCount: 32,
-    createdAt: new Date('2024-01-05'),
-    lastUsed: new Date('2024-01-12')
+    createdAt: new Date('2024-01-05').toISOString(),
+    lastUsed: new Date('2024-01-12').toISOString()
   },
   {
     id: 'persona-3',
@@ -83,8 +83,8 @@ const mockPersonas: Persona[] = [
     },
     isActive: false,
     conversationCount: 28,
-    createdAt: new Date('2024-01-08'),
-    lastUsed: new Date('2024-01-13')
+    createdAt: new Date('2024-01-08').toISOString(),
+    lastUsed: new Date('2024-01-13').toISOString()
   },
   {
     id: 'persona-4',
@@ -100,8 +100,8 @@ const mockPersonas: Persona[] = [
     },
     isActive: false,
     conversationCount: 15,
-    createdAt: new Date('2024-01-12'),
-    lastUsed: new Date('2024-01-14')
+    createdAt: new Date('2024-01-12').toISOString(),
+    lastUsed: new Date('2024-01-14').toISOString()
   },
   {
     id: 'persona-5',
@@ -117,8 +117,8 @@ const mockPersonas: Persona[] = [
     },
     isActive: false,
     conversationCount: 12,
-    createdAt: new Date('2024-01-14'),
-    lastUsed: new Date('2024-01-14')
+    createdAt: new Date('2024-01-14').toISOString(),
+    lastUsed: new Date('2024-01-14').toISOString()
   }
 ];
 
@@ -151,8 +151,8 @@ export const createPersona = createAsyncThunk(
       },
       isActive: false,
       conversationCount: 0,
-      createdAt: new Date(),
-      lastUsed: new Date()
+      createdAt: new Date().toISOString(),
+      lastUsed: new Date().toISOString()
     };
     return newPersona;
   }
@@ -200,7 +200,7 @@ const personasSlice = createSlice({
         const persona = state.items.find(p => p.id === action.payload);
         if (persona) {
           persona.isActive = true;
-          persona.lastUsed = new Date();
+          persona.lastUsed = new Date().toISOString();
           state.activePersonaId = action.payload;
         }
       } else {
@@ -211,7 +211,7 @@ const personasSlice = createSlice({
       const persona = state.items.find(p => p.id === action.payload);
       if (persona) {
         persona.conversationCount += 1;
-        persona.lastUsed = new Date();
+        persona.lastUsed = new Date().toISOString();
       }
     },
     addContextToPersona: (state, action: PayloadAction<{ personaId: string; contextId: string }>) => {
@@ -274,7 +274,7 @@ const personasSlice = createSlice({
         const persona = state.items.find(p => p.id === action.payload);
         if (persona) {
           persona.isActive = true;
-          persona.lastUsed = new Date();
+          persona.lastUsed = new Date().toISOString();
           state.activePersonaId = action.payload;
         }
       });
