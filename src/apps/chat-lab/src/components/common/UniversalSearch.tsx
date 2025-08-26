@@ -70,7 +70,7 @@ export default function UniversalSearch({
       subtitle: '5 files • Updated yesterday',
       type: 'context',
       matchedText: 'Component lifecycle and hooks...',
-      metadata: { fileCount: 5, lastUpdated: new Date() }
+      metadata: { fileCount: 5, lastUpdated: new Date().toISOString() }
     },
     {
       id: 'prompt-1',

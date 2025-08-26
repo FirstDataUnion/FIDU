@@ -47,6 +47,7 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
         createdAt: packet.create_timestamp,
         updatedAt: packet.update_timestamp,
         tags: [],
+        isBuiltIn: false, // Custom contexts from FIDU Vault
         conversationIds: [],
         conversationMetadata: {
           totalMessages: 0,
@@ -58,15 +59,14 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
         id: packet.data.originalPrompt.systemPromptId,
         name: packet.data.originalPrompt.systemPromptName,
         content: packet.data.originalPrompt.systemPromptContent,
-        description: '', // We don't store this in the conversation
+
         tokenCount: 0, // We don't store this in the conversation
         isDefault: false,
-        isSystem: true,
+        isBuiltIn: true,
         category: 'Technical',
-        modelCompatibility: [],
+
         createdAt: packet.create_timestamp,
-        updatedAt: packet.update_timestamp,
-        tags: []
+        updatedAt: packet.update_timestamp
       },
       metadata: {
         estimatedTokens: packet.data.originalPrompt.estimatedTokens
@@ -104,7 +104,9 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
         actor: message.role,
         timestamp: message.timestamp.toString(),
         content: message.content,
-        attachments: message.attachments?.map(att => att.url || att.toString()) || []
+        attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+        // Store the model that generated this specific message
+        model: message.platform || conversation.platform || 'unknown'
       })),
       targetModelRequested: conversation.platform || 'other',
       conversationUrl: 'FIDU_Chat_Lab',
@@ -141,7 +143,9 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
         actor: message.role,
         timestamp: message.timestamp.toString(),
         content: message.content,
-        attachments: message.attachments?.map(att => att.url || att.toString()) || []
+        attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+        // Store the model that generated this specific message
+        model: message.platform || conversation.platform || 'unknown'
       })),
       targetModelRequested: conversation.platform || 'other',
       conversationUrl: 'FIDU_Chat_Lab',
@@ -347,9 +351,10 @@ export const conversationsApi = {
           id: `${conversationId}-${index}`,
           conversationId: conversationId,
           content: interaction.content,
-          role: interaction.actor.toLowerCase() as 'user' | 'assistant' | 'system',
+          role: (interaction.actor.toLowerCase() === 'bot' ? 'assistant' : interaction.actor.toLowerCase()) as 'user' | 'assistant' | 'system',
           timestamp: new Date(interaction.timestamp).toISOString(),
-          platform: packet.data.sourceChatbot.toLowerCase(),
+          // Use per-message model if available, fall back to conversation-level model for backward compatibility
+          platform: interaction.model || packet.data.sourceChatbot.toLowerCase(),
           metadata: {
             attachments: interaction.attachments || []
           },

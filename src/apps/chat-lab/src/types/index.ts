@@ -32,6 +32,7 @@ export interface Context {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  isBuiltIn: boolean;
   // Conversation references for building context over time
   conversationIds?: string[];
   // Metadata about conversations in this context
@@ -47,15 +48,12 @@ export interface SystemPrompt {
   id: string;
   name: string;
   content: string;
-  description: string;
   tokenCount: number;
   isDefault: boolean;
-  isSystem: boolean; // true for built-in system prompts, false for user-created
+  isBuiltIn: boolean; // true for built-in system prompts, false for user-created
   category?: string;
-  modelCompatibility?: string[];
   createdAt: string;
   updatedAt: string;
-  tags: string[];
 }
 
 export interface Prompt {
@@ -133,6 +131,7 @@ export interface ConversationDataPacket {
       timestamp: string;
       content: string;
       attachments: string[];
+      model?: string; // Model that generated this specific message
     }>;
     targetModelRequested: string;
     conversationUrl: string;
@@ -165,6 +164,7 @@ export interface ConversationDataPacketUpdate {
       timestamp: string;
       content: string;
       attachments: string[];
+      model?: string; // Model that generated this specific message
     }>;
     targetModelRequested: string;
     conversationUrl: string;
@@ -205,6 +205,31 @@ export interface PromptDataPacket {
   };
 }
 
+export interface EmbellishmentDataPacket {
+  id: string;
+  profile_id: string;
+  create_timestamp: string;
+  update_timestamp: string;
+  tags: string[];
+  data: {
+    name: string;
+    instructions: string;
+    category: 'style' | 'tone' | 'format' | 'approach';
+    color: string;
+  };
+}
+
+export interface EmbellishmentDataPacketUpdate {
+  id: string;
+  tags: string[];
+  data: {
+    name: string;
+    instructions: string;
+    category: 'style' | 'tone' | 'format' | 'approach';
+    color: string;
+  };
+}
+
 // Front End types
 
 export interface Message {
@@ -212,7 +237,7 @@ export interface Message {
   conversationId: string;
   content: string;
   role: 'user' | 'assistant' | 'system';
-  timestamp: Date | string;
+  timestamp: string;
   platform: string;
   metadata?: Record<string, any>;
   attachments?: Attachment[];
@@ -223,7 +248,7 @@ export interface Message {
 export interface MessageEdit {
   id: string;
   previousContent: string;
-  editedAt: Date;
+  editedAt: string;
   reason?: string;
 }
 
@@ -244,8 +269,8 @@ export interface Memory {
   type: 'fact' | 'preference' | 'context' | 'skill' | 'goal';
   tags: string[];
   conversationIds: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   importance: 'low' | 'medium' | 'high' | 'critical';
   isArchived: boolean;
   source: 'manual' | 'extracted' | 'imported';
@@ -257,9 +282,21 @@ export interface Tag {
   name: string;
   color: string;
   description?: string;
-  createdAt: Date | string;
+  createdAt: string;
   usageCount: number;
   category?: string;
+}
+
+// Embellishment interface for prompt enhancements
+export interface Embellishment {
+  id: string;
+  name: string;
+  instructions: string;
+  category: 'style' | 'tone' | 'format' | 'approach';
+  color: string;
+  isBuiltIn: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SearchResult {
@@ -432,7 +469,7 @@ export interface SearchState {
   loading: boolean;
   filters: {
     types: ('conversation' | 'message' | 'memory')[];
-    dateRange?: { start: Date; end: Date };
+    dateRange?: { start: string; end: string };
     tags?: string[];
   };
   suggestions: string[];
@@ -465,7 +502,7 @@ export interface Notification {
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
-  timestamp: Date;
+  timestamp: string;
   read: boolean;
   action?: {
     label: string;
@@ -504,7 +541,7 @@ export interface APIResponse<T> {
   data: T;
   success: boolean;
   error?: string;
-  timestamp: Date;
+  timestamp: string;
 }
 
 // IndexedDB Store Names
