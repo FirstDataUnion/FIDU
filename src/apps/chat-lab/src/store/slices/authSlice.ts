@@ -69,14 +69,10 @@ export const initializeAuth = createAsyncThunk(
         if (savedProfile) {
           try {
             const parsedProfile = JSON.parse(savedProfile);
-            console.log('initializeAuth: parsed saved profile:', parsedProfile);
             // Verify the saved profile still exists in the fetched profiles
             const profileExists = profiles.find(p => p.id === parsedProfile.id);
             if (profileExists) {
               currentProfile = profileExists;
-              console.log('initializeAuth: using saved profile:', currentProfile);
-            } else {
-              console.log('initializeAuth: saved profile not found in fetched profiles');
             }
           } catch (error) {
             console.warn('Failed to parse saved profile:', error);
@@ -86,7 +82,6 @@ export const initializeAuth = createAsyncThunk(
         // If no saved profile or saved profile doesn't exist anymore, use first profile
         if (!currentProfile && profiles.length > 0) {
           currentProfile = profiles[0];
-          console.log('initializeAuth: using first profile as default:', currentProfile);
           localStorage.setItem('current_profile', JSON.stringify(currentProfile));
         }
         
@@ -189,7 +184,6 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isInitialized = true;
         if (action.payload) {
-          console.log('Redux: initializeAuth.fulfilled setting currentProfile to:', action.payload.currentProfile);
           state.user = action.payload.user;
           state.profiles = action.payload.profiles;
           state.currentProfile = action.payload.currentProfile;

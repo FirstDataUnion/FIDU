@@ -56,19 +56,7 @@ export interface SystemPrompt {
   updatedAt: string;
 }
 
-export interface Prompt {
-  id: string;
-  title: string;
-  promptText: string;           // Main prompt text
-  context: Context | null;      // Optional context object
-  systemPrompt: SystemPrompt;   // System prompt (always present)
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-  metadata?: {
-    estimatedTokens: number;
-  };
-}
+
 
 // Authentication Types
 export interface User {
@@ -187,23 +175,7 @@ export interface ConversationDataPacketUpdate {
   };
 }
 
-export interface PromptDataPacket {
-  id: string;
-  profile_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-  tags: string[];
-  data: {
-    prompt_title: string;
-    prompt_text: string;                    // Main prompt text
-    context_id?: string;                    // Reference to context if present
-    context_title?: string;                 // Context title for easier reference
-    system_prompt_id: string;               // Reference to system prompt
-    system_prompt_content: string;          // Full system prompt content
-    system_prompt_name: string;             // System prompt name
-    estimated_tokens: number;
-  };
-}
+
 
 export interface EmbellishmentDataPacket {
   id: string;
@@ -262,21 +234,6 @@ export interface Attachment {
   size?: number;
 }
 
-export interface Memory {
-  id: string;
-  title: string;
-  content: string;
-  type: 'fact' | 'preference' | 'context' | 'skill' | 'goal';
-  tags: string[];
-  conversationIds: string[];
-  createdAt: string;
-  updatedAt: string;
-  importance: 'low' | 'medium' | 'high' | 'critical';
-  isArchived: boolean;
-  source: 'manual' | 'extracted' | 'imported';
-  metadata?: Record<string, any>;
-}
-
 export interface Tag {
   id: string;
   name: string;
@@ -300,11 +257,14 @@ export interface Embellishment {
 }
 
 export interface SearchResult {
-  type: 'conversation' | 'message' | 'memory';
-  item: Conversation | Message | Memory;
+  type: 'conversation' | 'message' | 'context' | 'prompt' | 'tag';
+  item: Conversation | Message | any; // Using any for now since we don't have Context/Prompt types defined
   relevanceScore: number;
   highlightedContent?: string;
   matchedFields: string[];
+  title?: string;
+  subtitle?: string;
+  id?: string;
 }
 
 export interface UserSettings {
@@ -334,7 +294,6 @@ export interface UserSettings {
 export interface ExportData {
   conversations: Conversation[];
   messages: Message[];
-  memories: Memory[];
   tags: Tag[];
   settings: UserSettings;
   exportedAt: Date;
@@ -344,7 +303,6 @@ export interface ExportData {
 export interface ImportOptions {
   includeConversations: boolean;
   includeMessages: boolean;
-  includeMemories: boolean;
   includeTags: boolean;
   includeSettings: boolean;
   mergeStrategy: 'replace' | 'merge' | 'skip';
@@ -353,7 +311,6 @@ export interface ImportOptions {
 export interface DatabaseStats {
   totalConversations: number;
   totalMessages: number;
-  totalMemories: number;
   totalTags: number;
   databaseSize: number;
   lastBackup?: Date;
@@ -396,11 +353,6 @@ export interface AnalyticsData {
     averageConversationLength: number;
     topTags: Array<{ tag: string; count: number }>;
   };
-  memoryStats: {
-    totalByType: Record<string, number>;
-    creationTrend: Array<{ date: string; count: number }>;
-    importanceDistribution: Record<string, number>;
-  };
   usageStats: {
     dailyActivity: Array<{ date: string; conversations: number; messages: number }>;
     peakUsageHours: Array<{ hour: number; activity: number }>;
@@ -411,8 +363,6 @@ export interface AnalyticsData {
 // Redux State Types
 export interface RootState {
   conversations: ConversationsState;
-  memories: MemoriesState;
-  tags: TagsState;
   search: SearchState;
   settings: SettingsState;
   ui: UIState;
@@ -445,30 +395,12 @@ export interface ConversationsState {
   };
 }
 
-export interface MemoriesState {
-  items: Memory[];
-  loading: boolean;
-  error: string | null;
-  filters: {
-    types?: Memory['type'][];
-    importance?: Memory['importance'][];
-    tags?: string[];
-    searchQuery?: string;
-  };
-}
-
-export interface TagsState {
-  items: Tag[];
-  loading: boolean;
-  error: string | null;
-}
-
 export interface SearchState {
   query: string;
   results: SearchResult[];
   loading: boolean;
   filters: {
-    types: ('conversation' | 'message' | 'memory')[];
+    types: ('conversation' | 'message')[];
     dateRange?: { start: string; end: string };
     tags?: string[];
   };
@@ -492,7 +424,7 @@ export interface UIState {
     deleteConfirmation: boolean;
   };
   draggedItem: {
-    type: 'conversation' | 'memory' | 'tag' | null;
+    type: 'conversation' | 'tag' | null;
     item: any;
   } | null;
 }
@@ -521,14 +453,6 @@ export interface ConversationCardProps {
   selected?: boolean;
 }
 
-export interface MemoryCardProps {
-  memory: Memory;
-  onEdit: (memory: Memory) => void;
-  onDelete: (memoryId: string) => void;
-  onTagClick: (tag: string) => void;
-  compact?: boolean;
-}
-
 export interface SearchBarProps {
   onSearch: (query: string) => void;
   onFilterChange: (filters: any) => void;
@@ -544,11 +468,10 @@ export interface APIResponse<T> {
   timestamp: string;
 }
 
-// IndexedDB Store Names
+// IndexedDB Store Names (keeping for backward compatibility with existing code)
 export const STORES = {
   CONVERSATIONS: 'conversations',
   MESSAGES: 'messages',
-  MEMORIES: 'memories',
   TAGS: 'tags',
   SETTINGS: 'settings',
   ATTACHMENTS: 'attachments'

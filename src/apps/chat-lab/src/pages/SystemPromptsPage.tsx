@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,7 +16,6 @@ import {
   TextField,
   Paper,
   InputAdornment,
-
   ListItemIcon,
   ListItemText,
   Stack,
@@ -36,7 +35,6 @@ import {
   Code as CodeIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
-import { fetchTags } from '../store/slices/tagsSlice';
 import { 
   fetchSystemPrompts, 
   createSystemPrompt, 
@@ -44,12 +42,126 @@ import {
   deleteSystemPrompt
 } from '../store/slices/systemPromptsSlice';
 
-export default function SystemPromptsPage() {
+// Extracted SystemPromptCard component for better performance
+const SystemPromptCard = React.memo<{ 
+  systemPrompt: any; 
+  onViewEdit: (systemPrompt: any) => void;
+}>(({ systemPrompt, onViewEdit }) => {
+  const handleViewEdit = useCallback(() => {
+    onViewEdit(systemPrompt);
+  }, [systemPrompt, onViewEdit]);
+
+  return (
+    <Card 
+      sx={{ 
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        '&:hover': { 
+          boxShadow: 4,
+          transform: 'translateY(-2px)',
+          transition: 'all 0.2s ease-in-out'
+        }
+      }}
+    >
+      {/* Built-in indicator */}
+      {systemPrompt.isBuiltIn && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            color: 'white',
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            zIndex: 2
+          }}
+        >
+          Built-in
+        </Box>
+      )}
+
+      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+        {/* Default indicator */}
+        {systemPrompt.isDefault && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Chip 
+              label="Default" 
+              size="small" 
+              variant="outlined"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Box>
+        )}
+
+        {/* Name */}
+        <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, lineHeight: 1.2 }}>
+          {systemPrompt.name}
+        </Typography>
+
+        {/* Content preview */}
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          sx={{ 
+            mb: 2,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            fontStyle: 'italic',
+            backgroundColor: 'rgba(0,0,0,0.04)',
+            p: 1,
+            borderRadius: 1
+          }}
+        >
+          {systemPrompt.content}
+        </Typography>
+
+        {/* Stats */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
+          <Box>
+            {systemPrompt.tokenCount?.toLocaleString() || 'Unknown'} tokens
+          </Box>
+          {systemPrompt.category && (
+            <Box>
+              {systemPrompt.category}
+            </Box>
+          )}
+        </Box>
+      </CardContent>
+
+      <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
+        <Typography variant="caption" color="text.secondary">
+          {!systemPrompt.isBuiltIn && `Updated ${new Date(systemPrompt.updatedAt).toLocaleDateString()}`}
+        </Typography>
+        <Box>
+          <Button 
+            size="small" 
+            variant="outlined"
+            onClick={handleViewEdit}
+            sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
+          >
+            {systemPrompt.isBuiltIn ? 'View' : 'View/Edit'}
+          </Button>
+        </Box>
+      </CardActions>
+    </Card>
+  );
+});
+
+SystemPromptCard.displayName = 'SystemPromptCard';
+
+const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
 
-  
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserPrompts, setShowUserPrompts] = useState(true);
@@ -81,31 +193,46 @@ export default function SystemPromptsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchTags());
     if (currentProfile?.id) {
       dispatch(fetchSystemPrompts(currentProfile.id));
     }
   }, [dispatch, currentProfile?.id]);
 
-  // Separate built-in and user-created system prompts
-  const builtInPrompts = systemPrompts.filter(sp => sp.isBuiltIn);
-  const userPrompts = systemPrompts.filter(sp => !sp.isBuiltIn);
+  // Memoize expensive calculations to prevent recalculation on every render
+  const { builtInPrompts, userPrompts } = useMemo(() => {
+    const builtIn = systemPrompts.filter(sp => sp.isBuiltIn);
+    const user = systemPrompts.filter(sp => !sp.isBuiltIn);
+    return { builtInPrompts: builtIn, userPrompts: user };
+  }, [systemPrompts]);
 
-  const handleContextMenuClose = () => {
+  // Memoize filtered prompts based on search query
+  const filteredUserPrompts = useMemo(() => {
+    if (!searchQuery) return userPrompts;
+    
+    const query = searchQuery.toLowerCase();
+    return userPrompts.filter(prompt => 
+      prompt.name.toLowerCase().includes(query) ||
+      prompt.content.toLowerCase().includes(query) ||
+      (prompt.category && prompt.category.toLowerCase().includes(query))
+    );
+  }, [userPrompts, searchQuery]);
+
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleContextMenuClose = useCallback(() => {
     setContextMenuAnchor(null);
     setSelectedSystemPrompt(null);
-  };
+  }, []);
 
-  const handleCreateSystemPrompt = () => {
+  const handleCreateSystemPrompt = useCallback(() => {
     setSystemPromptForm({
       name: '',
       content: '',
       category: ''
     });
     setCreateDialogOpen(true);
-  };
+  }, []);
 
-  const handleEditSystemPrompt = () => {
+  const handleEditSystemPrompt = useCallback(() => {
     if (selectedSystemPrompt) {
       setSystemPromptForm({
         name: selectedSystemPrompt.name,
@@ -115,9 +242,9 @@ export default function SystemPromptsPage() {
       setEditDialogOpen(true);
     }
     handleContextMenuClose();
-  };
+  }, [selectedSystemPrompt, handleContextMenuClose]);
 
-  const handleCreateSystemPromptSubmit = async () => {
+  const handleCreateSystemPromptSubmit = useCallback(async () => {
     if (!currentProfile?.id || !systemPromptForm.name.trim() || !systemPromptForm.content.trim()) return;
     
     setIsCreating(true);
@@ -143,9 +270,9 @@ export default function SystemPromptsPage() {
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [dispatch, currentProfile?.id, systemPromptForm, isCreating]);
 
-  const handleUpdateSystemPromptSubmit = async () => {
+  const handleUpdateSystemPromptSubmit = useCallback(async () => {
     if (!currentProfile?.id || !selectedSystemPrompt || !systemPromptForm.name.trim() || !systemPromptForm.content.trim()) return;
     
     setIsUpdating(true);
@@ -170,9 +297,9 @@ export default function SystemPromptsPage() {
     } finally {
       setIsUpdating(false);
     }
-  };
+  }, [dispatch, currentProfile?.id, selectedSystemPrompt, systemPromptForm, isUpdating]);
 
-  const handleDeleteSystemPrompt = async () => {
+  const handleDeleteSystemPrompt = useCallback(async () => {
     if (!selectedSystemPrompt) return;
     
     try {
@@ -183,9 +310,9 @@ export default function SystemPromptsPage() {
     } catch (error) {
       console.error('Error deleting system prompt:', error);
     }
-  };
+  }, [dispatch, selectedSystemPrompt]);
 
-  const handleViewEditSystemPrompt = (systemPrompt: any) => {
+  const handleViewEditSystemPrompt = useCallback((systemPrompt: any) => {
     setSelectedSystemPrompt(systemPrompt);
     setViewEditForm({
       name: systemPrompt.name,
@@ -193,9 +320,9 @@ export default function SystemPromptsPage() {
       category: systemPrompt.category || ''
     });
     setViewEditDialogOpen(true);
-  };
+  }, []);
 
-  const handleViewEditSubmit = async () => {
+  const handleViewEditSubmit = useCallback(async () => {
     if (!selectedSystemPrompt || !currentProfile?.id) return;
     
     try {
@@ -215,120 +342,26 @@ export default function SystemPromptsPage() {
     } catch (error) {
       console.error('Error updating system prompt:', error);
     }
-  };
+  }, [dispatch, selectedSystemPrompt, currentProfile?.id, viewEditForm]);
 
-  const SystemPromptCard = ({ systemPrompt }: { systemPrompt: any }) => {
-    return (
-      <Card 
-        sx={{ 
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          '&:hover': { 
-            boxShadow: 4,
-            transform: 'translateY(-2px)',
-            transition: 'all 0.2s ease-in-out'
-          }
-        }}
-      >
-        {/* Built-in indicator */}
-        {systemPrompt.isBuiltIn && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              color: 'white',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              zIndex: 2
-            }}
-          >
-            Built-in
-          </Box>
-        )}
+  // Memoize search query change handler
+  const handleSearchQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
 
-        {/* Header with menu - only show for user-created prompts */}
-        {/* Removed three-dot menu - functionality moved to edit modal */}
+  // Memoize toggle handlers
+  const handleToggleUserPrompts = useCallback(() => {
+    setShowUserPrompts(prev => !prev);
+  }, []);
 
-        <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-          {/* Default indicator */}
-          {systemPrompt.isDefault && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Chip 
-                label="Default" 
-                size="small" 
-                variant="outlined"
-                sx={{ fontSize: '0.7rem' }}
-              />
-            </Box>
-          )}
+  // Memoize dialog close handlers
+  const handleCloseCreateDialog = useCallback(() => {
+    setCreateDialogOpen(false);
+  }, []);
 
-          {/* Name */}
-          <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, lineHeight: 1.2 }}>
-            {systemPrompt.name}
-          </Typography>
-
-          {/* Content preview */}
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
-              mb: 2,
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              fontStyle: 'italic',
-              backgroundColor: 'rgba(0,0,0,0.04)',
-              p: 1,
-              borderRadius: 1
-            }}
-          >
-            {systemPrompt.content}
-          </Typography>
-
-
-
-          {/* Stats */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
-            <Box>
-              {systemPrompt.tokenCount.toLocaleString()} tokens
-            </Box>
-            {systemPrompt.category && (
-              <Box>
-                {systemPrompt.category}
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-
-        <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
-          <Typography variant="caption" color="text.secondary">
-            {!systemPrompt.isBuiltIn && `Updated ${new Date(systemPrompt.updatedAt).toLocaleDateString()}`}
-          </Typography>
-          <Box>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleViewEditSystemPrompt(systemPrompt)}
-              startIcon={<EditIcon />}
-              sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
-            >
-              {systemPrompt.isBuiltIn ? 'View' : 'View/Edit'}
-            </Button>
-          </Box>
-        </CardActions>
-      </Card>
-    );
-  };
-
-
+  const handleCloseEditDialog = useCallback(() => {
+    setEditDialogOpen(false);
+  }, []);
 
   return (
     <Box sx={{ 
@@ -375,7 +408,7 @@ export default function SystemPromptsPage() {
                 size="small"
                 placeholder="Search system prompts..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchQueryChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -415,9 +448,13 @@ export default function SystemPromptsPage() {
           }, 
           gap: 3 
         }}>
-          {builtInPrompts.map((systemPrompt) => (
-            <SystemPromptCard key={systemPrompt.id} systemPrompt={systemPrompt} />
-          ))}
+                      {builtInPrompts.map((systemPrompt) => (
+              <SystemPromptCard 
+                key={systemPrompt.id} 
+                systemPrompt={systemPrompt} 
+                onViewEdit={handleViewEditSystemPrompt}
+              />
+            ))}
         </Box>
       </Box>
 
@@ -436,7 +473,7 @@ export default function SystemPromptsPage() {
             />
             <Button
               size="small"
-              onClick={() => setShowUserPrompts(!showUserPrompts)}
+                              onClick={handleToggleUserPrompts}
               startIcon={showUserPrompts ? <ExpandLess /> : <ExpandMore />}
               sx={{ ml: 'auto' }}
             >
@@ -454,9 +491,13 @@ export default function SystemPromptsPage() {
               }, 
               gap: 3 
             }}>
-              {userPrompts.map((systemPrompt) => (
-                <SystemPromptCard key={systemPrompt.id} systemPrompt={systemPrompt} />
-              ))}
+                             {filteredUserPrompts.map((systemPrompt) => (
+                 <SystemPromptCard 
+                   key={systemPrompt.id} 
+                   systemPrompt={systemPrompt} 
+                   onViewEdit={handleViewEditSystemPrompt}
+                 />
+               ))}
             </Box>
           </Collapse>
         </Box>
@@ -509,7 +550,7 @@ export default function SystemPromptsPage() {
       </Menu>
 
       {/* Create System Prompt Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="md" fullWidth>
+              <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth="md" fullWidth>
         <DialogTitle>Create New System Prompt</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
@@ -552,7 +593,7 @@ export default function SystemPromptsPage() {
       </Dialog>
 
       {/* Edit System Prompt Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+              <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} maxWidth="md" fullWidth>
         <DialogTitle>Edit System Prompt</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
@@ -681,4 +722,8 @@ export default function SystemPromptsPage() {
       </Dialog>
     </Box>
   );
-}
+});
+
+SystemPromptsPage.displayName = 'SystemPromptsPage';
+
+export default SystemPromptsPage;

@@ -93,4 +93,29 @@ export const formatTimestamp = (timestamp: Date | string): string => {
     minute: '2-digit',
     second: '2-digit'
   });
+};
+
+/**
+ * Format message content to preserve newlines and basic formatting
+ * This function handles common formatting issues in AI responses
+ */
+export const formatMessageContent = (content: string): string => {
+  if (!content) return '';
+  
+  // Replace multiple consecutive newlines with double newlines for better readability
+  const formatted = content
+    .replace(/\n{3,}/g, '\n\n')
+    // Ensure proper spacing around markdown elements
+    .replace(/\*\*(.*?)\*\*/g, '**$1**') // Bold
+    .replace(/\*(.*?)\*/g, '*$1*')       // Italic
+    .replace(/`(.*?)`/g, '`$1`')         // Inline code
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, '```$1\n$2```') // Code blocks
+    // Handle numbered lists that might be missing proper spacing
+    .replace(/(\d+\.\s)/g, '\n$1')
+    // Handle bullet points
+    .replace(/([-*]\s)/g, '\n$1')
+    // Ensure proper spacing after headers
+    .replace(/(#{1,6}\s.*?)(\n|$)/g, '$1\n\n');
+  
+  return formatted;
 }; 

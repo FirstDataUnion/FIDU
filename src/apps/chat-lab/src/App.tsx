@@ -1,45 +1,54 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress, Alert } from '@mui/material';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { store } from './store';
-import { useDatabase } from './hooks/useDatabase';
-import { useAppSelector, useAppDispatch } from './hooks/redux';
+import { useAppDispatch, useAppSelector } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
 import { getThemeColors } from './utils/themeColors';
-import AuthWrapper from './components/auth/AuthWrapper';
 import { logEnvironmentInfo } from './utils/environment';
-
-// Import pages (we'll create these next)
-import ConversationsPage from './pages/ConversationsPage';
-import MemoriesPage from './pages/MemoriesPage';
-import SettingsPage from './pages/SettingsPage';
 import Layout from './components/common/Layout';
-import TagsPage from './pages/TagsPage';
-import ContextsPage from './pages/ContextsPage';
-import SystemPromptsPage from './pages/SystemPromptsPage';
-import PromptLabPage from './pages/PromptLabPage';
-import PersonasPage from './pages/PersonasPage';
-import EmbellishmentsPage from './pages/EmbellishmentsPage';
+
+// Lazy load page components for code splitting
+const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
+const ContextsPage = React.lazy(() => import('./pages/ContextsPage'));
+const SystemPromptsPage = React.lazy(() => import('./pages/SystemPromptsPage'));
+const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
+const EmbellishmentsPage = React.lazy(() => import('./pages/EmbellishmentsPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+
+// Loading fallback component for lazy-loaded routes
+const PageLoadingFallback: React.FC = () => (
+  <Box 
+    display="flex" 
+    justifyContent="center" 
+    alignItems="center" 
+    height="50vh"
+    flexDirection="column"
+    gap={2}
+  >
+    <CircularProgress size={40} />
+    <Box>Loading page...</Box>
+  </Box>
+);
 
 interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
 
 const AppContent: React.FC<AppContentProps> = () => {
-  const { isInitialized, isLoading, error } = useDatabase();
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
   const { isInitialized: authInitialized, isLoading: authLoading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    // Log environment info for debugging
     logEnvironmentInfo();
     
-    if (isInitialized) {
-      dispatch(fetchSettings());
-      dispatch(initializeAuth());
-    }
-  }, [isInitialized, dispatch]);
+    // Initialize settings and auth
+    dispatch(fetchSettings());
+    dispatch(initializeAuth());
+  }, [dispatch]);
 
   // Create theme based on user settings
   const currentMode = settings.theme === 'auto' 
@@ -99,7 +108,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     },
   });
 
-  if (isLoading || authLoading) {
+  if (authLoading) {
     return (
       <Box 
         display="flex" 
@@ -110,38 +119,23 @@ const AppContent: React.FC<AppContentProps> = () => {
         gap={2}
       >
         <CircularProgress size={60} />
-        <Box>Initializing FIDU Chat Grabber...</Box>
+        <Box>Initializing FIDU Chat Lab...</Box>
       </Box>
     );
   }
 
-  if (error) {
+  if (!authInitialized) {
     return (
       <Box 
         display="flex" 
         justifyContent="center" 
         alignItems="center" 
         height="100vh"
-        p={2}
+        flexDirection="column"
+        gap={2}
       >
-        <Alert severity="error" sx={{ maxWidth: 500 }}>
-          <strong>Failed to initialize database:</strong> {error}
-        </Alert>
-      </Box>
-    );
-  }
-
-  if (!isInitialized) {
-    return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
-        height="100vh"
-      >
-        <Alert severity="warning">
-          Database not initialized. Please refresh the page.
-        </Alert>
+        <CircularProgress size={60} />
+        <Box>Initializing authentication...</Box>
       </Box>
     );
   }
@@ -150,25 +144,19 @@ const AppContent: React.FC<AppContentProps> = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router basename="/fidu-chat-lab">
-        <AuthWrapper />
-        {authInitialized && (
-          <Layout>
+        <Layout>
+          <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
-              <Route path="/" element={<Navigate to="/prompt-lab" replace />} />
+              <Route path="/" element={<PromptLabPage />} />
+              <Route path="/prompt-lab" element={<PromptLabPage />} />
               <Route path="/conversations" element={<ConversationsPage />} />
-              <Route path="/conversations/:id" element={<ConversationsPage />} />
               <Route path="/contexts" element={<ContextsPage />} />
               <Route path="/system-prompts" element={<SystemPromptsPage />} />
-              <Route path="/prompt-lab" element={<PromptLabPage />} />
-              <Route path="/personas" element={<PersonasPage />} />
               <Route path="/embellishments" element={<EmbellishmentsPage />} />
-              <Route path="/memories" element={<MemoriesPage />} />
-              <Route path="/tags" element={<TagsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/prompt-lab" replace />} />
             </Routes>
-          </Layout>
-        )}
+          </Suspense>
+        </Layout>
       </Router>
     </ThemeProvider>
   );

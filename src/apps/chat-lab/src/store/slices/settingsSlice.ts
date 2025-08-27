@@ -1,14 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { UserSettings, SettingsState } from '../../types';
-import { dbService } from '../../services/database';
 
-// Default settings
+// Simplified settings - only theme is needed
 const defaultSettings: UserSettings = {
   id: 'default',
   theme: 'auto',
   language: 'en',
-  autoExtractMemories: true,
-  notificationsEnabled: true,
+  autoExtractMemories: false, // Disabled since memories are removed
+  notificationsEnabled: false, // Disabled since notifications are removed
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
   apiKeys: {
@@ -16,7 +15,7 @@ const defaultSettings: UserSettings = {
   },
   privacySettings: {
     shareAnalytics: false,
-    autoBackup: true,
+    autoBackup: false, // Disabled since local storage is removed
     dataRetentionDays: 365,
   },
   displaySettings: {
@@ -27,24 +26,46 @@ const defaultSettings: UserSettings = {
   },
 };
 
+// Load settings from localStorage
+const loadSettingsFromStorage = (): UserSettings => {
+  try {
+    const stored = localStorage.getItem('fidu-chat-lab-settings');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...defaultSettings, ...parsed };
+    }
+  } catch (error) {
+    console.warn('Failed to load settings from localStorage:', error);
+  }
+  return defaultSettings;
+};
+
+// Save settings to localStorage
+const saveSettingsToStorage = (settings: UserSettings): void => {
+  try {
+    localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Failed to save settings to localStorage:', error);
+  }
+};
+
 export const fetchSettings = createAsyncThunk(
   'settings/fetchSettings',
   async () => {
-    const settings = await dbService.getSettings();
-    return settings || defaultSettings;
+    return loadSettingsFromStorage();
   }
 );
 
 export const saveSettings = createAsyncThunk(
   'settings/saveSettings',
   async (settings: UserSettings) => {
-    await dbService.saveSettings(settings);
+    saveSettingsToStorage(settings);
     return settings;
   }
 );
 
 const initialState: SettingsState = {
-  settings: defaultSettings,
+  settings: loadSettingsFromStorage(),
   loading: false,
   error: null,
 };
@@ -55,33 +76,18 @@ const settingsSlice = createSlice({
   reducers: {
     updateSettingsLocally: (state, action) => {
       state.settings = { ...state.settings, ...action.payload };
+      saveSettingsToStorage(state.settings);
     },
     updateTheme: (state, action) => {
       state.settings.theme = action.payload;
-    },
-    updateLanguage: (state, action) => {
-      state.settings.language = action.payload;
-    },
-    toggleAutoExtractMemories: (state) => {
-      state.settings.autoExtractMemories = !state.settings.autoExtractMemories;
-    },
-    toggleNotifications: (state) => {
-      state.settings.notificationsEnabled = !state.settings.notificationsEnabled;
-    },
-    updatePrivacySettings: (state, action) => {
-      state.settings.privacySettings = { ...state.settings.privacySettings, ...action.payload };
-    },
-    updateDisplaySettings: (state, action) => {
-      state.settings.displaySettings = { ...state.settings.displaySettings, ...action.payload };
-    },
-    updateApiKeys: (state, action) => {
-      state.settings.apiKeys = { ...state.settings.apiKeys, ...action.payload };
+      saveSettingsToStorage(state.settings);
     },
     clearError: (state) => {
       state.error = null;
     },
     resetToDefaults: (state) => {
       state.settings = { ...defaultSettings };
+      saveSettingsToStorage(state.settings);
     },
   },
   extraReducers: (builder) => {
@@ -118,12 +124,6 @@ const settingsSlice = createSlice({
 export const {
   updateSettingsLocally,
   updateTheme,
-  updateLanguage,
-  toggleAutoExtractMemories,
-  toggleNotifications,
-  updatePrivacySettings,
-  updateDisplaySettings,
-  updateApiKeys,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;

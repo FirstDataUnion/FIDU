@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Box,
   Typography,
@@ -44,6 +46,7 @@ import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
 import { promptsApi } from '../services/api/prompts';
+import { formatMessageContent } from '../utils/conversationUtils';
 import type { Conversation, Message, Context, SystemPrompt, Embellishment } from '../types';
 
 // Modal Components
@@ -363,18 +366,18 @@ interface EmbellishmentSelectionModalProps {
 
 function EmbellishmentSelectionModal({ open, onClose, onSelectEmbellishments, selectedEmbellishments, embellishments, loading }: EmbellishmentSelectionModalProps) {
   // Map selected embellishment objects to their IDs
-  const getSelectedIds = (): string[] => {
+  const getSelectedIds = useCallback((): string[] => {
     return embellishments
       .filter((emb: Embellishment) => selectedEmbellishments.some((selected: Embellishment) => selected.id === emb.id))
       .map((emb: Embellishment) => emb.id);
-  };
+  }, [embellishments, selectedEmbellishments]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(getSelectedIds());
 
   // Update selectedIds when selectedEmbellishments changes
   useEffect(() => {
     setSelectedIds(getSelectedIds());
-  }, [selectedEmbellishments]);
+  }, [selectedEmbellishments, getSelectedIds]);
 
   const handleToggleEmbellishment = (embellishmentId: string) => {
     setSelectedIds(prev => 
@@ -1078,9 +1081,64 @@ export default function PromptLabPage() {
                         </Box>
                       )}
                       
-                  <Typography variant="body1">
-                    {message.content}
-        </Typography>
+                  <Box sx={{ 
+                    '& p': { margin: 0, marginBottom: 1 },
+                    '& p:last-child': { marginBottom: 0 },
+                    '& pre': { 
+                      backgroundColor: 'rgba(0,0,0,0.1)', 
+                      padding: 1, 
+                      borderRadius: 1, 
+                      overflow: 'auto',
+                      margin: '8px 0'
+                    },
+                    '& code': { 
+                      backgroundColor: 'rgba(0,0,0,0.1)', 
+                      padding: '2px 4px', 
+                      borderRadius: 1,
+                      fontFamily: 'monospace'
+                    },
+                    '& ul, & ol': { margin: '8px 0', paddingLeft: 2 },
+                    '& li': { margin: '4px 0' },
+                    '& blockquote': { 
+                      borderLeft: '3px solid rgba(255,255,255,0.3)', 
+                      paddingLeft: 1, 
+                      margin: '8px 0',
+                      fontStyle: 'italic'
+                    },
+                    '& h1, & h2, & h3, & h4, & h5, & h6': {
+                      margin: '12px 0 8px 0',
+                      fontWeight: 600,
+                      lineHeight: 1.2
+                    },
+                    '& h1': { fontSize: '1.5em' },
+                    '& h2': { fontSize: '1.3em' },
+                    '& h3': { fontSize: '1.1em' },
+                    '& strong': { fontWeight: 600 },
+                    '& em': { fontStyle: 'italic' },
+                    '& hr': { 
+                      border: 'none', 
+                      borderTop: '1px solid rgba(255,255,255,0.2)', 
+                      margin: '16px 0' 
+                    },
+                    '& table': {
+                      borderCollapse: 'collapse',
+                      width: '100%',
+                      margin: '8px 0'
+                    },
+                    '& th, & td': {
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      padding: '4px 8px',
+                      textAlign: 'left'
+                    },
+                    '& th': {
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                      fontWeight: 600
+                    }
+                  }}>
+                    <Markdown remarkPlugins={[remarkGfm]}>
+                      {formatMessageContent(message.content)}
+                    </Markdown>
+                  </Box>
                 </Paper>
               </Box>
                 );
