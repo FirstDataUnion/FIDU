@@ -7,7 +7,7 @@ const initialState: SearchState = {
   results: [],
   loading: false,
   filters: {
-    types: ['conversation', 'message', 'memory'],
+    types: ['conversation', 'message'],
   },
   suggestions: [],
 };

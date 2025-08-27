@@ -24,10 +24,7 @@ export const fetchConversation = createAsyncThunk(
 export const fetchConversationMessages = createAsyncThunk(
   'conversations/fetchConversationMessages',
   async (conversationId: string) => {
-    console.log('fetchConversationMessages called with conversationId:', conversationId);
-    console.log('Fetching messages from API...');
     const messages = await conversationsApi.getMessages(conversationId);
-    console.log('API messages result:', messages);
     return messages;
   }
 );

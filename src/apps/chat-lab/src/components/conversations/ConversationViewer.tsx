@@ -32,14 +32,7 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
   const navigate = useNavigate();
   const { currentMessages, messagesLoading, error } = useAppSelector((state) => state.conversations);
 
-  // Add debugging
-  console.log('ConversationViewer render:', {
-    conversationId: conversation.id,
-    currentMessages: currentMessages,
-    messagesLoading: messagesLoading,
-    error: error,
-    messageCount: currentMessages.length
-  });
+
 
   const handleContinueConversation = () => {
     // Navigate to prompt lab page with the conversation loaded

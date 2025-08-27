@@ -11,11 +11,12 @@ import {
 } from '@mui/material';
 import {
   Chat as ConversationsIcon,
-  Memory as MemoriesIcon,
-  LocalOffer as TagsIcon,
   Settings as SettingsIcon,
   Dashboard as DashboardIcon,
-  Analytics as AnalyticsIcon
+  Psychology as ContextsIcon,
+  SystemUpdate as SystemPromptsIcon,
+  Science as PromptLabIcon,
+  Palette as EmbellishmentsIcon
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -26,9 +27,10 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { label: 'Conversations', icon: <ConversationsIcon />, path: '/conversations' },
-    { label: 'Memories', icon: <MemoriesIcon />, path: '/memories' },
-    { label: 'Tags', icon: <TagsIcon />, path: '/tags' },
-    { label: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' }
+    { label: 'Contexts', icon: <ContextsIcon />, path: '/contexts' },
+    { label: 'System Prompts', icon: <SystemPromptsIcon />, path: '/system-prompts' },
+    { label: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
+    { label: 'Embellishments', icon: <EmbellishmentsIcon />, path: '/embellishments' }
   ];
 
   const secondaryItems = [
@@ -39,7 +41,7 @@ const Sidebar: React.FC = () => {
     <Box sx={{ width: 240, height: '100vh', borderRight: 1, borderColor: 'divider' }}>
       <Box sx={{ p: 2 }}>
         <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          FIDU Chat Grabber
+          FIDU Chat Lab
         </Typography>
         <Typography variant="caption" color="text.secondary">
           AI Conversation Memory

@@ -3,14 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 
 import conversationsSlice from './slices/conversationsSlice';
-import memoriesSlice from './slices/memoriesSlice';
 import uiSlice from './slices/uiSlice';
 import settingsSlice from './slices/settingsSlice';
-import tagsSlice from './slices/tagsSlice';
 import contextsSlice from './slices/contextsSlice';
 import systemPromptsSlice from './slices/systemPromptsSlice';
 import promptLabSlice from './slices/promptLabSlice';
-import personasSlice from './slices/personasSlice';
 import searchSlice from './slices/searchSlice';
 import authSlice from './slices/authSlice';
 import embellishmentsSlice from './slices/embellishmentsSlice';
@@ -18,14 +15,11 @@ import embellishmentsSlice from './slices/embellishmentsSlice';
 export const store = configureStore({
   reducer: {
     conversations: conversationsSlice,
-    memories: memoriesSlice,
     ui: uiSlice,
     settings: settingsSlice,
-    tags: tagsSlice,
     contexts: contextsSlice,
     systemPrompts: systemPromptsSlice,
     promptLab: promptLabSlice,
-    personas: personasSlice,
     search: searchSlice,
     auth: authSlice,
     embellishments: embellishmentsSlice,
