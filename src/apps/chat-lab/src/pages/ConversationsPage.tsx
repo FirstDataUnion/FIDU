@@ -1,52 +1,36 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
-  Card, 
-  CardContent, 
-  Chip, 
   CircularProgress, 
   Alert,
   Button,
   Stack,
   TextField,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  FormControlLabel,
   Paper,
   IconButton,
   Badge,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Autocomplete,
-
 } from '@mui/material';
 import { 
   Chat as ChatIcon,
-  Favorite as FavoriteIcon,
-  Archive as ArchiveIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
   Add as AddIcon,
-  ContentCopy as CopyIcon,
-  GetApp as ExportIcon,
-  Check as CheckIcon,
   Close as CloseIcon,
-  Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation, ConversationsState } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
-import { getPlatformColor, formatDate, getTagColor } from '../utils/conversationUtils';
+import ConversationCard from '../components/conversations/ConversationCard';
+import ConversationFilters from '../components/conversations/ConversationFilters';
+import ContextBuilder from '../components/conversations/ContextBuilder';
+import TagManager from '../components/conversations/TagManager';
+import AddToContextDialog from '../components/conversations/AddToContextDialog';
+import { useConversationFilters } from '../hooks/useConversationFilters';
 
 const ConversationsPage: React.FC = React.memo(() => {
   const dispatch = useAppDispatch();
@@ -82,110 +66,98 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
-  // Memoized expensive calculations
-  const allTags = useMemo(() => 
-    [...new Set(conversations.flatMap((c: Conversation) => c.tags))], 
-    [conversations]
-  );
-  
-  const allPlatforms = useMemo(() => 
-    [...new Set(conversations.map((c: Conversation) => c.platform))], 
-    [conversations]
-  );
-
-  // Memoized filtered conversations
-  const filteredConversations = useMemo(() => {
-    return conversations.filter((conversation: Conversation) => {
-      // Search query filter
-      if (searchQuery) {
-        const searchLower = searchQuery.toLowerCase();
-        const matchesTitle = conversation.title.toLowerCase().includes(searchLower);
-        const matchesContent = conversation.lastMessage?.toLowerCase().includes(searchLower);
-        const matchesTags = conversation.tags.some((tag: string) => tag.toLowerCase().includes(searchLower));
-        if (!matchesTitle && !matchesContent && !matchesTags) return false;
-      }
-      
-      // Platform filter
-      if (selectedPlatforms.length > 0 && !selectedPlatforms.includes(conversation.platform)) {
-        return false;
-      }
-      
-      // Tags filter
-      if (selectedTags.length > 0 && !selectedTags.some((tag: string) => conversation.tags.includes(tag))) {
-        return false;
-      }
-      
-      // Archived filter
-      if (!showArchived && conversation.isArchived) {
-        return false;
-      }
-      
-      return true;
-    });
-  }, [conversations, searchQuery, selectedPlatforms, selectedTags, showArchived]);
-
-  // Memoized sorted conversations
-  const sortedConversations = useMemo(() => {
-    return [...filteredConversations].sort((a: Conversation, b: Conversation) => {
-      const aVal = a[sortBy as keyof Conversation] as any;
-      const bVal = b[sortBy as keyof Conversation] as any;
-      const multiplier = sortOrder === 'desc' ? -1 : 1;
-      
-      if (aVal < bVal) return -1 * multiplier;
-      if (aVal > bVal) return 1 * multiplier;
-      return 0;
-    });
-  }, [filteredConversations, sortBy, sortOrder]);
+  // Use custom hook for optimized filtering
+  const { allTags, allPlatforms, sortedConversations } = useConversationFilters({
+    conversations,
+    searchQuery,
+    selectedPlatforms,
+    selectedTags,
+    showArchived,
+    sortBy,
+    sortOrder,
+  });
 
   useEffect(() => {
-    dispatch(fetchConversations({ 
-      filters: {
-        sortBy: 'updatedAt',
-        sortOrder: 'desc'
-      },
-      page: 1,
-      limit: 20
-    }));
-    if (currentProfile?.id) {
-      dispatch(fetchContexts(currentProfile.id));
-    }
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      if (isMounted) {
+        await dispatch(fetchConversations({ 
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc'
+          },
+          page: 1,
+          limit: 20
+        }));
+        
+        if (currentProfile?.id && isMounted) {
+          await dispatch(fetchContexts(currentProfile.id));
+        }
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [dispatch, isAuthenticated, currentProfile]);
 
   // Memoized event handlers
   const handleRefresh = useCallback(() => {
-    dispatch(fetchConversations({ 
-      filters: {
-        sortBy: 'updatedAt',
-        sortOrder: 'desc'
-      },
-      page: 1,
-      limit: 20
-    }));
+    try {
+      dispatch(fetchConversations({ 
+        filters: {
+          sortBy: 'updatedAt',
+          sortOrder: 'desc'
+        },
+        page: 1,
+        limit: 20
+      }));
+    } catch (error) {
+      console.error('Error refreshing conversations:', error);
+      // Add user-friendly error handling here
+    }
   }, [dispatch]);
 
   // Handle conversation selection for viewing
   const handleConversationSelect = useCallback((conversation: Conversation) => {
-    console.log('Selecting conversation:', conversation.id);
-    dispatch(fetchConversationMessages(conversation.id));
-    setSelectedConversation(conversation);
+    try {
+      dispatch(fetchConversationMessages(conversation.id));
+      setSelectedConversation(conversation);
+    } catch (error) {
+      console.error('Error selecting conversation:', error);
+      // Add user-friendly error handling here
+    }
   }, [dispatch]);
 
   const buildContextPreview = useCallback(() => {
-    const selectedConversations = sortedConversations.filter((c: Conversation) => selectedForContext.includes(c.id));
-    const context = selectedConversations.map((c: Conversation) => 
-      `## ${c.title} (${c.platform})\n${c.lastMessage || 'No content preview available'}\n`
-    ).join('\n');
-    
-    setContextPreview(context);
-    setEstimatedTokens(Math.ceil(context.length / 4)); // Rough token estimation
-    setShowContextBuilder(true);
+    try {
+      const selectedConversations = sortedConversations.filter((c: Conversation) => selectedForContext.includes(c.id));
+      const context = selectedConversations.map((c: Conversation) => 
+        `## ${c.title} (${c.platform})\n${c.lastMessage || 'No content preview available'}\n`
+      ).join('\n');
+      
+      setContextPreview(context);
+      setEstimatedTokens(Math.ceil(context.length / 4)); // Rough token estimation
+      setShowContextBuilder(true);
+    } catch (error) {
+      console.error('Error building context preview:', error);
+      // Add user-friendly error handling here
+    }
   }, [sortedConversations, selectedForContext]);
 
   const handleAddToContext = useCallback(async (conversation: Conversation) => {
-    setSelectedConversationForContext(conversation);
-    setSelectedContextId('');
-    setNewContextTitle(`${conversation.title} Context`);
-    setShowAddToContextDialog(true);
+    try {
+      setSelectedConversationForContext(conversation);
+      setSelectedContextId('');
+      setNewContextTitle(`${conversation.title} Context`);
+      setShowAddToContextDialog(true);
+    } catch (error) {
+      console.error('Error opening add to context dialog:', error);
+      // Add user-friendly error handling here
+    }
   }, []);
 
   const handleAddToContextSubmit = useCallback(async () => {
@@ -242,6 +214,8 @@ const ConversationsPage: React.FC = React.memo(() => {
       
     } catch (error) {
       console.error('Error adding conversation to context:', error);
+      // Add user-friendly error handling here
+      // You could dispatch an error action or show a snackbar
     } finally {
       setIsAddingToContext(false);
     }
@@ -250,139 +224,42 @@ const ConversationsPage: React.FC = React.memo(() => {
   const exportContext = useCallback((format: 'clipboard' | 'json' | 'markdown') => {
     const selectedConversations = sortedConversations.filter((c: Conversation) => selectedForContext.includes(c.id));
     
-    switch (format) {
-      case 'clipboard':
-        navigator.clipboard.writeText(contextPreview);
-        break;
-      case 'json': {
-        const jsonData = JSON.stringify(selectedConversations, null, 2);
-        const jsonBlob = new Blob([jsonData], { type: 'application/json' });
-        const jsonUrl = URL.createObjectURL(jsonBlob);
-        const jsonLink = document.createElement('a');
-        jsonLink.href = jsonUrl;
-        jsonLink.download = 'chat-lab-context.json';
-        jsonLink.click();
-        break;
+    try {
+      switch (format) {
+        case 'clipboard':
+          navigator.clipboard.writeText(contextPreview);
+          break;
+        case 'json': {
+          const jsonData = JSON.stringify(selectedConversations, null, 2);
+          const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+          const jsonUrl = URL.createObjectURL(jsonBlob);
+          const jsonLink = document.createElement('a');
+          jsonLink.href = jsonUrl;
+          jsonLink.download = 'chat-lab-context.json';
+          jsonLink.click();
+          // Clean up the URL object to prevent memory leaks
+          setTimeout(() => URL.revokeObjectURL(jsonUrl), 100);
+          break;
+        }
+        case 'markdown': {
+          const mdBlob = new Blob([contextPreview], { type: 'text/markdown' });
+          const mdUrl = URL.createObjectURL(mdBlob);
+          const mdLink = document.createElement('a');
+          mdLink.href = mdUrl;
+          mdLink.download = 'chat-lab-context.md';
+          mdLink.click();
+          // Clean up the URL object to prevent memory leaks
+          setTimeout(() => URL.revokeObjectURL(mdUrl), 100);
+          break;
+        }
       }
-      case 'markdown': {
-        const mdBlob = new Blob([contextPreview], { type: 'text/markdown' });
-        const mdUrl = URL.createObjectURL(mdBlob);
-        const mdLink = document.createElement('a');
-        mdLink.href = mdUrl;
-        mdLink.download = 'chat-lab-context.md';
-        mdLink.click();
-        break;
-      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Add user-friendly error handling here
     }
   }, [sortedConversations, selectedForContext, contextPreview]);
 
-  const ConversationCard: React.FC<{ conversation: Conversation }> = React.memo(({ conversation }) => {
-    const isSelectedForContext = selectedForContext.includes(conversation.id);
-    const isCurrentlyViewing = selectedConversation?.id === conversation.id;
-    
-    return (
-      <Card 
-        sx={{ 
-          height: '100%', 
-          cursor: 'pointer',
-          border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
-          borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
-          backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
-          maxWidth: '100%', // Ensure card doesn't exceed container width
-          '&:hover': { 
-            boxShadow: 3,
-            transform: 'translateY(-2px)',
-            transition: 'all 0.2s ease-in-out'
-          }
-        }}
-        onClick={() => handleConversationSelect(conversation)}
-      >
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-            <Typography variant="h6" component="h3" sx={{ 
-              flex: 1, 
-              mr: 1,
-              maxWidth: '70%', // Limit title width
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {conversation.title}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
-              {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
-              {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
-              {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
-              {conversation.isArchived && <ArchiveIcon color="action" fontSize="small" />}
-              <IconButton 
-                size="small" 
-                onClick={(e) => handleTagManagement(conversation, e)}
-                title="Manage Tags"
-              >
-                <TagIcon fontSize="small" />
-              </IconButton>
 
-            </Box>
-          </Box>
-
-          <Box sx={{ mb: 2 }}>
-            <Chip
-              label={conversation.platform.toUpperCase()}
-              size="small"
-              sx={{ 
-                backgroundColor: getPlatformColor(conversation.platform),
-                color: 'white',
-                fontWeight: 'bold',
-                mr: 1
-              }}
-            />
-            <Chip
-              label={`${conversation.messageCount} messages`}
-              size="small"
-              variant="outlined"
-            />
-          </Box>
-
-          {conversation.lastMessage && (
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                mb: 2,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical'
-              }}
-            >
-              {conversation.lastMessage}
-            </Typography>
-          )}
-
-          <Box sx={{ mb: 2 }}>
-            {conversation.tags.map((tag: string) => (
-              <Chip
-                key={tag}
-                label={tag}
-                size="small"
-                sx={{ 
-                  mr: 0.5, 
-                  mb: 0.5,
-                  backgroundColor: getTagColor(tag),
-                  color: 'white'
-                }}
-              />
-            ))}
-          </Box>
-
-          <Typography variant="caption" color="text.secondary">
-            Updated: {formatDate(new Date(conversation.updatedAt))}
-          </Typography>
-        </CardContent>
-      </Card>
-    );
-  });
 
   // Open tag management dialog
   const handleTagManagement = useCallback((conversation: Conversation, event: React.MouseEvent) => {
@@ -390,18 +267,35 @@ const ConversationsPage: React.FC = React.memo(() => {
     setSelectedConversation(conversation);
     setEditedTags([...conversation.tags]);
     setShowTagDialog(true);
+    
+    // Focus management - focus the first input in the dialog when it opens
+    setTimeout(() => {
+      const firstInput = document.querySelector('[role="dialog"] input');
+      if (firstInput instanceof HTMLElement) {
+        firstInput.focus();
+      }
+    }, 100);
   }, []);
 
   // Save tag changes
   const handleSaveTags = useCallback(() => {
     if (selectedConversation) {
-      // Here you would dispatch an action to update the conversation tags
-      console.log('Updating conversation tags:', {
-        conversationId: selectedConversation.id,
-        newTags: editedTags
-      });
-      // For now, we'll just update locally
-      // dispatch(updateConversationTags({ id: selectedConversation.id, tags: editedTags }));
+      try {
+        // Here you would dispatch an action to update the conversation tags
+        console.log('Updating conversation tags:', {
+          conversationId: selectedConversation.id,
+          newTags: editedTags
+        });
+        // For now, we'll just update locally
+        // dispatch(updateConversationTags({ id: selectedConversation.id, tags: editedTags }));
+        
+        // Add success handling here
+        // You could dispatch a success action or show a snackbar
+      } catch (error) {
+        console.error('Error updating tags:', error);
+        // Add error handling here
+        // You could dispatch an error action or show a snackbar
+      }
     }
     setShowTagDialog(false);
     setSelectedConversation(null);
@@ -442,7 +336,7 @@ const ConversationsPage: React.FC = React.memo(() => {
       flexDirection: 'column'
     }}>
       {/* Header with Search and Actions */}
-      <Box sx={{ mb: 3, flexShrink: 0 }}>
+      <Box sx={{ mb: 3, flexShrink: 0 }} component="header">
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -462,7 +356,21 @@ const ConversationsPage: React.FC = React.memo(() => {
             <TextField
               placeholder="Search conversations, content, or tags..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Sanitize input to prevent XSS
+                const sanitizedValue = value.replace(/[<>]/g, '');
+                setSearchQuery(sanitizedValue);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  // Trigger search or focus next element
+                }
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                }
+              }}
               sx={{ minWidth: 300, flex: 1, maxWidth: 600 }}
               InputProps={{
                 startAdornment: (
@@ -472,7 +380,10 @@ const ConversationsPage: React.FC = React.memo(() => {
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShowFilters(!showFilters)}>
+                    <IconButton 
+                      onClick={() => setShowFilters(!showFilters)}
+                      aria-label="Toggle filters"
+                    >
                       <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
                         <FilterIcon />
                       </Badge>
@@ -497,6 +408,7 @@ const ConversationsPage: React.FC = React.memo(() => {
               variant="outlined"
               onClick={handleRefresh}
               startIcon={<RefreshIcon />}
+              aria-label="Refresh conversations"
               sx={{ 
                 flexShrink: 0,
                 color: 'primary.dark',
@@ -516,106 +428,47 @@ const ConversationsPage: React.FC = React.memo(() => {
                 onClick={buildContextPreview}
                 startIcon={<AddIcon />}
                 sx={{ flexShrink: 0 }}
+                aria-label={`Build context with ${selectedForContext.length} selected conversations`}
               >
                 Build Context ({selectedForContext.length})
-              </Button>
+            </Button>
             )}
           </Stack>
         </Box>
 
         {/* Filters Panel */}
-        {showFilters && (
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: { 
-                xs: '1fr', 
-                md: 'repeat(5, 1fr)' 
-              }, 
-              gap: 2 
-            }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Platforms</InputLabel>
-                <Select
-                  multiple
-                  value={selectedPlatforms}
-                  onChange={(e) => setSelectedPlatforms(e.target.value as string[])}
-                  renderValue={(selected) => selected.join(', ')}
-                >
-                  {allPlatforms.map((platform) => (
-                    <MenuItem key={platform} value={platform}>
-                      <Checkbox checked={selectedPlatforms.includes(platform)} />
-                      {platform.toUpperCase()}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel>Tags</InputLabel>
-                <Select
-                  multiple
-                  value={selectedTags}
-                  onChange={(e) => setSelectedTags(e.target.value as string[])}
-                  renderValue={(selected) => selected.join(', ')}
-                >
-                  {allTags.map((tag) => (
-                    <MenuItem key={tag} value={tag}>
-                      <Checkbox checked={selectedTags.includes(tag)} />
-                      {tag}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel>Sort By</InputLabel>
-                <Select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <MenuItem value="updatedAt">Last Updated</MenuItem>
-                  <MenuItem value="createdAt">Created Date</MenuItem>
-                  <MenuItem value="title">Title</MenuItem>
-                  <MenuItem value="messageCount">Message Count</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel>Order</InputLabel>
-                <Select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                >
-                  <MenuItem value="desc">Descending</MenuItem>
-                  <MenuItem value="asc">Ascending</MenuItem>
-                </Select>
-              </FormControl>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <FormControl>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={showArchived}
-                        onChange={(e) => setShowArchived(e.target.checked)}
-                      />
-                    }
-                    label="Show Archived"
-                  />
-                </FormControl>
-              </Box>
-            </Box>
-          </Paper>
-        )}
+        <ConversationFilters
+          showFilters={showFilters}
+          selectedPlatforms={selectedPlatforms}
+          selectedTags={selectedTags}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          showArchived={showArchived}
+          allPlatforms={allPlatforms}
+          allTags={allTags}
+          onPlatformsChange={setSelectedPlatforms}
+          onTagsChange={setSelectedTags}
+          onSortByChange={setSortBy}
+          onSortOrderChange={setSortOrder}
+          onShowArchivedChange={setShowArchived}
+        />
       </Box>
 
       {/* Context Selection Info */}
       {selectedForContext.length > 0 && (
-        <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.50', flexShrink: 0 }}>
+        <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.50', flexShrink: 0 }} component="section" aria-label="Context selection status">
           <Typography variant="body2" color="primary">
             <strong>{selectedForContext.length} conversations selected for context building</strong>
             <Button 
               size="small" 
-              onClick={() => setSelectedForContext([])}
+              onClick={() => {
+                setSelectedForContext([]);
+                setContextPreview('');
+                setEstimatedTokens(0);
+              }}
               startIcon={<CloseIcon />}
               sx={{ ml: 2 }}
+              aria-label="Clear selected conversations"
             >
               Clear Selection
             </Button>
@@ -632,7 +485,7 @@ const ConversationsPage: React.FC = React.memo(() => {
         maxWidth: '100%', // Ensure we don't exceed viewport width
         overflow: 'hidden', // Prevent horizontal scrolling
         flexDirection: { xs: 'column', md: 'row' } // Stack vertically on small screens
-      }}>
+      }} component="main">
         {/* Left Panel - Conversations List */}
         <Paper sx={{ 
           flex: selectedConversation ? '0 0 min(400px, 40%)' : '1 1 auto', 
@@ -644,9 +497,9 @@ const ConversationsPage: React.FC = React.memo(() => {
           height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' }, // Responsive height
           minHeight: 0, // Ensure flex child can shrink properly
           maxHeight: '100%' // Prevent exceeding parent height
-        }}>
+        }} component="section" aria-label="Conversations list">
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="h6">
+            <Typography variant="h6" component="h2">
               Conversations
             </Typography>
           </Box>
@@ -692,12 +545,16 @@ const ConversationsPage: React.FC = React.memo(() => {
                         setSearchQuery('');
                         setSelectedPlatforms([]);
                         setSelectedTags([]);
+                        setShowArchived(false);
+                        setSortBy('updatedAt');
+                        setSortOrder('desc');
                       }}
+                      aria-label="Clear all filters"
                     >
                       Clear Filters
                     </Button>
                   )}
-                  <Button variant="outlined" href="/settings">
+                  <Button variant="outlined" href="/settings" aria-label="Go to settings">
                     Load Sample Data
                   </Button>
                 </Stack>
@@ -709,7 +566,14 @@ const ConversationsPage: React.FC = React.memo(() => {
                 gap: 2 
               }}>
                 {sortedConversations.map((conversation: Conversation) => (
-                  <ConversationCard key={conversation.id} conversation={conversation} />
+                  <ConversationCard 
+                    key={conversation.id} 
+                    conversation={conversation}
+                    isSelectedForContext={selectedForContext.includes(conversation.id)}
+                    isCurrentlyViewing={selectedConversation?.id === conversation.id}
+                    onSelect={handleConversationSelect}
+                    onTagManagement={handleTagManagement}
+                  />
                 ))}
               </Box>
             )}
@@ -725,9 +589,9 @@ const ConversationsPage: React.FC = React.memo(() => {
             overflow: 'hidden',
             minWidth: 0, // Allow flex item to shrink below content size
             height: { xs: '60%', md: 'auto' } // Responsive height
-          }}>
+          }} component="section" aria-label="Conversation viewer">
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">
+              <Typography variant="h6" component="h3">
                 Conversation Details
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -736,6 +600,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                   size="small"
                   onClick={() => handleAddToContext(selectedConversation)}
                   startIcon={<AddIcon />}
+                  aria-label="Add this conversation to a context"
                   sx={{ 
                     backgroundColor: 'background.paper',
                     borderColor: 'primary.dark',
@@ -750,8 +615,12 @@ const ConversationsPage: React.FC = React.memo(() => {
                   Add to Context
                 </Button>
                 <IconButton 
-                  onClick={() => setSelectedConversation(null)}
+                  onClick={() => {
+                    setSelectedConversation(null);
+                    // Clear any related state when closing conversation view
+                  }}
                   title="Close conversation view"
+                  aria-label="Close conversation view"
                 >
                   <CloseIcon />
                 </IconButton>
@@ -773,7 +642,7 @@ const ConversationsPage: React.FC = React.memo(() => {
             justifyContent: 'center',
             bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
             minWidth: 0 // Allow flex item to shrink below content size
-          }}>
+          }} component="section" aria-label="No conversation selected">
             <Box sx={{ textAlign: 'center', p: 4 }}>
               <ChatIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h5" gutterBottom color="text.secondary">
@@ -788,178 +657,53 @@ const ConversationsPage: React.FC = React.memo(() => {
       </Box>
 
       {/* Context Builder Dialog */}
-      <Dialog 
-        open={showContextBuilder} 
-        onClose={() => setShowContextBuilder(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Context Builder
-          <Typography variant="body2" color="text.secondary">
-            {selectedForContext.length} conversations • ~{estimatedTokens} tokens
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            multiline
-            fullWidth
-            rows={12}
-            value={contextPreview}
-            onChange={(e) => setContextPreview(e.target.value)}
-            variant="outlined"
-            placeholder="Your context will appear here..."
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowContextBuilder(false)} sx={{ color: 'primary.dark' }}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => exportContext('clipboard')}
-            startIcon={<CopyIcon />}
-          >
-            Copy to Clipboard
-          </Button>
-          <Button 
-            onClick={() => exportContext('markdown')}
-            startIcon={<ExportIcon />}
-          >
-            Export Markdown
-          </Button>
-          <Button 
-            onClick={() => exportContext('json')}
-            startIcon={<ExportIcon />}
-          >
-            Export JSON
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <ContextBuilder
+          open={showContextBuilder}
+          onClose={() => {
+            setShowContextBuilder(false);
+            setContextPreview('');
+            setEstimatedTokens(0);
+          }}
+          contextPreview={contextPreview}
+          estimatedTokens={estimatedTokens}
+          selectedCount={selectedForContext.length}
+          onExport={exportContext}
+          onContextPreviewChange={setContextPreview}
+        />
 
       {/* Add to Context Dialog */}
-      <Dialog
+      <AddToContextDialog
         open={showAddToContextDialog}
-        onClose={() => setShowAddToContextDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Add Conversation to Context
-          <Typography variant="body2" color="text.secondary">
-            {selectedConversationForContext?.title}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Select a context to add this conversation to, or create a new one:
-            </Typography>
-            
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Select Context</InputLabel>
-              <Select
-                value={selectedContextId}
-                label="Select Context"
-                onChange={(e) => setSelectedContextId(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>Create New Context</em>
-                </MenuItem>
-                {contexts.map((context) => (
-                  <MenuItem key={context.id} value={context.id}>
-                    {context.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            {selectedContextId && (
-              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Selected Context:
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {contexts.find(c => c.id === selectedContextId)?.body || 'No description available'}
-                </Typography>
-              </Box>
-            )}
-            
-            {!selectedContextId && (
-              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  New Context:
-                </Typography>
-                <TextField
-                  fullWidth
-                  label="Context Title"
-                  value={newContextTitle}
-                  onChange={(e) => setNewContextTitle(e.target.value)}
-                  placeholder="Enter context title"
-                  sx={{ mb: 2 }}
-                />
-                <Typography variant="body2" color="text.secondary">
-                  A new context will be created with the title above
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
-            setShowAddToContextDialog(false);
-            setSelectedConversationForContext(null);
-            setSelectedContextId('');
-            setNewContextTitle('');
-          }} sx={{ color: 'primary.dark' }}>
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleAddToContextSubmit}
-            disabled={isAddingToContext}
-          >
-            {isAddingToContext ? 'Adding...' : 'Add to Context'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => {
+          setShowAddToContextDialog(false);
+          setSelectedConversationForContext(null);
+          setSelectedContextId('');
+          setNewContextTitle('');
+          setIsAddingToContext(false);
+        }}
+        selectedConversation={selectedConversationForContext}
+        selectedContextId={selectedContextId}
+        newContextTitle={newContextTitle}
+        contexts={contexts}
+        isAdding={isAddingToContext}
+        onContextIdChange={setSelectedContextId}
+        onNewContextTitleChange={setNewContextTitle}
+        onSubmit={handleAddToContextSubmit}
+      />
 
       {/* Tag Management Dialog */}
-      <Dialog
+      <TagManager
         open={showTagDialog}
-        onClose={() => setShowTagDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Manage Tags
-        </DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            multiple
-            value={editedTags}
-            onChange={(_, newValue) => {
-              setEditedTags(newValue);
-            }}
-            options={allTags}
-            getOptionLabel={(option) => option}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Tags"
-                placeholder="Add tags"
-              />
-            )}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowTagDialog(false)} sx={{ color: 'primary.dark' }}>
-            Cancel
-          </Button>
-          <Button onClick={handleSaveTags}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => {
+          setShowTagDialog(false);
+          setSelectedConversation(null);
+          setEditedTags([]);
+        }}
+        editedTags={editedTags}
+        allTags={allTags}
+        onTagsChange={setEditedTags}
+        onSave={handleSaveTags}
+      />
     </Box>
   );
 });
