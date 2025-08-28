@@ -161,7 +161,7 @@ const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
-
+  
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserPrompts, setShowUserPrompts] = useState(true);
@@ -448,13 +448,13 @@ const SystemPromptsPage = React.memo(() => {
           }, 
           gap: 3 
         }}>
-                      {builtInPrompts.map((systemPrompt) => (
+          {builtInPrompts.map((systemPrompt) => (
               <SystemPromptCard 
                 key={systemPrompt.id} 
                 systemPrompt={systemPrompt} 
                 onViewEdit={handleViewEditSystemPrompt}
               />
-            ))}
+          ))}
         </Box>
       </Box>
 
@@ -497,7 +497,7 @@ const SystemPromptsPage = React.memo(() => {
                    systemPrompt={systemPrompt} 
                    onViewEdit={handleViewEditSystemPrompt}
                  />
-               ))}
+              ))}
             </Box>
           </Collapse>
         </Box>
