@@ -36,7 +36,7 @@ export default function ContextsPage() {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
-
+  
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -46,20 +46,20 @@ export default function ContextsPage() {
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
   const [conversationSelectionDialogOpen, setConversationSelectionDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
+  
   // Form states
   const [contextForm, setContextForm] = useState<ContextFormData>({
     title: '',
     body: '',
     tags: []
   });
-
+  
   // View/Edit form state
   const [viewEditForm, setViewEditForm] = useState<ViewEditFormData>({
     title: '',
     body: ''
   });
-
+  
   // Loading states
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -77,14 +77,14 @@ export default function ContextsPage() {
     
     if (!searchQuery) return contexts;
     
-    const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase();
     return contexts.filter(context => {
       return (
         context.title.toLowerCase().includes(query) ||
         context.body.toLowerCase().includes(query) ||
         context.tags.some(tag => tag.toLowerCase().includes(query))
       );
-    });
+  });
   }, [contexts, searchQuery]);
 
   const handleContextMenuClose = useCallback(() => {
@@ -264,99 +264,99 @@ export default function ContextsPage() {
         p: 3,
         minHeight: 0 // Ensure flex child can shrink properly
       }}>
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-              Contexts
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage your conversation contexts, references, and knowledge bases
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateContext}
-            sx={{ borderRadius: 2 }}
-          >
-            Add Context
-          </Button>
+      {/* Header */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
+            Contexts
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage your conversation contexts, references, and knowledge bases
+          </Typography>
         </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateContext}
+          sx={{ borderRadius: 2 }}
+        >
+          Add Context
+        </Button>
+      </Box>
 
-        {/* Search and Filter Bar */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Stack spacing={2}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-              <Box sx={{ flexGrow: 1, width: { xs: '100%', md: 'auto' } }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search contexts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
-            </Stack>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                {/* Layout changing buttons removed - functionality not implemented */}
-              </Box>
+      {/* Search and Filter Bar */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+            <Box sx={{ flexGrow: 1, width: { xs: '100%', md: 'auto' } }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search contexts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
             </Box>
           </Stack>
-        </Paper>
-
-        {/* Context Grid */}
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {/* Layout changing buttons removed - functionality not implemented */}
+            </Box>
           </Box>
-        ) : error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        ) : (
-          <Box sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: { 
-              xs: '1fr', 
-              sm: 'repeat(2, 1fr)', 
-              lg: 'repeat(3, 1fr)' 
-            }, 
-            gap: 3 
-          }}>
-            {filteredContexts.map((context) => (
+        </Stack>
+      </Paper>
+
+      {/* Context Grid */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : (
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { 
+            xs: '1fr', 
+            sm: 'repeat(2, 1fr)', 
+            lg: 'repeat(3, 1fr)' 
+          }, 
+          gap: 3 
+        }}>
+          {filteredContexts.map((context) => (
               <ContextCard 
                 key={context.id} 
                 context={context} 
                 onViewEdit={handleViewEditContext}
               />
-            ))}
-          </Box>
-        )}
+          ))}
+        </Box>
+      )}
 
-        {/* Empty State */}
-        {filteredContexts.length === 0 && !loading && (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <FolderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              No contexts found
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
-            </Typography>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
-              Create Context
-            </Button>
-          </Box>
-        )}
+      {/* Empty State */}
+      {filteredContexts.length === 0 && !loading && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <FolderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            No contexts found
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
+          </Typography>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
+            Create Context
+          </Button>
+        </Box>
+      )}
       </Box>
 
       {/* Context Menu */}
@@ -519,13 +519,13 @@ export default function ContextsPage() {
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button onClick={() => setViewEditDialogOpen(false)} sx={{ color: 'primary.dark' }}>Close</Button>
             {!selectedContext?.isBuiltIn && (
-              <Button 
-                variant="contained" 
-                onClick={handleViewEditSubmit}
-                disabled={isViewEditing || !viewEditForm.title.trim() || !viewEditForm.body.trim()}
-              >
-                {isViewEditing ? 'Saving...' : 'Save Changes'}
-              </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleViewEditSubmit}
+            disabled={isViewEditing || !viewEditForm.title.trim() || !viewEditForm.body.trim()}
+          >
+            {isViewEditing ? 'Saving...' : 'Save Changes'}
+          </Button>
             )}
           </Box>
         </DialogActions>

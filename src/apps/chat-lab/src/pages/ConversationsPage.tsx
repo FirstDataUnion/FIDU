@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -23,7 +23,9 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Autocomplete,
+
 } from '@mui/material';
 import { 
   Chat as ChatIcon,
@@ -34,27 +36,30 @@ import {
   FilterList as FilterIcon,
   Add as AddIcon,
   ContentCopy as CopyIcon,
-  GetApp as GetAppIcon,
+  GetApp as ExportIcon,
+  Check as CheckIcon,
   Close as CloseIcon,
-  Sort as SortIcon
+  Tag as TagIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation, ConversationsState } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
-import { getPlatformColor, formatDate } from '../utils/conversationUtils';
+import { getPlatformColor, formatDate, getTagColor } from '../utils/conversationUtils';
 
-const ConversationsPage: React.FC = () => {
+const ConversationsPage: React.FC = React.memo(() => {
   const dispatch = useAppDispatch();
   const { items: conversations = [], loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
   const { items: contexts } = useAppSelector((state) => state.contexts);
+
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showArchived, setShowArchived] = useState(false);
@@ -72,8 +77,65 @@ const ConversationsPage: React.FC = () => {
   const [newContextTitle, setNewContextTitle] = useState<string>('');
   const [isAddingToContext, setIsAddingToContext] = useState(false);
 
-  // Conversation Selection State
+  // Tag Management State
+  const [showTagDialog, setShowTagDialog] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [editedTags, setEditedTags] = useState<string[]>([]);
+
+  // Memoized expensive calculations
+  const allTags = useMemo(() => 
+    [...new Set(conversations.flatMap((c: Conversation) => c.tags))], 
+    [conversations]
+  );
+  
+  const allPlatforms = useMemo(() => 
+    [...new Set(conversations.map((c: Conversation) => c.platform))], 
+    [conversations]
+  );
+
+  // Memoized filtered conversations
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conversation: Conversation) => {
+      // Search query filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesTitle = conversation.title.toLowerCase().includes(searchLower);
+        const matchesContent = conversation.lastMessage?.toLowerCase().includes(searchLower);
+        const matchesTags = conversation.tags.some((tag: string) => tag.toLowerCase().includes(searchLower));
+        if (!matchesTitle && !matchesContent && !matchesTags) return false;
+      }
+      
+      // Platform filter
+      if (selectedPlatforms.length > 0 && !selectedPlatforms.includes(conversation.platform)) {
+        return false;
+      }
+      
+      // Tags filter
+      if (selectedTags.length > 0 && !selectedTags.some((tag: string) => conversation.tags.includes(tag))) {
+        return false;
+      }
+      
+      // Archived filter
+      if (!showArchived && conversation.isArchived) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [conversations, searchQuery, selectedPlatforms, selectedTags, showArchived]);
+
+  // Memoized sorted conversations
+  const sortedConversations = useMemo(() => {
+    return [...filteredConversations].sort((a: Conversation, b: Conversation) => {
+      const aVal = a[sortBy as keyof Conversation] as any;
+      const bVal = b[sortBy as keyof Conversation] as any;
+      const multiplier = sortOrder === 'desc' ? -1 : 1;
+      
+      if (aVal < bVal) return -1 * multiplier;
+      if (aVal > bVal) return 1 * multiplier;
+      return 0;
+    });
+  }, [filteredConversations, sortBy, sortOrder]);
 
   useEffect(() => {
     dispatch(fetchConversations({ 
@@ -84,13 +146,13 @@ const ConversationsPage: React.FC = () => {
       page: 1,
       limit: 20
     }));
-
     if (currentProfile?.id) {
       dispatch(fetchContexts(currentProfile.id));
     }
   }, [dispatch, isAuthenticated, currentProfile]);
 
-  const handleRefresh = () => {
+  // Memoized event handlers
+  const handleRefresh = useCallback(() => {
     dispatch(fetchConversations({ 
       filters: {
         sortBy: 'updatedAt',
@@ -99,61 +161,17 @@ const ConversationsPage: React.FC = () => {
       page: 1,
       limit: 20
     }));
-  };
+  }, [dispatch]);
 
   // Handle conversation selection for viewing
-  const handleConversationSelect = (conversation: Conversation) => {
+  const handleConversationSelect = useCallback((conversation: Conversation) => {
     console.log('Selecting conversation:', conversation.id);
     dispatch(fetchConversationMessages(conversation.id));
     setSelectedConversation(conversation);
-  };
+  }, [dispatch]);
 
-  // Filter conversations based on search and filters
-  const filteredConversations = conversations.filter((conversation: Conversation) => {
-    // Search query filter
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesTitle = conversation.title.toLowerCase().includes(searchLower);
-      const matchesContent = conversation.lastMessage?.toLowerCase().includes(searchLower);
-      const matchesTags = conversation.tags.some((tag: string) => tag.toLowerCase().includes(searchLower));
-      if (!matchesTitle && !matchesContent && !matchesTags) return false;
-    }
-    
-    // Platform filter
-    if (selectedPlatforms.length > 0 && !selectedPlatforms.includes(conversation.platform)) {
-      return false;
-    }
-    
-    // Archived filter
-    if (!showArchived && conversation.isArchived) {
-      return false;
-    }
-    
-    return true;
-  });
-
-  // Sort conversations
-  const sortedConversations = [...filteredConversations].sort((a, b) => {
-    const aVal = a[sortBy as keyof Conversation];
-    const bVal = b[sortBy as keyof Conversation];
-    
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return sortOrder === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
-    }
-    
-    if (typeof aVal === 'number' && typeof bVal === 'number') {
-      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
-    }
-    
-    return 0;
-  });
-
-  // Get unique platforms for filters
-  const allPlatforms = [...new Set(conversations.map((c: Conversation) => c.platform))];
-
-  // Build context preview
-  const buildContextPreview = () => {
-    const selectedConversations = conversations.filter((c: Conversation) => selectedForContext.includes(c.id));
+  const buildContextPreview = useCallback(() => {
+    const selectedConversations = sortedConversations.filter((c: Conversation) => selectedForContext.includes(c.id));
     const context = selectedConversations.map((c: Conversation) => 
       `## ${c.title} (${c.platform})\n${c.lastMessage || 'No content preview available'}\n`
     ).join('\n');
@@ -161,16 +179,16 @@ const ConversationsPage: React.FC = () => {
     setContextPreview(context);
     setEstimatedTokens(Math.ceil(context.length / 4)); // Rough token estimation
     setShowContextBuilder(true);
-  };
+  }, [sortedConversations, selectedForContext]);
 
-  const handleAddToContext = async (conversation: Conversation) => {
+  const handleAddToContext = useCallback(async (conversation: Conversation) => {
     setSelectedConversationForContext(conversation);
     setSelectedContextId('');
     setNewContextTitle(`${conversation.title} Context`);
     setShowAddToContextDialog(true);
-  };
+  }, []);
 
-  const handleAddToContextSubmit = async () => {
+  const handleAddToContextSubmit = useCallback(async () => {
     if (!selectedConversationForContext || !currentProfile?.id) return;
     
     setIsAddingToContext(true);
@@ -219,15 +237,18 @@ const ConversationsPage: React.FC = () => {
       setSelectedContextId('');
       setNewContextTitle('');
       
+      // Show success message or refresh contexts
+      // You could add a snackbar here
+      
     } catch (error) {
       console.error('Error adding conversation to context:', error);
     } finally {
       setIsAddingToContext(false);
     }
-  };
+  }, [selectedConversationForContext, selectedContextId, newContextTitle, currentProfile?.id, dispatch]);
 
-  const exportContext = (format: 'clipboard' | 'json' | 'markdown') => {
-    const selectedConversations = conversations.filter((c: Conversation) => selectedForContext.includes(c.id));
+  const exportContext = useCallback((format: 'clipboard' | 'json' | 'markdown') => {
+    const selectedConversations = sortedConversations.filter((c: Conversation) => selectedForContext.includes(c.id));
     
     switch (format) {
       case 'clipboard':
@@ -253,9 +274,9 @@ const ConversationsPage: React.FC = () => {
         break;
       }
     }
-  };
+  }, [sortedConversations, selectedForContext, contextPreview]);
 
-  const ConversationCard: React.FC<{ conversation: Conversation }> = ({ conversation }) => {
+  const ConversationCard: React.FC<{ conversation: Conversation }> = React.memo(({ conversation }) => {
     const isSelectedForContext = selectedForContext.includes(conversation.id);
     const isCurrentlyViewing = selectedConversation?.id === conversation.id;
     
@@ -267,7 +288,7 @@ const ConversationsPage: React.FC = () => {
           border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
           borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
           backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
-          maxWidth: '100%',
+          maxWidth: '100%', // Ensure card doesn't exceed container width
           '&:hover': { 
             boxShadow: 3,
             transform: 'translateY(-2px)',
@@ -281,216 +302,309 @@ const ConversationsPage: React.FC = () => {
             <Typography variant="h6" component="h3" sx={{ 
               flex: 1, 
               mr: 1,
-              maxWidth: '70%',
+              maxWidth: '70%', // Limit title width
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
             }}>
               {conversation.title}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              {conversation.isFavorite && (
-                <FavoriteIcon color="primary" fontSize="small" />
-              )}
-              {conversation.isArchived && (
-                <ArchiveIcon color="action" fontSize="small" />
-              )}
+            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
+              {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
+              {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
+              {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
+              {conversation.isArchived && <ArchiveIcon color="action" fontSize="small" />}
+              <IconButton 
+                size="small" 
+                onClick={(e) => handleTagManagement(conversation, e)}
+                title="Manage Tags"
+              >
+                <TagIcon fontSize="small" />
+              </IconButton>
+
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Box sx={{ mb: 2 }}>
             <Chip
-              label={conversation.platform}
+              label={conversation.platform.toUpperCase()}
               size="small"
-              variant="outlined"
-              icon={<ChatIcon fontSize="small" />}
               sx={{ 
-                borderColor: getPlatformColor(conversation.platform),
-                color: getPlatformColor(conversation.platform)
+                backgroundColor: getPlatformColor(conversation.platform),
+                color: 'white',
+                fontWeight: 'bold',
+                mr: 1
               }}
             />
             <Chip
               label={`${conversation.messageCount} messages`}
               size="small"
               variant="outlined"
-              icon={<ChatIcon fontSize="small" />}
             />
           </Box>
 
           {conversation.lastMessage && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
                 mb: 2,
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
-                fontStyle: 'italic',
-                backgroundColor: 'rgba(0,0,0,0.04)',
-                p: 1,
-                borderRadius: 1
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical'
               }}
             >
               {conversation.lastMessage}
             </Typography>
           )}
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              {formatDate(new Date(conversation.updatedAt))}
-            </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {conversation.tags.slice(0, 3).map((tag, index) => (
-                <Chip
-                  key={index}
-                  label={tag}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-              ))}
-              {conversation.tags.length > 3 && (
-                <Chip
-                  label={`+${conversation.tags.length - 3}`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-              )}
-            </Box>
+          <Box sx={{ mb: 2 }}>
+            {conversation.tags.map((tag: string) => (
+              <Chip
+                key={tag}
+                label={tag}
+                size="small"
+                sx={{ 
+                  mr: 0.5, 
+                  mb: 0.5,
+                  backgroundColor: getTagColor(tag),
+                  color: 'white'
+                }}
+              />
+            ))}
           </Box>
+
+          <Typography variant="caption" color="text.secondary">
+            Updated: {formatDate(new Date(conversation.updatedAt))}
+          </Typography>
         </CardContent>
       </Card>
     );
-  };
+  });
+
+  // Open tag management dialog
+  const handleTagManagement = useCallback((conversation: Conversation, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedConversation(conversation);
+    setEditedTags([...conversation.tags]);
+    setShowTagDialog(true);
+  }, []);
+
+  // Save tag changes
+  const handleSaveTags = useCallback(() => {
+    if (selectedConversation) {
+      // Here you would dispatch an action to update the conversation tags
+      console.log('Updating conversation tags:', {
+        conversationId: selectedConversation.id,
+        newTags: editedTags
+      });
+      // For now, we'll just update locally
+      // dispatch(updateConversationTags({ id: selectedConversation.id, tags: editedTags }));
+    }
+    setShowTagDialog(false);
+    setSelectedConversation(null);
+    setEditedTags([]);
+  }, [selectedConversation, editedTags]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+        <Typography variant="body1" sx={{ ml: 2 }}>
+          Loading conversations...
+        </Typography>
+      </Box>
+    );
+  }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box p={3}>
         <Alert severity="error" sx={{ mb: 2 }}>
-          Error loading conversations: {error}
+          <strong>Error loading conversations:</strong> {error}
         </Alert>
-        <Button onClick={handleRefresh} startIcon={<RefreshIcon />}>
-          Retry
+        <Button variant="outlined" onClick={handleRefresh} startIcon={<RefreshIcon />}>
+          Try Again
         </Button>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexShrink: 0 }}>
-        <Typography variant="h4" component="h1">
-          Conversations
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={buildContextPreview}
-            disabled={selectedForContext.length === 0}
-            startIcon={<AddIcon />}
-          >
-            Build Context ({selectedForContext.length})
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleRefresh}
-            startIcon={<RefreshIcon />}
-          >
-            Refresh
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Search and Filters */}
-      <Paper sx={{ p: 2, mb: 2, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Search conversations..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            size="small"
-            sx={{ minWidth: 200 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+    <Box sx={{ 
+      overflow: 'hidden',
+      width: '100%',
+      boxSizing: 'border-box',
+      height: '100%', // Use full height of parent container
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* Header with Search and Actions */}
+      <Box sx={{ mb: 3, flexShrink: 0 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 2,
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            flex: 1,
+            minWidth: 0
+          }}>
+            {/* Search Bar - Moved inline */}
+            <TextField
+              placeholder="Search conversations, content, or tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ minWidth: 300, flex: 1, maxWidth: 600 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowFilters(!showFilters)}>
+                      <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
+                        <FilterIcon />
+                      </Badge>
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Box>
           
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Platform</InputLabel>
-            <Select
-              multiple
-              value={selectedPlatforms}
-              onChange={(e) => setSelectedPlatforms(e.target.value as string[])}
-              label="Platform"
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip key={value} label={value} size="small" />
-                  ))}
-                </Box>
-              )}
-            >
-              {allPlatforms.map((platform) => (
-                <MenuItem key={platform} value={platform}>
-                  <Checkbox checked={selectedPlatforms.includes(platform)} />
-                  <MenuItem>{platform}</MenuItem>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Sort By</InputLabel>
-            <Select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              label="Sort By"
-            >
-              <MenuItem value="createdAt">Created</MenuItem>
-              <MenuItem value="updatedAt">Updated</MenuItem>
-              <MenuItem value="title">Title</MenuItem>
-              <MenuItem value="messageCount">Messages</MenuItem>
-            </Select>
-          </FormControl>
-
-          <IconButton
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            size="small"
+          <Stack 
+            direction="row" 
+            spacing={2} 
+            alignItems="center"
+            sx={{ 
+              flexShrink: 0,
+              minWidth: 0,
+              flexWrap: 'wrap'
+            }}
           >
-            <SortIcon sx={{ transform: sortOrder === 'asc' ? 'scaleY(-1)' : 'none' }} />
-          </IconButton>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-            }
-            label="Show Archived"
-          />
-
-          <Button
-            variant="outlined"
-            onClick={() => setShowFilters(!showFilters)}
-            startIcon={<FilterIcon />}
-            size="small"
-          >
-            <Badge badgeContent={selectedPlatforms.length} color="primary">
-              Filters
-            </Badge>
-          </Button>
+            <Button
+              variant="outlined"
+              onClick={handleRefresh}
+              startIcon={<RefreshIcon />}
+              sx={{ 
+                flexShrink: 0,
+                color: 'primary.dark',
+                borderColor: 'primary.dark',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                  color: 'primary.contrastText',
+                  borderColor: 'primary.dark'
+                }
+              }}
+            >
+              Refresh
+            </Button>
+            {selectedForContext.length > 0 && (
+              <Button
+                variant="contained"
+                onClick={buildContextPreview}
+                startIcon={<AddIcon />}
+                sx={{ flexShrink: 0 }}
+              >
+                Build Context ({selectedForContext.length})
+              </Button>
+            )}
+          </Stack>
         </Box>
-      </Paper>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr', 
+                md: 'repeat(5, 1fr)' 
+              }, 
+              gap: 2 
+            }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Platforms</InputLabel>
+                <Select
+                  multiple
+                  value={selectedPlatforms}
+                  onChange={(e) => setSelectedPlatforms(e.target.value as string[])}
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {allPlatforms.map((platform) => (
+                    <MenuItem key={platform} value={platform}>
+                      <Checkbox checked={selectedPlatforms.includes(platform)} />
+                      {platform.toUpperCase()}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Tags</InputLabel>
+                <Select
+                  multiple
+                  value={selectedTags}
+                  onChange={(e) => setSelectedTags(e.target.value as string[])}
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {allTags.map((tag) => (
+                    <MenuItem key={tag} value={tag}>
+                      <Checkbox checked={selectedTags.includes(tag)} />
+                      {tag}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Sort By</InputLabel>
+                <Select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <MenuItem value="updatedAt">Last Updated</MenuItem>
+                  <MenuItem value="createdAt">Created Date</MenuItem>
+                  <MenuItem value="title">Title</MenuItem>
+                  <MenuItem value="messageCount">Message Count</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Order</InputLabel>
+                <Select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                >
+                  <MenuItem value="desc">Descending</MenuItem>
+                  <MenuItem value="asc">Ascending</MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControl>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={showArchived}
+                        onChange={(e) => setShowArchived(e.target.checked)}
+                      />
+                    }
+                    label="Show Archived"
+                  />
+                </FormControl>
+              </Box>
+            </Box>
+          </Paper>
+        )}
+      </Box>
 
       {/* Context Selection Info */}
       {selectedForContext.length > 0 && (
@@ -513,11 +627,11 @@ const ConversationsPage: React.FC = () => {
       <Box sx={{ 
         display: 'flex', 
         gap: 2, 
-        flex: 1,
-        minHeight: 0,
-        maxWidth: '100%',
-        overflow: 'hidden',
-        flexDirection: { xs: 'column', md: 'row' }
+        flex: 1, // Take remaining space in flex container
+        minHeight: 0, // Allow flex child to shrink below content size
+        maxWidth: '100%', // Ensure we don't exceed viewport width
+        overflow: 'hidden', // Prevent horizontal scrolling
+        flexDirection: { xs: 'column', md: 'row' } // Stack vertically on small screens
       }}>
         {/* Left Panel - Conversations List */}
         <Paper sx={{ 
@@ -525,11 +639,11 @@ const ConversationsPage: React.FC = () => {
           display: 'flex', 
           flexDirection: 'column',
           overflow: 'hidden',
-          minWidth: selectedConversation ? '300px' : 'auto',
-          maxWidth: selectedConversation ? '500px' : '600px',
-          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' },
-          minHeight: 0,
-          maxHeight: '100%'
+          minWidth: selectedConversation ? '300px' : 'auto', // Minimum width for readability
+          maxWidth: selectedConversation ? '500px' : '600px', // Maximum width to prevent expansion
+          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' }, // Responsive height
+          minHeight: 0, // Ensure flex child can shrink properly
+          maxHeight: '100%' // Prevent exceeding parent height
         }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6">
@@ -555,32 +669,29 @@ const ConversationsPage: React.FC = () => {
               background: '#555',
             },
           }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : filteredConversations.length === 0 ? (
+            {sortedConversations.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" gutterBottom>
-                  {searchQuery || selectedPlatforms.length > 0
+                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
                     ? 'No conversations match your filters' 
                     : 'No conversations found'
                   }
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {searchQuery || selectedPlatforms.length > 0
+                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
                     ? 'Try adjusting your search terms or filters'
                     : 'Your AI conversations will appear here once you have some data.'
                   }
                 </Typography>
                 <Stack direction="row" spacing={2} justifyContent="center">
-                  {(searchQuery || selectedPlatforms.length > 0) && (
+                  {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
                     <Button 
                       variant="outlined" 
                       onClick={() => {
                         setSearchQuery('');
                         setSelectedPlatforms([]);
+                        setSelectedTags([]);
                       }}
                     >
                       Clear Filters
@@ -593,8 +704,8 @@ const ConversationsPage: React.FC = () => {
               </Box>
             ) : (
               <Box sx={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                display: 'flex', 
+                flexDirection: 'column',
                 gap: 2 
               }}>
                 {sortedConversations.map((conversation: Conversation) => (
@@ -612,8 +723,8 @@ const ConversationsPage: React.FC = () => {
             display: 'flex', 
             flexDirection: 'column',
             overflow: 'hidden',
-            minWidth: 0,
-            height: { xs: '60%', md: 'auto' }
+            minWidth: 0, // Allow flex item to shrink below content size
+            height: { xs: '60%', md: 'auto' } // Responsive height
           }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6">
@@ -627,10 +738,11 @@ const ConversationsPage: React.FC = () => {
                   startIcon={<AddIcon />}
                   sx={{ 
                     backgroundColor: 'background.paper',
-                    borderColor: 'primary.main',
-                    color: 'primary.main',
+                    borderColor: 'primary.dark',
+                    color: 'primary.dark',
                     '&:hover': {
                       backgroundColor: 'primary.main',
+                      borderColor: 'primary.dark',
                       color: 'white'
                     }
                   }}
@@ -660,7 +772,7 @@ const ConversationsPage: React.FC = () => {
             alignItems: 'center', 
             justifyContent: 'center',
             bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
-            minWidth: 0
+            minWidth: 0 // Allow flex item to shrink below content size
           }}>
             <Box sx={{ textAlign: 'center', p: 4 }}>
               <ChatIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
@@ -691,77 +803,165 @@ const ConversationsPage: React.FC = () => {
         <DialogContent>
           <TextField
             multiline
-            rows={4}
             fullWidth
-            label="Context Preview"
+            rows={12}
             value={contextPreview}
             onChange={(e) => setContextPreview(e.target.value)}
-            sx={{ mt: 2 }}
+            variant="outlined"
+            placeholder="Your context will appear here..."
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowContextBuilder(false)}>Cancel</Button>
-          <Button onClick={() => exportContext('clipboard')} startIcon={<CopyIcon />}>
+          <Button onClick={() => setShowContextBuilder(false)} sx={{ color: 'primary.dark' }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => exportContext('clipboard')}
+            startIcon={<CopyIcon />}
+          >
             Copy to Clipboard
           </Button>
-          <Button onClick={() => exportContext('json')} startIcon={<GetAppIcon />}>
-            Export JSON
-          </Button>
-          <Button onClick={() => exportContext('markdown')} startIcon={<GetAppIcon />}>
+          <Button 
+            onClick={() => exportContext('markdown')}
+            startIcon={<ExportIcon />}
+          >
             Export Markdown
+          </Button>
+          <Button 
+            onClick={() => exportContext('json')}
+            startIcon={<ExportIcon />}
+          >
+            Export JSON
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add to Context Dialog */}
-      <Dialog 
-        open={showAddToContextDialog} 
+      <Dialog
+        open={showAddToContextDialog}
         onClose={() => setShowAddToContextDialog(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Add to Context</DialogTitle>
+        <DialogTitle>
+          Add Conversation to Context
+          <Typography variant="body2" color="text.secondary">
+            {selectedConversationForContext?.title}
+          </Typography>
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            label="Context Title"
-            value={newContextTitle}
-            onChange={(e) => setNewContextTitle(e.target.value)}
-            sx={{ mb: 2, mt: 1 }}
-          />
-          <FormControl fullWidth>
-            <InputLabel>Select Context</InputLabel>
-            <Select
-              value={selectedContextId}
-              onChange={(e) => setSelectedContextId(e.target.value)}
-              label="Select Context"
-            >
-              <MenuItem value="">
-                <em>Create new context</em>
-              </MenuItem>
-              {contexts?.map((context) => (
-                <MenuItem key={context.id} value={context.id}>
-                  {context.title}
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Select a context to add this conversation to, or create a new one:
+            </Typography>
+            
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Select Context</InputLabel>
+              <Select
+                value={selectedContextId}
+                label="Select Context"
+                onChange={(e) => setSelectedContextId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>Create New Context</em>
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {contexts.map((context) => (
+                  <MenuItem key={context.id} value={context.id}>
+                    {context.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {selectedContextId && (
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Selected Context:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {contexts.find(c => c.id === selectedContextId)?.body || 'No description available'}
+                </Typography>
+              </Box>
+            )}
+            
+            {!selectedContextId && (
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  New Context:
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Context Title"
+                  value={newContextTitle}
+                  onChange={(e) => setNewContextTitle(e.target.value)}
+                  placeholder="Enter context title"
+                  sx={{ mb: 2 }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  A new context will be created with the title above
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddToContextDialog(false)}>Cancel</Button>
-                      <Button 
-              onClick={handleAddToContextSubmit} 
-              variant="contained"
-              disabled={isAddingToContext || (!selectedContextId && !newContextTitle.trim())}
-            >
-              {isAddingToContext ? 'Adding...' : 'Add to Context'}
-            </Button>
+          <Button onClick={() => {
+            setShowAddToContextDialog(false);
+            setSelectedConversationForContext(null);
+            setSelectedContextId('');
+            setNewContextTitle('');
+          }} sx={{ color: 'primary.dark' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleAddToContextSubmit}
+            disabled={isAddingToContext}
+          >
+            {isAddingToContext ? 'Adding...' : 'Add to Context'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Tag Management Dialog */}
+      <Dialog
+        open={showTagDialog}
+        onClose={() => setShowTagDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Manage Tags
+        </DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            multiple
+            value={editedTags}
+            onChange={(_, newValue) => {
+              setEditedTags(newValue);
+            }}
+            options={allTags}
+            getOptionLabel={(option) => option}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Tags"
+                placeholder="Add tags"
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTagDialog(false)} sx={{ color: 'primary.dark' }}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveTags}>
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-};
+});
 
-export default ConversationsPage;
-
- 
+export default ConversationsPage; 
