@@ -5,11 +5,12 @@ import { systemPromptsApi } from '../../services/api/systemPrompts';
 export interface SystemPrompt {
   id: string;
   name: string;
+  description: string;
   content: string;
   tokenCount: number;
   isDefault: boolean;
   isBuiltIn: boolean; // true for built-in system prompts, false for user-created
-  category?: string;
+  categories: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -33,22 +34,24 @@ export const builtInSystemPrompts: SystemPrompt[] = [
   {
     id: 'sys-1',
     name: 'Technical Assistant',
+    description: 'Expert technical guidance for software development, architecture, and best practices',
     content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
     tokenCount: 42,
     isDefault: true,
     isBuiltIn: true,
-    category: 'Technical',
+    categories: ['Technical'],
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString()
   },
   {
     id: 'sys-2',
     name: 'Code Reviewer',
+    description: 'Senior-level code analysis for best practices, security, and maintainability',
     content: 'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
     tokenCount: 38,
     isDefault: false,
     isBuiltIn: true,
-    category: 'Development',
+    categories: ['Development'],
     createdAt: new Date('2024-01-12').toISOString(),
     updatedAt: new Date('2024-01-12').toISOString()
   }

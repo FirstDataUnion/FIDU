@@ -15,7 +15,7 @@ export interface SystemPromptDataPacket {
     token_count: number;
     is_default: boolean;
     is_system: boolean;
-    category?: string;
+    categories: string[];
     model_compatibility?: string[];
   };
 }
@@ -30,7 +30,7 @@ const transformDataPacketToSystemPrompt = (packet: SystemPromptDataPacket): any 
     tokenCount: packet.data.token_count || 0,
     isDefault: packet.data.is_default || false,
     isSystem: packet.data.is_system || false,
-    category: packet.data.category,
+    categories: packet.data.categories || [],
     modelCompatibility: packet.data.model_compatibility || [],
     createdAt: packet.create_timestamp,
     updatedAt: packet.update_timestamp,
@@ -53,7 +53,7 @@ const transformSystemPromptToDataPacket = (systemPrompt: any, profileId: string)
       token_count: systemPrompt.tokenCount || 0,
       is_default: systemPrompt.isDefault || false,
       is_system: systemPrompt.isSystem || false,
-      category: systemPrompt.category,
+      categories: systemPrompt.categories || [],
       model_compatibility: systemPrompt.modelCompatibility || [],
     },
   };

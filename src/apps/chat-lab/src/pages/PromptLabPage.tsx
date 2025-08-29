@@ -213,7 +213,8 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
 
   const filteredSystemPrompts = systemPrompts.filter(sp => 
     sp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (sp.description && sp.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    (sp.description && sp.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (sp.categories && sp.categories.some(cat => cat.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   return (
@@ -271,11 +272,21 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
                         {systemPrompt.description}
                       </Typography>
                     )}
-                    <Chip 
-                      label={`${systemPrompt.tokenCount} tokens`} 
-                      size="small" 
-                      variant="outlined"
-                    />
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      {systemPrompt.categories && systemPrompt.categories.length > 0 && (
+                        <Chip 
+                          label={systemPrompt.categories.join(', ')} 
+                          size="small" 
+                          variant="outlined"
+                          color="secondary"
+                        />
+                      )}
+                      <Chip 
+                        label={`${systemPrompt.tokenCount} tokens`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    </Box>
                   </Box>
                   <Button
                     size="small"
