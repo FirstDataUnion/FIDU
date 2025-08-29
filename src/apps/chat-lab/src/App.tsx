@@ -12,6 +12,7 @@ import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo } from './utils/environment';
 import Layout from './components/common/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import AuthWrapper from './components/auth/AuthWrapper';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -146,19 +147,21 @@ const AppContent: React.FC<AppContentProps> = () => {
       <CssBaseline />
       <Router basename="/fidu-chat-lab">
         <ErrorBoundary>
-          <Layout>
-            <Suspense fallback={<PageLoadingFallback />}>
-              <Routes>
-                <Route path="/" element={<PromptLabPage />} />
-                <Route path="/prompt-lab" element={<PromptLabPage />} />
-                <Route path="/conversations" element={<ConversationsPage />} />
-                <Route path="/contexts" element={<ContextsPage />} />
-                <Route path="/system-prompts" element={<SystemPromptsPage />} />
-                <Route path="/embellishments" element={<EmbellishmentsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Routes>
-            </Suspense>
-          </Layout>
+          <AuthWrapper>
+            <Layout>
+              <Suspense fallback={<PageLoadingFallback />}>
+                <Routes>
+                  <Route path="/" element={<PromptLabPage />} />
+                  <Route path="/prompt-lab" element={<PromptLabPage />} />
+                  <Route path="/conversations" element={<ConversationsPage />} />
+                  <Route path="/contexts" element={<ContextsPage />} />
+                  <Route path="/system-prompts" element={<SystemPromptsPage />} />
+                  <Route path="/embellishments" element={<EmbellishmentsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Routes>
+              </Suspense>
+            </Layout>
+          </AuthWrapper>
         </ErrorBoundary>
       </Router>
     </ThemeProvider>
