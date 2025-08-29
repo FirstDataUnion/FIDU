@@ -8,7 +8,7 @@ export interface SystemPrompt {
   description: string;
   tokenCount: number;
   modelCompatibility: string[];
-  category: string;
+  categories: string[];
   isDefault: boolean;
   createdAt: string;
 }
@@ -91,7 +91,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     description: 'General technical assistance with focus on software development',
     tokenCount: 42,
     modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
-    category: 'Technical',
+    categories: ['Technical', 'General'],
     isDefault: true,
     createdAt: new Date('2024-01-10').toISOString()
   },
@@ -102,7 +102,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     description: 'Specialized in code review and quality assessment',
     tokenCount: 38,
     modelCompatibility: ['claude-3-opus', 'gpt-4-turbo'],
-    category: 'Development',
+    categories: ['Development', 'Code Quality'],
     isDefault: false,
     createdAt: new Date('2024-01-12').toISOString()
   },
@@ -113,7 +113,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     description: 'Specialized in API design and architecture',
     tokenCount: 35,
     modelCompatibility: ['claude-3-sonnet', 'gpt-4-turbo', 'gemini-ultra'],
-    category: 'Architecture',
+    categories: ['Architecture', 'API Design'],
     isDefault: false,
     createdAt: new Date('2024-01-08').toISOString()
   },
@@ -124,7 +124,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     description: 'Focused on user experience and interface design',
     tokenCount: 40,
     modelCompatibility: ['claude-3-opus', 'claude-3-sonnet', 'gpt-4-turbo'],
-    category: 'Design',
+    categories: ['Design', 'UI/UX'],
     isDefault: false,
     createdAt: new Date('2024-01-15').toISOString()
   }

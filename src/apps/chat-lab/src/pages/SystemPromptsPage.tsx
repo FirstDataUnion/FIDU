@@ -104,33 +104,33 @@ const SystemPromptCard = React.memo<{
           {systemPrompt.name}
         </Typography>
 
-        {/* Content preview */}
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          sx={{ 
-            mb: 2,
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            fontStyle: 'italic',
-            backgroundColor: 'rgba(0,0,0,0.04)',
-            p: 1,
-            borderRadius: 1
-          }}
-        >
-          {systemPrompt.content}
-        </Typography>
+        {/* Description */}
+        {systemPrompt.description && (
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              mb: 2,
+              fontStyle: 'normal',
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              p: 1,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            {systemPrompt.description}
+          </Typography>
+        )}
 
         {/* Stats */}
         <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
           <Box>
             {systemPrompt.tokenCount?.toLocaleString() || 'Unknown'} tokens
           </Box>
-          {systemPrompt.category && (
+          {systemPrompt.categories && systemPrompt.categories.length > 0 && (
             <Box>
-              {systemPrompt.category}
+              {systemPrompt.categories.join(', ')}
             </Box>
           )}
         </Box>
@@ -177,15 +177,17 @@ const SystemPromptsPage = React.memo(() => {
   // View/Edit form state
   const [viewEditForm, setViewEditForm] = useState({
     name: '',
+    description: '',
     content: '',
-    category: ''
+    categories: ''
   });
   
   // Form states
   const [systemPromptForm, setSystemPromptForm] = useState({
     name: '',
+    description: '',
     content: '',
-    category: ''
+    categories: ''
   });
   
   // Loading states
@@ -212,8 +214,9 @@ const SystemPromptsPage = React.memo(() => {
     const query = searchQuery.toLowerCase();
     return userPrompts.filter(prompt => 
       prompt.name.toLowerCase().includes(query) ||
+      (prompt.description && prompt.description.toLowerCase().includes(query)) ||
       prompt.content.toLowerCase().includes(query) ||
-      (prompt.category && prompt.category.toLowerCase().includes(query))
+      (prompt.categories && prompt.categories.some(cat => cat.toLowerCase().includes(query)))
     );
   }, [userPrompts, searchQuery]);
 
@@ -226,8 +229,9 @@ const SystemPromptsPage = React.memo(() => {
   const handleCreateSystemPrompt = useCallback(() => {
     setSystemPromptForm({
       name: '',
+      description: '',
       content: '',
-      category: ''
+      categories: ''
     });
     setCreateDialogOpen(true);
   }, []);
@@ -236,8 +240,9 @@ const SystemPromptsPage = React.memo(() => {
     if (selectedSystemPrompt) {
       setSystemPromptForm({
         name: selectedSystemPrompt.name,
+        description: selectedSystemPrompt.description || '',
         content: selectedSystemPrompt.content,
-        category: selectedSystemPrompt.category || ''
+        categories: selectedSystemPrompt.categories ? selectedSystemPrompt.categories.join(', ') : ''
       });
       setEditDialogOpen(true);
     }
@@ -252,8 +257,9 @@ const SystemPromptsPage = React.memo(() => {
       await dispatch(createSystemPrompt({ 
         systemPromptData: {
           name: systemPromptForm.name.trim(),
+          description: systemPromptForm.description.trim() || undefined,
           content: systemPromptForm.content.trim(),
-          category: systemPromptForm.category.trim() || undefined,
+          categories: systemPromptForm.categories.trim() ? systemPromptForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : [],
           isBuiltIn: false,
           isDefault: false,
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
@@ -264,7 +270,7 @@ const SystemPromptsPage = React.memo(() => {
       })).unwrap();
       
       setCreateDialogOpen(false);
-      setSystemPromptForm({ name: '', content: '', category: '' });
+      setSystemPromptForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error creating system prompt:', error);
     } finally {
@@ -281,8 +287,9 @@ const SystemPromptsPage = React.memo(() => {
         systemPrompt: {
           id: selectedSystemPrompt.id,
           name: systemPromptForm.name.trim(),
+          description: systemPromptForm.description.trim() || undefined,
           content: systemPromptForm.content.trim(),
-          category: systemPromptForm.category.trim() || undefined,
+          categories: systemPromptForm.categories.trim() ? systemPromptForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : [],
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
           updatedAt: new Date().toISOString()
         }, 
@@ -291,13 +298,13 @@ const SystemPromptsPage = React.memo(() => {
       
       setEditDialogOpen(false);
       setSelectedSystemPrompt(null);
-      setSystemPromptForm({ name: '', content: '', category: '' });
+      setSystemPromptForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error updating system prompt:', error);
     } finally {
       setIsUpdating(false);
     }
-  }, [dispatch, currentProfile?.id, selectedSystemPrompt, systemPromptForm, isUpdating]);
+  }, [dispatch, selectedSystemPrompt, currentProfile?.id, systemPromptForm, isUpdating]);
 
   const handleDeleteSystemPrompt = useCallback(async () => {
     if (!selectedSystemPrompt) return;
@@ -316,31 +323,36 @@ const SystemPromptsPage = React.memo(() => {
     setSelectedSystemPrompt(systemPrompt);
     setViewEditForm({
       name: systemPrompt.name,
+      description: systemPrompt.description || '',
       content: systemPrompt.content,
-      category: systemPrompt.category || ''
+      categories: systemPrompt.categories ? systemPrompt.categories.join(', ') : ''
     });
     setViewEditDialogOpen(true);
   }, []);
 
   const handleViewEditSubmit = useCallback(async () => {
-    if (!selectedSystemPrompt || !currentProfile?.id) return;
+    if (!currentProfile?.id || !selectedSystemPrompt || !viewEditForm.name.trim() || !viewEditForm.content.trim()) return;
     
+    setIsUpdating(true); // Changed from isViewEditing to isUpdating
     try {
       await dispatch(updateSystemPrompt({ 
         systemPrompt: {
           id: selectedSystemPrompt.id,
           name: viewEditForm.name.trim(),
+          description: viewEditForm.description.trim() || undefined,
           content: viewEditForm.content.trim(),
-          category: viewEditForm.category.trim() || undefined
+          categories: viewEditForm.categories.trim() ? viewEditForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : []
         },
-        profileId: currentProfile.id
+        profileId: currentProfile.id 
       })).unwrap();
       
       setViewEditDialogOpen(false);
       setSelectedSystemPrompt(null);
-      setViewEditForm({ name: '', content: '', category: '' });
+      setViewEditForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error updating system prompt:', error);
+    } finally {
+      setIsUpdating(false); // Changed from isViewEditing to isUpdating
     }
   }, [dispatch, selectedSystemPrompt, currentProfile?.id, viewEditForm]);
 
@@ -563,9 +575,17 @@ const SystemPromptsPage = React.memo(() => {
             />
             <TextField
               fullWidth
-              label="Category (optional)"
-              value={systemPromptForm.category}
-              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, category: e.target.value }))}
+              label="Description (optional)"
+              value={systemPromptForm.description}
+              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, description: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Categories (optional)"
+              value={systemPromptForm.categories}
+              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, categories: e.target.value }))}
+              placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
               sx={{ mb: 2 }}
             />
             <TextField
@@ -604,12 +624,19 @@ const SystemPromptsPage = React.memo(() => {
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))}
               sx={{ mb: 2 }}
             />
-
             <TextField
               fullWidth
-              label="Category (optional)"
-              value={systemPromptForm.category}
-              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, category: e.target.value }))}
+              label="Description (optional)"
+              value={systemPromptForm.description}
+              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, description: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Categories (optional)"
+              value={systemPromptForm.categories}
+              onChange={(e) => setSystemPromptForm(prev => ({ ...prev, categories: e.target.value }))}
+              placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
               sx={{ mb: 2 }}
             />
             <TextField
@@ -655,9 +682,17 @@ const SystemPromptsPage = React.memo(() => {
             />
             <TextField
               fullWidth
-              label="Category (optional)"
-              value={viewEditForm.category}
-              onChange={(e) => setViewEditForm(prev => ({ ...prev, category: e.target.value }))}
+              label="Description (optional)"
+              value={viewEditForm.description}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, description: e.target.value }))}
+              disabled={selectedSystemPrompt?.isBuiltIn}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Categories (optional)"
+              value={viewEditForm.categories}
+              onChange={(e) => setViewEditForm(prev => ({ ...prev, categories: e.target.value }))}
               disabled={selectedSystemPrompt?.isBuiltIn}
               sx={{ mb: 2 }}
             />

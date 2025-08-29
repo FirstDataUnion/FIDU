@@ -52,7 +52,7 @@ export interface SystemPrompt {
   tokenCount: number;
   isDefault: boolean;
   isBuiltIn: boolean; // true for built-in system prompts, false for user-created
-  category?: string;
+  categories: string[];
   createdAt: string;
   updatedAt: string;
 }
