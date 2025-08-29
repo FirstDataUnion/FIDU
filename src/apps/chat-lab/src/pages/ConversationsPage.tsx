@@ -53,8 +53,8 @@ const ConversationsPage: React.FC = React.memo(() => {
   const dispatch = useAppDispatch();
   
   // Use memoized selectors for better performance
-  const loading = useAppSelector(selectConversationsLoading);
-  const error = useAppSelector(selectConversationsError);
+  const loading = useAppSelector((state) => selectConversationsLoading(state));
+  const error = useAppSelector((state) => selectConversationsError(state));
   const { items: contexts } = useAppSelector((state) => state.contexts);
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
@@ -99,9 +99,9 @@ const ConversationsPage: React.FC = React.memo(() => {
   });
 
   // Use memoized selectors for better performance
-  const allTags = useAppSelector(selectAllTags);
-  const allPlatforms = useAppSelector(selectAllPlatforms);
-  const sortedConversations = useAppSelector(selectSortedConversations);
+  const allTags = useAppSelector((state) => selectAllTags(state));
+  const allPlatforms = useAppSelector((state) => selectAllPlatforms(state));
+  const sortedConversations = useAppSelector((state) => selectSortedConversations(state));
 
   // Use lazy loading for better performance with large lists
   const {
