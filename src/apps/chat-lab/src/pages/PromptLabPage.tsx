@@ -24,11 +24,10 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  Menu,
-  MenuItem
+  Snackbar,
 } from '@mui/material';
 import {
-  Send as SendIcon,
+  ContentCopy as ContentCopyIcon,
   Add as AddIcon,
   Chat as ChatIcon,
   SmartToy as ModelIcon,
@@ -37,7 +36,7 @@ import {
   ChatBubbleOutline as ChatBubbleIcon,
   Refresh as RefreshIcon,
   ExpandMore,
-  MoreVert
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -214,12 +213,12 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
 
   const filteredSystemPrompts = systemPrompts.filter(sp => 
     sp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sp.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (sp.description && sp.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select System Prompt</DialogTitle>
+      <DialogTitle>Add System Prompt</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -267,22 +266,24 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
                         <Chip label="Default" size="small" color="primary" />
                       )}
                     </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {systemPrompt.name}
-                    </Typography>
-                      <Chip 
-                        label={`${systemPrompt.tokenCount} tokens`} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    </Box>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => onSelectSystemPrompt(systemPrompt)}
-                    >
-                      Select
-                    </Button>
+                    {systemPrompt.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {systemPrompt.description}
+                      </Typography>
+                    )}
+                    <Chip 
+                      label={`${systemPrompt.tokenCount} tokens`} 
+                      size="small" 
+                      variant="outlined"
+                    />
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => onSelectSystemPrompt(systemPrompt)}
+                  >
+                    Select
+                  </Button>
                 </ListItem>
               ))}
             </List>
@@ -498,10 +499,27 @@ export default function PromptLabPage() {
   const [currentMessage, setCurrentMessage] = useState('');
   const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [selectedContext, setSelectedContext] = useState<Context | null>(null);
-  const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null);
+  const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
   const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // System Prompts Management
+  const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState(0);
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  const handleRemoveSystemPrompt = (promptId: string) => {
+    setSelectedSystemPrompts(prev => prev.filter(sp => sp.id !== promptId));
+  };
+
+  // Measure drawer height when it opens or content changes
+  useEffect(() => {
+    if (systemPromptDrawerOpen && drawerRef.current) {
+      const height = drawerRef.current.offsetHeight;
+      setDrawerHeight(height);
+    }
+  }, [systemPromptDrawerOpen, selectedSystemPrompts]);
 
   // Ref for auto-scrolling to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -584,8 +602,15 @@ export default function PromptLabPage() {
   const [fullPromptModalOpen, setFullPromptModalOpen] = useState(false);
   const [embellishmentModalOpen, setEmbellishmentModalOpen] = useState(false);
 
-  // Menu state for contextual menu
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  // Toast notification state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Show toast message
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setToastOpen(true);
+  };
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -598,13 +623,13 @@ export default function PromptLabPage() {
 
   // Set default system prompt when loaded
   useEffect(() => {
-    if (systemPrompts.length > 0 && !selectedSystemPrompt) {
+    if (systemPrompts.length > 0 && selectedSystemPrompts.length === 0) {
       const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
       if (defaultPrompt) {
-        setSelectedSystemPrompt(defaultPrompt);
+        setSelectedSystemPrompts([defaultPrompt]);
       }
     }
-  }, [systemPrompts, selectedSystemPrompt]);
+  }, [systemPrompts, selectedSystemPrompts]);
 
   // Load recent conversations
   const loadRecentConversations = useCallback(async () => {
@@ -688,7 +713,7 @@ export default function PromptLabPage() {
           {
             promptText: messages[0]?.content || '',
             context: selectedContext,
-            systemPrompt: selectedSystemPrompt!,
+            systemPrompt: selectedSystemPrompts[0] || null, // Use first selected prompt for backward compatibility
             metadata: { estimatedTokens: 0 }
           }
         );
@@ -716,7 +741,7 @@ export default function PromptLabPage() {
           originalPrompt: {
             promptText: messages[0]?.content || '',
             context: selectedContext,
-            systemPrompt: selectedSystemPrompt!,
+            systemPrompt: selectedSystemPrompts[0] || null, // Use first selected prompt for backward compatibility
             metadata: { estimatedTokens: 0 }
           }
         };
@@ -739,11 +764,11 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompt]);
+  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts]);
 
   // Handle sending a message
   const handleSendMessage = async () => {
-    if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompt || !currentProfile) return;
+    if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompts.length || !currentProfile) return;
 
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
@@ -768,7 +793,7 @@ export default function PromptLabPage() {
         currentMessage,
         selectedModel,
         currentProfile.id,
-        selectedSystemPrompt, // Pass the full system prompt object, not just the ID
+        selectedSystemPrompts, // Pass the full array of selected system prompts
         embellishments // Pass selected embellishments
       );
 
@@ -847,13 +872,18 @@ export default function PromptLabPage() {
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
-    if (!selectedSystemPrompt) return '';
+    if (!selectedSystemPrompts.length) return '';
 
     let fullPrompt = '';
     
-    // Start with system prompt
-    if (selectedSystemPrompt.content) {
-      fullPrompt = `${selectedSystemPrompt.content}\n\n`;
+    // Start with system prompts - combine all selected prompts
+    const systemPromptContent = selectedSystemPrompts
+      .map(prompt => prompt.content)
+      .filter(content => content && content.trim())
+      .join('\n\n');
+    
+    if (systemPromptContent) {
+      fullPrompt = `${systemPromptContent}\n\n`;
     }
     
     // Add embellishment instructions if any are selected
@@ -905,17 +935,7 @@ export default function PromptLabPage() {
     }
     
     return fullPrompt;
-  }, [selectedSystemPrompt, selectedContext, messages, currentMessage, embellishments]);
-
-  // Handle adding embellishment
-  const handleAddEmbellishment = () => {
-    setEmbellishmentModalOpen(true);
-  };
-
-  // Handle removing embellishment
-  const handleRemoveEmbellishment = (embellishmentId: string) => {
-    setEmbellishments(prev => prev.filter(emb => emb.id !== embellishmentId));
-  };
+  }, [selectedSystemPrompts, selectedContext, messages, currentMessage, embellishments]);
 
   return (
     <Box sx={{ 
@@ -955,40 +975,61 @@ export default function PromptLabPage() {
           overflowY: 'auto', 
           overflowX: 'hidden', // Prevent horizontal scrolling
           p: 3,
-            pb: 32, // Reduced bottom padding to a more reasonable amount
+            pb: 24, // Reduced bottom padding to eliminate unnecessary empty space
           display: 'flex',
           flexDirection: 'column',
           gap: 2
           }}
         >
-          {/* New Conversation Button */}
+          {/* New Conversation Button - Top Right */}
           {messages.length > 0 && (
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 16, 
+              right: 16, 
+              zIndex: 1002 
+            }}>
               <Button
                 variant="outlined"
                 onClick={startNewConversation}
                 startIcon={<AddIcon />}
+                size="small"
                 sx={{ 
                   color: 'primary.dark', 
                   borderColor: 'primary.dark',
+                  backgroundColor: 'background.paper',
                   '&:hover': {
                     backgroundColor: 'primary.light',
                     borderColor: 'primary.main'
                   }
                 }}
               >
-                New Conversation
+                New Chat
               </Button>
-              
-              {/* Save Status */}
-              {isSavingConversation && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="caption" color="text.secondary">
-                    Saving...
-                  </Typography>
-                </Box>
-              )}
+            </Box>
+          )}
+          
+          {/* Save Status - Top Right */}
+          {messages.length > 0 && isSavingConversation && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 16, 
+              right: 16, 
+              zIndex: 1002,
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1,
+              backgroundColor: 'background.paper',
+              px: 2,
+              py: 1,
+              borderRadius: 2,
+              border: 1,
+              borderColor: 'divider'
+            }}>
+              <CircularProgress size={16} />
+              <Typography variant="caption" color="text.secondary">
+                Saving...
+              </Typography>
             </Box>
           )}
           
@@ -1139,6 +1180,45 @@ export default function PromptLabPage() {
                       {formatMessageContent(message.content)}
                     </Markdown>
                   </Box>
+
+                  {/* Copy Button for Assistant Messages */}
+                  {message.role === 'assistant' && (
+                    <IconButton
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(message.content);
+                          showToast('Message copied to clipboard!');
+                        } catch (err) {
+                          console.error('Failed to copy text: ', err);
+                          // Fallback for older browsers
+                          const textArea = document.createElement('textarea');
+                          textArea.value = message.content;
+                          document.body.appendChild(textArea);
+                          textArea.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(textArea);
+                        }
+                      }}
+                      sx={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'white',
+                        opacity: 0.7,
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.25)',
+                          opacity: 1
+                        },
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  )}
                 </Paper>
               </Box>
                 );
@@ -1229,7 +1309,7 @@ export default function PromptLabPage() {
           bottom: 0,
           left: 240, // Account for sidebar width
           right: 0,
-          backgroundColor: 'background.default',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 10%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.9) 100%)',
           p: 3,
           zIndex: 1000
         }}>
@@ -1239,298 +1319,377 @@ export default function PromptLabPage() {
             mx: 'auto',
             px: 2
           }}>
-            {/* Dropdown Controls */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'center' }}>
-                  <Button
-                    variant="outlined"
-                size="medium"
-                onClick={() => setModelModalOpen(true)}
-                sx={{ 
-                  minWidth: 200,
-                  borderRadius: 2,
-                  backgroundColor: 'background.paper',
-                  color: 'primary.dark',
-                  borderColor: 'primary.dark',
-                  boxShadow: 1,
+            {/* System Prompts Sliding Drawer */}
+            <Box sx={{ 
+              position: 'relative',
+              mb: 2
+            }}>
+              {/* Tab - Always visible, positioned outside the drawer */}
+              <Box
+                onClick={() => setSystemPromptDrawerOpen(!systemPromptDrawerOpen)}
+                sx={{
+                  position: 'absolute',
+                  bottom: 0, // Always at bottom of container
+                  left: '50%',
+                  transform: `translateX(-50%) translateY(${systemPromptDrawerOpen ? `-${drawerHeight}px` : '0px'})`, // Move up by actual drawer height
+                  zIndex: 1001,
+                  cursor: 'pointer',
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  px: 6, // Increased from 4 to 5 for wider tab
+                  py: .45,
+                  borderRadius: '8px 8px 0 0',
+                  boxShadow: 0,
                   '&:hover': {
-                    backgroundColor: 'primary.light',
-                    borderColor: 'primary.main',
-                    boxShadow: 2
-                  }
+                    backgroundColor: 'primary.dark',
+                    boxShadow: 3
+                  },
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column', // Stack content vertically
+                  alignItems: 'center',
+                  gap: 0
                 }}
               >
-                {selectedModel || 'Select Target Model ▾'}
-                  </Button>
-              
-              <Button
-                    variant="outlined"
-                size="medium"
-                onClick={() => setContextModalOpen(true)}
-                sx={{ 
-                  minWidth: 150,
-                  borderRadius: 2,
+                {/* Main row with text and arrow */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    System Prompts
+                  </Typography>
+                  <ExpandMore 
+                    sx={{ 
+                      fontSize: 18,
+                      transform: systemPromptDrawerOpen ?  'rotate(0deg)' : 'rotate(180deg)',
+                      transition: 'transform 0.3s ease'
+                    }} 
+                  />
+                </Box>
+                {/* Selection count indicator */}
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.8, mt: 0 }}>
+                  {selectedSystemPrompts.length} selected
+                </Typography>
+              </Box>
+
+              {/* Expandable Drawer - Dynamic height based on content */}
+              <Box
+                ref={drawerRef}
+                sx={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: 0,
+                  right: 0,
                   backgroundColor: 'background.paper',
-                  color: 'primary.dark',
-                  borderColor: 'primary.dark',
-                  boxShadow: 1,
-                  '&:hover': {
-                    backgroundColor: 'primary.light',
-                    borderColor: 'primary.main',
-                    boxShadow: 2
-                  }
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: '8px 8px 0 0',
+                  boxShadow: 3,
+                  transform: systemPromptDrawerOpen ? 'translateY(0)' : 'translateY(100%)',
+                  transition: 'transform 0.3s ease',
+                  zIndex: 1000,
+                  maxHeight: systemPromptDrawerOpen ? 'auto' : '0px', // Allow natural height when open
+                  overflow: 'hidden'
                 }}
               >
-                Context: {selectedContext ? selectedContext.title : 'None'}
-              </Button>
-              
-                    <Button
-                      variant="outlined"
-                size="medium"
-                onClick={() => setSystemPromptModalOpen(true)}
-                sx={{ 
-                  minWidth: 180,
-                  borderRadius: 2,
-                  backgroundColor: 'background.paper',
-                  color: 'primary.dark',
-                  borderColor: 'primary.dark',
-                  boxShadow: 1,
-                  '&:hover': {
-                    backgroundColor: 'primary.light',
-                    borderColor: 'primary.main',
-                    boxShadow: 2
+                {/* Scrollable Content Container */}
+                <Box sx={{ 
+                  p: 3, 
+                  pt: 4, // Reduced top padding from 6 to 4
+                  maxHeight: '400px', // Maximum height constraint
+                  overflowY: 'auto', // Make content scrollable
+                  '&::-webkit-scrollbar': {
+                    width: '8px'
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'transparent'
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.3)'
+                    }
                   }
-                }}
-              >
-                System Prompt: {selectedSystemPrompt?.name || 'Default'}
-                    </Button>
+                }}>
+                  {/* Header */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    mb: 3 
+                  }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      System Prompts
+                    </Typography>
                   </Box>
 
-            {/* Message Input Container */}
-            <Box sx={{ 
-              display: 'flex', 
-              gap: 2, 
-              alignItems: 'flex-end',
-              maxWidth: 800,
-              mx: 'auto'
-            }}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={1}
-                maxRows={6}
-                placeholder="Type your message..."
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    backgroundColor: 'background.paper',
-                    boxShadow: 1
-                  }
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <ChatIcon color="action" />
-                    </InputAdornment>
-                  )
-                }}
-              />
+                  {/* Description */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                      System prompts provide instructions to AI models about how to behave and respond. 
+                      They set the tone and style for all conversations, helping ensure consistent and appropriate AI responses.
+                    </Typography>
+                  </Box>
 
-              {/* Contextual Menu Button */}
-              <IconButton
-                onClick={(event) => setMenuAnchorEl(event.currentTarget)}
-                sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  backgroundColor: 'background.paper',
-                  color: 'primary.dark',
-                  border: 1,
-                  borderColor: 'primary.dark',
-                  boxShadow: 2,
-                  '&:hover': {
-                    backgroundColor: 'primary.light',
-                    borderColor: 'primary.main',
-                    boxShadow: 3
-                  }
-                }}
-              >
-                <MoreVert />
-              </IconButton>
+                  {/* Selected System Prompts List */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
+                      Selected Prompts:
+                    </Typography>
+                    {selectedSystemPrompts.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {selectedSystemPrompts.map((prompt) => (
+                          <Box
+                            key={prompt.id}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              backgroundColor: 'primary.light',
+                              border: 1,
+                              borderColor: 'primary.main',
+                              position: 'relative'
+                            }}
+                          >
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                {prompt.name}
+                                {prompt.isDefault && (
+                                  <Chip 
+                                    label="Default" 
+                                    size="small" 
+                                    color="primary" 
+                                    sx={{ ml: 1, fontSize: '0.6rem' }}
+                                  />
+                                )}
+                              </Typography>
+                              {prompt.description && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                  {prompt.description}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {prompt.tokenCount} tokens
+                              </Typography>
+                            </Box>
+                            <IconButton
+                              onClick={() => handleRemoveSystemPrompt(prompt.id)}
+                              size="small"
+                              sx={{
+                                color: 'error.main',
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.contrastText'
+                                }
+                              }}
+                            >
+                              <Box sx={{ fontSize: 16 }}>×</Box>
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Box sx={{ 
+                        p: 3, 
+                        textAlign: 'center', 
+                        backgroundColor: 'action.hover',
+                        borderRadius: 2,
+                        border: 1,
+                        borderColor: 'divider'
+                      }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          No system prompts selected
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
 
-              {/* Contextual Menu Dropdown */}
-              <Menu
-                anchorEl={menuAnchorEl}
-                open={Boolean(menuAnchorEl)}
-                onClose={() => setMenuAnchorEl(null)}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                sx={{
-                  '& .MuiPaper-root': {
-                    borderRadius: 2,
-                    boxShadow: 3,
-                    minWidth: 180
-                  }
-                }}
-              >
-                <MenuItem
-                  onClick={() => {
-                    setFullPromptModalOpen(true);
-                    setMenuAnchorEl(null);
-                  }}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    py: 1.5,
-                    px: 2
-                  }}
-                >
-                  <ChatBubbleIcon sx={{ color: 'warning.main', fontSize: 20 }} />
-                  <Typography variant="body2">View Full Prompt</Typography>
-                </MenuItem>
-                
-                <MenuItem
-                  onClick={() => {
-                    startNewConversation();
-                    setMenuAnchorEl(null);
-                  }}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    py: 1.5,
-                    px: 2
-                  }}
-                >
-                  <RefreshIcon sx={{ color: 'warning.main', fontSize: 20 }} />
-                  <Typography variant="body2">New Chat</Typography>
-                </MenuItem>
-              </Menu>
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSendMessage}
-                disabled={!currentMessage.trim() || isLoading}
-                sx={{ 
-                  minWidth: 56, 
-                  height: 56, 
-                  borderRadius: '50%',
-                  boxShadow: 2,
-                  fontSize: '0.875rem',
-                  '&:hover': {
-                    boxShadow: 3
-                  }
-                }}
-              >
-                {isLoading ? <CircularProgress size={24} color="inherit" /> : <SendIcon />}
-              </Button>
-            </Box>
-
-            {/* Embellishments Bar */}
-            <Box sx={{ 
-              mt: 2, 
-              display: 'flex', 
-              justifyContent: 'center'
-            }}>
-              {/* Embellishments Bar - Dynamic content with + button on the right */}
-              <Paper
-                onClick={() => setEmbellishmentModalOpen(true)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  px: 2,
-                  py: 1,
-                  borderRadius: 2,
-                  backgroundColor: 'background.paper',
-                  color: 'primary.dark',
-                  border: 1,
-                  borderColor: 'primary.dark',
-                  width: 800, // Exact same width as prompt input container
-                  boxShadow: 1,
-                  minHeight: 48, // Ensure consistent height
-                  flexWrap: 'wrap', // Allow wrapping to multiple lines
-                  cursor: 'pointer', // Show it's clickable
-                  '&:hover': {
-                    backgroundColor: 'primary.light',
-                    borderColor: 'primary.main',
-                    boxShadow: 2
-                  }
-                }}
-              >
-                {/* Display embellishments or placeholder text */}
-                {embellishments.length > 0 ? (
-                  <>
-                    {embellishments.map((embellishment) => (
-                      <Chip
-                        key={embellishment.id}
-                        label={embellishment.name}
-                        onDelete={() => handleRemoveEmbellishment(embellishment.id)}
-                        color="primary"
-                        variant="filled"
-                        size="small"
-                        onClick={(e) => e.stopPropagation()} // Prevent bar click when clicking on chip
-                        sx={{
-                          maxWidth: '200px',
-                          '& .MuiChip-label': {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }
-                        }}
-                      />
-                    ))}
-                  </>
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                    Add Embellishments
-                  </Typography>
-                )}
-                
-                {/* + Button always on the far right */}
-                <Box sx={{ marginLeft: 'auto' }}>
-                  <IconButton
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent bar click when clicking + button
-                      handleAddEmbellishment();
-                    }}
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      backgroundColor: 'primary.main',
-                      color: 'primary.contrastText',
-                      border: 1,
-                      borderColor: 'primary.main',
-                      boxShadow: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                        borderColor: 'primary.dark',
-                        boxShadow: 2
-                      }
-                    }}
-                  >
-                    <AddIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
+                  {/* Add New Button - At the bottom of the list */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center',
+                    pt: 1,
+                    borderTop: 1,
+                    borderColor: 'divider'
+                  }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setSystemPromptModalOpen(true)}
+                      startIcon={<AddIcon />}
+                      sx={{ 
+                        fontSize: '0.75rem',
+                        px: 3,
+                        py: 1
+                      }}
+                    >
+                      Add New Prompt
+                    </Button>
+                  </Box>
                 </Box>
-              </Paper>
+              </Box>
             </Box>
+
+            {/* Unified Prompt Entry Container */}
+            <Paper sx={{ 
+              p: 0.75, 
+              borderRadius: 2,
+              backgroundColor: 'background.paper',
+              border: 1,
+              borderColor: 'divider',
+              boxShadow: 1
+            }}>
+              {/* Message Input Container */}
+              <Box sx={{ 
+                position: 'relative',
+                width: '100%'
+              }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={1}
+                  maxRows={6}
+                  placeholder="Type your message..."
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: 'background.paper',
+                      boxShadow: 1,
+                      pr: 8 // Add right padding to make room for send button only
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <ChatIcon color="action" />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+
+                {/* Send Button - Inside text box */}
+                <IconButton
+                  onClick={handleSendMessage}
+                  disabled={!currentMessage.trim() || isLoading}
+                  sx={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark'
+                    },
+                    '&:disabled': {
+                      backgroundColor: 'action.disabledBackground',
+                      color: 'action.disabled'
+                    }
+                  }}
+                >
+                  {isLoading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <Box sx={{ 
+                      fontSize: 16,
+                      transform: 'rotate(-90deg)' // Rotate to point upward
+                    }}>
+                      →
+                    </Box>
+                  )}
+                </IconButton>
+              </Box>
+
+              {/* Controls Container Box - Now below the prompt input */}
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 4, 
+                justifyContent: 'center', 
+                flexWrap: 'wrap', 
+                mt: 1 
+              }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setModelModalOpen(true)}
+                  sx={{ 
+                    minWidth: 200,
+                    borderRadius: 4,
+                    backgroundColor: 'background.paper',
+                    color: 'primary.dark',
+                    borderColor: 'primary.dark',
+                    boxShadow: 1,
+                    fontSize: '0.75rem',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      borderColor: 'primary.main',
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  {selectedModel + '  ▾' || 'Select Target Model ▾'}
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setContextModalOpen(true)}
+                  sx={{ 
+                    minWidth: 150,
+                    borderRadius: 4,
+                    backgroundColor: 'background.paper',
+                    color: 'primary.dark',
+                    borderColor: 'primary.dark',
+                    boxShadow: 1,
+                    fontSize: '0.75rem',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      borderColor: 'primary.main',
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  Context: {selectedContext ? selectedContext.title : 'None'} ▾
+                </Button>
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setFullPromptModalOpen(true)}
+                  sx={{ 
+                    minWidth: 150,
+                    borderRadius: 4,
+                    backgroundColor: 'background.paper',
+                    color: 'primary.dark',
+                    borderColor: 'primary.dark',
+                    boxShadow: 1,
+                    fontSize: '0.75rem',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      borderColor: 'primary.main',
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  View Full Prompt
+                </Button>
+              </Box>
+            </Paper>
+
+
         </Box>
                   </Box>
 
@@ -1718,7 +1877,12 @@ export default function PromptLabPage() {
         open={systemPromptModalOpen}
         onClose={() => setSystemPromptModalOpen(false)}
         onSelectSystemPrompt={(systemPrompt) => {
-          setSelectedSystemPrompt(systemPrompt);
+          // Add to existing selection instead of replacing
+          setSelectedSystemPrompts(prev => 
+            prev.some(sp => sp.id === systemPrompt.id) 
+              ? prev 
+              : [...prev, systemPrompt]
+          );
           setSystemPromptModalOpen(false);
         }}
         systemPrompts={systemPrompts}
@@ -1743,6 +1907,27 @@ export default function PromptLabPage() {
         onClose={() => setFullPromptModalOpen(false)}
         fullPrompt={constructFullPrompt()}
       />
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={2000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{
+          '& .MuiSnackbar-root': {
+            bottom: 120 // Position above the prompt area
+          }
+        }}
+      >
+        <Alert 
+          onClose={() => setToastOpen(false)} 
+          severity="success" 
+          sx={{ width: '100%' }}
+        >
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 
