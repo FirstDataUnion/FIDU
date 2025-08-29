@@ -114,7 +114,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const advancedMenuItems = [
     { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
     { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
-    { text: 'Embellishments', icon: <AddIcon />, path: '/embellishments' },
   ];
 
 

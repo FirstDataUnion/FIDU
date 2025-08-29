@@ -36,7 +36,7 @@ import {
   ChatBubbleOutline as ChatBubbleIcon,
   Refresh as RefreshIcon,
   ExpandMore,
-  Visibility as VisibilityIcon
+  ArrowBackIos as ArrowBackIosIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -1605,9 +1605,9 @@ export default function PromptLabPage() {
                   ) : (
                     <Box sx={{ 
                       fontSize: 16,
-                      transform: 'rotate(-90deg)' // Rotate to point upward
+                      transform: 'rotate(90deg) translate(5px, 2px)' // Rotate to point upward
                     }}>
-                      →
+                     <ArrowBackIosIcon />
                     </Box>
                   )}
                 </IconButton>
@@ -1684,7 +1684,7 @@ export default function PromptLabPage() {
                     }
                   }}
                 >
-                  View Full Prompt
+                  View/Copy Full Prompt
                 </Button>
               </Box>
             </Paper>

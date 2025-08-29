@@ -16,7 +16,6 @@ import {
   Psychology as ContextsIcon,
   SystemUpdate as SystemPromptsIcon,
   Science as PromptLabIcon,
-  Palette as EmbellishmentsIcon
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -30,7 +29,6 @@ const Sidebar: React.FC = () => {
     { label: 'Contexts', icon: <ContextsIcon />, path: '/contexts' },
     { label: 'System Prompts', icon: <SystemPromptsIcon />, path: '/system-prompts' },
     { label: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
-    { label: 'Embellishments', icon: <EmbellishmentsIcon />, path: '/embellishments' }
   ];
 
   const secondaryItems = [
