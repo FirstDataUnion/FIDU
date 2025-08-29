@@ -23,24 +23,42 @@ import {
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
-import type { Conversation, ConversationsState } from '../types';
+import type { Conversation } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
 import ConversationCard from '../components/conversations/ConversationCard';
 import ConversationFilters from '../components/conversations/ConversationFilters';
 import ContextBuilder from '../components/conversations/ContextBuilder';
 import TagManager from '../components/conversations/TagManager';
 import AddToContextDialog from '../components/conversations/AddToContextDialog';
-import { useConversationFilters } from '../hooks/useConversationFilters';
+import { useDebouncedSearch } from '../hooks/useDebouncedSearch';
+import { useLazyLoad } from '../hooks/useLazyLoad';
+import { usePerformanceMonitor } from '../hooks/usePerformanceMonitor';
+import VirtualList from '../components/common/VirtualList';
+import PerformanceMonitor from '../components/common/PerformanceMonitor';
+import {
+  selectConversationsLoading,
+  selectConversationsError,
+  selectAllTags,
+  selectAllPlatforms,
+  selectSortedConversations
+} from '../store/selectors/conversationsSelectors';
 
 const ConversationsPage: React.FC = React.memo(() => {
-  const dispatch = useAppDispatch();
-  const { items: conversations = [], loading, error } = useAppSelector((state) => state.conversations as ConversationsState);
-  const { items: contexts } = useAppSelector((state) => state.contexts);
+  // Performance monitoring
+  const _performanceMetrics = usePerformanceMonitor({
+    componentName: 'ConversationsPage',
+    threshold: 16
+  });
 
+  const dispatch = useAppDispatch();
+  
+  // Use memoized selectors for better performance
+  const loading = useAppSelector(selectConversationsLoading);
+  const error = useAppSelector(selectConversationsError);
+  const { items: contexts } = useAppSelector((state) => state.contexts);
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
   
   // Search and Filter State
-  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -66,15 +84,34 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
-  // Use custom hook for optimized filtering
-  const { allTags, allPlatforms, sortedConversations } = useConversationFilters({
-    conversations,
+  // Use debounced search for better performance
+  const {
     searchQuery,
-    selectedPlatforms,
-    selectedTags,
-    showArchived,
-    sortBy,
-    sortOrder,
+    updateSearchQuery,
+    clearSearch
+  } = useDebouncedSearch({
+    delay: 300,
+    minLength: 2,
+    onSearch: (_query) => {
+      // Update Redux filters when search changes
+      // This could dispatch an action to update the global filters
+    }
+  });
+
+  // Use memoized selectors for better performance
+  const allTags = useAppSelector(selectAllTags);
+  const allPlatforms = useAppSelector(selectAllPlatforms);
+  const sortedConversations = useAppSelector(selectSortedConversations);
+
+  // Use lazy loading for better performance with large lists
+  const {
+    paginatedItems: _visibleConversations,
+    loadingRef: _loadingRef
+  } = useLazyLoad({
+    items: sortedConversations,
+    pageSize: 20,
+    threshold: 100,
+    enabled: sortedConversations.length > 20
   });
 
   useEffect(() => {
@@ -360,7 +397,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                 const value = e.target.value;
                 // Sanitize input to prevent XSS
                 const sanitizedValue = value.replace(/[<>]/g, '');
-                setSearchQuery(sanitizedValue);
+                updateSearchQuery(sanitizedValue);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -368,7 +405,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                   // Trigger search or focus next element
                 }
                 if (e.key === 'Escape') {
-                  setSearchQuery('');
+                  clearSearch();
                 }
               }}
               sx={{ minWidth: 300, flex: 1, maxWidth: 600 }}
@@ -542,7 +579,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                     <Button 
                       variant="outlined" 
                       onClick={() => {
-                        setSearchQuery('');
+                        clearSearch();
                         setSelectedPlatforms([]);
                         setSelectedTags([]);
                         setShowArchived(false);
@@ -565,16 +602,37 @@ const ConversationsPage: React.FC = React.memo(() => {
                 flexDirection: 'column',
                 gap: 2 
               }}>
-                {sortedConversations.map((conversation: Conversation) => (
-                  <ConversationCard 
-                    key={conversation.id} 
-                    conversation={conversation}
-                    isSelectedForContext={selectedForContext.includes(conversation.id)}
-                    isCurrentlyViewing={selectedConversation?.id === conversation.id}
-                    onSelect={handleConversationSelect}
-                    onTagManagement={handleTagManagement}
+                {/* Use virtual scrolling for better performance with large lists */}
+                {sortedConversations.length > 50 ? (
+                  <VirtualList
+                    items={sortedConversations}
+                    height={600}
+                    itemHeight={200}
+                    renderItem={(conversation: Conversation, _index: number) => (
+                      <ConversationCard 
+                        key={conversation.id} 
+                        conversation={conversation}
+                        isSelectedForContext={selectedForContext.includes(conversation.id)}
+                        isCurrentlyViewing={selectedConversation?.id === conversation.id}
+                        onSelect={handleConversationSelect}
+                        onTagManagement={handleTagManagement}
+                      />
+                    )}
+                    overscan={3}
                   />
-                ))}
+                ) : (
+                  // Regular rendering for smaller lists
+                  sortedConversations.map((conversation: Conversation) => (
+                    <ConversationCard 
+                      key={conversation.id} 
+                      conversation={conversation}
+                      isSelectedForContext={selectedForContext.includes(conversation.id)}
+                      isCurrentlyViewing={selectedConversation?.id === conversation.id}
+                      onSelect={handleConversationSelect}
+                      onTagManagement={handleTagManagement}
+                    />
+                  ))
+                )}
               </Box>
             )}
           </Box>
@@ -703,6 +761,13 @@ const ConversationsPage: React.FC = React.memo(() => {
         allTags={allTags}
         onTagsChange={setEditedTags}
         onSave={handleSaveTags}
+      />
+
+      {/* Performance Monitor - Only visible in development */}
+      <PerformanceMonitor 
+        metrics={_performanceMetrics}
+        componentName="ConversationsPage"
+        showInProduction={false}
       />
     </Box>
   );
