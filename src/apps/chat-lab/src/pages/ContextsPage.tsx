@@ -46,6 +46,7 @@ export default function ContextsPage() {
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
   const [conversationSelectionDialogOpen, setConversationSelectionDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [createConversationSelectionDialogOpen, setCreateConversationSelectionDialogOpen] = useState(false);
   
   // Form states
   const [contextForm, setContextForm] = useState<ContextFormData>({
@@ -249,6 +250,38 @@ export default function ContextsPage() {
     }
   }, [dispatch, selectedContext, currentProfile?.id, viewEditForm.body]);
 
+  const handleAddConversationToNewContext = useCallback(async (conversation: Conversation) => {
+    if (!currentProfile?.id) return;
+    
+    try {
+      // Fetch the full conversation messages
+      const messagesResult = await dispatch(fetchConversationMessages(conversation.id)).unwrap();
+      
+      if (!messagesResult || messagesResult.length === 0) {
+        return;
+      }
+      
+      // Format the conversation content with role and message
+      const conversationContent = messagesResult.map((msg: any) => 
+        `${msg.role}: ${msg.content}`
+      ).join('\n\n');
+      
+      // Append conversation content to current form content
+      const updatedBody = contextForm.body + '\n\nPast conversation context:\n\n' + conversationContent;
+      
+      // Update the local form state
+      setContextForm(prev => ({
+        ...prev,
+        body: updatedBody
+      }));
+      
+      // Close the conversation selection dialog
+      setCreateConversationSelectionDialogOpen(false);
+    } catch (error) {
+      console.error('Error adding conversation to new context:', error);
+    }
+  }, [dispatch, contextForm.body, currentProfile?.id]);
+
   return (
     <Box sx={{ 
       height: '100%', // Use full height of parent container
@@ -406,6 +439,22 @@ export default function ContextsPage() {
               onChange={(e) => setContextForm(prev => ({ ...prev, body: e.target.value }))}
               sx={{ mb: 2 }}
             />
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateConversationSelectionDialogOpen(true)}
+              sx={{
+                borderColor: 'primary.dark',
+                color: 'primary.dark',
+                '&:hover': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  borderColor: 'primary.dark',
+                }
+              }}
+            >
+              Add Existing Conversation to Context
+            </Button>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -558,6 +607,22 @@ export default function ContextsPage() {
         <DialogContent>
           <ConversationSelectionList 
             onConversationSelect={handleAddConversationToContext}
+            currentProfileId={currentProfile?.id}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Conversation Selection Dialog */}
+      <Dialog open={createConversationSelectionDialogOpen} onClose={() => setCreateConversationSelectionDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          Add Conversation to New Context
+          <Typography variant="body2" color="text.secondary">
+            Select a conversation to append to the new context "{contextForm.title}"
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <ConversationSelectionList 
+            onConversationSelect={handleAddConversationToNewContext}
             currentProfileId={currentProfile?.id}
           />
         </DialogContent>
