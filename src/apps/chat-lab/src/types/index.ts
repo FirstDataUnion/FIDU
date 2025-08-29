@@ -47,6 +47,7 @@ export interface Context {
 export interface SystemPrompt {
   id: string;
   name: string;
+  description?: string; // Optional description field
   content: string;
   tokenCount: number;
   isDefault: boolean;
