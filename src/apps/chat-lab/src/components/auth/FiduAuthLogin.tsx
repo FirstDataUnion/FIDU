@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/material';
 import { useAppDispatch } from '../../hooks/redux';
 import { initializeAuth } from '../../store/slices/authSlice';
@@ -35,7 +35,7 @@ const FiduAuthLogin: React.FC = () => {
   };
 
   // Function to check and clear problematic auth state
-  const checkAndClearAuthState = () => {
+  const checkAndClearAuthState = useCallback(() => {
     console.log('🔑 FiduAuthLogin: Checking current auth state...');
     const token = localStorage.getItem('auth_token');
     const user = localStorage.getItem('user');
@@ -52,7 +52,7 @@ const FiduAuthLogin: React.FC = () => {
       console.log('🔑 FiduAuthLogin: Found partial auth state without token, clearing...');
       clearAllAuthTokens();
     }
-  };
+  }, []);
 
   // Log the FIDU host for debugging
   console.log('🔑 FiduAuthLogin: FIDU host URL:', getFiduHost());
@@ -65,7 +65,7 @@ const FiduAuthLogin: React.FC = () => {
   // Check auth state on component mount
   useEffect(() => {
     checkAndClearAuthState();
-  }, []);
+  }, [checkAndClearAuthState]);
 
   // Inject SDK script if not present
   useEffect(() => {

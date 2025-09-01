@@ -29,7 +29,7 @@ export async function fetchCurrentUser(token?: string) {
           const externalUser = await retryRes.json();
           return createUserFromResponse(externalUser);
         }
-      } catch (refreshError) {
+      } catch {
         // Token refresh failed, clear auth data and redirect to login
         refreshTokenService.clearAllAuthTokens();
         window.location.reload();
@@ -102,7 +102,7 @@ export async function createProfile(display_name: string, token?: string) {
           const externalProfile = await retryRes.json();
           return externalProfileToInternalProfile(externalProfile.profile);
         }
-      } catch (refreshError) {
+      } catch {
         // Token refresh failed, clear auth data and redirect to login
         refreshTokenService.clearAllAuthTokens();
         window.location.reload();

@@ -117,17 +117,6 @@ export const createPromptsApi = () => {
         throw new Error('Profile ID is required to execute a prompt');
       }
 
-      // Format conversation history for the AI model
-      const formatConversationHistory = (messages: Message[]): string => {
-        return messages
-          .filter(msg => msg.role !== 'system') // Filter out system messages for now
-          .map(msg => {
-            const role = msg.role === 'user' ? 'User' : 'Assistant';
-            return `${role}: ${msg.content}`;
-          })
-          .join('\n\n');
-      };
-
       // Build the complete prompt using the unified function
       const agentPrompt = buildCompletePrompt(
         systemPrompts || [],

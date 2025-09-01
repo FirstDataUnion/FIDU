@@ -52,7 +52,7 @@ export const useConversationOptimization = ({
 
   // Memoized filtered conversations
   const filteredConversations = useMemo(() => {
-    if (!filtersChanged && conversations.length === previousFilters.current.conversations?.length) {
+    if (!filtersChanged) {
       return conversations; // Return cached result if nothing changed
     }
 

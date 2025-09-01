@@ -209,9 +209,10 @@ interface SystemPromptSelectionModalProps {
   systemPrompts: SystemPrompt[];
   loading: boolean;
   error: string | null;
+  title?: string;
 }
 
-function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error }: SystemPromptSelectionModalProps) {
+function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error, title = 'Add System Prompt' }: SystemPromptSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredSystemPrompts = systemPrompts.filter(sp => 
@@ -222,7 +223,7 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Add System Prompt</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -527,6 +528,11 @@ export default function PromptLabPage() {
     setSelectedSystemPrompts(prev => prev.filter(sp => sp.id !== promptId));
   };
 
+  const handleChangeSystemPrompt = (prompt: SystemPrompt) => {
+    setChangingSystemPrompt(prompt);
+    setSystemPromptModalOpen(true);
+  };
+
   // Measure drawer height when it opens or content changes
   useEffect(() => {
     if (systemPromptDrawerOpen && drawerRef.current) {
@@ -615,6 +621,9 @@ export default function PromptLabPage() {
   const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
   const [fullPromptModalOpen, setFullPromptModalOpen] = useState(false);
   const [embellishmentModalOpen, setEmbellishmentModalOpen] = useState(false);
+  
+  // System prompt change state
+  const [changingSystemPrompt, setChangingSystemPrompt] = useState<SystemPrompt | null>(null);
 
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
@@ -796,7 +805,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts]);
+  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, embellishments]);
 
   // Handle sending a message
   const handleSendMessage = async () => {
@@ -1563,6 +1572,28 @@ export default function PromptLabPage() {
                                 {prompt.tokenCount} tokens
                               </Typography>
                             </Box>
+                            
+                            {/* Change Button */}
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleChangeSystemPrompt(prompt)}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 2,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                                borderColor: 'primary.main',
+                                color: 'primary.main',
+                                '&:hover': {
+                                  backgroundColor: 'primary.light',
+                                  borderColor: 'primary.dark'
+                                }
+                              }}
+                            >
+                              Change
+                            </Button>
+                            
                             <IconButton
                               onClick={() => handleRemoveSystemPrompt(prompt.id)}
                               size="small"
@@ -1963,22 +1994,38 @@ export default function PromptLabPage() {
         error={contextsError}
       />
 
-      <SystemPromptSelectionModal
-        open={systemPromptModalOpen}
-        onClose={() => setSystemPromptModalOpen(false)}
-        onSelectSystemPrompt={(systemPrompt) => {
-          // Add to existing selection instead of replacing
-          setSelectedSystemPrompts(prev => 
-            prev.some(sp => sp.id === systemPrompt.id) 
-              ? prev 
-              : [...prev, systemPrompt]
-          );
-          setSystemPromptModalOpen(false);
-        }}
-        systemPrompts={systemPrompts}
-        loading={systemPromptsLoading}
-        error={systemPromptsError}
-      />
+              <SystemPromptSelectionModal
+          open={systemPromptModalOpen}
+          onClose={() => {
+            setSystemPromptModalOpen(false);
+            setChangingSystemPrompt(null); // Reset change state when closing
+          }}
+          onSelectSystemPrompt={(systemPrompt) => {
+            if (changingSystemPrompt) {
+              // Replace the specific system prompt
+              setSelectedSystemPrompts(prev => 
+                prev.map(sp => 
+                  sp.id === changingSystemPrompt.id ? systemPrompt : sp
+                )
+              );
+              setChangingSystemPrompt(null);
+              showToast(`System prompt "${changingSystemPrompt.name}" replaced with "${systemPrompt.name}"`);
+            } else {
+              // Add to existing selection instead of replacing
+              setSelectedSystemPrompts(prev => 
+                prev.some(sp => sp.id === systemPrompt.id) 
+                  ? prev 
+                  : [...prev, systemPrompt]
+              );
+              showToast(`System prompt "${systemPrompt.name}" added`);
+            }
+            setSystemPromptModalOpen(false);
+          }}
+          systemPrompts={systemPrompts}
+          loading={systemPromptsLoading}
+          error={systemPromptsError}
+          title={changingSystemPrompt ? `Change System Prompt: ${changingSystemPrompt.name}` : 'Add System Prompt'}
+        />
 
       <EmbellishmentSelectionModal
         open={embellishmentModalOpen}

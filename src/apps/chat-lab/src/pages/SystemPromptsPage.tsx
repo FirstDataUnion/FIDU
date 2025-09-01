@@ -396,7 +396,7 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsCreating(false);
     }
-  }, [dispatch, currentProfile?.id, systemPromptForm, isCreating]);
+  }, [dispatch, currentProfile?.id, systemPromptForm]);
 
   const handleUpdateSystemPromptSubmit = useCallback(async () => {
     if (!currentProfile?.id || !selectedSystemPrompt || !systemPromptForm.name.trim() || !systemPromptForm.content.trim()) return;
@@ -424,7 +424,7 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsUpdating(false);
     }
-  }, [dispatch, selectedSystemPrompt, currentProfile?.id, systemPromptForm, isUpdating]);
+  }, [dispatch, selectedSystemPrompt, currentProfile?.id, systemPromptForm]);
 
   const handleDeleteSystemPrompt = useCallback(async () => {
     if (!selectedSystemPrompt) return;
