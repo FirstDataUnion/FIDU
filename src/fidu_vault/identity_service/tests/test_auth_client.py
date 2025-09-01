@@ -23,7 +23,7 @@ class TestAuthTokenManager:
         """Test setting tokens with expiration."""
         manager = AuthTokenManager()
         manager.set_tokens("access_token_123", "refresh_token_456", 3600)
-        
+
         assert manager.access_token == "access_token_123"
         assert manager.refresh_token == "refresh_token_456"
         assert manager.token_expires_at is not None
@@ -37,7 +37,7 @@ class TestAuthTokenManager:
         """Test token expiration check when token is still valid."""
         manager = AuthTokenManager()
         manager.set_tokens("access_token_123", "refresh_token_456", 3600)
-        
+
         # Token should be valid for ~1 hour minus 5 minutes safety margin
         assert manager.is_token_expired() is False
 
@@ -45,14 +45,16 @@ class TestAuthTokenManager:
         """Test getting valid access token when token is not expired."""
         manager = AuthTokenManager()
         manager.set_tokens("access_token_123", "refresh_token_456", 3600)
-        
+
         assert manager.get_valid_access_token() == "access_token_123"
 
     def test_get_valid_access_token_when_expired(self):
         """Test getting valid access token when token is expired."""
         manager = AuthTokenManager()
-        manager.set_tokens("access_token_123", "refresh_token_456", 0)  # Expired immediately
-        
+        manager.set_tokens(
+            "access_token_123", "refresh_token_456", 0
+        )  # Expired immediately
+
         assert manager.get_valid_access_token() is None
 
     def test_clear_tokens(self):
@@ -60,7 +62,7 @@ class TestAuthTokenManager:
         manager = AuthTokenManager()
         manager.set_tokens("access_token_123", "refresh_token_456", 3600)
         manager.clear_tokens()
-        
+
         assert manager.access_token is None
         assert manager.refresh_token is None
         assert manager.token_expires_at is None
@@ -71,22 +73,22 @@ class TestAuthTokenManager:
         """Test successful access token refresh."""
         manager = AuthTokenManager()
         manager.set_tokens("old_token", "refresh_token_456", 0)
-        
+
         # Mock successful refresh response
         mock_response = AsyncMock()
         mock_response.status_code = 200
         mock_response.json = lambda: {
             "access_token": "new_access_token",
-            "expires_in": 3600
+            "expires_in": 3600,
         }
-        
+
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Test refresh
         result = await manager.refresh_access_token()
-        
+
         assert result is True
         assert manager.access_token == "new_access_token"
         assert manager.token_expires_at is not None
@@ -97,19 +99,19 @@ class TestAuthTokenManager:
         """Test failed access token refresh."""
         manager = AuthTokenManager()
         manager.set_tokens("old_token", "refresh_token_456", 0)
-        
+
         # Mock failed refresh response
         mock_response = AsyncMock()
         mock_response.status_code = 401
         mock_response.text = "Unauthorized"
-        
+
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
-        
+
         # Test refresh
         result = await manager.refresh_access_token()
-        
+
         assert result is False
         assert manager.access_token == "old_token"  # Should remain unchanged
 
@@ -121,7 +123,7 @@ class TestAuthenticatedClient:
         """Test setting tokens in the client."""
         client = AuthenticatedClient()
         client.set_tokens("access_token_123", "refresh_token_456", 3600)
-        
+
         assert client.token_manager.access_token == "access_token_123"
         assert client.token_manager.refresh_token == "refresh_token_456"
 
@@ -130,7 +132,7 @@ class TestAuthenticatedClient:
         client = AuthenticatedClient()
         client.set_tokens("access_token_123", "refresh_token_456", 3600)
         client.clear_tokens()
-        
+
         assert client.token_manager.access_token is None
         assert client.token_manager.refresh_token is None
 

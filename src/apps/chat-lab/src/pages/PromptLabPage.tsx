@@ -533,6 +533,22 @@ export default function PromptLabPage() {
     setSystemPromptModalOpen(true);
   };
 
+  // Helper function to restore system prompts and embellishments from a conversation
+  const restoreConversationSettings = useCallback((conversation: Conversation) => {
+    if (conversation.originalPrompt) {
+      if (conversation.originalPrompt.systemPrompts && conversation.originalPrompt.systemPrompts.length > 0) {
+        setSelectedSystemPrompts(conversation.originalPrompt.systemPrompts);
+      } else if (conversation.originalPrompt.systemPrompt) {
+        // Backward compatibility: single system prompt
+        setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
+      }
+      
+      if (conversation.originalPrompt.embellishments && conversation.originalPrompt.embellishments.length > 0) {
+        setEmbellishments(conversation.originalPrompt.embellishments);
+      }
+    }
+  }, []);
+
   // Measure drawer height when it opens or content changes
   useEffect(() => {
     if (systemPromptDrawerOpen && drawerRef.current) {
@@ -689,16 +705,7 @@ export default function PromptLabPage() {
             
             // Restore system prompts and embellishments from the conversation
             if (location.state.conversation.originalPrompt) {
-              if (location.state.conversation.originalPrompt.systemPrompts && location.state.conversation.originalPrompt.systemPrompts.length > 0) {
-                setSelectedSystemPrompts(location.state.conversation.originalPrompt.systemPrompts);
-              } else if (location.state.conversation.originalPrompt.systemPrompt) {
-                // Backward compatibility: single system prompt
-                setSelectedSystemPrompts([location.state.conversation.originalPrompt.systemPrompt]);
-              }
-              
-              if (location.state.conversation.originalPrompt.embellishments && location.state.conversation.originalPrompt.embellishments.length > 0) {
-                setEmbellishments(location.state.conversation.originalPrompt.embellishments);
-              }
+              restoreConversationSettings(location.state.conversation);
             }
             
             // Clear the navigation state to prevent reloading on subsequent renders
@@ -734,7 +741,7 @@ export default function PromptLabPage() {
       
       loadConversationFromState();
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, restoreConversationSettings]);
 
   // Save or update conversation
   const saveConversation = useCallback(async (messages: Message[]) => {
@@ -902,18 +909,7 @@ export default function PromptLabPage() {
       setMessages(updatedMessages);
       
       // Restore system prompts and embellishments from the conversation
-      if (conversation.originalPrompt) {
-        if (conversation.originalPrompt.systemPrompts && conversation.originalPrompt.systemPrompts.length > 0) {
-          setSelectedSystemPrompts(conversation.originalPrompt.systemPrompts);
-        } else if (conversation.originalPrompt.systemPrompt) {
-          // Backward compatibility: single system prompt
-          setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
-        }
-        
-        if (conversation.originalPrompt.embellishments && conversation.originalPrompt.embellishments.length > 0) {
-          setEmbellishments(conversation.originalPrompt.embellishments);
-        }
-      }
+      restoreConversationSettings(conversation);
       
       // Close the drawer
       setConversationsDrawerOpen(false);

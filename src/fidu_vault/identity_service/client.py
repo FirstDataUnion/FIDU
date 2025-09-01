@@ -1,12 +1,14 @@
 """Client for interacting with the identity service."""
 
-import os
 import json
 import logging
+import os
+
 import httpx
 from fastapi import HTTPException
-from fidu_vault.users.schema import IdentityServiceUser
+
 from fidu_vault.profiles.schema import IdentityServiceProfile
+from fidu_vault.users.schema import IdentityServiceUser
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
     )
     if not token:
         raise HTTPException(status_code=401, detail="Authorization token is required")
-    logging.info("Fetching user from identity service: %s", token)
+    logger.info("Fetching user from identity service: %s", token)
 
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -37,7 +39,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
                         return IdentityServiceUser(**response_data["user"])
                     return None
                 except (json.JSONDecodeError, ValueError, TypeError) as e:
-                    logging.error("Failed to parse response JSON: %s", str(e))
+                    logger.error("Failed to parse response JSON: %s", str(e))
                     raise HTTPException(
                         status_code=500, detail="Invalid response from identity service"
                     ) from e
@@ -46,7 +48,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
             if response.status_code == 403:
                 raise HTTPException(status_code=403, detail="Access forbidden")
 
-            logging.error("Failed to fetch user: %s", response.text)
+            logger.error("Failed to fetch user: %s", response.text)
             raise HTTPException(status_code=500, detail="Identity service error")
     except httpx.ConnectError as e:
         logger.error(
@@ -172,4 +174,93 @@ async def create_profile(
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while creating the profile.",
+        ) from e
+
+
+async def get_profile_from_identity_service(
+    token: str, profile_id: str
+) -> IdentityServiceProfile | None:
+    """Fetch a profile from the identity service by profile_id."""
+    identity_service_url = os.getenv(
+        "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
+    )
+    if not token:
+        raise HTTPException(status_code=401, detail="Authorization token is required")
+    logger.info("Fetching profile from identity service: %s", profile_id)
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{identity_service_url}/profiles/{profile_id}",
+                headers=headers,
+                follow_redirects=False,
+            )
+            if response.status_code == 200:
+                try:
+                    response_data = response.json()
+                    if "profile" in response_data:
+                        return IdentityServiceProfile(**response_data["profile"])
+                    return None
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.error("Failed to parse response JSON: %s", str(e))
+                    raise HTTPException(
+                        status_code=500, detail="Invalid response from identity service"
+                    ) from e
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            if response.status_code == 403:
+                raise HTTPException(status_code=403, detail="Access forbidden")
+            if response.status_code == 404:
+                return None
+
+            logger.error("Failed to fetch profile: %s", response.text)
+            raise HTTPException(status_code=500, detail="Identity service error")
+    except httpx.ConnectError as e:
+        logger.error(
+            "Failed to connect to identity service at %s: %s",
+            identity_service_url,
+            str(e),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service is currently unavailable. Please try again later.",
+        ) from e
+    except httpx.TimeoutException as e:
+        logger.error("Timeout connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service request timed out. Please try again later.",
+        ) from e
+    except httpx.HTTPStatusError as e:
+        # Handle specific HTTP status errors
+        if e.response.status_code == 401:
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired token"
+            ) from e
+        if e.response.status_code == 403:
+            raise HTTPException(status_code=403, detail="Access forbidden") from e
+        if e.response.status_code == 404:
+            return None
+
+        logger.error("HTTP status error from identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to communicate with identity service. Please try again later.",
+        ) from e
+    except httpx.HTTPError as e:
+        logger.error("HTTP error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to communicate with identity service. Please try again later.",
+        ) from e
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is to preserve their status codes
+        raise
+    except Exception as e:
+        logger.error("Unexpected error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while validating your credentials.",
         ) from e
