@@ -19,9 +19,11 @@ import {
   ListItemIcon,
   ListItemText,
   Stack,
-  Collapse,
   Divider,
-  DialogContentText
+  DialogContentText,
+  Tabs,
+  Tab,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,11 +31,11 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
-  ExpandLess,
-  ExpandMore,
   Settings as SettingsIcon,
-  Code as CodeIcon
+  Code as CodeIcon,
+  Extension as ExtensionIcon
 } from '@mui/icons-material';
+
 import { useAppSelector, useAppDispatch } from '../store';
 import { 
   fetchSystemPrompts, 
@@ -65,14 +67,16 @@ const SystemPromptCard = React.memo<{
         }
       }}
     >
-      {/* Built-in indicator */}
-      {systemPrompt.isBuiltIn && (
+      {/* Source indicator */}
+      {systemPrompt.source && (
         <Box
           sx={{
             position: 'absolute',
             top: 8,
             right: 8,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backgroundColor: systemPrompt.source === 'fabric' ? 'rgba(25, 118, 210, 0.8)' : 
+                           systemPrompt.source === 'built-in' ? 'rgba(0, 0, 0, 0.6)' : 
+                           'rgba(156, 39, 176, 0.8)',
             color: 'white',
             px: 1,
             py: 0.5,
@@ -82,7 +86,8 @@ const SystemPromptCard = React.memo<{
             zIndex: 2
           }}
         >
-          Built-in
+          {systemPrompt.source === 'fabric' ? 'Fabric' : 
+           systemPrompt.source === 'built-in' ? 'Built-in' : 'Custom'}
         </Box>
       )}
 
@@ -157,6 +162,99 @@ const SystemPromptCard = React.memo<{
 
 SystemPromptCard.displayName = 'SystemPromptCard';
 
+// Optimized Grid Component with lazy loading for better performance
+const OptimizedSystemPromptsGrid = React.memo<{
+  prompts: any[];
+  onViewEdit: (systemPrompt: any) => void;
+}>(({ prompts, onViewEdit }) => {
+  const [visibleCount, setVisibleCount] = useState(20); // Start with 20 prompts
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Load more prompts when scrolling
+  const loadMore = useCallback(() => {
+    if (visibleCount < prompts.length && !isLoading) {
+      setIsLoading(true);
+      // Simulate loading delay for smooth UX
+      setTimeout(() => {
+        setVisibleCount(prev => Math.min(prev + 20, prompts.length));
+        setIsLoading(false);
+      }, 100);
+    }
+  }, [visibleCount, prompts.length, isLoading]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && visibleCount < prompts.length) {
+            loadMore();
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    // Observe the last visible card
+    const lastCard = document.querySelector('[data-last-card="true"]');
+    if (lastCard) {
+      observer.observe(lastCard);
+    }
+
+    return () => observer.disconnect();
+  }, [visibleCount, prompts.length, loadMore]);
+
+  const visiblePrompts = prompts.slice(0, visibleCount);
+
+  return (
+    <Box>
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { 
+          xs: '1fr', 
+          sm: 'repeat(2, 1fr)', 
+          lg: 'repeat(3, 1fr)' 
+        }, 
+        gap: 3 
+      }}>
+        {visiblePrompts.map((systemPrompt, index) => (
+          <Box 
+            key={systemPrompt.id}
+            data-last-card={index === visibleCount - 1}
+          >
+            <SystemPromptCard 
+              systemPrompt={systemPrompt} 
+              onViewEdit={onViewEdit}
+            />
+          </Box>
+        ))}
+      </Box>
+      
+      {/* Loading indicator */}
+      {isLoading && (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      
+      {/* Load more button for better UX */}
+      {visibleCount < prompts.length && !isLoading && (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Button 
+            variant="outlined" 
+            onClick={loadMore}
+            startIcon={<AddIcon />}
+          >
+            Load More Prompts ({prompts.length - visibleCount} remaining)
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+});
+
+OptimizedSystemPromptsGrid.displayName = 'OptimizedSystemPromptsGrid';
+
 const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
@@ -164,7 +262,7 @@ const SystemPromptsPage = React.memo(() => {
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [showUserPrompts, setShowUserPrompts] = useState(true);
+  const [activeTab, setActiveTab] = useState(0); // 0: All, 1: Fabric, 2: Built-in, 3: User
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -201,24 +299,46 @@ const SystemPromptsPage = React.memo(() => {
   }, [dispatch, currentProfile?.id]);
 
   // Memoize expensive calculations to prevent recalculation on every render
-  const { builtInPrompts, userPrompts } = useMemo(() => {
-    const builtIn = systemPrompts.filter(sp => sp.isBuiltIn);
-    const user = systemPrompts.filter(sp => !sp.isBuiltIn);
-    return { builtInPrompts: builtIn, userPrompts: user };
+  const { fabricPrompts, builtInPrompts, userPrompts } = useMemo(() => {
+    const fabric = systemPrompts.filter(sp => sp.source === 'fabric');
+    const builtIn = systemPrompts.filter(sp => sp.source === 'built-in');
+    const user = systemPrompts.filter(sp => sp.source === 'user' || !sp.source);
+    return { fabricPrompts: fabric, builtInPrompts: builtIn, userPrompts: user };
   }, [systemPrompts]);
 
-  // Memoize filtered prompts based on search query
-  const filteredUserPrompts = useMemo(() => {
-    if (!searchQuery) return userPrompts;
+  // Get current tab's prompts
+  const currentTabPrompts = useMemo(() => {
+    switch (activeTab) {
+      case 1: return fabricPrompts;
+      case 2: return builtInPrompts;
+      case 3: return userPrompts;
+      default: return systemPrompts; // All
+    }
+  }, [activeTab, fabricPrompts, builtInPrompts, userPrompts, systemPrompts]);
+
+  // Debounced search query for better performance
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Memoize filtered prompts based on debounced search query and current tab
+  const filteredPrompts = useMemo(() => {
+    if (!debouncedSearchQuery) return currentTabPrompts;
     
-    const query = searchQuery.toLowerCase();
-    return userPrompts.filter(prompt => 
+    const query = debouncedSearchQuery.toLowerCase();
+    return currentTabPrompts.filter(prompt => 
       prompt.name.toLowerCase().includes(query) ||
       (prompt.description && prompt.description.toLowerCase().includes(query)) ||
       prompt.content.toLowerCase().includes(query) ||
       (prompt.categories && prompt.categories.some(cat => cat.toLowerCase().includes(query)))
     );
-  }, [userPrompts, searchQuery]);
+  }, [currentTabPrompts, debouncedSearchQuery]);
 
   // Memoize event handlers to prevent unnecessary re-renders
   const handleContextMenuClose = useCallback(() => {
@@ -356,15 +476,16 @@ const SystemPromptsPage = React.memo(() => {
     }
   }, [dispatch, selectedSystemPrompt, currentProfile?.id, viewEditForm]);
 
-  // Memoize search query change handler
+  // Memoize search query change handler with performance optimization
   const handleSearchQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
+    const value = e.target.value;
+    // Only update if the value actually changed
+    if (value !== searchQuery) {
+      setSearchQuery(value);
+    }
+  }, [searchQuery]);
 
-  // Memoize toggle handlers
-  const handleToggleUserPrompts = useCallback(() => {
-    setShowUserPrompts(prev => !prev);
-  }, []);
+
 
   // Memoize dialog close handlers
   const handleCloseCreateDialog = useCallback(() => {
@@ -430,104 +551,75 @@ const SystemPromptsPage = React.memo(() => {
                 }}
               />
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {/* Layout changing buttons removed - functionality not implemented */}
-            </Box>
           </Stack>
         </Stack>
       </Paper>
 
-      {/* Built-in System Prompts Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            Built-in System Prompts
+      {/* Tabs for different prompt sources */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab 
+            label={`All (${systemPrompts.length})`} 
+            icon={<SettingsIcon />}
+            iconPosition="start"
+          />
+          <Tab 
+            label={`Fabric (${fabricPrompts.length})`} 
+            icon={<ExtensionIcon />}
+            iconPosition="start"
+          />
+          <Tab 
+            label={`Built-in (${builtInPrompts.length})`} 
+            icon={<SettingsIcon />}
+            iconPosition="start"
+          />
+          <Tab 
+            label={`Custom (${userPrompts.length})`} 
+            icon={<CodeIcon />}
+            iconPosition="start"
+          />
+        </Tabs>
+      </Paper>
+
+      {/* System Prompts Virtualized Grid */}
+      {loading ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <CircularProgress size={60} />
+          <Typography variant="h6" color="text.secondary" sx={{ mt: 2 }}>
+            Loading system prompts...
           </Typography>
-          <Chip 
-            label={`${builtInPrompts.length} available`} 
-            size="small" 
-            sx={{ ml: 2 }}
+        </Box>
+      ) : filteredPrompts.length > 0 ? (
+        <Box sx={{ height: 'calc(100vh - 400px)', minHeight: '400px' }}>
+          <OptimizedSystemPromptsGrid
+            prompts={filteredPrompts}
+            onViewEdit={handleViewEditSystemPrompt}
           />
         </Box>
-        
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { 
-            xs: '1fr', 
-            sm: 'repeat(2, 1fr)', 
-            lg: 'repeat(3, 1fr)' 
-          }, 
-          gap: 3 
-        }}>
-          {builtInPrompts.map((systemPrompt) => (
-              <SystemPromptCard 
-                key={systemPrompt.id} 
-                systemPrompt={systemPrompt} 
-                onViewEdit={handleViewEditSystemPrompt}
-              />
-          ))}
-        </Box>
-      </Box>
-
-      {/* User-Created System Prompts Section */}
-      {userPrompts.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <CodeIcon sx={{ mr: 1, color: 'secondary.main' }} />
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
-              Your Custom System Prompts
-            </Typography>
-            <Chip 
-              label={`${userPrompts.length} created`} 
-              size="small" 
-              sx={{ ml: 2 }}
-            />
-            <Button
-              size="small"
-                              onClick={handleToggleUserPrompts}
-              startIcon={showUserPrompts ? <ExpandLess /> : <ExpandMore />}
-              sx={{ ml: 'auto' }}
-            >
-              {showUserPrompts ? 'Hide' : 'Show'}
-            </Button>
-          </Box>
-          
-          <Collapse in={showUserPrompts}>
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: { 
-                xs: '1fr', 
-                sm: 'repeat(2, 1fr)', 
-                lg: 'repeat(3, 1fr)' 
-              }, 
-              gap: 3 
-            }}>
-                             {filteredUserPrompts.map((systemPrompt) => (
-                 <SystemPromptCard 
-                   key={systemPrompt.id} 
-                   systemPrompt={systemPrompt} 
-                   onViewEdit={handleViewEditSystemPrompt}
-                 />
-              ))}
-            </Box>
-          </Collapse>
-        </Box>
-      )}
-
-      {/* Empty State for User Prompts */}
-      {userPrompts.length === 0 && !loading && (
+      ) : (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <CodeIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-            No custom system prompts yet
+            {searchQuery ? 'No system prompts match your search' : 
+             activeTab === 3 ? 'No custom system prompts yet' :
+             activeTab === 2 ? 'No built-in system prompts' :
+             activeTab === 1 ? 'No Fabric patterns' :
+             'No system prompts available'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Create your first custom system prompt to define specific AI behaviors
+            {activeTab === 3 ? 'Create your first custom system prompt to define specific AI behaviors' :
+             'Try adjusting your search or switching to a different tab'}
           </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt}>
-            Create System Prompt
-          </Button>
+          {activeTab === 3 && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt}>
+              Create System Prompt
+            </Button>
+          )}
         </Box>
       )}
       </Box>

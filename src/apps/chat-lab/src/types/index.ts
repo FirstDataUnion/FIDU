@@ -16,7 +16,9 @@ export interface Conversation {
   originalPrompt?: {
     promptText: string;
     context?: Context | null;
-    systemPrompt: SystemPrompt;
+    systemPrompts: SystemPrompt[]; // Support multiple system prompts
+    systemPrompt?: SystemPrompt; // Keep for backward compatibility
+    embellishments?: Embellishment[]; // Store selected embellishments
     metadata?: {
       estimatedTokens: number;
     };
@@ -47,11 +49,12 @@ export interface Context {
 export interface SystemPrompt {
   id: string;
   name: string;
-  description?: string; // Optional description field
+  description: string; // Description field
   content: string;
   tokenCount: number;
   isDefault: boolean;
   isBuiltIn: boolean; // true for built-in system prompts, false for user-created
+  source?: 'fabric' | 'built-in' | 'user'; // source of the system prompt
   categories: string[];
   createdAt: string;
   updatedAt: string;
@@ -135,9 +138,13 @@ export interface ConversationDataPacket {
       contextId?: string;
       contextTitle?: string;
       contextDescription?: string;
-      systemPromptId: string;
-      systemPromptContent: string;
-      systemPromptName: string;
+      systemPromptIds: string[]; // Support multiple system prompts
+      systemPromptContents: string[]; // Store all system prompt contents
+      systemPromptNames: string[]; // Store all system prompt names
+      systemPromptId?: string; // Keep for backward compatibility
+      systemPromptContent?: string; // Keep for backward compatibility
+      systemPromptName?: string; // Keep for backward compatibility
+      embellishmentIds?: string[]; // Store selected embellishment IDs
       estimatedTokens: number;
     };
   };
@@ -168,9 +175,13 @@ export interface ConversationDataPacketUpdate {
       contextId?: string;
       contextTitle?: string;
       contextDescription?: string;
-      systemPromptId: string;
-      systemPromptContent: string;
-      systemPromptName: string;
+      systemPromptIds: string[]; // Support multiple system prompts
+      systemPromptContents: string[]; // Store all system prompt contents
+      systemPromptNames: string[]; // Store all system prompt names
+      systemPromptId?: string; // Keep for backward compatibility
+      systemPromptContent?: string; // Keep for backward compatibility
+      systemPromptName?: string; // Keep for backward compatibility
+      embellishmentIds?: string[]; // Store selected embellishment IDs
       estimatedTokens: number;
     };
   };
