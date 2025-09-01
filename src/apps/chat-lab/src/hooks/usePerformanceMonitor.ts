@@ -1,10 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-interface PerformanceMetrics {
+interface PerformanceMetricsData {
   renderTime: number;
   renderCount: number;
   averageRenderTime: number;
   lastRenderTime: number;
+}
+
+interface PerformanceMetrics extends PerformanceMetricsData {
+  resetMetrics: () => void;
+  getMetrics: () => PerformanceMetricsData;
+  logSummary: () => void;
 }
 
 interface UsePerformanceMonitorOptions {
@@ -21,7 +27,7 @@ export const usePerformanceMonitor = ({
   threshold = 16 // 16ms = 60fps threshold
 }: UsePerformanceMonitorOptions): PerformanceMetrics => {
   const renderStartTime = useRef<number>(0);
-  const metrics = useRef<PerformanceMetrics>({
+  const metrics = useRef<PerformanceMetricsData>({
     renderTime: 0,
     renderCount: 0,
     averageRenderTime: 0,
@@ -93,7 +99,7 @@ export const usePerformanceMonitor = ({
   }, [enabled]);
 
   // Get current metrics
-  const getMetrics = useCallback((): PerformanceMetrics => {
+  const getMetrics = useCallback((): PerformanceMetricsData => {
     return { ...metrics.current };
   }, []);
 

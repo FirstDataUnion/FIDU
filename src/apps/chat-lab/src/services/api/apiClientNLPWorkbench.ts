@@ -105,7 +105,7 @@ const NLP_WORKBENCH_API_CONFIG = {
           'Token expired and refreshed. Please retry your request.',
           error.response?.data
         );
-      } catch (refreshError) {
+      } catch {
         // Token refresh failed, clear auth data and redirect to login
         this.clearAllAuthTokens();
         

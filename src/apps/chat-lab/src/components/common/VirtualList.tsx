@@ -41,13 +41,6 @@ function VirtualList<T>({
     setScrollTop(event.currentTarget.scrollTop);
   }, []);
 
-  // Scroll to specific item
-  const _scrollToItem = useCallback((index: number) => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = index * itemHeight;
-    }
-  }, [itemHeight]);
-
   // Scroll to top
   const scrollToTop = useCallback(() => {
     if (containerRef.current) {
