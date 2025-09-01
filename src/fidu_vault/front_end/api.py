@@ -1,24 +1,32 @@
 """Frontend API for HTMX-based user interface."""
 
-import os
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional, Union
-from fastapi import FastAPI, Request, HTTPException
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer
-from fidu_vault.data_packets.service import DataPacketService
-from fidu_vault.data_packets.schema import DataPacketQueryParamsInternal
-from fidu_vault.data_packets.exceptions import DataPacketError
-from fidu_vault.api_keys.schema import APIKeyQueryParams, APIKeyCreate, APIKeyUpdate
+from fastapi.templating import Jinja2Templates
+
 from fidu_vault.api_keys.exceptions import APIKeyError
+from fidu_vault.api_keys.schema import APIKeyCreate, APIKeyQueryParams, APIKeyUpdate
+from fidu_vault.data_packets.exceptions import DataPacketError
+from fidu_vault.data_packets.schema import DataPacketQueryParamsInternal
+from fidu_vault.data_packets.service import DataPacketService
+from fidu_vault.identity_service.auth_client import auth_client
 from fidu_vault.identity_service.client import (
-    get_user_from_identity_service,
     create_profile,
+    get_user_from_identity_service,
 )
+
+logger = logging.getLogger(__name__)
+
+# Security scheme for token authentication
+security = HTTPBearer(auto_error=False)
 
 
 def get_base_path():
@@ -34,10 +42,15 @@ def get_base_path():
 # Get the base path
 BASE_PATH = get_base_path()
 
-logger = logging.getLogger(__name__)
 
-# Security scheme for token authentication
-security = HTTPBearer(auto_error=False)
+def handle_common_errors(func_name: str, error: Exception) -> None:
+    """Handle common errors in a consistent way."""
+    if isinstance(error, (ValueError, TypeError, AttributeError)):
+        logger.error("Data processing error in %s: %s", func_name, str(error))
+    elif isinstance(error, (OSError, IOError)):
+        logger.error("System error in %s: %s", func_name, str(error))
+    else:
+        logger.error("Unexpected error in %s: %s", func_name, str(error))
 
 
 class FrontEndAPI:
@@ -183,7 +196,7 @@ class FrontEndAPI:
             if token:
                 # Get refresh token for potential refresh
                 refresh_token = request.cookies.get("refresh_token")
-                
+
                 # Try to fetch user with current token
                 try:
                     user = await get_user_from_identity_service(token)
@@ -191,25 +204,27 @@ class FrontEndAPI:
                 except HTTPException as e:
                     if e.status_code == 401 and refresh_token:
                         # Token expired, try to refresh
-                        from .identity_service.auth_client import auth_client
                         auth_client.set_tokens(token, refresh_token, 0)
-                        
+
                         if await auth_client.token_manager.refresh_access_token():
-                            new_token = auth_client.token_manager.get_valid_access_token()
+                            new_token = (
+                                auth_client.token_manager.get_valid_access_token()
+                            )
                             if new_token:
                                 # Try again with new token
                                 try:
-                                    user = await get_user_from_identity_service(new_token)
+                                    user = await get_user_from_identity_service(
+                                        new_token
+                                    )
                                     return user.id if user else None
                                 except HTTPException:
                                     pass
         # Catch unauthed exceptions
         except HTTPException:
             pass
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in _get_current_user_id: {str(e)}")
+            handle_common_errors("_get_current_user_id", e)
         return None
 
     def _get_session_data(self, request: Request, key: str, default=None):
@@ -245,15 +260,15 @@ class FrontEndAPI:
         if isinstance(body, memoryview):
             return body.tobytes().decode()
         return body.decode()
-    
+
     async def _authenticate_user_with_refresh(self, request: Request):
         """Authenticate user with refresh token support."""
         token = request.cookies.get("auth_token") or ""
         refresh_token = request.cookies.get("refresh_token")
-        
+
         if not token:
             return None
-        
+
         # Try to get user with current token
         try:
             user = await get_user_from_identity_service(token)
@@ -261,9 +276,8 @@ class FrontEndAPI:
         except HTTPException as e:
             if e.status_code == 401 and refresh_token:
                 # Token expired, try to refresh
-                from .identity_service.auth_client import auth_client
                 auth_client.set_tokens(token, refresh_token, 0)
-                
+
                 if await auth_client.token_manager.refresh_access_token():
                     new_token = auth_client.token_manager.get_valid_access_token()
                     if new_token:
@@ -341,7 +355,7 @@ class FrontEndAPI:
         """Serve the main dashboard."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -351,10 +365,9 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in dashboard: {str(e)}")
+            handle_common_errors("dashboard", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def data_packets_page(
@@ -363,7 +376,7 @@ class FrontEndAPI:
         """Serve the data packets page."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -373,10 +386,9 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in data_packets_page: {str(e)}")
+            handle_common_errors("data_packets_page", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def data_packets_list(
@@ -385,7 +397,7 @@ class FrontEndAPI:
         """Serve the data packets list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -447,7 +459,7 @@ class FrontEndAPI:
         """Handle data packet deletion (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -465,10 +477,9 @@ class FrontEndAPI:
         except (DataPacketError, ValueError, TypeError) as e:
             logger.error("Delete data packet error: %s", e)
             return HTMLResponse("Error deleting data packet.", status_code=500)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in delete_data_packet: {str(e)}")
+            handle_common_errors("delete_data_packet", e)
             return HTMLResponse("Error deleting data packet.", status_code=500)
 
     async def profiles_page(
@@ -477,7 +488,7 @@ class FrontEndAPI:
         """Serve the profiles page."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -487,10 +498,9 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in profiles_page: {str(e)}")
+            handle_common_errors("profiles_page", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def apps_page(
@@ -499,7 +509,7 @@ class FrontEndAPI:
         """Serve the apps page."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -509,17 +519,16 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in apps_page: {str(e)}")
+            handle_common_errors("apps_page", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def profiles_list(self, request: Request) -> HTMLResponse | RedirectResponse:
         """Serve the profiles list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -533,10 +542,9 @@ class FrontEndAPI:
         except (ValueError, TypeError) as e:
             logger.error("Profiles list error: %s", e)
             return HTMLResponse("Error loading profiles.", status_code=500)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in profiles_list: {str(e)}")
+            handle_common_errors("profiles_list", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def create_profile(self, request: Request) -> HTMLResponse | RedirectResponse:
@@ -545,7 +553,7 @@ class FrontEndAPI:
             user = await self._authenticate_user_with_refresh(request)
             if not user:
                 return RedirectResponse(url="/", status_code=302)
-            
+
             form_data = await request.form()
             name = str(form_data.get("name", ""))  # Ensure string type
 
@@ -555,15 +563,14 @@ class FrontEndAPI:
             # Create profile using the current access token
             token = request.cookies.get("auth_token") or ""
             refresh_token = request.cookies.get("refresh_token")
-            
+
             # If we have a refresh token, try to get a fresh access token
             if refresh_token:
-                from .identity_service.auth_client import auth_client
                 auth_client.set_tokens(token, refresh_token, 0)
-                
+
                 if await auth_client.token_manager.refresh_access_token():
                     token = auth_client.token_manager.get_valid_access_token() or token
-            
+
             await create_profile(token, name)
 
             # Return updated profiles list
@@ -572,10 +579,9 @@ class FrontEndAPI:
         except (ValueError, TypeError) as e:
             logger.error("Create profile error: %s", e)
             return HTMLResponse("Error creating profile.", status_code=500)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in create_profile: {str(e)}")
+            handle_common_errors("create_profile", e)
             return HTMLResponse("Error creating profile.", status_code=500)
 
     async def api_keys_page(
@@ -584,7 +590,7 @@ class FrontEndAPI:
         """Serve the API keys page."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -607,10 +613,9 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in api_keys_page: {str(e)}")
+            handle_common_errors("api_keys_page", e)
             return RedirectResponse(url="/", status_code=302)
 
     async def add_api_key(
@@ -740,7 +745,7 @@ class FrontEndAPI:
         """Serve the API keys list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
-            
+
             if not user:
                 return RedirectResponse(url="/", status_code=302)
 
@@ -766,8 +771,7 @@ class FrontEndAPI:
         except (ValueError, TypeError) as e:
             logger.error("API keys list error: %s", e)
             return HTMLResponse("Error loading API keys.", status_code=500)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log unexpected errors but don't crash
-            import logging
-            logging.error(f"Unexpected error in api_keys_list: {str(e)}")
+            handle_common_errors("api_keys_list", e)
             return RedirectResponse(url="/", status_code=302)
