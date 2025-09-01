@@ -32,9 +32,7 @@ import TagManager from '../components/conversations/TagManager';
 import AddToContextDialog from '../components/conversations/AddToContextDialog';
 import { useDebouncedSearch } from '../hooks/useDebouncedSearch';
 import { useLazyLoad } from '../hooks/useLazyLoad';
-import { usePerformanceMonitor } from '../hooks/usePerformanceMonitor';
 import VirtualList from '../components/common/VirtualList';
-import PerformanceMonitor from '../components/common/PerformanceMonitor';
 import {
   selectConversationsLoading,
   selectConversationsError,
@@ -44,11 +42,6 @@ import {
 } from '../store/selectors/conversationsSelectors';
 
 const ConversationsPage: React.FC = React.memo(() => {
-  // Performance monitoring
-  const _performanceMetrics = usePerformanceMonitor({
-    componentName: 'ConversationsPage',
-    threshold: 16
-  });
 
   const dispatch = useAppDispatch();
   
@@ -763,12 +756,7 @@ const ConversationsPage: React.FC = React.memo(() => {
         onSave={handleSaveTags}
       />
 
-      {/* Performance Monitor - Only visible in development */}
-      <PerformanceMonitor 
-        metrics={_performanceMetrics}
-        componentName="ConversationsPage"
-        showInProduction={false}
-      />
+
     </Box>
   );
 });

@@ -36,7 +36,8 @@ import {
   ChatBubbleOutline as ChatBubbleIcon,
   Refresh as RefreshIcon,
   ExpandMore,
-  ArrowBackIos as ArrowBackIosIcon
+  ArrowBackIos as ArrowBackIosIcon,
+  RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,7 +45,7 @@ import { fetchContexts } from '../store/slices/contextsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
-import { promptsApi } from '../services/api/prompts';
+import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import { formatMessageContent } from '../utils/conversationUtils';
 import type { Conversation, Message, Context, SystemPrompt, Embellishment } from '../types';
 
@@ -677,6 +678,20 @@ export default function PromptLabPage() {
             setCurrentConversation(location.state.conversation);
             setMessages(messages);
             
+            // Restore system prompts and embellishments from the conversation
+            if (location.state.conversation.originalPrompt) {
+              if (location.state.conversation.originalPrompt.systemPrompts && location.state.conversation.originalPrompt.systemPrompts.length > 0) {
+                setSelectedSystemPrompts(location.state.conversation.originalPrompt.systemPrompts);
+              } else if (location.state.conversation.originalPrompt.systemPrompt) {
+                // Backward compatibility: single system prompt
+                setSelectedSystemPrompts([location.state.conversation.originalPrompt.systemPrompt]);
+              }
+              
+              if (location.state.conversation.originalPrompt.embellishments && location.state.conversation.originalPrompt.embellishments.length > 0) {
+                setEmbellishments(location.state.conversation.originalPrompt.embellishments);
+              }
+            }
+            
             // Clear the navigation state to prevent reloading on subsequent renders
             navigate('/prompt-lab', { replace: true });
           } else {
@@ -720,13 +735,15 @@ export default function PromptLabPage() {
     try {
       if (currentConversation) {
         // Update existing conversation
-        const updatedConversation = await conversationsApi.updateConversation(
+        const updatedConversation =         await conversationsApi.updateConversation(
           currentConversation,
           messages,
           {
             promptText: messages[0]?.content || '',
             context: selectedContext,
-            systemPrompt: selectedSystemPrompts[0] || null, // Use first selected prompt for backward compatibility
+            systemPrompts: selectedSystemPrompts, // Store all selected system prompts
+            systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
+            embellishments: embellishments, // Store selected embellishments
             metadata: { estimatedTokens: 0 }
           }
         );
@@ -754,7 +771,9 @@ export default function PromptLabPage() {
           originalPrompt: {
             promptText: messages[0]?.content || '',
             context: selectedContext,
-            systemPrompt: selectedSystemPrompts[0] || null, // Use first selected prompt for backward compatibility
+            systemPrompts: selectedSystemPrompts, // Store all selected system prompts
+            systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
+            embellishments: embellishments, // Store selected embellishments
             metadata: { estimatedTokens: 0 }
           }
         };
@@ -782,6 +801,11 @@ export default function PromptLabPage() {
   // Handle sending a message
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompts.length || !currentProfile) return;
+
+    // Automatically close the system prompt drawer when sending a message
+    if (systemPromptDrawerOpen) {
+      setSystemPromptDrawerOpen(false);
+    }
 
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
@@ -868,6 +892,20 @@ export default function PromptLabPage() {
       }));
       setMessages(updatedMessages);
       
+      // Restore system prompts and embellishments from the conversation
+      if (conversation.originalPrompt) {
+        if (conversation.originalPrompt.systemPrompts && conversation.originalPrompt.systemPrompts.length > 0) {
+          setSelectedSystemPrompts(conversation.originalPrompt.systemPrompts);
+        } else if (conversation.originalPrompt.systemPrompt) {
+          // Backward compatibility: single system prompt
+          setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
+        }
+        
+        if (conversation.originalPrompt.embellishments && conversation.originalPrompt.embellishments.length > 0) {
+          setEmbellishments(conversation.originalPrompt.embellishments);
+        }
+      }
+      
       // Close the drawer
       setConversationsDrawerOpen(false);
     } catch (error) {
@@ -881,73 +919,47 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
-  }, []);
+    // Reset to default system prompt
+    if (systemPrompts.length > 0) {
+      const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
+      if (defaultPrompt) {
+        setSelectedSystemPrompts([defaultPrompt]);
+      }
+    }
+    // Clear embellishments
+    setEmbellishments([]);
+  }, [systemPrompts]);
+
+  // Handle rewind to a specific message
+  const handleRewindToMessage = useCallback((messageIndex: number) => {
+    const targetMessage = messages[messageIndex];
+    if (targetMessage && targetMessage.role === 'user') {
+      // Show confirmation dialog
+      if (window.confirm(`Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point and load the message into the input box.`)) {
+        // Load the message content into the chat text box
+        setCurrentMessage(targetMessage.content);
+        // Remove all messages after this point (including the target message)
+        setMessages(prev => prev.slice(0, messageIndex));
+        // Clear any errors
+        setError(null);
+        // Scroll to bottom to show the rewinded state
+        setTimeout(() => scrollToBottom(), 100);
+        // Show success toast
+        showToast('Conversation rewound successfully!');
+      }
+    }
+  }, [messages, scrollToBottom]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
-    if (!selectedSystemPrompts.length) return '';
-
-    let fullPrompt = '';
-    
-    // Start with system prompts - combine all selected prompts
-    const systemPromptContent = selectedSystemPrompts
-      .map(prompt => prompt.content)
-      .filter(content => content && content.trim())
-      .join('\n\n');
-    
-    if (systemPromptContent) {
-      fullPrompt = `${systemPromptContent}\n\n`;
-    }
-    
-    // Add embellishment instructions if any are selected
-    if (embellishments.length > 0) {
-      const selectedInstructions = embellishments
-        .map(embellishment => embellishment.instructions)
-        .filter(instruction => instruction.length > 0);
-      
-      if (selectedInstructions.length > 0) {
-        fullPrompt += `Additional Instructions:\n${selectedInstructions.join('\n')}\n\n`;
-      }
-    }
-    
-    // Add context if available
-    if (selectedContext) {
-      fullPrompt += `Given the following existing background context: ${selectedContext.body}\n\n`;
-    }
-    
-    // Add conversation history if available
-    if (messages.length > 0) {
-      const conversationHistory = messages
-        .filter(msg => msg.role !== 'system')
-        .map(msg => {
-          const role = msg.role === 'user' ? 'User' : 'Assistant';
-          return `${role}: ${msg.content}`;
-        })
-        .join('\n\n');
-      
-      if (selectedContext) {
-        fullPrompt += `And the following conversation history: ${conversationHistory}\n\n`;
-      } else {
-        fullPrompt += `Given the following conversation history: ${conversationHistory}\n\n`;
-      }
-      
-      fullPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind and continuing the flow of the conversation:\n\n`;
-    } else if (selectedContext) {
-      fullPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind, treating it as either a previous part of the same conversation, or just as a framing for the following prompt:\n\n`;
-    }
-    
-    // Add the current message if there is one
-    if (currentMessage.trim()) {
-      fullPrompt += `Prompt: ${currentMessage}`;
-    } else if (messages.length > 0) {
-      // If no current message, use the last user message
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      if (lastUserMessage) {
-        fullPrompt += `Prompt: ${lastUserMessage.content}`;
-      }
-    }
-    
-    return fullPrompt;
+    // Use the same unified function that builds prompts for the API
+    return buildCompletePrompt(
+      selectedSystemPrompts,
+      embellishments,
+      selectedContext,
+      messages,
+      currentMessage.trim() || (messages.length > 0 ? messages.filter(m => m.role === 'user').pop()?.content || '' : '')
+    );
   }, [selectedSystemPrompts, selectedContext, messages, currentMessage, embellishments]);
 
   return (
@@ -1065,7 +1077,7 @@ export default function PromptLabPage() {
         </Box>
           ) : (
             <>
-              {messages.map((message) => {
+              {messages.map((message, messageIndex) => {
                 const modelInfo = getModelInfo(message.platform);
                 return (
               <Box
@@ -1092,7 +1104,17 @@ export default function PromptLabPage() {
                     borderRadius: 2,
                     position: 'relative',
                     // Add subtle shadow for better visual separation
-                    boxShadow: message.role === 'assistant' ? 2 : 1
+                    boxShadow: message.role === 'assistant' ? 2 : 1,
+                    // Add hover effect for user messages to indicate rewind functionality
+                    ...(message.role === 'user' && {
+                      '&:hover': {
+                        boxShadow: 3,
+                        transform: 'translateY(-1px)',
+                        transition: 'all 0.2s ease'
+                      }
+                    }),
+                    // Add subtle border to indicate interactive elements
+                    border: message.role === 'user' ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
                   {message.role === 'assistant' && (
@@ -1187,12 +1209,62 @@ export default function PromptLabPage() {
                     '& th': {
                       backgroundColor: 'rgba(0,0,0,0.1)',
                       fontWeight: 600
-                    }
+                    },
+                    // Add padding to prevent button overlap
+                    paddingRight: message.role === 'user' ? '44px' : '44px', // Space for rewind/copy buttons
+                    paddingBottom: message.role === 'assistant' ? '44px' : '8px' // Extra bottom padding for copy button
                   }}>
                     <Markdown remarkPlugins={[remarkGfm]}>
                       {formatMessageContent(message.content)}
                     </Markdown>
                   </Box>
+
+                  {/* Rewind Button for User Messages */}
+                  {message.role === 'user' && (
+                    <IconButton
+                      onClick={() => handleRewindToMessage(messageIndex)}
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(0,0,0,0.15)',
+                        color: 'primary.contrastText',
+                        opacity: 0.8,
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(0,0,0,0.25)',
+                          opacity: 1,
+                          transform: 'scale(1.1)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                        },
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Rewind conversation to this point (removes all messages after this message)"
+                    >
+                      <RestartAltIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  )}
+
+                  {/* Small indicator for user messages to hint at rewind functionality */}
+                  {message.role === 'user' && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(0,0,0,0.2)',
+                        opacity: 0.6,
+                        zIndex: 5
+                      }}
+                    />
+                  )}
 
                   {/* Copy Button for Assistant Messages */}
                   {message.role === 'assistant' && (
@@ -1219,12 +1291,16 @@ export default function PromptLabPage() {
                         width: 28,
                         height: 28,
                         borderRadius: '50%',
-                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        backgroundColor: 'rgba(255,255,255,0.2)',
                         color: 'white',
-                        opacity: 0.7,
+                        opacity: 0.8,
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                         '&:hover': {
-                          backgroundColor: 'rgba(255,255,255,0.25)',
-                          opacity: 1
+                          backgroundColor: 'rgba(255,255,255,0.3)',
+                          opacity: 1,
+                          transform: 'scale(1.1)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                         },
                         transition: 'all 0.2s ease'
                       }}
@@ -1439,7 +1515,8 @@ export default function PromptLabPage() {
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
                       System prompts provide instructions to AI models about how to behave and respond. 
-                      They set the tone and style for all conversations, helping ensure consistent and appropriate AI responses.
+                      They set the tone and style for conversations, or set specific goals and purposes for the model.
+                      Use of multiple system prompts at once is experiemental!
                     </Typography>
                   </Box>
 

@@ -1,5 +1,5 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
-import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate } from '../../types';
+import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate, SystemPrompt } from '../../types';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
 
@@ -37,6 +37,41 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
   // Transform original prompt data if it exists
   let originalPrompt: Conversation['originalPrompt'] | undefined;
   if (packet.data.originalPrompt) {
+    // Handle multiple system prompts if available, fallback to single prompt for backward compatibility
+    let systemPrompts: SystemPrompt[] = [];
+    
+    if (packet.data.originalPrompt?.systemPromptIds && packet.data.originalPrompt.systemPromptIds.length > 0) {
+      // New format with multiple system prompts
+      systemPrompts = packet.data.originalPrompt.systemPromptIds.map((id, index) => ({
+        id: id,
+        name: packet.data.originalPrompt!.systemPromptNames?.[index] || 'Unknown',
+        content: packet.data.originalPrompt!.systemPromptContents?.[index] || '',
+        description: '', // We don't store descriptions in conversations
+        tokenCount: 0, // We don't store this in the conversation
+        isDefault: false,
+        isBuiltIn: true,
+        source: 'user',
+        categories: ['Technical'],
+        createdAt: packet.create_timestamp,
+        updatedAt: packet.update_timestamp
+      }));
+    } else if (packet.data.originalPrompt?.systemPromptId) {
+      // Backward compatibility with single system prompt
+      systemPrompts = [{
+        id: packet.data.originalPrompt.systemPromptId,
+        name: packet.data.originalPrompt.systemPromptName || 'Unknown',
+        content: packet.data.originalPrompt.systemPromptContent || '',
+        description: '', // We don't store descriptions in conversations
+        tokenCount: 0, // We don't store this in the conversation
+        isDefault: false,
+        isBuiltIn: true,
+        source: 'user',
+        categories: ['Technical'],
+        createdAt: packet.create_timestamp,
+        updatedAt: packet.update_timestamp
+      }];
+    }
+
     originalPrompt = {
       promptText: packet.data.originalPrompt.promptText,
       context: packet.data.originalPrompt.contextId ? {
@@ -55,19 +90,9 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
           platforms: []
         }
       } : null,
-      systemPrompt: {
-        id: packet.data.originalPrompt.systemPromptId,
-        name: packet.data.originalPrompt.systemPromptName,
-        content: packet.data.originalPrompt.systemPromptContent,
-
-        tokenCount: 0, // We don't store this in the conversation
-        isDefault: false,
-        isBuiltIn: true,
-        category: 'Technical',
-
-        createdAt: packet.create_timestamp,
-        updatedAt: packet.update_timestamp
-      },
+      systemPrompts: systemPrompts,
+      // Keep backward compatibility
+      systemPrompt: systemPrompts.length > 0 ? systemPrompts[0] : undefined,
       metadata: {
         estimatedTokens: packet.data.originalPrompt.estimatedTokens
       }
@@ -121,9 +146,16 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
         contextId: originalPrompt.context?.id,
         contextTitle: originalPrompt.context?.title,
         contextDescription: originalPrompt.context?.body,
-        systemPromptId: originalPrompt.systemPrompt.id,
-        systemPromptContent: originalPrompt.systemPrompt.content,
-        systemPromptName: originalPrompt.systemPrompt.name,
+        // Support multiple system prompts
+        systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
+        systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
+        systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
+        // Keep backward compatibility
+        systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
+        systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
+        systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
+        // Store embellishment IDs
+        embellishmentIds: originalPrompt.embellishments?.map(emb => emb.id) || [],
         estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
       } : undefined
     }
@@ -160,9 +192,16 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
         contextId: originalPrompt.context?.id,
         contextTitle: originalPrompt.context?.title,
         contextDescription: originalPrompt.context?.body,
-        systemPromptId: originalPrompt.systemPrompt.id,
-        systemPromptContent: originalPrompt.systemPrompt.content,
-        systemPromptName: originalPrompt.systemPrompt.name,
+        // Support multiple system prompts
+        systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
+        systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
+        systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
+        // Keep backward compatibility
+        systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
+        systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
+        systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
+        // Store embellishment IDs
+        embellishmentIds: originalPrompt.embellishments?.map(emb => emb.id) || [],
         estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
       } : undefined
     }
