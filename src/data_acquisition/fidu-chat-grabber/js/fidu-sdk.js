@@ -66,14 +66,43 @@ class FIDUAuth {
     }
     
     handleAuthSuccess(data) {
-        this.token = data.token;
+        // Handle new authentication response format with refresh tokens
+        let accessToken = data.token;
+        let refreshToken = '';
+        let expiresIn = 86400;
+        
+        // Check if token is an object with the new format
+        if (typeof data.token === 'object' && data.token.access_token) {
+            accessToken = data.token.access_token;
+            refreshToken = data.token.refresh_token || '';
+            expiresIn = data.token.expires_in || 86400;
+        }
+        
+        this.token = accessToken;
         this.user = data.user;
-        localStorage.setItem('fiduToken', this.token);
+        
+        // Store tokens in appropriate storage
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            // In extension context, use chrome.storage
+            chrome.storage.local.set({
+                'fidu_auth_token': accessToken,
+                'fiduRefreshToken': refreshToken,
+                'token_expires_in': expiresIn.toString()
+            });
+        } else {
+            // In content script context, use localStorage
+            localStorage.setItem('fidu_auth_token', accessToken);
+            localStorage.setItem('fiduRefreshToken', refreshToken);
+            localStorage.setItem('token_expires_in', expiresIn.toString());
+        }
+        
+        // Also store in localStorage for backward compatibility
+        localStorage.setItem('fiduToken', accessToken);
         
         this.log('Authentication successful', this.user);
         
         if (this.callbacks.onAuthSuccess) {
-            this.callbacks.onAuthSuccess(this.user, this.token, data.portalUrl);
+            this.callbacks.onAuthSuccess(this.user, accessToken, data.portalUrl);
         }
     }
     
@@ -282,11 +311,29 @@ class FIDUAuth {
             }
         }
         
-        // Clear client-side state
+            // Clear client-side state
         this.log('Clearing client-side state...');
         this.token = null;
         this.user = null;
+        
+        // Clear all token types from storage
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            // In extension context, use chrome.storage
+            chrome.storage.local.remove([
+                'fidu_auth_token',
+                'fiduRefreshToken',
+                'token_expires_in',
+                'fidu_user_data',
+                'fidu_selected_profile',
+                'selectedProfileId'
+            ]);
+        }
+        
+        // Clear from localStorage
         localStorage.removeItem('fiduToken');
+        localStorage.removeItem('fidu_auth_token');
+        localStorage.removeItem('fiduRefreshToken');
+        localStorage.removeItem('token_expires_in');
         
         this.log('Token after clearing:', this.token);
         this.log('User after clearing:', this.user);

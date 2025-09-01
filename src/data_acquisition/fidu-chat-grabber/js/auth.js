@@ -71,10 +71,19 @@ class AuthService {
         localStorage.removeItem(this.userKey);
         localStorage.removeItem(this.selectedProfileKey);
         localStorage.removeItem('selectedProfileId');
+        localStorage.removeItem('fiduRefreshToken');
+        localStorage.removeItem('token_expires_in');
         return { success: true };
       }
       
-      await chrome.storage.local.remove([this.tokenKey, this.userKey, this.selectedProfileKey, 'selectedProfileId']);
+      await chrome.storage.local.remove([
+        this.tokenKey, 
+        this.userKey, 
+        this.selectedProfileKey, 
+        'selectedProfileId',
+        'fiduRefreshToken',
+        'token_expires_in'
+      ]);
       return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
@@ -162,22 +171,38 @@ class AuthService {
 
     /**
    * Store authentication data
-   * @param {string} token - JWT token
+   * @param {string} token - JWT token or token object
    * @param {Object} user - User data
    */
   async storeAuthData(token, user) {
     try {
+      // Handle new authentication response format with refresh tokens
+      let accessToken = token;
+      let refreshToken = '';
+      let expiresIn = 86400;
+      
+      // Check if token is an object with the new format
+      if (typeof token === 'object' && token.access_token) {
+        accessToken = token.access_token;
+        refreshToken = token.refresh_token || '';
+        expiresIn = token.expires_in || 86400;
+      }
+      
       // Check if we're in a content script context (no direct access to chrome.storage)
       if (typeof chrome === 'undefined' || !chrome.storage) {
         // Use localStorage as fallback for content scripts
-        localStorage.setItem(this.tokenKey, token);
+        localStorage.setItem(this.tokenKey, accessToken);
         localStorage.setItem(this.userKey, JSON.stringify(user));
+        localStorage.setItem('fiduRefreshToken', refreshToken);
+        localStorage.setItem('token_expires_in', expiresIn.toString());
         return;
       }
       
       await chrome.storage.local.set({
-        [this.tokenKey]: token,
-        [this.userKey]: user
+        [this.tokenKey]: accessToken,
+        [this.userKey]: user,
+        'fiduRefreshToken': refreshToken,
+        'token_expires_in': expiresIn.toString()
       });
       
       // Notify background script about auth status change if we're in extension context
@@ -202,6 +227,13 @@ class AuthService {
    */
   async authenticatedRequest(url, options = {}) {
     try {
+      // Use the refresh token service for automatic token refresh
+      if (typeof refreshTokenService !== 'undefined') {
+        const authenticatedFetch = refreshTokenService.createAuthenticatedFetch();
+        return await authenticatedFetch(url, options);
+      }
+
+      // Fallback to old method if refresh token service is not available
       const token = await this.getToken();
       if (!token) {
         throw new Error('No authentication token available');

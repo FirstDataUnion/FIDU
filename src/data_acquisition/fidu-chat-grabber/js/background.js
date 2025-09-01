@@ -13,6 +13,17 @@ class FiduCoreAPI {
   }
 
   async getAuthToken() {
+    // Use the refresh token service for automatic token refresh
+    if (typeof refreshTokenService !== 'undefined') {
+      try {
+        return await refreshTokenService.getValidAccessToken();
+      } catch (error) {
+        console.error('Error getting valid access token:', error);
+        return null;
+      }
+    }
+
+    // Fallback to old method if refresh token service is not available
     return new Promise((resolve) => {
       chrome.storage.local.get(['fidu_auth_token'], (result) => {
         const token = result.fidu_auth_token || null;
@@ -70,10 +81,42 @@ class FiduCoreAPI {
     }
   }
 
-  async createNewConversation(conversation, token, selectedProfileId, title) {
+    async createNewConversation(conversation, token, selectedProfileId, title) {
     try {
       const requestId = conversation.id + Date.now();
 
+      // Use the refresh token service for automatic token refresh
+      if (typeof refreshTokenService !== 'undefined') {
+        const authenticatedFetch = refreshTokenService.createAuthenticatedFetch();
+        const response = await authenticatedFetch(`${this.baseUrl}/data-packets`, {
+          method: 'POST',
+          body: JSON.stringify({
+            request_id: requestId,
+            data_packet: {
+              profile_id: selectedProfileId,
+              id: conversation.id,
+              tags: ["FIDU-CHAT-GRABBER", "Chat-Bot-Conversation"], 
+              data: {
+                conversationTitle: title,
+                sourceChatbot: conversation.sourceChatbot,
+                interactions: conversation.interactions,
+                targetModelRequested: conversation.targetModelRequested,
+                conversationUrl: conversation.conversationUrl
+              }
+            }
+          })
+        });
+
+        const result = await response.json();
+        console.log('Background: Create conversation response:', result);
+        return {
+          success: true,
+          id: result.id || conversation.id,
+          data: result
+        };
+      }
+
+      // Fallback to old method if refresh token service is not available
       const response = await fetch(`${this.baseUrl}/data-packets`, {
         method: 'POST',
         headers: {
@@ -142,7 +185,32 @@ class FiduCoreAPI {
 
       console.log('Background: Replacing conversation data with:', newData);
 
-      // Perform PUT update with complete replacement
+      // Use the refresh token service for automatic token refresh
+      if (typeof refreshTokenService !== 'undefined') {
+        const authenticatedFetch = refreshTokenService.createAuthenticatedFetch();
+        const updateResponse = await authenticatedFetch(`${this.baseUrl}/data-packets/${conversation.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            request_id: updateRequestId,
+            data_packet: {
+              profile_id: selectedProfileId,
+              id: conversation.id,
+              tags: ["FIDU-CHAT-GRABBER", "Chat-Bot-Conversation"], 
+              data: newData
+            }
+          })
+        });
+
+        const result = await updateResponse.json();
+        return {
+          success: true,
+          id: result.id,
+          data: result,
+          updated: true
+        };
+      }
+
+      // Fallback to old method if refresh token service is not available
       const updateResponse = await fetch(`${this.baseUrl}/data-packets/${conversation.id}`, {
         method: 'PUT',
         headers: {
@@ -196,6 +264,40 @@ class FiduCoreAPI {
         throw new Error('Authentication required. Please login first.');
       }
 
+      // Use the refresh token service for automatic token refresh
+      if (typeof refreshTokenService !== 'undefined') {
+        const authenticatedFetch = refreshTokenService.createAuthenticatedFetch();
+        const response = await authenticatedFetch(`${this.baseUrl}/data-packets/${id}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        // Handle 404 as expected behavior - conversation doesn't exist
+        if (response.status === 404) {
+          return {
+            success: false,
+          };
+        }
+
+        const conversation = await response.json();
+        
+        if (!conversation) {
+          console.log('Background: No conversations found with this ID');
+          return {
+            success: false,
+            error: 'No conversation found with this ID'
+          };
+        } else {
+          return {
+            success: true,
+            conversation: conversation
+          };
+        }
+      }
+
+      // Fallback to old method if refresh token service is not available
       const response = await fetch(`${this.baseUrl}/data-packets/${id}`, {
         method: 'GET',
         headers: {
@@ -251,18 +353,32 @@ class FiduCoreAPI {
         throw new Error('Authentication required. Please login first.');
       }
 
-      const response = await fetch(`${this.baseUrl}/data-packets`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      let response;
+      
+      // Use the refresh token service for automatic token refresh
+      if (typeof refreshTokenService !== 'undefined') {
+        const authenticatedFetch = refreshTokenService.createAuthenticatedFetch();
+        response = await authenticatedFetch(`${this.baseUrl}/data-packets`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+      } else {
+        // Fallback to old method if refresh token service is not available
+        response = await fetch(`${this.baseUrl}/data-packets`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
 
-      if (response.status === 401) {
-        // Notify all content scripts about auth status change
-        await notifyContentScriptsOfAuthChange();
-        throw new Error('Authentication expired. Please login again.');
+        if (response.status === 401) {
+          // Notify all content scripts about auth status change
+          await notifyContentScriptsOfAuthChange();
+          throw new Error('Authentication expired. Please login again.');
+        }
       }
 
       if (!response.ok) {

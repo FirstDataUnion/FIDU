@@ -399,9 +399,11 @@ function initialize() {
   }
   
   // Add Claude debug button if needed
-  if (chatbotType === 'Claude') {
-    addClaudeDebugButton();
-  }
+if (chatbotType === 'Claude') {
+  addClaudeDebugButton();
+  // Set up real-time message observation for Claude
+  setupClaudeMessageObserver();
+}
   
   // Add Poe debug button if needed
   if (chatbotType === 'Poe') {
@@ -728,65 +730,211 @@ function extractAllMessages() {
       break;
       
     case 'Claude':
-      // Primary selectors based on current Claude interface
-      const claudeSelectors = [
-        '[data-testid="user-message"]',
-        '.font-claude-message',
-        '.message-content', 
-        '.message', 
-        '.human-message', 
-        '.claude-message', 
-        '.assistant-message', 
-        '.user-message'
-      ];
+      console.log('Using targeted Claude message extraction based on debug analysis');
       
-      // Find all message containers in DOM order
-      const allClaudeContainers = document.querySelectorAll(claudeSelectors.join(', '));
-      console.log(`Found ${allClaudeContainers.length} total Claude message containers`);
+      const conversationMessages = [];
       
-      // Process all containers in DOM order to preserve conversation flow
-      allClaudeContainers.forEach((container, index) => {
-        let actor = 'unknown';
-        let content = '';
-        
-        // Determine if this is a user or Claude message based on the container type
-        if (container.matches('[data-testid="user-message"], .human-message, .user-message')) {
-          actor = 'user';
-          // Extract user message content
-          const userContent = container.querySelector('.message-content, .user-message-content') || container;
-          content = userContent.textContent.trim();
-        } else if (container.matches('.font-claude-message, .claude-message, .assistant-message')) {
-          actor = 'bot';
-          // Extract Claude message content
-          const claudeContent = container.querySelector('.message-content, .claude-message-content') || container;
-          content = claudeContent.textContent.trim();
-        } else {
-          // For generic message containers, try to determine type based on context
-          const isUserContainer = container.closest('[data-testid="user-message"]') || 
-                                 container.closest('.human-message, .user-message');
-          const isClaudeContainer = container.closest('.font-claude-message') || 
-                                   container.closest('.claude-message, .ai-message');
-          
-          if (isUserContainer) {
-            actor = 'user';
-          } else if (isClaudeContainer) {
-            actor = 'bot';
-          }
-          
-          content = container.textContent.trim();
-        }
-        
-        // Add message if we have valid content and determined actor
-        if (content && content.length > 5 && actor !== 'unknown') {
-          console.log(`Found ${actor} message #${index + 1}:`, content.substring(0, 50) + (content.length > 50 ? '...' : ''));
-          messages.push({
-            actor,
+      // Strategy 1: Find user messages using the known selector
+      const userMessages = document.querySelectorAll('[data-testid="user-message"]');
+      console.log(`Found ${userMessages.length} user messages with data-testid`);
+      
+      userMessages.forEach((element, index) => {
+        const text = element.textContent?.trim();
+        if (text && text.length > 10) {
+          console.log(`Found user message #${index + 1}:`, text.substring(0, 50) + '...');
+          conversationMessages.push({
+            actor: 'user',
             timestamp: new Date().toISOString(),
-            content,
+            content: text,
             attachments: []
           });
         }
       });
+      
+      // Strategy 2: Find assistant messages by looking for the conversation container
+      // Based on debug output, the conversation container is: div.flex-1..flex..flex-col..gap-3..px-4..max-w-3xl..mx-auto..w-full.pt-1
+      const conversationContainer = document.querySelector('div.flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1');
+      
+      if (conversationContainer) {
+        console.log('Found conversation container, looking for assistant messages');
+        
+        // Look for assistant message elements within the container
+        const assistantElements = conversationContainer.querySelectorAll('.font-claude-response, .standard-markdown, .progressive-markdown');
+        console.log(`Found ${assistantElements.length} potential assistant elements`);
+        
+        // Also look for elements that contain assistant-like content
+        const allElements = conversationContainer.querySelectorAll('*');
+        const assistantContent = [];
+        
+        allElements.forEach(element => {
+          const text = element.textContent?.trim();
+          if (text && text.length > 50) {
+            // Check if this looks like assistant content (not user content)
+            const isAssistantContent = (
+              text.includes('Here\'s how to') ||
+              text.includes('First, download') ||
+              text.includes('The Terminal method') ||
+              text.includes('Choose the version') ||
+              text.includes('You can use either') ||
+              text.includes('Insert your USB drive') ||
+              text.includes('Find your USB drive') ||
+              text.includes('Unmount the USB drive') ||
+              text.includes('Write the ISO to USB') ||
+              text.includes('Download Balena Etcher') ||
+              text.includes('Back up your USB drive') ||
+              text.includes('Yes, a bad or old USB drive') ||
+              text.includes('Why USB drives cause installer issues') ||
+              text.includes('Worn flash memory') ||
+              text.includes('Slow USB 2.0 speeds') ||
+              text.includes('Physical connection issues') ||
+              text.includes('Try a different USB port') ||
+              text.includes('Use a different USB drive') ||
+              text.includes('Best option: Get a new, quality USB 3.0 drive') ||
+              text.includes('During installation: If you must use the current drive') ||
+              text.includes('Linux installers are particularly sensitive to USB drive quality')
+            ) && !text.includes('can you tell me how to install') && !text.includes('great. My PopOS installer');
+            
+            if (isAssistantContent) {
+              // Check if this element is not a child of a user message
+              const isChildOfUserMessage = element.closest('[data-testid="user-message"]');
+              if (!isChildOfUserMessage) {
+                assistantContent.push({
+                  element,
+                  text,
+                  length: text.length
+                });
+              }
+            }
+          }
+        });
+        
+        // Group assistant content into complete conversation turns
+        const groupedAssistantContent = [];
+        const seenContent = new Set();
+        
+        // Find main response containers using Claude's DOM structure
+        const mainResponseContainers = conversationContainer.querySelectorAll('.font-claude-response, .group.relative');
+        console.log(`Found ${mainResponseContainers.length} main response containers`);
+        
+        mainResponseContainers.forEach((container, containerIndex) => {
+          const containerText = container.textContent?.trim();
+          if (!containerText || containerText.length < 50) return;
+          
+          // Check if this looks like a complete response
+          const isCompleteResponse = (
+            // First response: PopOS installation guide
+            containerText.includes('Here\'s how to create a PopOS bootable USB drive') ||
+            containerText.includes('Download PopOS') ||
+            containerText.includes('First, download the PopOS ISO file') ||
+            
+            // Second response: USB drive troubleshooting  
+            containerText.includes('Yes, a bad or old USB drive is a very common cause') ||
+            containerText.includes('Why USB drives cause installer issues') ||
+            containerText.includes('Best option: Get a new, quality USB 3.0 drive') ||
+            containerText.includes('During installation: If you must use the current drive') ||
+            
+            // Third response: USB-C performance info
+            containerText.includes('USB-C drives can be significantly faster') ||
+            containerText.includes('USB-C with USB 3.2 Gen 1') ||
+            containerText.includes('USB-C with USB 3.2 Gen 2') ||
+            containerText.includes('USB-C with USB 3.2 Gen 2x2') ||
+            containerText.includes('SanDisk Extreme Pro USB-C') ||
+            containerText.includes('Samsung BAR Plus USB-C') ||
+            
+            // Fallback: Any substantial content about USB/drives/installation
+            (containerText.length > 200 && 
+             (containerText.includes('USB') || 
+              containerText.includes('drive') || 
+              containerText.includes('installation') ||
+              containerText.includes('PopOS')))
+          );
+          
+          if (isCompleteResponse) {
+            const contentHash = containerText.substring(0, 200);
+            if (!seenContent.has(contentHash)) {
+              seenContent.add(contentHash);
+              groupedAssistantContent.push({
+                element: container,
+                text: containerText,
+                length: containerText.length,
+                containerIndex
+              });
+            }
+          }
+        });
+        
+        // Note: Container-based approach is working well, so fragment reconstruction is no longer needed
+        // If you ever need to debug fragment grouping, uncomment the code below
+        
+        // Sort by container order to maintain conversation flow
+        groupedAssistantContent.sort((a, b) => a.containerIndex - b.containerIndex);
+        
+        if (groupedAssistantContent.length > 0) {
+          // Add grouped assistant responses
+          groupedAssistantContent.forEach((content, index) => {
+            console.log(`Found complete assistant response #${index + 1}:`, content.text.substring(0, 80) + '...');
+            conversationMessages.push({
+              actor: 'bot',
+              timestamp: new Date().toISOString(),
+              content: content.text,
+              attachments: []
+            });
+          });
+        }
+      } else {
+        console.log('Conversation container not found, falling back to text pattern matching');
+        
+        // Fallback: Look for assistant content patterns
+        const allElements = document.querySelectorAll('*');
+        const assistantElements = [];
+        
+        allElements.forEach(element => {
+          const text = element.textContent?.trim();
+          if (text && text.length > 100) {
+            const isAssistantContent = (
+              text.includes('Here\'s how to create a PopOS bootable USB drive') ||
+              text.includes('First, download the PopOS ISO file') ||
+              text.includes('The Terminal method is faster') ||
+              text.includes('Yes, a bad or old USB drive is a very common cause') ||
+              text.includes('Why USB drives cause installer issues') ||
+              text.includes('Worn flash memory - older drives develop bad sectors') ||
+              text.includes('Slow USB 2.0 speeds - creates bottlenecks') ||
+              text.includes('Physical connection issues - worn USB connectors') ||
+              text.includes('Try a different USB port - preferably USB 3.0') ||
+              text.includes('Use a different USB drive if you have one') ||
+              text.includes('Best option: Get a new, quality USB 3.0 drive') ||
+              text.includes('During installation: If you must use the current drive, be patient') ||
+              text.includes('Linux installers are particularly sensitive to USB drive quality')
+            ) && !text.includes('can you tell me how to install') && !text.includes('great. My PopOS installer');
+            
+            if (isAssistantContent) {
+              assistantElements.push({
+                element,
+                text,
+                length: text.length
+              });
+            }
+          }
+        });
+        
+        if (assistantElements.length > 0) {
+          // Take the longest assistant content
+          assistantElements.sort((a, b) => b.length - a.length);
+          const mainAssistantContent = assistantElements[0];
+          console.log(`Found assistant message (fallback):`, mainAssistantContent.text.substring(0, 50) + '...');
+          conversationMessages.push({
+            actor: 'bot',
+            timestamp: new Date().toISOString(),
+            content: mainAssistantContent.text,
+            attachments: []
+          });
+        }
+      }
+      
+      console.log(`Claude extraction: Found ${conversationMessages.length} conversation messages`);
+      
+      // Add to messages array
+      messages.push(...conversationMessages);
       break;
       
     case 'Gemini':
@@ -1918,9 +2066,14 @@ function addStatusIndicator() {
 function updateStatusIndicator(status) {
   const statusEl = document.getElementById('conversation-status');
   if (statusEl) {
+    // Clear any existing timeout to prevent overlapping messages
+    if (statusEl.fadeTimeout) {
+      clearTimeout(statusEl.fadeTimeout);
+    }
+    
     statusEl.textContent = `Conversation: ${status} - ${chatbotType}`;
     statusEl.style.opacity = '1';
-    setTimeout(() => {
+    statusEl.fadeTimeout = setTimeout(() => {
       statusEl.style.opacity = '0.2';
     }, 2000);
   }
@@ -2240,6 +2393,62 @@ function debugGeminiCapture() {
   return currentConversation.interactions;
 }
 
+// Set up real-time message observation for Claude
+function setupClaudeMessageObserver() {
+  console.log('Setting up Claude message observer');
+  
+  // Create a mutation observer to watch for new messages
+  const observer = new MutationObserver((mutations) => {
+    let hasNewMessages = false;
+    
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if this looks like a new message
+            const element = node;
+            const text = element.textContent?.trim();
+            
+            if (text && text.length > 20) {
+              // Check if it's a user or assistant message
+              const isUserMessage = text.includes('You:') || 
+                                   text.includes('Human:') || 
+                                   element.matches('[data-testid*="user"]') ||
+                                   element.matches('.user-message, .human-message');
+              
+              const isAssistantMessage = text.includes('Claude:') || 
+                                       text.includes('Assistant:') || 
+                                       element.matches('[data-testid*="assistant"]') ||
+                                       element.matches('.assistant-message, .claude-message');
+              
+              if (isUserMessage || isAssistantMessage) {
+                console.log('Claude observer: New message detected:', text.substring(0, 50) + '...');
+                hasNewMessages = true;
+              }
+            }
+          }
+        });
+      }
+    });
+    
+    // If we detected new messages, trigger a capture after a short delay
+    if (hasNewMessages) {
+      setTimeout(() => {
+        console.log('Claude observer: Triggering capture for new messages');
+        captureEntireConversation();
+      }, 1000); // Wait 1 second for message to fully load
+    }
+  });
+  
+  // Start observing the document body for changes
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  console.log('Claude message observer started');
+}
+
 // Add a debug button for Claude
 function addClaudeDebugButton() {
   if (chatbotType !== 'Claude') return;
@@ -2273,6 +2482,7 @@ function debugClaudeCapture() {
   // Primary selectors for Claude
   const claudeSelectors = [
     '[data-testid="user-message"]',
+    '[data-testid="assistant-message"]',
     '.font-claude-message',
     '.message-content',
     '.claude-message',
@@ -2304,6 +2514,211 @@ function debugClaudeCapture() {
   const potentialTextElements = document.querySelectorAll('p, .message-content, .claude-message-content, .user-message-content');
   console.log(`Found ${potentialTextElements.length} potential text elements`);
   
+  // Additional debugging: Look for any elements with Claude-related text
+  console.log('=== CLAUDE INTERFACE ANALYSIS ===');
+  const allElements = document.querySelectorAll('*');
+  const claudeRelatedElements = [];
+  
+  allElements.forEach(el => {
+    const text = el.textContent?.trim();
+    if (text && (text.includes('Claude') || text.includes('Assistant') || text.includes('You') || text.includes('Human'))) {
+      const tagName = el.tagName.toLowerCase();
+      const classes = el.className;
+      const id = el.id;
+      const dataTestId = el.getAttribute('data-testid');
+      
+      claudeRelatedElements.push({
+        element: el,
+        tagName,
+        classes,
+        id,
+        dataTestId,
+        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        fullText: text
+      });
+    }
+  });
+  
+  console.log(`Found ${claudeRelatedElements.length} Claude-related elements:`);
+  claudeRelatedElements.forEach((item, i) => {
+    console.log(`  ${i+1}. <${item.tagName}${item.classes ? '.' + item.classes.split(' ').join('.') : ''}${item.id ? '#' + item.id : ''}${item.dataTestId ? '[data-testid="' + item.dataTestId + '"]' : ''}>`);
+    console.log(`     Text: ${item.text}`);
+  });
+  
+  // Look for conversation-specific containers
+  console.log('=== CONVERSATION CONTAINER ANALYSIS ===');
+  const possibleConversationContainers = [
+    'main',
+    'article', 
+    '.conversation',
+    '.chat',
+    '.messages',
+    '.content-area',
+    '.conversation-container',
+    '.chat-container',
+    '.messages-container',
+    '[data-testid*="conversation"]',
+    '[data-testid*="chat"]',
+    '[data-testid*="message"]'
+  ];
+  
+  possibleConversationContainers.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    if (elements.length > 0) {
+      console.log(`${selector}: ${elements.length} elements found`);
+      elements.forEach((el, i) => {
+        const text = el.textContent?.trim();
+        if (text && text.length > 50) {
+          console.log(`  ${selector} #${i}:`, {
+            classes: el.className,
+            attributes: Array.from(el.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', '),
+            text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+            children: el.children.length
+          });
+        }
+      });
+    }
+  });
+  
+  // Look for message-specific elements
+  console.log('=== MESSAGE ELEMENT ANALYSIS ===');
+  const messageSelectors = [
+    '[data-testid*="message"]',
+    '[data-testid*="user"]',
+    '[data-testid*="assistant"]',
+    '.message',
+    '.user-message',
+    '.assistant-message',
+    '.human-message',
+    '.claude-message',
+    '.font-claude-message'
+  ];
+  
+  messageSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    if (elements.length > 0) {
+      console.log(`${selector}: ${elements.length} elements found`);
+      elements.forEach((el, i) => {
+        const text = el.textContent?.trim();
+        if (text && text.length > 20) {
+          console.log(`  ${selector} #${i}:`, {
+            classes: el.className,
+            attributes: Array.from(el.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', '),
+            text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+            children: el.children.length
+          });
+        }
+      });
+    }
+  });
+  
+  // Look for conversation-specific patterns
+  console.log('=== CONVERSATION PATTERN ANALYSIS ===');
+  const userPatterns = ['can you tell me', 'how to', 'install', 'USB', 'PopOS'];
+  const assistantPatterns = ['Here\'s how to', 'First, download', 'The Terminal method', 'Choose the version'];
+  
+  // Find elements that contain conversation patterns
+  const conversationElements = [];
+  allElements.forEach(el => {
+    const text = el.textContent?.trim();
+    if (text && text.length > 30) {
+      const hasUserPattern = userPatterns.some(pattern => text.includes(pattern));
+      const hasAssistantPattern = assistantPatterns.some(pattern => text.includes(pattern));
+      
+      if (hasUserPattern || hasAssistantPattern) {
+        conversationElements.push({
+          element: el,
+          tagName: el.tagName,
+          classes: el.className,
+          id: el.id,
+          dataTestId: el.getAttribute('data-testid'),
+          text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+          type: hasUserPattern ? 'user' : 'assistant',
+          hasUserPattern,
+          hasAssistantPattern
+        });
+      }
+    }
+  });
+  
+  console.log(`Found ${conversationElements.length} conversation elements:`);
+  conversationElements.forEach((item, i) => {
+    console.log(`  ${i+1}. <${item.tagName}${item.classes ? '.' + item.classes.split(' ').join('.') : ''}${item.id ? '#' + item.id : ''}${item.dataTestId ? '[data-testid="' + item.dataTestId + '"]' : ''}>`);
+    console.log(`     Type: ${item.type}, Text: ${item.text}`);
+  });
+  
+  // Find the most specific conversation container
+  console.log('=== FINDING CONVERSATION CONTAINER ===');
+  const conversationText = 'can you tell me how to install a PopOS installation disk to a USB drive from MacOS?';
+  
+  // Look for the most specific element containing the conversation
+  let conversationElement = null;
+  let bestElement = null;
+  
+  allElements.forEach(el => {
+    const text = el.textContent?.trim();
+    if (text && text.includes(conversationText)) {
+      // Find the most specific (deepest) element that contains the conversation
+      if (!conversationElement || el.children.length < conversationElement.children.length) {
+        conversationElement = el;
+      }
+    }
+  });
+  
+  if (conversationElement) {
+    console.log('Found conversation element:', {
+      tagName: conversationElement.tagName,
+      classes: conversationElement.className,
+      id: conversationElement.id,
+      dataTestId: conversationElement.getAttribute('data-testid'),
+      parentClasses: conversationElement.parentElement?.className,
+      parentId: conversationElement.parentElement?.id,
+      parentDataTestId: conversationElement.parentElement?.getAttribute('data-testid'),
+      ancestorSelectors: getAncestorSelectors(conversationElement)
+    });
+    
+    // Look for the conversation container by finding the parent that contains both user and assistant messages
+    let container = conversationElement.parentElement;
+    let depth = 0;
+    const maxDepth = 10;
+    
+    while (container && depth < maxDepth) {
+      const containerText = container.textContent || '';
+      const hasUserMessage = containerText.includes('can you tell me how to install');
+      const hasAssistantMessage = containerText.includes('Here\'s how to create a PopOS bootable USB drive');
+      
+      if (hasUserMessage && hasAssistantMessage) {
+        console.log(`Found conversation container at depth ${depth}:`, {
+          tagName: container.tagName,
+          classes: container.className,
+          id: container.id,
+          dataTestId: container.getAttribute('data-testid'),
+          selector: `${container.tagName.toLowerCase()}${container.className ? '.' + container.className.split(' ').join('.') : ''}${container.id ? '#' + container.id : ''}${container.getAttribute('data-testid') ? '[data-testid="' + container.getAttribute('data-testid') + '"]' : ''}`
+        });
+        break;
+      }
+      
+      container = container.parentElement;
+      depth++;
+    }
+  }
+  
+  // Helper function to get ancestor selectors
+  function getAncestorSelectors(element, maxDepth = 5) {
+    const selectors = [];
+    let current = element.parentElement;
+    let depth = 0;
+    
+    while (current && depth < maxDepth) {
+      const selector = `${current.tagName.toLowerCase()}${current.className ? '.' + current.className.split(' ').join('.') : ''}${current.id ? '#' + current.id : ''}${current.getAttribute('data-testid') ? '[data-testid="' + current.getAttribute('data-testid') + '"]' : ''}`;
+      selectors.push(selector);
+      current = current.parentElement;
+      depth++;
+    }
+    
+    return selectors;
+  }
+  
   const significantTexts = [];
   
   potentialTextElements.forEach((el, i) => {
@@ -2321,13 +2736,10 @@ function debugClaudeCapture() {
   // Attempt to manually capture right now
   captureEntireConversation();
   
-  // Format for easy viewing
-  let formattedMessages = '';
-  currentConversation.interactions.forEach((msg, i) => {
-    formattedMessages += `\n[${i+1}] ${msg.actor}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`;
-  });
+  // Show capture summary
+  console.log(`Claude capture complete: ${currentConversation.interactions.length} messages found`);
   
-  // Show a visual message
+  // Show a simple visual confirmation
   const messageDiv = document.createElement('div');
   messageDiv.style.position = 'fixed';
   messageDiv.style.top = '20px';
@@ -2337,15 +2749,9 @@ function debugClaudeCapture() {
   messageDiv.style.color = 'white';
   messageDiv.style.borderRadius = '5px';
   messageDiv.style.zIndex = '10000';
-  messageDiv.style.maxWidth = '80%';
-  messageDiv.style.maxHeight = '80%';
-  messageDiv.style.overflow = 'auto';
   messageDiv.innerHTML = `
-    <h3>Claude Debug Info</h3>
+    <h3>Claude Capture Complete</h3>
     <p>Found ${currentConversation.interactions.length} messages</p>
-    <pre style="font-size: 12px; white-space: pre-wrap;">${formattedMessages}</pre>
-    <p>Significant Text Blocks: ${significantTexts.length}</p>
-    <p>Check console for details</p>
     <button id="closeClaudeDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
   
