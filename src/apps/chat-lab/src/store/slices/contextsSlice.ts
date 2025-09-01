@@ -30,54 +30,6 @@ export interface ContextsState {
 
 // Built-in contexts (these will always be available)
 export const builtInContexts: Context[] = [
-  {
-    id: 'ctx-builtin-1',
-    title: 'React Development Patterns',
-    body: 'Best practices and patterns for React development including hooks, state management, and performance optimization. Covers modern React patterns, custom hooks, context API, and performance best practices.',
-    tokenCount: 45,
-    createdAt: new Date('2024-01-10').toISOString(),
-    updatedAt: new Date('2024-01-10').toISOString(),
-    isBuiltIn: true,
-    tags: ['react', 'development', 'patterns'],
-    conversationIds: [],
-    conversationMetadata: {
-      totalMessages: 0,
-      lastAddedAt: new Date('2024-01-10').toISOString(),
-      platforms: []
-    }
-  },
-  {
-    id: 'ctx-builtin-2',
-    title: 'API Design Guidelines',
-    body: 'RESTful API design principles, GraphQL patterns, authentication strategies, and best practices for building scalable and maintainable APIs.',
-    tokenCount: 32,
-    createdAt: new Date('2024-01-12').toISOString(),
-    updatedAt: new Date('2024-01-12').toISOString(),
-    isBuiltIn: true,
-    tags: ['api', 'design', 'rest', 'graphql'],
-    conversationIds: [],
-    conversationMetadata: {
-      totalMessages: 0,
-      lastAddedAt: new Date('2024-01-12').toISOString(),
-      platforms: []
-    }
-  },
-  {
-    id: 'ctx-builtin-3',
-    title: 'Software Architecture Principles',
-    body: 'Core principles of software architecture including SOLID principles, design patterns, microservices, and architectural decision making.',
-    tokenCount: 38,
-    createdAt: new Date('2024-01-15').toISOString(),
-    updatedAt: new Date('2024-01-15').toISOString(),
-    isBuiltIn: true,
-    tags: ['architecture', 'design-patterns', 'principles'],
-    conversationIds: [],
-    conversationMetadata: {
-      totalMessages: 0,
-      lastAddedAt: new Date('2024-01-15').toISOString(),
-      platforms: []
-    }
-  }
 ];
 
 const initialState: ContextsState = {
