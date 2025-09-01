@@ -56,11 +56,35 @@
 
                     // Set up event handlers
                     fidu.on('onAuthSuccess', (user, token, portalUrl) => {
-                        // Store token in localStorage
-                        localStorage.setItem('auth_token', token);
+                        // Handle new authentication response format with refresh tokens
+                        let accessToken = token;
+                        let refreshToken = '';
+                        let expiresIn = 86400;
+                        
+                        console.log('onAuthSuccess', token);
+
+                        // Check if token is an object with the new format
+                        if (typeof token === 'object' && token.access_token) {
+                            accessToken = token.access_token;
+                            refreshToken = token.refresh_token || '';
+                            expiresIn = token.expires_in || 86400;
+                        }
+                        
+                        // Store tokens in localStorage
+                        localStorage.setItem('auth_token', accessToken);
+                        localStorage.setItem('token_expires_in', expiresIn.toString());
+                        
+                        // Note: refresh_token is handled by the SDK as 'fiduRefreshToken'
+                        // We don't need to duplicate it here
                         
                         // Set auth_token cookie for backend compatibility (expires in 1 hour)
-                        document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
+                        document.cookie = `auth_token=${accessToken}; path=/; max-age=3600; samesite=lax`;
+                        
+                        // Store refresh token in a separate cookie for longer persistence
+                        // Use the refresh token from the SDK response if available
+                        if (refreshToken) {
+                            document.cookie = `refresh_token=${refreshToken}; path=/; max-age=2592000; samesite=lax`; // 30 days
+                        }
                         
                         // Redirect to dashboard
                         window.location.href = "/dashboard";
@@ -100,13 +124,23 @@
                 }
             }
 
+            // Clean up duplicate refresh token keys
+            function cleanupDuplicateTokens() {
+                // Remove the empty refresh_token since we're using fiduRefreshToken
+                if (localStorage.getItem('refresh_token') === '') {
+                    localStorage.removeItem('refresh_token');
+                }
+            }
+            
             // Start initialization when page loads
             document.addEventListener('DOMContentLoaded', function() {
+                cleanupDuplicateTokens();
                 initializeFIDU();
             });
 
             // Also try to initialize immediately if DOM is already loaded
             if (document.readyState !== 'loading') {
+                cleanupDuplicateTokens();
                 initializeFIDU();
             }
             </script>

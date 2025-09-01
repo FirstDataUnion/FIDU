@@ -170,7 +170,7 @@ class FrontEndAPI:
         )
 
     async def _get_current_user_id(self, request: Request) -> Optional[str]:
-        """Get the current user ID from the request token."""
+        """Get the current user ID from the request token with refresh token support."""
         try:
             # Check for token in cookies first
             token = request.cookies.get("auth_token")
@@ -181,12 +181,35 @@ class FrontEndAPI:
                     token = auth_header[7:]
 
             if token:
-                # Fetch user from identity service
-                user = await get_user_from_identity_service(token)
-                return user.id if user else None
+                # Get refresh token for potential refresh
+                refresh_token = request.cookies.get("refresh_token")
+                
+                # Try to fetch user with current token
+                try:
+                    user = await get_user_from_identity_service(token)
+                    return user.id if user else None
+                except HTTPException as e:
+                    if e.status_code == 401 and refresh_token:
+                        # Token expired, try to refresh
+                        from .identity_service.auth_client import auth_client
+                        auth_client.set_tokens(token, refresh_token, 0)
+                        
+                        if await auth_client.token_manager.refresh_access_token():
+                            new_token = auth_client.token_manager.get_valid_access_token()
+                            if new_token:
+                                # Try again with new token
+                                try:
+                                    user = await get_user_from_identity_service(new_token)
+                                    return user.id if user else None
+                                except HTTPException:
+                                    pass
         # Catch unauthed exceptions
         except HTTPException:
             pass
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in _get_current_user_id: {str(e)}")
         return None
 
     def _get_session_data(self, request: Request, key: str, default=None):
@@ -222,6 +245,35 @@ class FrontEndAPI:
         if isinstance(body, memoryview):
             return body.tobytes().decode()
         return body.decode()
+    
+    async def _authenticate_user_with_refresh(self, request: Request):
+        """Authenticate user with refresh token support."""
+        token = request.cookies.get("auth_token") or ""
+        refresh_token = request.cookies.get("refresh_token")
+        
+        if not token:
+            return None
+        
+        # Try to get user with current token
+        try:
+            user = await get_user_from_identity_service(token)
+            return user
+        except HTTPException as e:
+            if e.status_code == 401 and refresh_token:
+                # Token expired, try to refresh
+                from .identity_service.auth_client import auth_client
+                auth_client.set_tokens(token, refresh_token, 0)
+                
+                if await auth_client.token_manager.refresh_access_token():
+                    new_token = auth_client.token_manager.get_valid_access_token()
+                    if new_token:
+                        # Try again with new token
+                        try:
+                            user = await get_user_from_identity_service(new_token)
+                            return user
+                        except HTTPException:
+                            return None
+            return None
 
     async def home(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the home page with login/register options."""
@@ -258,10 +310,14 @@ class FrontEndAPI:
             <script>
                 // Clear localStorage auth keys
                 localStorage.removeItem('auth_token');
+                localStorage.removeItem('fiduRefreshToken');
+                localStorage.removeItem('token_expires_in');
                 localStorage.removeItem('fiduToken');
                 
                 // Clear sessionStorage as well
                 sessionStorage.removeItem('auth_token');
+                sessionStorage.removeItem('fiduRefreshToken');
+                sessionStorage.removeItem('token_expires_in');
                 sessionStorage.removeItem('fiduToken');
                 
                 // Redirect to home page
@@ -273,6 +329,8 @@ class FrontEndAPI:
         """
         response = HTMLResponse(content=html_content)
         response.delete_cookie("auth_token")
+        response.delete_cookie("refresh_token")
+        response.delete_cookie("fiduRefreshToken")
         response.delete_cookie("session_data")
 
         return response
@@ -282,9 +340,10 @@ class FrontEndAPI:
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the main dashboard."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             response = self.templates.TemplateResponse(
                 "dashboard.html", {"request": request, "user": user}
@@ -292,20 +351,21 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in dashboard: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def data_packets_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the data packets page."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             response = self.templates.TemplateResponse(
                 "data_packets.html", {"request": request, "user": user}
@@ -313,20 +373,21 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in data_packets_page: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def data_packets_list(
         self, request: Request
     ) -> HTMLResponse | RedirectResponse:
         """Serve the data packets list (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             # Get query parameters for filtering
             profile_id = request.query_params.get("profile_id")
@@ -385,9 +446,10 @@ class FrontEndAPI:
     ) -> HTMLResponse | RedirectResponse:
         """Handle data packet deletion (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             data_packet_id = request.query_params.get("data_packet_id")
 
@@ -400,13 +462,13 @@ class FrontEndAPI:
 
             return HTMLResponse("Data packet deleted successfully.", status_code=200)
 
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
         except (DataPacketError, ValueError, TypeError) as e:
             logger.error("Delete data packet error: %s", e)
+            return HTMLResponse("Error deleting data packet.", status_code=500)
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in delete_data_packet: {str(e)}")
             return HTMLResponse("Error deleting data packet.", status_code=500)
 
     async def profiles_page(
@@ -414,9 +476,10 @@ class FrontEndAPI:
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the profiles page."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             response = self.templates.TemplateResponse(
                 "profiles.html", {"request": request, "user": user}
@@ -424,20 +487,21 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in profiles_page: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def apps_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the apps page."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             response = self.templates.TemplateResponse(
                 "apps.html", {"request": request, "user": user}
@@ -445,18 +509,19 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in apps_page: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def profiles_list(self, request: Request) -> HTMLResponse | RedirectResponse:
         """Serve the profiles list (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             response = self.templates.TemplateResponse(
                 "profiles_list.html",
@@ -465,26 +530,41 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-
-            raise e
         except (ValueError, TypeError) as e:
             logger.error("Profiles list error: %s", e)
             return HTMLResponse("Error loading profiles.", status_code=500)
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in profiles_list: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def create_profile(self, request: Request) -> HTMLResponse | RedirectResponse:
         """Handle profile creation (HTMX endpoint)."""
         try:
+            user = await self._authenticate_user_with_refresh(request)
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
+            
             form_data = await request.form()
             name = str(form_data.get("name", ""))  # Ensure string type
 
             if not name:
                 return HTMLResponse("Profile name is required.", status_code=400)
 
-            # Create profile
-            await create_profile(request.cookies.get("auth_token") or "", name)
+            # Create profile using the current access token
+            token = request.cookies.get("auth_token") or ""
+            refresh_token = request.cookies.get("refresh_token")
+            
+            # If we have a refresh token, try to get a fresh access token
+            if refresh_token:
+                from .identity_service.auth_client import auth_client
+                auth_client.set_tokens(token, refresh_token, 0)
+                
+                if await auth_client.token_manager.refresh_access_token():
+                    token = auth_client.token_manager.get_valid_access_token() or token
+            
+            await create_profile(token, name)
 
             # Return updated profiles list
             return await self.profiles_list(request)
@@ -492,15 +572,21 @@ class FrontEndAPI:
         except (ValueError, TypeError) as e:
             logger.error("Create profile error: %s", e)
             return HTMLResponse("Error creating profile.", status_code=500)
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in create_profile: {str(e)}")
+            return HTMLResponse("Error creating profile.", status_code=500)
 
     async def api_keys_page(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the API keys page."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             # Get API keys for the current user
             api_keys = []
@@ -521,23 +607,20 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-            raise e
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in api_keys_page: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
 
     async def add_api_key(
         self, request: Request
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle API key creation or update (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
             if not user:
-                raise HTTPException(
-                    status_code=401, detail="Invalid authentication token"
-                )
+                return RedirectResponse(url="/", status_code=302)
 
             form_data = await request.form()
             provider = str(form_data.get("provider", ""))
@@ -590,13 +673,9 @@ class FrontEndAPI:
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle API key deletion (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
             if not user:
-                raise HTTPException(
-                    status_code=401, detail="Invalid authentication token"
-                )
+                return RedirectResponse(url="/", status_code=302)
 
             # Delete the API key using the service
             if self.api_key_service:
@@ -622,13 +701,9 @@ class FrontEndAPI:
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle API key updates (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
             if not user:
-                raise HTTPException(
-                    status_code=401, detail="Invalid authentication token"
-                )
+                return RedirectResponse(url="/", status_code=302)
 
             form_data = await request.form()
             api_key = str(form_data.get("api_key", ""))
@@ -664,9 +739,10 @@ class FrontEndAPI:
     ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the API keys list (HTMX endpoint)."""
         try:
-            user = await get_user_from_identity_service(
-                request.cookies.get("auth_token") or ""
-            )
+            user = await self._authenticate_user_with_refresh(request)
+            
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
 
             # Get API keys for the current user
             api_keys = []
@@ -687,10 +763,11 @@ class FrontEndAPI:
             return HTMLResponse(
                 content=self._decode_body(response.body), status_code=200
             )
-        except HTTPException as e:
-            if e.status_code == 401:
-                return RedirectResponse(url="/", status_code=302)
-            raise e
         except (ValueError, TypeError) as e:
             logger.error("API keys list error: %s", e)
             return HTMLResponse("Error loading API keys.", status_code=500)
+        except Exception as e:
+            # Log unexpected errors but don't crash
+            import logging
+            logging.error(f"Unexpected error in api_keys_list: {str(e)}")
+            return RedirectResponse(url="/", status_code=302)
