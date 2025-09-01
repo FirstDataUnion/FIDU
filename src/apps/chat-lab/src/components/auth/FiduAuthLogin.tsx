@@ -69,7 +69,6 @@ const FiduAuthLogin: React.FC = () => {
 
   // Inject SDK script if not present
   useEffect(() => {
-    console.log('🔑 FiduAuthLogin: Starting SDK script injection');
     
     // Set a timeout to detect if SDK loading is taking too long
     const loadingTimeout = setTimeout(() => {
@@ -80,31 +79,26 @@ const FiduAuthLogin: React.FC = () => {
     }, 10000); // 10 second timeout
     
     if (document.getElementById(FIDU_SDK_ID)) {
-      console.log('🔑 FiduAuthLogin: SDK script already exists');
       sdkLoaded.current = true;
       setLoading(false);
       clearTimeout(loadingTimeout);
       return;
     }
-    console.log('🔑 FiduAuthLogin: Creating new SDK script element');
     const script = document.createElement('script');
     script.id = FIDU_SDK_ID;
     script.src = `${getFiduHost()}/static/js/fidu-sdk.js`;
     script.async = true;
     script.onload = () => {
-      console.log('🔑 FiduAuthLogin: SDK script loaded successfully');
       sdkLoaded.current = true;
       setLoading(false);
       clearTimeout(loadingTimeout);
     };
     script.onerror = () => {
-      console.error('🔑 FiduAuthLogin: Failed to load SDK script');
       setError('Failed to load FIDU Auth SDK.');
       setLoading(false);
       clearTimeout(loadingTimeout);
     };
     document.body.appendChild(script);
-    console.log('🔑 FiduAuthLogin: SDK script appended to body');
     return () => {
       clearTimeout(loadingTimeout);
       if (script.parentNode) script.parentNode.removeChild(script);
@@ -114,15 +108,12 @@ const FiduAuthLogin: React.FC = () => {
   // Initialize SDK and widget
   useEffect(() => {
     if (loading || error) {
-      console.log('🔑 FiduAuthLogin: Skipping SDK init - loading:', loading, 'error:', error);
       return;
     }
     if (!window.FIDUAuth) {
-      console.log('🔑 FiduAuthLogin: FIDUAuth not available yet');
       return;
     }
 
-    console.log('🔑 FiduAuthLogin: Initializing FIDU SDK and widget');
     // Remove any previous widget
     const container = document.getElementById('fiduAuthContainer');
     if (container) container.innerHTML = '';
@@ -132,10 +123,7 @@ const FiduAuthLogin: React.FC = () => {
       debug: true,
     });
 
-    console.log('🔑 FiduAuthLogin: FIDU SDK instance created');
-
     fidu.on('onAuthSuccess', async (_user: any, token: string) => {
-      console.log('🔑 FiduAuthLogin: Authentication successful, token received');
       try {
         // Store token
         localStorage.setItem('auth_token', token);
@@ -155,17 +143,13 @@ const FiduAuthLogin: React.FC = () => {
     });
 
     fidu.on('onAuthError', (_err: any) => {
-      console.error('🔑 FiduAuthLogin: Authentication error occurred');
       // Clear any existing auth data to prevent loops
       clearAllAuthTokens();
       setError('Authentication failed. Please try again.');
     });
 
-    console.log('🔑 FiduAuthLogin: Calling fidu.init()');
     fidu.init().then((isAuthenticated: boolean) => {
-      console.log('🔑 FiduAuthLogin: fidu.init() completed, isAuthenticated:', isAuthenticated);
       if (!isAuthenticated) {
-        console.log('🔑 FiduAuthLogin: Showing login widget');
         fidu.showLoginWidget();
       }
     });

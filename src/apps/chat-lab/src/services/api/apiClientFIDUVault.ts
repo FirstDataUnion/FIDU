@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiError, type ApiResponse, type ErrorResponse } from './apiClients';
+import { refreshTokenService } from './refreshTokenService';
 
 // FIDU Vault API Configuration
 const FIDU_VAULT_API_CONFIG = {
@@ -37,8 +38,8 @@ export class FiduVaultAPIClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        // You can add auth token here
-        const token = localStorage.getItem('auth_token');
+        // Get auth token from refresh token service
+        const token = refreshTokenService.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -57,17 +58,10 @@ export class FiduVaultAPIClient {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
           
-          // Handle authentication errors
+          // Handle authentication errors with refresh token logic
           if (error.response.status === 401) {
-            // Clear auth data and redirect to login
-            this.clearAllAuthTokens();
-            // Don't reload the page - let the auth state handle the redirect
-            // window.location.reload();
-            return Promise.reject(new ApiError(
-              error.response.status,
-              'Authentication required. Please log in.',
-              error.response.data
-            ));
+            // Use the refresh token service to handle 401 errors
+            return this.handleUnauthorizedWithRefresh(error);
           }
           
           throw new ApiError(
@@ -92,6 +86,33 @@ export class FiduVaultAPIClient {
         }
       }
     );
+  }
+
+  /**
+   * Handle 401 errors with automatic token refresh and retry
+   */
+  private async handleUnauthorizedWithRefresh(error: AxiosError<ErrorResponse>): Promise<never> {
+    try {
+      // Attempt to refresh the token
+      await refreshTokenService.refreshAccessToken();
+      
+      // Token refreshed successfully, but we can't retry the original request here
+      // The user will need to retry their action manually
+      throw new ApiError(
+        401,
+        'Token expired and refreshed. Please retry your request.',
+        error.response?.data
+      );
+    } catch (refreshError) {
+      // Token refresh failed, clear auth data and redirect to login
+      this.clearAllAuthTokens();
+      
+      throw new ApiError(
+        401,
+        'Authentication required. Please log in again.',
+        error.response?.data
+      );
+    }
   }
 
   // Generic request methods

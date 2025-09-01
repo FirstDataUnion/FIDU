@@ -173,12 +173,14 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                         : context.body
                       }
                     </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip 
                         label={`${context.tokenCount} tokens`} 
                         size="small" 
                         variant="outlined"
                       />
                     </Box>
+                  </Box>
                     <Button
                       size="small"
                       variant="contained"
@@ -1464,7 +1466,7 @@ export default function PromptLabPage() {
                             }}
                           >
                             <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 0.5 }}>
                                 {prompt.name}
                                 {prompt.isDefault && (
                                   <Chip 

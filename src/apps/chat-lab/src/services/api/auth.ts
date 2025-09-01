@@ -16,8 +16,8 @@ export const authApi = {
   /**
    * Create a new profile
    */
-  createProfile: async (token: string, display_name: string): Promise<Profile> => {
-    const response = await createProfile(token, display_name);
+  createProfile: async (display_name: string, token?: string): Promise<Profile> => {
+    const response = await createProfile(display_name, token);
     return response;
   },
 
