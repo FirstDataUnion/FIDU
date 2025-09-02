@@ -7,7 +7,20 @@
  * - Providing UI for viewing conversation details
  */
 
-// DOM elements
+// === Utility Functions ===
+
+// Safe HTML escaping function to prevent XSS
+function escapeHtml(text) {
+  if (text == null) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+// === DOM Elements ===
 const conversationListEl = document.getElementById('conversationList');
 const searchInputEl = document.getElementById('searchInput');
 const filterSelectEl = document.getElementById('filterSelect');
@@ -42,7 +55,11 @@ function setupEventListeners() {
 function loadConversations() {
   // Show loading state
   if (conversationListEl) {
-    conversationListEl.innerHTML = '<div class="loading">Loading conversations...</div>';
+    conversationListEl.textContent = '';
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'loading';
+    loadingDiv.textContent = 'Loading conversations...';
+    conversationListEl.appendChild(loadingDiv);
   }
   
   chrome.runtime.sendMessage({ action: 'getConversations' }, (response) => {
@@ -53,7 +70,11 @@ function loadConversations() {
       renderConversationList();
     } else {
       console.error('Error loading conversations:', response.error);
-      conversationListEl.innerHTML = '<div class="error">Error loading conversations</div>';
+      conversationListEl.textContent = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error';
+      errorDiv.textContent = 'Error loading conversations';
+      conversationListEl.appendChild(errorDiv);
     }
   });
 }
@@ -61,10 +82,16 @@ function loadConversations() {
 // Render the conversation list
 function renderConversationList() {
   if (conversationListEl) {
-    conversationListEl.innerHTML = '';
+    conversationListEl.textContent = '';
     
     if (filteredConversations.length === 0) {
-      conversationListEl.innerHTML = '<div class="empty-state" style="height: 200px;"><p>No conversations found</p></div>';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'empty-state';
+      emptyDiv.style.height = '200px';
+      const emptyP = document.createElement('p');
+      emptyP.textContent = 'No conversations found';
+      emptyDiv.appendChild(emptyP);
+      conversationListEl.appendChild(emptyDiv);
       return;
     }
     
@@ -117,15 +144,41 @@ function renderConversationList() {
       // Get conversation title or use source chatbot as fallback
       const title = conversationData.conversationTitle || conversationData.sourceChatbot || 'Unknown';
       
-      conversationItem.innerHTML = `
-        <div class="conversation-title">${title}</div>
-        <div class="conversation-meta">
-          <span class="timestamp">${timestamp}</span>
-          <span class="message-count">${interactions.length} messages</span>
-        </div>
-        <div class="conversation-url">${displayUrl}</div>
-        <div class="conversation-preview">${previewText}</div>
-      `;
+      // Create conversation title
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'conversation-title';
+      titleDiv.textContent = title;
+      
+      // Create conversation meta
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'conversation-meta';
+      
+      const timestampSpan = document.createElement('span');
+      timestampSpan.className = 'timestamp';
+      timestampSpan.textContent = timestamp;
+      
+      const messageCountSpan = document.createElement('span');
+      messageCountSpan.className = 'message-count';
+      messageCountSpan.textContent = `${interactions.length} messages`;
+      
+      metaDiv.appendChild(timestampSpan);
+      metaDiv.appendChild(messageCountSpan);
+      
+      // Create conversation URL
+      const urlDiv = document.createElement('div');
+      urlDiv.className = 'conversation-url';
+      urlDiv.textContent = displayUrl;
+      
+      // Create conversation preview
+      const previewDiv = document.createElement('div');
+      previewDiv.className = 'conversation-preview';
+      previewDiv.textContent = previewText;
+      
+      // Append all elements
+      conversationItem.appendChild(titleDiv);
+      conversationItem.appendChild(metaDiv);
+      conversationItem.appendChild(urlDiv);
+      conversationItem.appendChild(previewDiv);
       
       conversationItem.addEventListener('click', () => {
         selectConversation(conversation.id);
@@ -171,23 +224,23 @@ function renderConversationDetail(conversation) {
   
   let detailHTML = `
     <div class="conversation-header">
-      <h2>${title}</h2>
+      <h2>${escapeHtml(title)}</h2>
       <div class="conversation-meta">
-        <span class="timestamp">${timestamp}</span>
-        <span class="message-count">${interactions.length} messages</span>
-        <span class="source">${sourceChatbot}</span>
-        <span class="model">${targetModel}</span>
+        <span class="timestamp">${escapeHtml(timestamp)}</span>
+        <span class="message-count">${escapeHtml(interactions.length.toString())} messages</span>
+        <span class="source">${escapeHtml(sourceChatbot)}</span>
+        <span class="model">${escapeHtml(targetModel)}</span>
       </div>
       ${conversationUrl ? `
         <div class="conversation-url">
-          <a href="${conversationUrl}" target="_blank">
-            ${conversationUrl}
+          <a href="${escapeHtml(conversationUrl)}" target="_blank">
+            ${escapeHtml(conversationUrl)}
           </a>
         </div>
       ` : ''}
       ${tags.length > 0 ? `
         <div class="conversation-tags">
-          ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+          ${tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
         </div>
       ` : ''}
     </div>
@@ -203,10 +256,10 @@ function renderConversationDetail(conversation) {
       detailHTML += `
         <div class="message ${messageClass}">
           <div class="message-header">
-            <span class="actor">${actorDisplay}</span>
-            <span class="time">${messageTime}</span>
+            <span class="actor">${escapeHtml(actorDisplay)}</span>
+            <span class="time">${escapeHtml(messageTime)}</span>
           </div>
-          <div class="message-content">${interaction.content}</div>
+          <div class="message-content">${escapeHtml(interaction.content)}</div>
         </div>
       `;
     });

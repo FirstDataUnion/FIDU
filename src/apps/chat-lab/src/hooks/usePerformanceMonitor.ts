@@ -20,12 +20,26 @@ interface UsePerformanceMonitorOptions {
   threshold?: number; // Log warnings if render time exceeds this threshold
 }
 
+/**
+ * Performance monitoring hook for React components.
+ * 
+ * ⚠️ DEVELOPMENT ONLY: This hook is automatically disabled in production builds
+ * to prevent any performance impact on end users.
+ * 
+ * @param componentName - Name of the component being monitored
+ * @param enabled - Whether monitoring is enabled (defaults to DEV mode)
+ * @param logToConsole - Whether to log metrics to console
+ * @param threshold - Performance threshold in milliseconds (default: 16ms = 60fps)
+ */
 export const usePerformanceMonitor = ({
   componentName,
-  enabled = process.env.NODE_ENV === 'development',
+  enabled = import.meta.env.DEV,
   logToConsole = true,
   threshold = 16 // 16ms = 60fps threshold
 }: UsePerformanceMonitorOptions): PerformanceMetrics => {
+  // Force disable in production builds for safety
+  const isProduction = import.meta.env.PROD;
+  const isActuallyEnabled = enabled && !isProduction;
   const renderStartTime = useRef<number>(0);
   const metrics = useRef<PerformanceMetricsData>({
     renderTime: 0,
@@ -36,14 +50,14 @@ export const usePerformanceMonitor = ({
 
   // Start timing render
   const startRender = useCallback(() => {
-    if (enabled) {
+    if (isActuallyEnabled) {
       renderStartTime.current = performance.now();
     }
-  }, [enabled]);
+  }, [isActuallyEnabled]);
 
   // End timing render
   const endRender = useCallback(() => {
-    if (enabled) {
+    if (isActuallyEnabled) {
       const renderTime = performance.now() - renderStartTime.current;
       const current = metrics.current;
       
@@ -61,7 +75,7 @@ export const usePerformanceMonitor = ({
       }
 
       // Log detailed metrics in development
-      if (logToConsole && process.env.NODE_ENV === 'development') {
+      if (logToConsole && import.meta.env.DEV) {
         console.log(
           `📊 ${componentName} Performance:`,
           `Render #${current.renderCount}`,
@@ -70,10 +84,12 @@ export const usePerformanceMonitor = ({
         );
       }
     }
-  }, [enabled, logToConsole, threshold, componentName]);
+  }, [isActuallyEnabled, logToConsole, threshold, componentName]);
 
   // Monitor render performance
   useEffect(() => {
+    if (!isActuallyEnabled) return;
+    
     startRender();
     
     // Use requestAnimationFrame to measure after render is complete
@@ -84,11 +100,11 @@ export const usePerformanceMonitor = ({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  });
+  }, [isActuallyEnabled, startRender, endRender]);
 
   // Reset metrics
   const resetMetrics = useCallback(() => {
-    if (enabled) {
+    if (isActuallyEnabled) {
       metrics.current = {
         renderTime: 0,
         renderCount: 0,
@@ -96,7 +112,7 @@ export const usePerformanceMonitor = ({
         lastRenderTime: 0
       };
     }
-  }, [enabled]);
+  }, [isActuallyEnabled]);
 
   // Get current metrics
   const getMetrics = useCallback((): PerformanceMetricsData => {
@@ -105,7 +121,7 @@ export const usePerformanceMonitor = ({
 
   // Log summary
   const logSummary = useCallback(() => {
-    if (enabled && logToConsole) {
+    if (isActuallyEnabled && logToConsole) {
       const current = metrics.current;
       console.log(
         `📈 ${componentName} Performance Summary:`,
@@ -114,7 +130,7 @@ export const usePerformanceMonitor = ({
         `Last Render: ${current.lastRenderTime.toFixed(2)}ms`
       );
     }
-  }, [enabled, logToConsole, componentName]);
+  }, [isActuallyEnabled, logToConsole, componentName]);
 
   return {
     ...metrics.current,

@@ -18,19 +18,16 @@ setTimeout(initialize, 5000);
 
 // Listen for URL changes (for SPA navigation)
 let lastUrl = window.location.href;
-const urlObserver = new MutationObserver(() => {
+let urlObserver = new MutationObserver(() => {
   if (lastUrl !== window.location.href) {
     lastUrl = window.location.href;
     console.log('URL changed, re-initializing:', lastUrl);
     
+    // Clean up existing resources
+    cleanupResources();
+    
     // Reset initialization state for new conversations
     isInitialized = false;
-    
-    // Clear existing intervals
-    if (captureInterval) {
-      clearInterval(captureInterval);
-      captureInterval = null;
-    }
     
     setTimeout(initialize, 1000);
   }
@@ -69,6 +66,8 @@ let currentConversation = {
 let captureInterval = null;
 let captureFrequency = 60000; // Default: 1 minute in milliseconds
 let isInitialized = false; // Prevent multiple initializations
+let statusPollInterval = null; // Track status polling interval
+let messageObservers = []; // Track all message observers for cleanup
 
 // Function to suppress connector errors that might be logged to the console
 function suppressConnectorErrors() {
@@ -90,6 +89,33 @@ function suppressConnectorErrors() {
     // For all other errors, use the original console.error
     originalConsoleError.apply(console, args);
   };
+}
+
+// Cleanup function to prevent memory leaks
+function cleanupResources() {
+  // Clear capture interval
+  if (captureInterval) {
+    clearInterval(captureInterval);
+    captureInterval = null;
+  }
+  
+  // Clear status polling interval
+  if (statusPollInterval) {
+    clearInterval(statusPollInterval);
+    statusPollInterval = null;
+  }
+  
+  // Disconnect all message observers
+  messageObservers.forEach(observer => {
+    if (observer && observer.disconnect) {
+      observer.disconnect();
+    }
+  });
+  messageObservers = [];
+  
+  // Remove any debug elements we created
+  const debugElements = document.querySelectorAll('[id^="fidu-debug-"]');
+  debugElements.forEach(el => el.remove());
 }
 
 // Helper function to check if user is logged in
@@ -133,47 +159,23 @@ async function getSelectedProfile() {
   }
 }
 
-// Helper function to check FIDU-Vault health
+// Helper function to check FIDU-Vault health via background script
 async function checkFiduVaultHealth() {
   try {
-    // Get the FIDU-Vault URL from settings
-    let vaultUrl = 'http://127.0.0.1:4000'; // Default URL
-    
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      const result = await new Promise((resolve) => {
-        chrome.storage.local.get(['baseUrl'], resolve);
+    // Send message to background script to check health
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        action: 'checkVaultHealth'
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(response);
+        }
       });
-      
-      if (result.baseUrl) {
-        // Extract base URL from the API URL (remove /api/v1)
-        vaultUrl = result.baseUrl.replace('/api/v1', '');
-      }
-    }
+    });
     
-    // Make health check request with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
-    try {
-      const response = await fetch(`${vaultUrl}/health`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      return response.ok;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error('FIDU-Vault health check timed out');
-      } else {
-        throw fetchError;
-      }
-      return false;
-    }
+    return response && response.success && response.healthy;
   } catch (error) {
     console.error('Error checking FIDU-Vault health:', error);
     return false;
@@ -189,7 +191,7 @@ function addProfileStatusIndicator() {
   const statusBox = document.createElement('div');
   statusBox.id = 'conversation-profile-status';
   statusBox.style.position = 'fixed';
-  statusBox.style.bottom = '130px';
+  statusBox.style.bottom = '90px';
   statusBox.style.right = '10px';
   statusBox.style.zIndex = '10000';
   statusBox.style.padding = '8px 12px';
@@ -310,7 +312,7 @@ function addProfileStatusIndicator() {
   }
 
   // Optionally, poll every 30s in case of missed events
-  setInterval(updateStatus, 30000);
+  statusPollInterval = setInterval(updateStatus, 30000);
   
   // Add a test function to manually trigger auth status check
   window.testAuthStatus = function() {
@@ -523,11 +525,9 @@ function startPeriodicCapture() {
     }, captureFrequency);
   }
   
-  // Clean up interval when page unloads
+  // Clean up all resources when page unloads
   window.addEventListener('beforeunload', () => {
-    if (captureInterval) {
-      clearInterval(captureInterval);
-    }
+    cleanupResources();
   });
 }
 
@@ -1081,54 +1081,55 @@ function extractAllMessages() {
       return messages;
       
     case 'Poe':
-      // Get all elements with data attributes
+      // Target specific Poe message elements by class and data attributes
+      const poeMessageElements = document.querySelectorAll('.ChatMessage_chatMessage__xkgHx[data-complete="true"]');
+      console.log(`Found ${poeMessageElements.length} Poe message elements with data-complete="true"`);
+      
+      // Also get elements with data-dd-privacy as fallback
       const dataElements = document.querySelectorAll('[data-dd-privacy], [data-complete="true"]');
-      console.log(`Found ${dataElements.length} elements with data attributes`);
+      console.log(`Found ${dataElements.length} total elements with data attributes`);
       
       const filteredMessages = [];
       
-      dataElements.forEach((el, index) => {
+      // Process targeted Poe message elements first
+      poeMessageElements.forEach((el, index) => {
           const text = el.textContent.trim();
           
-          // Apply the same less aggressive filtering logic as the extension
-          const uiIndicators = [
-              'Subscribe', 'Creators', 'Profile', 'Settings', 'Send feedback', 'Download',
-              'Follow us', 'Join our', 'About', 'Blog', 'Careers', 'Help center',
-              'Privacy policy', 'Terms of service', 'View all', 'Bots and apps',
-              'Share', 'Compare', 'Speak', 'Drop files', 'New chat', 'History',
-              'Rates', 'Share app', 'OFFICIAL', 'Today', 'followers', 'Variable points',
-              'General-purpose assistant', 'Write, code, ask', 'Queries are automatically',
-              'For subscribers', 'For non-subscribers', 'View more', 'ExploreCreate',
-              'By @poe'
-          ];
+          // For targeted Poe message elements, use minimal filtering since we know they're messages
+          console.log(`Poe debug: Processing targeted message element "${text.substring(0, 100)}..."`);
           
-          // Count how many UI indicators are present
-          const uiIndicatorCount = uiIndicators.filter(indicator => text.includes(indicator)).length;
-          
-          // Only filter out if there are multiple UI indicators or if it's clearly navigation
-          const shouldExclude = uiIndicatorCount > 2 || 
-              text.includes('Subscribe') || 
-              text.includes('Settings') || 
+          // Only apply basic filtering for these targeted elements
+          const shouldExclude = text.length < 10 || 
+              text.includes('Drop files here') ||
+              text.includes('AssistantApp') ||
+              text.includes('CreatorGPT') ||
+              text.includes('ChatMore') ||
+              text.includes('Official bots') ||
+              text.includes('See all') ||
+              text.includes('Create') ||
+              text.includes('New chat') ||
+              text.includes('Share') ||
+              text.includes('History') ||
+              text.includes('Rates') ||
+              text.includes('API') ||
+              text.includes('By @poe') ||
+              text.includes('Subscribe') ||
+              text.includes('Settings') ||
               text.includes('Download') ||
               text.includes('Follow us') ||
               text.includes('About') ||
               text.includes('Privacy policy') ||
               text.includes('Terms of service') ||
-              text.includes('View all') ||
               text.includes('Bots and apps') ||
-              text.includes('New chat') ||
-              text.includes('History') ||
-              text.includes('Rates') ||
               text.includes('Share app') ||
               text.includes('OFFICIAL') ||
               text.includes('General-purpose assistant') ||
               text.includes('For subscribers') ||
               text.includes('For non-subscribers') ||
               text.includes('View more') ||
-              // Only filter out short timestamp-only content
-              (text.length < 50 && (text.includes('2:') || text.includes('PM') || text.includes('AM')));
+              text.includes('ExploreCreate');
           
-          if (!shouldExclude && text.length > 30) {
+          if (!shouldExclude && text.length > 10) {
               const privacyAttr = el.getAttribute('data-dd-privacy');
               const completeAttr = el.getAttribute('data-complete');
               
@@ -1151,6 +1152,74 @@ function extractAllMessages() {
               });
           }
       });
+      
+      // If we didn't find enough messages with targeted approach, fall back to general data elements
+      if (filteredMessages.length < 2) {
+          console.log(`Poe debug: Only found ${filteredMessages.length} messages with targeted approach, trying fallback...`);
+          
+          dataElements.forEach((el, index) => {
+              // Skip elements we already processed
+              if (poeMessageElements.includes(el)) {
+                  return;
+              }
+              
+              const text = el.textContent.trim();
+              
+              // Apply more aggressive filtering for fallback elements
+              const shouldExclude = text.length < 30 || 
+                  text.includes('Drop files here') ||
+                  text.includes('AssistantApp') ||
+                  text.includes('CreatorGPT') ||
+                  text.includes('ChatMore') ||
+                  text.includes('Official bots') ||
+                  text.includes('See all') ||
+                  text.includes('Create') ||
+                  text.includes('New chat') ||
+                  text.includes('Share') ||
+                  text.includes('History') ||
+                  text.includes('Rates') ||
+                  text.includes('API') ||
+                  text.includes('By @poe') ||
+                  text.includes('Subscribe') ||
+                  text.includes('Settings') ||
+                  text.includes('Download') ||
+                  text.includes('Follow us') ||
+                  text.includes('About') ||
+                  text.includes('Privacy policy') ||
+                  text.includes('Terms of service') ||
+                  text.includes('Bots and apps') ||
+                  text.includes('Share app') ||
+                  text.includes('OFFICIAL') ||
+                  text.includes('General-purpose assistant') ||
+                  text.includes('For subscribers') ||
+                  text.includes('For non-subscribers') ||
+                  text.includes('View more') ||
+                  text.includes('ExploreCreate');
+              
+              if (!shouldExclude && text.length > 30) {
+                  const privacyAttr = el.getAttribute('data-dd-privacy');
+                  const completeAttr = el.getAttribute('data-complete');
+                  
+                  let actor = 'unknown';
+                  if (privacyAttr === 'mask-user-input') {
+                      actor = 'user';
+                  } else if (privacyAttr === 'mask') {
+                      actor = 'bot';
+                  } else if (completeAttr === 'true') {
+                      actor = text.length > 200 ? 'bot' : 'user';
+                  }
+                  
+                  filteredMessages.push({
+                      index: index + 1000, // Offset to avoid conflicts
+                      actor: actor,
+                      content: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+                      fullContent: text,
+                      privacyAttr: privacyAttr,
+                      completeAttr: completeAttr
+                  });
+              }
+          });
+      }
       
       console.log(`\nFiltered to ${filteredMessages.length} clean messages:`);
       filteredMessages.forEach((msg, i) => {
@@ -2313,7 +2382,7 @@ function addGeminiDebugButton() {
   debugBtn.id = 'gemini-debug-button';
   debugBtn.textContent = 'Debug Gemini';
   debugBtn.style.position = 'fixed';
-  debugBtn.style.bottom = '90px';
+  debugBtn.style.bottom = '130px';
   debugBtn.style.right = '10px';
   debugBtn.style.zIndex = '10000';
   debugBtn.style.padding = '5px 10px';
@@ -2438,9 +2507,9 @@ function debugGeminiCapture() {
   messageDiv.style.overflow = 'auto';
   messageDiv.innerHTML = `
     <h3>Gemini Debug Info</h3>
-    <p>Found ${currentConversation.interactions.length} messages</p>
-    <pre style="font-size: 12px; white-space: pre-wrap;">${formattedMessages}</pre>
-    <p>Significant Text Blocks: ${significantTexts.length}</p>
+    <p>Found ${escapeHtml(currentConversation.interactions.length.toString())} messages</p>
+    <pre style="font-size: 12px; white-space: pre-wrap;">${escapeHtml(formattedMessages)}</pre>
+    <p>Significant Text Blocks: ${escapeHtml(significantTexts.length.toString())}</p>
     <p>Check console for details</p>
     <button id="closeDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
@@ -2518,7 +2587,7 @@ function addClaudeDebugButton() {
   debugBtn.id = 'claude-debug-button';
   debugBtn.textContent = 'Debug Claude';
   debugBtn.style.position = 'fixed';
-  debugBtn.style.bottom = '90px';
+  debugBtn.style.bottom = '130px';
   debugBtn.style.right = '10px';
   debugBtn.style.zIndex = '10000';
   debugBtn.style.padding = '5px 10px';
@@ -2814,7 +2883,7 @@ function debugClaudeCapture() {
   messageDiv.style.zIndex = '10000';
   messageDiv.innerHTML = `
     <h3>Claude Capture Complete</h3>
-    <p>Found ${currentConversation.interactions.length} messages</p>
+    <p>Found ${escapeHtml(currentConversation.interactions.length.toString())} messages</p>
     <button id="closeClaudeDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
   
@@ -2835,7 +2904,7 @@ function addPoeDebugButton() {
   debugBtn.id = 'poe-debug-button';
   debugBtn.textContent = 'Debug Poe';
   debugBtn.style.position = 'fixed';
-  debugBtn.style.bottom = '90px';
+  debugBtn.style.bottom = '130px';
   debugBtn.style.right = '10px';
   debugBtn.style.zIndex = '10000';
   debugBtn.style.padding = '5px 10px';
@@ -3059,9 +3128,9 @@ function debugPoeCapture() {
   messageDiv.style.overflow = 'auto';
   messageDiv.innerHTML = `
     <h3>Poe Debug Info</h3>
-    <p>Found ${currentConversation.interactions.length} messages</p>
-    <pre style="font-size: 12px; white-space: pre-wrap;">${formattedMessages}</pre>
-    <p>Significant Text Blocks: ${significantTexts.length}</p>
+    <p>Found ${escapeHtml(currentConversation.interactions.length.toString())} messages</p>
+    <pre style="font-size: 12px; white-space: pre-wrap;">${escapeHtml(formattedMessages)}</pre>
+    <p>Significant Text Blocks: ${escapeHtml(significantTexts.length.toString())}</p>
     <p>Check console for details</p>
     <button id="closePoeDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
@@ -3080,7 +3149,6 @@ function setupChatGPTMessageObserver() {
   console.log('Setting up ChatGPT message observer');
   
   let hasCapturedInitial = false;
-  let observer = null;
   
   // Function to check for messages and capture if found
   function checkAndCapture() {
@@ -3113,9 +3181,9 @@ function setupChatGPTMessageObserver() {
         updateStatusIndicator(`Captured ${validMessages.length} messages`);
         
         // Disconnect the observer since we've captured the initial messages
-        if (observer) {
-          observer.disconnect();
-          observer = null;
+        if (chatgptObserver) {
+          chatgptObserver.disconnect();
+          chatgptObserver = null;
         }
       } else {
         console.log(`ChatGPT observer detected ${messages.length} messages but all were too short, continuing to wait`);
@@ -3124,7 +3192,7 @@ function setupChatGPTMessageObserver() {
   }
   
   // Set up mutation observer to watch for changes in the conversation area
-  observer = new MutationObserver((mutations) => {
+  let chatgptObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
         // Check if any added nodes contain message elements
@@ -3150,20 +3218,23 @@ function setupChatGPTMessageObserver() {
   });
   
   // Start observing the document body for changes
-  observer.observe(document.body, {
+  chatgptObserver.observe(document.body, {
     childList: true,
     subtree: true
   });
+  
+  // Track this observer for cleanup
+  messageObservers.push(chatgptObserver);
   
   // Also check immediately in case messages are already present
   setTimeout(checkAndCapture, 1000);
   
   // Clean up observer after 10 seconds to prevent memory leaks
   setTimeout(() => {
-    if (observer) {
+    if (chatgptObserver) {
       console.log('ChatGPT observer timeout - disconnecting');
-      observer.disconnect();
-      observer = null;
+      chatgptObserver.disconnect();
+      chatgptObserver = null;
     }
   }, 10000);
 }
@@ -3176,7 +3247,7 @@ function addChatGPTDebugButton() {
   debugBtn.id = 'chatgpt-debug-button';
   debugBtn.textContent = 'Debug ChatGPT';
   debugBtn.style.position = 'fixed';
-  debugBtn.style.bottom = '90px';
+  debugBtn.style.bottom = '130px';
   debugBtn.style.right = '10px';
   debugBtn.style.zIndex = '10000';
   debugBtn.style.padding = '5px 10px';
@@ -3302,9 +3373,9 @@ function debugChatGPTCapture() {
   messageDiv.style.overflow = 'auto';
   messageDiv.innerHTML = `
     <h3>ChatGPT Debug Info</h3>
-    <p>Found ${currentConversation.interactions.length} messages</p>
-    <pre style="font-size: 12px; white-space: pre-wrap;">${formattedMessages}</pre>
-    <p>Significant Text Blocks: ${significantTexts.length}</p>
+    <p>Found ${escapeHtml(currentConversation.interactions.length.toString())} messages</p>
+    <pre style="font-size: 12px; white-space: pre-wrap;">${escapeHtml(formattedMessages)}</pre>
+    <p>Significant Text Blocks: ${escapeHtml(significantTexts.length.toString())}</p>
     <p>Check console for details</p>
     <button id="closeChatGPTDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
@@ -3326,7 +3397,7 @@ function addPerplexityDebugButton() {
   debugBtn.id = 'perplexity-debug-button';
   debugBtn.textContent = 'Debug Perplexity';
   debugBtn.style.position = 'fixed';
-  debugBtn.style.bottom = '90px';
+  debugBtn.style.bottom = '130px';
   debugBtn.style.right = '10px';
   debugBtn.style.zIndex = '10000';
   debugBtn.style.padding = '5px 10px';
@@ -3383,8 +3454,8 @@ function debugPerplexityCapture() {
   
   messageDiv.innerHTML = `
     <h3>Perplexity Debug</h3>
-    <p>Found ${messages.length} messages</p>
-    <pre style="font-size: 11px; white-space: pre-wrap;">${formattedMessages}</pre>
+    <p>Found ${escapeHtml(messages.length.toString())} messages</p>
+    <pre style="font-size: 11px; white-space: pre-wrap;">${escapeHtml(formattedMessages)}</pre>
     <button id="closePerplexityDebug" style="padding: 5px; margin-top: 10px;">Close</button>
   `;
   
@@ -3396,5 +3467,22 @@ function debugPerplexityCapture() {
   
   return messages;
 }
+
+// === Utility Functions ===
+
+// Safe HTML escaping function to prevent XSS
+function escapeHtml(text) {
+  if (text == null) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+
+
+// === Chatbot Detection ===
 
  

@@ -500,6 +500,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+  
+  // Handle vault health checks
+  if (message.action === 'checkVaultHealth') {
+    handleVaultHealthCheck(message, sendResponse);
+    return true;
+  }
 });
 
 // Handle getting conversations
@@ -589,4 +595,61 @@ async function notifyContentScriptsOfAuthChange() {
   } catch (error) {
     console.error('Background: Error notifying content scripts of auth change:', error);
   }
-} 
+}
+
+// Handle vault health checks
+async function handleVaultHealthCheck(message, sendResponse) {
+  try {
+    // Get the FIDU-Vault URL from settings
+    let vaultUrl = 'http://127.0.0.1:4000'; // Default URL
+    
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get(['baseUrl'], resolve);
+    });
+    
+    if (result.baseUrl) {
+      // Extract base URL from the API URL (remove /api/v1)
+      vaultUrl = result.baseUrl.replace('/api/v1', '');
+    }
+    
+    // Make health check request with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    try {
+      const response = await fetch(`${vaultUrl}/health`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      sendResponse({
+        success: true,
+        healthy: response.ok
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('Background: FIDU-Vault health check timed out');
+      } else {
+        console.error('Background: FIDU-Vault health check failed:', fetchError);
+      }
+      
+      sendResponse({
+        success: true,
+        healthy: false
+      });
+    }
+  } catch (error) {
+    console.error('Background: Error checking FIDU-Vault health:', error);
+    sendResponse({
+      success: false,
+      healthy: false,
+      error: error.message
+    });
+  }
+}
