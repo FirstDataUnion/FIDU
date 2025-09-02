@@ -5,6 +5,7 @@ from datetime import datetime
 import uuid
 import re
 import html
+import json
 from pydantic import BaseModel, Field, validator
 from fastapi import Query
 
@@ -13,17 +14,17 @@ def sanitize_string(value: str) -> str:
     """Sanitize string input to prevent injection attacks"""
     if not isinstance(value, str):
         raise ValueError("Expected string")
-    
+
     # Remove null bytes and control characters
-    value = ''.join(char for char in value if ord(char) >= 32)
-    
+    value = "".join(char for char in value if ord(char) >= 32)
+
     # HTML escape to prevent XSS
     value = html.escape(value)
-    
+
     # Limit length to prevent DoS
     if len(value) > 10000:
         raise ValueError("String too long (max 10,000 characters)")
-    
+
     return value
 
 
@@ -31,28 +32,31 @@ def sanitize_json_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """Sanitize JSON data recursively"""
     if not isinstance(data, dict):
         raise ValueError("Expected dictionary")
-    
-    sanitized = {}
+
+    sanitized: Dict[str, Any] = {}
     for key, value in data.items():
         # Sanitize key
         if not isinstance(key, str):
             raise ValueError("Dictionary keys must be strings")
-        key = sanitize_string(key)
-        
+        sanitized_key = sanitize_string(key)
+
         # Sanitize value
         if isinstance(value, str):
-            sanitized[key] = sanitize_string(value)
+            sanitized[sanitized_key] = sanitize_string(value)
         elif isinstance(value, dict):
-            sanitized[key] = sanitize_json_data(value)
+            sanitized[sanitized_key] = sanitize_json_data(value)
         elif isinstance(value, list):
-            sanitized[key] = [
-                sanitize_json_data(item) if isinstance(item, dict) 
-                else sanitize_string(item) if isinstance(item, str) 
-                else item for item in value
+            sanitized[sanitized_key] = [
+                (
+                    sanitize_json_data(item)
+                    if isinstance(item, dict)
+                    else sanitize_string(item) if isinstance(item, str) else item
+                )
+                for item in value
             ]
         else:
-            sanitized[key] = value
-    
+            sanitized[sanitized_key] = value
+
     return sanitized
 
 
@@ -65,52 +69,53 @@ class DataPacketCreate(BaseModel):
         Optional on creation, will default to a UUID if not provided.""",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
     profile_id: str = Field(
         description="ID of the profile this data packet belongs to. Mandatory on creation.",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
     tags: list[str] = Field(
         default_factory=list,
         description="""List of tags used to categorize and search for this data packet.
         Optional on creation. """,
-        max_items=50,  # Limit number of tags
     )
     data: Dict[str, Any] = Field(
         description="Flexible JSON object containing the actual data. Mandatory on creation.",
-        max_length=1000000  # 1MB limit
     )
-    
-    @validator('tags', each_item=True)
+
+    @validator("tags", each_item=True)
+    @classmethod
     def validate_tags(cls, v):
         """Validate individual tags"""
         if not isinstance(v, str):
             raise ValueError("Tags must be strings")
-        
+
         v = v.strip()
         if len(v) > 50:  # Each tag max 50 chars
-            raise ValueError('Tag too long (max 50 characters)')
-        
-        if not re.match(r'^[a-zA-Z0-9\s_-]+$', v):  # Safe characters only
-            raise ValueError('Invalid tag characters (only letters, numbers, spaces, underscore, hyphen allowed)')
-        
+            raise ValueError("Tag too long (max 50 characters)")
+
+        if not re.match(r"^[a-zA-Z0-9\s_-]+$", v):  # Safe characters only
+            raise ValueError(
+                "Invalid tag characters (only letters, numbers, spaces, underscore, hyphen allowed)"
+            )
+
         return v
-    
-    @validator('data')
+
+    @validator("data")
+    @classmethod
     def validate_and_sanitize_data(cls, v):
         """Validate and sanitize JSON data"""
         if not isinstance(v, dict):
             raise ValueError("Data must be a dictionary")
-        
+
         # Check size limit
-        import json
         data_size = len(json.dumps(v))
         if data_size > 1000000:  # 1MB limit
             raise ValueError(f"Data too large ({data_size} bytes, max 1MB)")
-        
+
         # Sanitize the data
         return sanitize_json_data(v)
 
@@ -122,51 +127,52 @@ class DataPacketUpdate(BaseModel):
         description="Unique identifier for the data packet. Mandatory on update.",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
     tags: Optional[list[str]] = Field(
         description="""List of tags used to categorize and search for this data packet.
         Optional on update. If left as None on update, no change will be made.
         If set, the whole tags object will be replaced.""",
-        max_items=50,  # Limit number of tags
     )
     data: Optional[Dict[str, Any]] = Field(
         description="""Flexible JSON object containing the actual data. Optional on update.
         If left as None on update, no change will be made.
         If set, the whole data object will be replaced.""",
-        max_length=1000000  # 1MB limit
     )
-    
-    @validator('tags', each_item=True)
+
+    @validator("tags", each_item=True)
+    @classmethod
     def validate_tags(cls, v):
         """Validate individual tags"""
         if not isinstance(v, str):
             raise ValueError("Tags must be strings")
-        
+
         v = v.strip()
         if len(v) > 50:  # Each tag max 50 chars
-            raise ValueError('Tag too long (max 50 characters)')
-        
-        if not re.match(r'^[a-zA-Z0-9\s_-]+$', v):  # Safe characters only
-            raise ValueError('Invalid tag characters (only letters, numbers, spaces, underscore, hyphen allowed)')
-        
+            raise ValueError("Tag too long (max 50 characters)")
+
+        if not re.match(r"^[a-zA-Z0-9\s_-]+$", v):  # Safe characters only
+            raise ValueError(
+                "Invalid tag characters (only letters, numbers, spaces, underscore, hyphen allowed)"
+            )
+
         return v
-    
-    @validator('data')
+
+    @validator("data")
+    @classmethod
     def validate_and_sanitize_data(cls, v):
         """Validate and sanitize JSON data"""
         if v is None:
             return v
-        
+
         if not isinstance(v, dict):
             raise ValueError("Data must be a dictionary")
-        
+
         # Check size limit
-        import json
         data_size = len(json.dumps(v))
         if data_size > 1000000:  # 1MB limit
             raise ValueError(f"Data too large ({data_size} bytes, max 1MB)")
-        
+
         # Sanitize the data
         return sanitize_json_data(v)
 

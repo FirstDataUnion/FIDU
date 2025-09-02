@@ -13,17 +13,17 @@ def sanitize_string(value: str) -> str:
     """Sanitize string input to prevent injection attacks"""
     if not isinstance(value, str):
         raise ValueError("Expected string")
-    
+
     # Remove null bytes and control characters
-    value = ''.join(char for char in value if ord(char) >= 32)
-    
+    value = "".join(char for char in value if ord(char) >= 32)
+
     # HTML escape to prevent XSS
     value = html.escape(value)
-    
+
     # Limit length to prevent DoS
     if len(value) > 10000:
         raise ValueError("String too long (max 10,000 characters)")
-    
+
     return value
 
 
@@ -35,44 +35,50 @@ class APIKeyCreate(BaseModel):
         description="Unique identifier for the API key. Optional on creation.",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
     provider: str = Field(
         description="Name of the AI model provider (e.g., OpenAI, Anthropic).",
         min_length=1,
         max_length=50,
-        pattern=r'^[a-zA-Z0-9\s_-]+$'  # Letters, numbers, spaces, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9\s_-]+$",  # Letters, numbers, spaces, underscore, hyphen
     )
     api_key: str = Field(
         description="The actual API key value",
         min_length=1,
-        max_length=1000  # Reasonable limit for API keys
+        max_length=1000,  # Reasonable limit for API keys
     )
     user_id: str = Field(
         description="ID of the user this API key belongs to.",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
-    
-    @validator('provider')
+
+    @validator("provider")
+    @classmethod
     def validate_provider(cls, v):
         """Validate provider name"""
         v = v.strip()
-        if not re.match(r'^[a-zA-Z0-9\s_-]+$', v):
-            raise ValueError('Invalid provider name (only letters, numbers, spaces, underscore, hyphen allowed)')
+        if not re.match(r"^[a-zA-Z0-9\s_-]+$", v):
+            raise ValueError(
+                "Invalid provider name (only letters, numbers, spaces, underscore, hyphen allowed)"
+            )
         return v
-    
-    @validator('api_key')
+
+    @validator("api_key")
+    @classmethod
     def validate_api_key(cls, v):
         """Validate API key format"""
         if not isinstance(v, str):
             raise ValueError("API key must be a string")
-        
+
         # Basic validation - most API keys are base64-like
-        if not re.match(r'^[a-zA-Z0-9\-_=]+$', v):
-            raise ValueError('Invalid API key format (only letters, numbers, hyphen, underscore, equals allowed)')
-        
+        if not re.match(r"^[a-zA-Z0-9\-_=]+$", v):
+            raise ValueError(
+                "Invalid API key format (only letters, numbers, hyphen, underscore, equals allowed)"
+            )
+
         return v
 
 
@@ -83,27 +89,30 @@ class APIKeyUpdate(BaseModel):
         description="Unique identifier for the API key. Mandatory on update.",
         min_length=1,
         max_length=100,
-        pattern=r'^[a-zA-Z0-9_-]+$'  # Only alphanumeric, underscore, hyphen
+        pattern=r"^[a-zA-Z0-9_-]+$",  # Only alphanumeric, underscore, hyphen
     )
     api_key: Optional[str] = Field(
         description="The actual API key value. Optional on update.",
         min_length=1,
-        max_length=1000  # Reasonable limit for API keys
+        max_length=1000,  # Reasonable limit for API keys
     )
-    
-    @validator('api_key')
+
+    @validator("api_key")
+    @classmethod
     def validate_api_key(cls, v):
         """Validate API key format"""
         if v is None:
             return v
-        
+
         if not isinstance(v, str):
             raise ValueError("API key must be a string")
-        
+
         # Basic validation - most API keys are base64-like
-        if not re.match(r'^[a-zA-Z0-9\-_=]+$', v):
-            raise ValueError('Invalid API key format (only letters, numbers, hyphen, underscore, equals allowed)')
-        
+        if not re.match(r"^[a-zA-Z0-9\-_=]+$", v):
+            raise ValueError(
+                "Invalid API key format (only letters, numbers, hyphen, underscore, equals allowed)"
+            )
+
         return v
 
 
