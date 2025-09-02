@@ -302,6 +302,9 @@ function addProfileStatusIndicator() {
           // For login and profile_change events, just update status without clearing storage
           updateStatus();
         }
+      } else if (message.action === 'debugModeChanged') {
+        console.log('Debug mode changed:', message.debugMode);
+        toggleDebugButtons(message.debugMode);
       }
     });
   }
@@ -2030,10 +2033,20 @@ function resetCurrentConversation() {
 
 // Add a visual status indicator to the page
 function addStatusIndicator() {
+  // Remove any existing status indicators to prevent duplicates
+  const existingStatus = document.getElementById('conversation-status');
+  if (existingStatus) {
+    existingStatus.remove();
+  }
+  
+  // Also remove any other potential status indicators that might have been created
+  const allStatusElements = document.querySelectorAll('.conversation-capture-status');
+  allStatusElements.forEach(el => el.remove());
+  
+  // Create new status indicator
   const statusEl = document.createElement('div');
   statusEl.className = 'conversation-capture-status';
   statusEl.id = 'conversation-status';
-  statusEl.textContent = 'Conversation: Capturing ' + chatbotType;
   statusEl.style.position = 'fixed';
   statusEl.style.bottom = '10px';
   statusEl.style.right = '10px';
@@ -2043,14 +2056,11 @@ function addStatusIndicator() {
   statusEl.style.borderRadius = '4px';
   statusEl.style.fontSize = '12px';
   statusEl.style.zIndex = '10000';
+  statusEl.style.maxWidth = '300px';
+  statusEl.style.wordWrap = 'break-word';
+  statusEl.style.opacity = '0';
   
   document.body.appendChild(statusEl);
-  
-  // Show the indicator briefly
-  statusEl.style.opacity = '1';
-  setTimeout(() => {
-    statusEl.style.opacity = '0.2';
-  }, 3000);
   
   // Make it hoverable
   statusEl.addEventListener('mouseover', () => {
@@ -2060,6 +2070,18 @@ function addStatusIndicator() {
   statusEl.addEventListener('mouseout', () => {
     statusEl.style.opacity = '0.2';
   });
+  
+  // Set initial text
+  statusEl.textContent = 'Conversation: Capturing ' + chatbotType;
+  
+  // Show the indicator briefly
+  statusEl.style.opacity = '1';
+  if (statusEl.fadeTimeout) {
+    clearTimeout(statusEl.fadeTimeout);
+  }
+  statusEl.fadeTimeout = setTimeout(() => {
+    statusEl.style.opacity = '0.2';
+  }, 3000);
 }
 
 // Update the status indicator with current status
@@ -2071,12 +2093,49 @@ function updateStatusIndicator(status) {
       clearTimeout(statusEl.fadeTimeout);
     }
     
-    statusEl.textContent = `Conversation: ${status} - ${chatbotType}`;
-    statusEl.style.opacity = '1';
-    statusEl.fadeTimeout = setTimeout(() => {
-      statusEl.style.opacity = '0.2';
-    }, 2000);
+    // Clear any pending update timeout to debounce rapid updates
+    if (statusEl.updateTimeout) {
+      clearTimeout(statusEl.updateTimeout);
+    }
+    
+    // Debounce rapid updates to prevent overlapping messages
+    statusEl.updateTimeout = setTimeout(() => {
+      // Update the text content
+      statusEl.textContent = `Conversation: ${status} - ${chatbotType}`;
+      
+      // Show the indicator
+      statusEl.style.opacity = '1';
+      
+      // Set a timeout to fade the indicator
+      statusEl.fadeTimeout = setTimeout(() => {
+        statusEl.style.opacity = '0.2';
+      }, 2000);
+    }, 100); // 100ms debounce
+  } else {
+    // If no status indicator exists, create one
+    addStatusIndicator();
+    // Then update it with the current status
+    updateStatusIndicator(status);
   }
+}
+
+// Toggle debug buttons visibility
+function toggleDebugButtons(showDebug) {
+  const debugButtons = document.querySelectorAll('[id*="debug"], [id*="Debug"]');
+  debugButtons.forEach(button => {
+    if (button && button.style) {
+      button.style.display = showDebug ? 'block' : 'none';
+    }
+  });
+  
+  // Also check for buttons with specific debug-related text content
+  const allButtons = document.querySelectorAll('button');
+  allButtons.forEach(button => {
+    const text = button.textContent.toLowerCase();
+    if (text.includes('debug') || text.includes('gemini debug') || text.includes('chatgpt debug')) {
+      button.style.display = showDebug ? 'block' : 'none';
+    }
+  });
 }
 
 // Add a manual capture button to the page
@@ -2251,6 +2310,7 @@ function addGeminiDebugButton() {
   if (chatbotType !== 'Gemini') return;
   
   const debugBtn = document.createElement('button');
+  debugBtn.id = 'gemini-debug-button';
   debugBtn.textContent = 'Debug Gemini';
   debugBtn.style.position = 'fixed';
   debugBtn.style.bottom = '90px';
@@ -2262,6 +2322,7 @@ function addGeminiDebugButton() {
   debugBtn.style.color = 'white';
   debugBtn.style.border = 'none';
   debugBtn.style.cursor = 'pointer';
+  debugBtn.style.display = 'none'; // Initially hidden
   
   debugBtn.addEventListener('click', () => {
     debugGeminiCapture();
@@ -2454,6 +2515,7 @@ function addClaudeDebugButton() {
   if (chatbotType !== 'Claude') return;
   
   const debugBtn = document.createElement('button');
+  debugBtn.id = 'claude-debug-button';
   debugBtn.textContent = 'Debug Claude';
   debugBtn.style.position = 'fixed';
   debugBtn.style.bottom = '90px';
@@ -2465,6 +2527,7 @@ function addClaudeDebugButton() {
   debugBtn.style.color = 'white';
   debugBtn.style.border = 'none';
   debugBtn.style.cursor = 'pointer';
+  debugBtn.style.display = 'none'; // Initially hidden
   
   debugBtn.addEventListener('click', () => {
     debugClaudeCapture();
@@ -2769,6 +2832,7 @@ function addPoeDebugButton() {
   if (chatbotType !== 'Poe') return;
   
   const debugBtn = document.createElement('button');
+  debugBtn.id = 'poe-debug-button';
   debugBtn.textContent = 'Debug Poe';
   debugBtn.style.position = 'fixed';
   debugBtn.style.bottom = '90px';
@@ -2780,6 +2844,7 @@ function addPoeDebugButton() {
   debugBtn.style.color = 'white';
   debugBtn.style.border = 'none';
   debugBtn.style.cursor = 'pointer';
+  debugBtn.style.display = 'none'; // Initially hidden
   
   debugBtn.addEventListener('click', () => {
     debugPoeCapture();
@@ -3108,6 +3173,7 @@ function addChatGPTDebugButton() {
   if (chatbotType !== 'ChatGPT') return;
   
   const debugBtn = document.createElement('button');
+  debugBtn.id = 'chatgpt-debug-button';
   debugBtn.textContent = 'Debug ChatGPT';
   debugBtn.style.position = 'fixed';
   debugBtn.style.bottom = '90px';
@@ -3119,6 +3185,7 @@ function addChatGPTDebugButton() {
   debugBtn.style.color = 'white';
   debugBtn.style.border = 'none';
   debugBtn.style.cursor = 'pointer';
+  debugBtn.style.display = 'none'; // Initially hidden
   
   debugBtn.addEventListener('click', () => {
     debugChatGPTCapture();
@@ -3256,6 +3323,7 @@ function addPerplexityDebugButton() {
   if (chatbotType !== 'Perplexity') return;
   
   const debugBtn = document.createElement('button');
+  debugBtn.id = 'perplexity-debug-button';
   debugBtn.textContent = 'Debug Perplexity';
   debugBtn.style.position = 'fixed';
   debugBtn.style.bottom = '90px';
@@ -3264,6 +3332,7 @@ function addPerplexityDebugButton() {
   debugBtn.style.padding = '5px 10px';
   debugBtn.style.borderRadius = '4px';
   debugBtn.style.backgroundColor = '#6366f1';
+  debugBtn.style.display = 'none'; // Initially hidden
   debugBtn.style.color = 'white';
   debugBtn.style.border = 'none';
   debugBtn.style.cursor = 'pointer';

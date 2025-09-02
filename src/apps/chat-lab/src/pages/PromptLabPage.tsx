@@ -25,6 +25,9 @@ import {
   Alert,
   IconButton,
   Snackbar,
+  Switch,
+  FormControlLabel,
+  Tooltip,
 } from '@mui/material';
 import {
   ContentCopy as ContentCopyIcon,
@@ -37,11 +40,12 @@ import {
   Refresh as RefreshIcon,
   ExpandMore,
   ArrowBackIos as ArrowBackIosIcon,
-  RestartAlt as RestartAltIcon
+  RestartAlt as RestartAltIcon,
+  Replay as ReplayIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchContexts } from '../store/slices/contextsSlice';
+import { fetchContexts, addConversationToContext } from '../store/slices/contextsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
@@ -518,6 +522,8 @@ export default function PromptLabPage() {
   const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoAddToContext, setAutoAddToContext] = useState(false);
+  const [addedMessageIds, setAddedMessageIds] = useState<Set<string>>(new Set());
 
   // System Prompts Management
   const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);
@@ -650,6 +656,45 @@ export default function PromptLabPage() {
     setToastMessage(message);
     setToastOpen(true);
   };
+
+  // Function to add messages to context
+  const addMessagesToContext = useCallback(async (newMessages: Message[]) => {
+    if (!autoAddToContext || !selectedContext || !currentProfile) return;
+
+    try {
+      // Filter out messages that have already been added to prevent duplicates
+      const messagesToAdd = newMessages.filter(msg => !addedMessageIds.has(msg.id));
+      
+      if (messagesToAdd.length === 0) return;
+
+      // Prepare conversation data for the context
+      const conversationData = {
+        title: `Auto-added conversation ${new Date().toLocaleString()}`,
+        messages: messagesToAdd,
+        platform: selectedModel
+      };
+
+      // Add to context using the existing action
+      await dispatch(addConversationToContext({
+        contextId: selectedContext.id,
+        conversationId: `auto-${Date.now()}`, // Generate a unique ID for auto-added conversations
+        conversationData,
+        profileId: currentProfile.id
+      })).unwrap();
+
+      // Mark these messages as added to prevent duplicates
+      setAddedMessageIds(prev => {
+        const newSet = new Set(prev);
+        messagesToAdd.forEach(msg => newSet.add(msg.id));
+        return newSet;
+      });
+
+      showToast(`Added ${messagesToAdd.length} message(s) to context "${selectedContext.title}"`);
+    } catch (error) {
+      console.error('Error adding messages to context:', error);
+      showToast('Failed to add messages to context');
+    }
+  }, [autoAddToContext, selectedContext, currentProfile, selectedModel, addedMessageIds, dispatch]);
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -862,6 +907,13 @@ export default function PromptLabPage() {
       };
       setMessages(prev => [...prev, aiMessage]);
         
+        // Add messages to context if auto-add is enabled
+        if (autoAddToContext && selectedContext) {
+          setTimeout(() => {
+            addMessagesToContext([userMessage, aiMessage]);
+          }, 200);
+        }
+        
         // Save conversation after AI response
         setTimeout(() => {
           saveConversation([...messages, userMessage, aiMessage]);
@@ -885,6 +937,13 @@ export default function PromptLabPage() {
       };
       setMessages(prev => [...prev, errorMessage]);
       
+      // Add messages to context if auto-add is enabled (including error messages)
+      if (autoAddToContext && selectedContext) {
+        setTimeout(() => {
+          addMessagesToContext([userMessage, errorMessage]);
+        }, 200);
+      }
+      
       // Save conversation even with error message
       setTimeout(() => {
         saveConversation([...messages, userMessage, errorMessage]);
@@ -900,6 +959,7 @@ export default function PromptLabPage() {
       const messages = await conversationsApi.getMessages(conversation.id);
       setMessages(messages);
       setCurrentConversation(conversation);
+      setAddedMessageIds(new Set()); // Clear the added message IDs when loading a conversation
       
       // Update the conversation ID in messages to match the loaded conversation
       const updatedMessages = messages.map(msg => ({
@@ -924,6 +984,7 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
+    setAddedMessageIds(new Set()); // Clear the added message IDs
     // Reset to default system prompt
     if (systemPrompts.length > 0) {
       const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
@@ -954,6 +1015,103 @@ export default function PromptLabPage() {
       }
     }
   }, [messages, scrollToBottom]);
+
+  // Handle retry for failed messages
+  const handleRetryMessage = useCallback(async (errorMessageIndex: number) => {
+    // Find the last user message before the error
+    const lastUserMessageIndex = errorMessageIndex - 1;
+    const lastUserMessage = messages[lastUserMessageIndex];
+    
+    if (!lastUserMessage || lastUserMessage.role !== 'user') {
+      showToast('No user message found to retry');
+      return;
+    }
+
+    // Remove the error message and all messages after it
+    setMessages(prev => prev.slice(0, errorMessageIndex));
+    
+    // Clear any existing errors
+    setError(null);
+    
+    // Set the user message content for resending
+    setCurrentMessage(lastUserMessage.content);
+    
+    // Show loading state
+    setIsLoading(true);
+    
+    try {
+      // Call the API to get AI response
+      const response = await promptsApi.executePrompt(
+        messages.slice(0, errorMessageIndex), // Pass messages up to the error point
+        selectedContext,
+        lastUserMessage.content,
+        selectedModel,
+        currentProfile!.id,
+        selectedSystemPrompts,
+        embellishments
+      );
+
+      if (response.status === 'completed' && response.responses?.content) {
+        const aiMessage: Message = {
+          id: `msg-${Date.now()}-ai`,
+          conversationId: 'current',
+          content: response.responses.content,
+          role: 'assistant',
+          timestamp: new Date().toISOString(),
+          platform: selectedModel,
+          isEdited: false
+        };
+        
+        setMessages(prev => [...prev, aiMessage]);
+        
+        // Add messages to context if auto-add is enabled
+        if (autoAddToContext && selectedContext) {
+          setTimeout(() => {
+            addMessagesToContext([lastUserMessage, aiMessage]);
+          }, 200);
+        }
+        
+        // Save conversation after AI response
+        setTimeout(() => {
+          saveConversation([...messages.slice(0, errorMessageIndex), lastUserMessage, aiMessage]);
+        }, 100);
+        
+        showToast('Message retried successfully!');
+      } else {
+        throw new Error('AI response was not successful or content is missing');
+      }
+    } catch (error) {
+      console.error('Error retrying message:', error);
+      setError(error instanceof Error ? error.message : 'Failed to retry message');
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: `msg-${Date.now()}-error`,
+        conversationId: 'current',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to retry message'}`,
+        role: 'assistant',
+        timestamp: new Date().toISOString(),
+        platform: selectedModel,
+        isEdited: false
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      // Add messages to context if auto-add is enabled (including error messages)
+      if (autoAddToContext && selectedContext) {
+        setTimeout(() => {
+          addMessagesToContext([lastUserMessage, errorMessage]);
+        }, 200);
+      }
+      
+      // Save conversation even with error message
+      setTimeout(() => {
+        saveConversation([...messages.slice(0, errorMessageIndex), lastUserMessage, errorMessage]);
+      }, 100);
+    } finally {
+      setIsLoading(false);
+      setCurrentMessage(''); // Clear the input after retry
+    }
+  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, autoAddToContext, addMessagesToContext, saveConversation]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
@@ -1011,12 +1169,84 @@ export default function PromptLabPage() {
           gap: 2
           }}
         >
-          {/* New Conversation Button - Top Right */}
-          {messages.length > 0 && (
+          {/* Auto-Context Toggle - Top Right (when context is selected) */}
+          {selectedContext && (
             <Box sx={{ 
               position: 'absolute', 
-              top: 16, 
-              right: 16, 
+              top: 60, 
+              right: 8, 
+              zIndex: 1002,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              alignItems: 'flex-end'
+            }}>
+              <Tooltip 
+                title="When enabled, all new messages are automatically added to the currently selected context"
+                placement="left"
+                arrow
+              >
+                <Paper sx={{ 
+                  p: 1, 
+                  borderRadius: 2,
+                  backgroundColor: 'background.paper',
+                  border: 1,
+                  borderColor: 'divider',
+                  boxShadow: 1
+                }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={autoAddToContext}
+                        onChange={(e) => setAutoAddToContext(e.target.checked)}
+                        size="small"
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                        Auto-add to Context
+                      </Typography>
+                    }
+                    sx={{ 
+                      margin: 0,
+                      '& .MuiFormControlLabel-label': {
+                        marginLeft: 0.25
+                      }
+                    }}
+                  />
+                </Paper>
+              </Tooltip>
+              
+              {/* New Conversation Button (only show when there are messages) */}
+          {messages.length > 0 && (
+                <Button
+                  variant="outlined"
+                  onClick={startNewConversation}
+                  startIcon={<AddIcon />}
+                  size="small"
+                  sx={{ 
+                    color: 'primary.dark', 
+                    borderColor: 'primary.dark',
+                    backgroundColor: 'background.paper',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                >
+                  New Chat
+                </Button>
+              )}
+            </Box>
+          )}
+
+          {/* New Conversation Button - Top Right (when no context selected and messages exist) */}
+          {messages.length > 0 && !selectedContext && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 60, 
+              right: 8, 
               zIndex: 1002 
             }}>
               <Button
@@ -1272,7 +1502,7 @@ export default function PromptLabPage() {
                   )}
 
                   {/* Copy Button for Assistant Messages */}
-                  {message.role === 'assistant' && (
+                  {message.role === 'assistant' && !message.content.startsWith('Error:') && (
                     <IconButton
                       onClick={async () => {
                         try {
@@ -1312,6 +1542,43 @@ export default function PromptLabPage() {
                     >
                       <ContentCopyIcon sx={{ fontSize: 14 }} />
                     </IconButton>
+                  )}
+
+                  {/* Retry Button for Error Messages */}
+                  {message.role === 'assistant' && message.content.startsWith('Error:') && (
+                    <Tooltip title="Retry the last user message" placement="top" arrow>
+                      <IconButton
+                        onClick={() => handleRetryMessage(messageIndex)}
+                        disabled={isLoading}
+                        sx={{
+                          position: 'absolute',
+                          bottom: 8,
+                          right: 8,
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(255,255,255,0.2)',
+                          color: 'white',
+                          opacity: 0.8,
+                          zIndex: 10,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255,255,255,0.3)',
+                            opacity: 1,
+                            transform: 'scale(1.1)',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                          },
+                          '&:disabled': {
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            opacity: 0.5,
+                            transform: 'none'
+                          },
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <ReplayIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </Paper>
               </Box>

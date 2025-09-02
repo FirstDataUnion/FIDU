@@ -7,7 +7,6 @@ import {
   Select,
   MenuItem,
   Checkbox,
-  FormControlLabel,
 } from '@mui/material';
 
 
@@ -17,14 +16,12 @@ interface ConversationFiltersProps {
   selectedTags: string[];
   sortBy: string;
   sortOrder: 'asc' | 'desc';
-  showArchived: boolean;
   allPlatforms: string[];
   allTags: string[];
   onPlatformsChange: (platforms: string[]) => void;
   onTagsChange: (tags: string[]) => void;
   onSortByChange: (sortBy: string) => void;
   onSortOrderChange: (sortOrder: 'asc' | 'desc') => void;
-  onShowArchivedChange: (show: boolean) => void;
 }
 
 const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
@@ -33,34 +30,33 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
   selectedTags,
   sortBy,
   sortOrder,
-  showArchived,
   allPlatforms,
   allTags,
   onPlatformsChange,
   onTagsChange,
   onSortByChange,
   onSortOrderChange,
-  onShowArchivedChange,
 }) => {
   if (!showFilters) return null;
 
   return (
-    <Paper sx={{ p: 2, mb: 2 }}>
+    <Paper sx={{ p: 2, mb: 1 }}>
       <Box sx={{ 
         display: 'grid', 
         gridTemplateColumns: { 
           xs: '1fr', 
-          md: 'repeat(5, 1fr)' 
+          md: 'repeat(4, 1fr)' 
         }, 
         gap: 2 
       }}>
         <FormControl fullWidth size="small">
-          <InputLabel>Platforms</InputLabel>
+          <InputLabel sx={{ mb: 1, marginTop: 1 }}>Platforms</InputLabel>
           <Select
             multiple
             value={selectedPlatforms}
             onChange={(e) => onPlatformsChange(e.target.value as string[])}
             renderValue={(selected) => selected.join(', ')}
+            sx={{ mt: 1 }}
           >
             {allPlatforms.map((platform) => (
               <MenuItem key={platform} value={platform}>
@@ -72,12 +68,13 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
         </FormControl>
         
         <FormControl fullWidth size="small">
-          <InputLabel>Tags</InputLabel>
+          <InputLabel sx={{ mb: 4, marginTop: 1 }}>Tags</InputLabel>
           <Select
             multiple
             value={selectedTags}
             onChange={(e) => onTagsChange(e.target.value as string[])}
             renderValue={(selected) => selected.join(', ')}
+            sx={{ mt: 1 }}
           >
             {allTags.map((tag) => (
               <MenuItem key={tag} value={tag}>
@@ -89,10 +86,11 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
         </FormControl>
         
         <FormControl fullWidth size="small">
-          <InputLabel>Sort By</InputLabel>
+          <InputLabel sx={{ mb: 1 }}>Sort By</InputLabel>
           <Select
             value={sortBy}
             onChange={(e) => onSortByChange(e.target.value)}
+            sx={{ mt: 1 }}
           >
             <MenuItem value="updatedAt">Last Updated</MenuItem>
             <MenuItem value="createdAt">Created Date</MenuItem>
@@ -102,29 +100,18 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
         </FormControl>
         
         <FormControl fullWidth size="small">
-          <InputLabel>Order</InputLabel>
+          <InputLabel sx={{ mb: 1 }}>Order</InputLabel>
           <Select
             value={sortOrder}
             onChange={(e) => onSortOrderChange(e.target.value as 'asc' | 'desc')}
+            sx={{ mt: 1 }}
           >
             <MenuItem value="desc">Descending</MenuItem>
             <MenuItem value="asc">Ascending</MenuItem>
           </Select>
         </FormControl>
         
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <FormControl>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showArchived}
-                  onChange={(e) => onShowArchivedChange(e.target.checked)}
-                />
-              }
-              label="Show Archived"
-            />
-          </FormControl>
-        </Box>
+
       </Box>
     </Paper>
   );

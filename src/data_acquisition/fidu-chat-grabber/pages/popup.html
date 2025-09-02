@@ -286,27 +286,27 @@
     <div id="settingsSection" class="settings">
         <h3>Settings</h3>
         
-        <!-- FIDU Vault Settings -->
+        <!-- Debug Mode Toggle -->
         <div class="settings-group">
+            <h4>Debug Settings</h4>
+            <div class="form-group">
+                <label for="debugMode">Debug Mode:</label>
+                <input type="checkbox" id="debugMode">
+                <small style="color: #666;">Enable debug options and advanced settings</small>
+            </div>
+        </div>
+        
+        <!-- FIDU Vault Settings (Debug Only) -->
+        <div class="settings-group debug-only" style="display: none;">
             <h4>FIDU Vault Settings</h4>
             <div class="form-group">
                 <label for="baseUrlInput">FIDU Vault API URL:</label>
                 <input type="url" id="baseUrlInput" placeholder="http://localhost:4000/api/v1" value="http://localhost:4000/api/v1">
             </div>
-            
-            <div class="form-group">
-                <label for="requireAuth">Require Authentication:</label>
-                <input type="checkbox" id="requireAuth" checked>
-            </div>
-            
-            <div class="form-group">
-                <label for="autoLogin">Auto-login on startup:</label>
-                <input type="checkbox" id="autoLogin">
-            </div>
         </div>
         
-        <!-- FIDU Identity Service Settings -->
-        <div class="settings-group">
+        <!-- FIDU Identity Service Settings (Debug Only) -->
+        <div class="settings-group debug-only" style="display: none;">
             <h4>FIDU Identity Service Settings</h4>
             <div class="form-group">
                 <label for="fiduIdentityUrl">Identity Service URL:</label>
@@ -368,28 +368,7 @@
             </div>
         </div>
         
-        <!-- Storage Settings -->
-        <div class="settings-group">
-            <h4>Storage Settings</h4>
-            <div class="form-group">
-                <label for="maxStorageSize">Maximum storage size (MB):</label>
-                <input type="number" id="maxStorageSize" value="50" min="1" max="500">
-            </div>
-            
-            <div class="form-group">
-                <label for="autoExportEnabled">Auto-export when storage limit is reached:</label>
-                <input type="checkbox" id="autoExportEnabled">
-            </div>
-            
-            <div class="form-group">
-                <label for="dataCleanupPolicy">Data cleanup policy:</label>
-                <select id="dataCleanupPolicy">
-                    <option value="none">Keep all data</option>
-                    <option value="oldest">Remove oldest conversations first</option>
-                    <option value="manual">Ask before removing</option>
-                </select>
-            </div>
-        </div>
+
         
         <div class="settings-buttons">
             <button id="resetSettingsBtn" class="secondary">Reset to Defaults</button>
