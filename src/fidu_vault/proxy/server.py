@@ -23,8 +23,8 @@ def create_proxy_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=config["cors_origins"],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key"],
     )
 
     # Add proxy router

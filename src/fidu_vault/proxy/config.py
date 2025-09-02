@@ -21,8 +21,9 @@ class ProxyConfig:
         # Timeout settings
         self.request_timeout = int(os.getenv("FIDU_PROXY_TIMEOUT", "30"))
 
-        # CORS settings
-        self.cors_origins = os.getenv("FIDU_PROXY_CORS_ORIGINS", "*").split(",")
+        # CORS settings - default to localhost only for security
+        default_origins = "http://localhost:4000,http://127.0.0.1:4000,chrome-extension://*"
+        self.cors_origins = os.getenv("FIDU_PROXY_CORS_ORIGINS", default_origins).split(",")
 
     def get_nlp_workbench_config(self) -> Dict[str, Any]:
         """Get NLP Workbench configuration."""

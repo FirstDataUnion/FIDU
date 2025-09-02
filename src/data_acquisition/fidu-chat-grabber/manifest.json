@@ -9,14 +9,14 @@
     "scripting"
   ],
   "host_permissions": [
+    "http://localhost:4000/*",
+    "http://127.0.0.1:4000/*",
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
     "https://gemini.google.com/*",
     "https://poe.com/*",
-    "https://www.perplexity.ai/*",
-    "http://localhost:4000/*",
-    "http://127.0.0.1:4000/*"
+    "https://www.perplexity.ai/*"
   ],
   "background": {
     "service_worker": "js/background.js"
@@ -35,7 +35,8 @@
         "https://www.perplexity.ai/*"
       ],
       "js": ["js/refreshTokenService.js", "js/content.js"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
   "action": {
@@ -50,7 +51,16 @@
   "web_accessible_resources": [
     {
       "resources": ["pages/viewer.html"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://poe.com/*",
+        "https://www.perplexity.ai/*",
+        "http://localhost:4000/*",
+        "http://127.0.0.1:4000/*"
+      ]
     }
   ]
 } 

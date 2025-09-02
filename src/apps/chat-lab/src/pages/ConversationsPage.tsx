@@ -33,6 +33,7 @@ import AddToContextDialog from '../components/conversations/AddToContextDialog';
 import { useDebouncedSearch } from '../hooks/useDebouncedSearch';
 import { useLazyLoad } from '../hooks/useLazyLoad';
 import VirtualList from '../components/common/VirtualList';
+import { validateSearchQuery } from '../utils/validation';
 import {
   selectConversationsLoading,
   selectConversationsError,
@@ -414,8 +415,15 @@ const ConversationsPage: React.FC = React.memo(() => {
               onChange={(e) => {
                 const value = e.target.value;
                 // Sanitize input to prevent XSS
-                const sanitizedValue = value.replace(/[<>]/g, '');
-                updateSearchQuery(sanitizedValue);
+                try {
+                  const sanitizedValue = validateSearchQuery(value);
+                  updateSearchQuery(sanitizedValue);
+                } catch (error) {
+                  console.error('Search validation failed:', error);
+                  // Fallback to basic sanitization
+                  const fallbackValue = value.replace(/[<>'"]/g, '');
+                  updateSearchQuery(fallbackValue);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
