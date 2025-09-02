@@ -20,8 +20,7 @@ const resetSettingsBtnEl = document.getElementById('resetSettingsBtn');
 const settingsStatusEl = document.getElementById('settingsStatus');
 
 // Settings form elements
-const requireAuthEl = document.getElementById('requireAuth');
-const autoLoginEl = document.getElementById('autoLogin');
+const debugModeEl = document.getElementById('debugMode');
 const fiduIdentityUrlEl = document.getElementById('fiduIdentityUrl');
 const autoCaptureEnabledEl = document.getElementById('autoCaptureEnabled');
 const captureFrequencyEl = document.getElementById('captureFrequency');
@@ -32,9 +31,6 @@ const enableClaudeEl = document.getElementById('enableClaude');
 const enableBardEl = document.getElementById('enableBard');
 const enablePoeEl = document.getElementById('enablePoe');
 const enablePerplexityEl = document.getElementById('enablePerplexity');
-const maxStorageSizeEl = document.getElementById('maxStorageSize');
-const autoExportEnabledEl = document.getElementById('autoExportEnabled');
-const dataCleanupPolicyEl = document.getElementById('dataCleanupPolicy');
 
 // User info elements
 const userInfoEl = document.getElementById('userInfo');
@@ -56,6 +52,9 @@ let fiduInstance = null;
 
 // Default settings
 const defaultSettings = {
+  // Debug settings
+  debugMode: false,
+  
   // Capture settings
   autoCaptureEnabled: true,
   showCaptureIndicator: true,
@@ -63,13 +62,11 @@ const defaultSettings = {
   captureFrequency: 60,
   useFiduCore: true,
   
-  // FIDU Identity Service settings
+  // FIDU Identity Service settings (debug only)
   fiduIdentityUrl: '',
   
-  // FIDU Vault settings
+  // FIDU Vault settings (debug only)
   fiduCoreUrl: 'http://127.0.0.1:4000/api/v1',
-  requireAuth: true,
-  autoLogin: false,
   
   // Supported chatbots
   enabledChatbots: {
@@ -78,12 +75,7 @@ const defaultSettings = {
     'Bard': true,
     'Poe': true,
     'Perplexity': true
-  },
-  
-  // Storage settings
-  maxStorageSize: 50,
-  autoExportEnabled: false,
-  dataCleanupPolicy: 'oldest'
+  }
 };
 
 // Initialize popup
@@ -153,6 +145,9 @@ function initializeFiduSDK() {
       loadProfiles();
       updateUI();
       
+      // Update auth status UI to show logged in state
+      updateAuthStatusUI(true, user);
+      
       // Reload conversation count after authentication
       loadConversationCount();
       
@@ -166,8 +161,23 @@ function initializeFiduSDK() {
     });
 
     fidu.on('onLogout', function() {
+      console.log('User logged out via FIDU SDK');
+      
+      // Update state immediately
+      isLoggedIn = false;
+      currentUser = null;
+      profiles = [];
+      selectedProfileId = null;
+      
       // Update UI to show logged out state
       updateAuthStatusUI(false);
+      updateUI();
+      
+      // Show login widget
+      if (fiduAuthContainerEl) fiduAuthContainerEl.style.display = 'block';
+      // Hide user info and profile section
+      if (userInfoEl) userInfoEl.style.display = 'none';
+      if (profileSectionEl) profileSectionEl.style.display = 'none';
       
       // Notify content scripts of logout
       notifyContentScriptsOfAuthChange('logout');
@@ -197,14 +207,15 @@ function initializeFiduSDK() {
           loadProfiles();
           updateUI();
           
+          // Update auth status UI to show logged in state
+          updateAuthStatusUI(true, user);
+          
           // Reload conversation count after authentication
           loadConversationCount();
           
           // Notify content scripts of auth status change
           notifyContentScriptsOfAuthChange('login');
         });
-        
-        updateAuthStatusUI(true);
       }
     });
   });
@@ -266,6 +277,9 @@ function setupEventListeners() {
   // Save settings button
   saveSettingsBtnEl.addEventListener('click', saveSettings);
   resetSettingsBtnEl.addEventListener('click', resetSettings);
+  
+  // Debug mode toggle
+  debugModeEl.addEventListener('change', toggleDebugMode);
 }
 
 // Handle toggle auth button
@@ -275,6 +289,9 @@ function handleToggleAuth() {
   const isAuthenticated = toggleAuthBtnEl.textContent === 'Logout';
   
   if (isAuthenticated) {
+    // Update status immediately to show logout in progress
+    updateAuthStatusUI(false);
+    
     // Logout
     fiduInstance.logout && fiduInstance.logout();
     handleLogout();
@@ -331,6 +348,8 @@ async function updateUI() {
 
 // Handle logout
 function handleLogout() {
+  console.log('Handling logout');
+  
   // Clear stored data
   if (typeof authService !== 'undefined' && authService.logout) {
     authService.logout();
@@ -347,9 +366,14 @@ function handleLogout() {
   currentUser = null;
   profiles = [];
   
-  // Update UI
-  updateUI();
+  // Update UI immediately
   updateAuthStatusUI(false);
+  updateUI();
+  
+  // Show login widget and hide user sections
+  if (fiduAuthContainerEl) fiduAuthContainerEl.style.display = 'block';
+  if (userInfoEl) userInfoEl.style.display = 'none';
+  if (profileSectionEl) profileSectionEl.style.display = 'none';
   
   // Notify content scripts of auth status change
   notifyContentScriptsOfAuthChange('logout');
@@ -411,6 +435,9 @@ async function checkAuthAndLoadProfiles() {
         await loadProfiles();
         updateUI();
         
+        // Update auth status UI to show logged in state
+        updateAuthStatusUI(true);
+        
         // Reload conversation count after authentication
         loadConversationCount();
         
@@ -423,6 +450,9 @@ async function checkAuthAndLoadProfiles() {
       if (token) {
         await loadProfiles();
         updateUI();
+        
+        // Update auth status UI to show logged in state
+        updateAuthStatusUI(true);
         
         // Reload conversation count after authentication
         loadConversationCount();
@@ -660,6 +690,21 @@ function notifyContentScriptsOfAuthChange(event = 'login') {
   }
 }
 
+// Notify content scripts of debug mode changes
+function notifyContentScriptsOfDebugModeChange(isDebugMode) {
+  if (typeof chrome !== 'undefined' && chrome.tabs) {
+    chrome.tabs.query({}, function(tabs) {
+      tabs.forEach(function(tab) {
+        try {
+          chrome.tabs.sendMessage(tab.id, { action: 'debugModeChanged', debugMode: isDebugMode });
+        } catch (error) {
+          // Ignore errors for tabs that don't have content scripts
+        }
+      });
+    });
+  }
+}
+
 // Get auth token from storage
 function getAuthToken() {
   return new Promise((resolve) => {
@@ -698,10 +743,22 @@ function toggleSettings() {
   settingsSection.style.display = settingsSection.style.display === 'none' ? 'block' : 'none';
 }
 
+// Toggle debug mode visibility
+function toggleDebugMode() {
+  const debugOnlyElements = document.querySelectorAll('.debug-only');
+  const isDebugMode = debugModeEl.checked;
+  
+  debugOnlyElements.forEach(element => {
+    element.style.display = isDebugMode ? 'block' : 'none';
+  });
+  
+  // Also hide/show debug buttons in content scripts
+  notifyContentScriptsOfDebugModeChange(isDebugMode);
+}
+
 // Update settings UI based on defaultSettings
 function updateSettingsUI() {
-  requireAuthEl.checked = defaultSettings.requireAuth;
-  autoLoginEl.checked = defaultSettings.autoLogin;
+  debugModeEl.checked = defaultSettings.debugMode;
   fiduIdentityUrlEl.value = defaultSettings.fiduIdentityUrl;
   autoCaptureEnabledEl.checked = defaultSettings.autoCaptureEnabled;
   captureFrequencyEl.value = defaultSettings.captureFrequency;
@@ -712,19 +769,22 @@ function updateSettingsUI() {
   enableBardEl.checked = defaultSettings.enabledChatbots.Bard;
   enablePoeEl.checked = defaultSettings.enabledChatbots.Poe;
   enablePerplexityEl.checked = defaultSettings.enabledChatbots.Perplexity;
-  maxStorageSizeEl.value = defaultSettings.maxStorageSize;
-  autoExportEnabledEl.checked = defaultSettings.autoExportEnabled;
-  dataCleanupPolicyEl.value = defaultSettings.dataCleanupPolicy;
   
   // Update baseUrl input if it's empty
   if (!baseUrlInputEl.value) {
     baseUrlInputEl.value = defaultSettings.fiduCoreUrl;
   }
+  
+  // Apply debug mode visibility
+  toggleDebugMode();
 }
 
 // Save settings to storage
 function saveSettings() {
   const settings = {
+    // Debug settings
+    debugMode: debugModeEl.checked,
+    
     // Capture settings
     autoCaptureEnabled: autoCaptureEnabledEl.checked,
     showCaptureIndicator: showCaptureIndicatorEl.checked,
@@ -732,13 +792,11 @@ function saveSettings() {
     captureFrequency: parseInt(captureFrequencyEl.value, 10) || 60,
     useFiduCore: true,
     
-    // FIDU Identity Service settings
+    // FIDU Identity Service settings (debug only)
     fiduIdentityUrl: fiduIdentityUrlEl.value.trim(),
     
-    // FIDU Vault settings
+    // FIDU Vault settings (debug only)
     fiduCoreUrl: baseUrlInputEl.value.trim() || 'http://127.0.0.1:4000/api/v1',
-    requireAuth: requireAuthEl.checked,
-    autoLogin: autoLoginEl.checked,
     
     // Supported chatbots
     enabledChatbots: {
@@ -747,12 +805,7 @@ function saveSettings() {
       'Bard': enableBardEl.checked,
       'Poe': enablePoeEl.checked,
       'Perplexity': enablePerplexityEl.checked
-    },
-    
-    // Storage settings
-    maxStorageSize: parseInt(maxStorageSizeEl.value, 10) || 50,
-    autoExportEnabled: autoExportEnabledEl.checked,
-    dataCleanupPolicy: dataCleanupPolicyEl.value
+    }
   };
 
   // Save to sync storage (like the old options page)

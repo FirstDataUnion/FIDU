@@ -21,7 +21,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { fetchConversations, fetchConversationMessages } from '../store/slices/conversationsSlice';
+import { fetchConversations, fetchConversationMessages, setFilters, clearFilters } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
@@ -57,7 +57,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [showArchived, setShowArchived] = useState(false);
+
   
   // Context Selection State
   const [selectedForContext, setSelectedForContext] = useState<string[]>([]);
@@ -77,6 +77,11 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
+  // Memoized search handler to prevent infinite loops
+  const handleSearch = useCallback((query: string) => {
+    dispatch(setFilters({ searchQuery: query } as any));
+  }, [dispatch]);
+
   // Use debounced search for better performance
   const {
     searchQuery,
@@ -85,10 +90,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   } = useDebouncedSearch({
     delay: 300,
     minLength: 2,
-    onSearch: (_query) => {
-      // Update Redux filters when search changes
-      // This could dispatch an action to update the global filters
-    }
+    onSearch: handleSearch
   });
 
   // Use memoized selectors for better performance
@@ -106,6 +108,29 @@ const ConversationsPage: React.FC = React.memo(() => {
     threshold: 100,
     enabled: sortedConversations.length > 20
   });
+
+  // Handler functions to update both local state and Redux store
+  const handlePlatformsChange = useCallback((platforms: string[]) => {
+    setSelectedPlatforms(platforms);
+    dispatch(setFilters({ platforms } as any));
+  }, [dispatch]);
+
+  const handleTagsChange = useCallback((tags: string[]) => {
+    setSelectedTags(tags);
+    dispatch(setFilters({ tags } as any));
+  }, [dispatch]);
+
+  const handleSortByChange = useCallback((sortBy: string) => {
+    setSortBy(sortBy);
+    dispatch(setFilters({ sortBy } as any));
+  }, [dispatch]);
+
+  const handleSortOrderChange = useCallback((sortOrder: 'asc' | 'desc') => {
+    setSortOrder(sortOrder);
+    dispatch(setFilters({ sortOrder } as any));
+  }, [dispatch]);
+
+
 
   useEffect(() => {
     let isMounted = true;
@@ -473,14 +498,12 @@ const ConversationsPage: React.FC = React.memo(() => {
           selectedTags={selectedTags}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          showArchived={showArchived}
           allPlatforms={allPlatforms}
           allTags={allTags}
-          onPlatformsChange={setSelectedPlatforms}
-          onTagsChange={setSelectedTags}
-          onSortByChange={setSortBy}
-          onSortOrderChange={setSortOrder}
-          onShowArchivedChange={setShowArchived}
+          onPlatformsChange={handlePlatformsChange}
+          onTagsChange={handleTagsChange}
+          onSortByChange={handleSortByChange}
+          onSortOrderChange={handleSortOrderChange}
         />
       </Box>
 
@@ -573,11 +596,11 @@ const ConversationsPage: React.FC = React.memo(() => {
                       variant="outlined" 
                       onClick={() => {
                         clearSearch();
-                        setSelectedPlatforms([]);
-                        setSelectedTags([]);
-                        setShowArchived(false);
-                        setSortBy('updatedAt');
-                        setSortOrder('desc');
+                        handlePlatformsChange([]);
+                        handleTagsChange([]);
+                        handleSortByChange('updatedAt');
+                        handleSortOrderChange('desc');
+                        dispatch(clearFilters());
                       }}
                       aria-label="Clear all filters"
                     >
