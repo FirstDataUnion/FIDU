@@ -179,16 +179,16 @@ def create_app():
 
     # Configure CORS for local development
     print(f"[{time.time() - start_time:.2f}s] Configuring CORS...")
-    
+
     # Define allowed origins for local FIDU applications
     allowed_origins = [
-        "http://localhost:4000",      # FIDU Vault frontend & Chat Lab
-        "http://127.0.0.1:4000",      # FIDU Vault frontend & Chat Lab (alternative)
-        "http://127.0.0.1:5173",      # Chat Lab frontend (dev mode)
-        "http://localhost:5173",      # Chat Lab frontend (dev mode, altate)
-        "chrome-extension://*",       # Chrome extension (any extension ID)
+        "http://localhost:4000",  # FIDU Vault frontend & Chat Lab
+        "http://127.0.0.1:4000",  # FIDU Vault frontend & Chat Lab (alternative)
+        "http://127.0.0.1:5173",  # Chat Lab frontend (dev mode)
+        "http://localhost:5173",  # Chat Lab frontend (dev mode, altate)
+        "chrome-extension://*",  # Chrome extension (any extension ID)
     ]
-    
+
     fast_api_app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
