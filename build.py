@@ -56,30 +56,30 @@ def get_system_info():
     """Get system and architecture information for naming."""
     system = platform.system()
     machine = platform.machine()
-    
+
     # Map common architecture names to more readable versions
     arch_map = {
-        'x86_64': 'x86_64',
-        'amd64': 'x86_64',
-        'i386': 'i386',
-        'i686': 'i686',
-        'aarch64': 'arm64',
-        'arm64': 'arm64',
-        'armv7l': 'armv7',
-        'armv8l': 'arm64',
+        "x86_64": "x86_64",
+        "amd64": "x86_64",
+        "i386": "i386",
+        "i686": "i686",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+        "armv7l": "armv7",
+        "armv8l": "arm64",
     }
-    
+
     arch = arch_map.get(machine, machine)
-    
+
     # Map system names to more readable versions
     system_map = {
-        'Darwin': 'macOS',
-        'Linux': 'Linux',
-        'Windows': 'Windows',
+        "Darwin": "macOS",
+        "Linux": "Linux",
+        "Windows": "Windows",
     }
-    
+
     system_name = system_map.get(system, system)
-    
+
     return system_name, arch
 
 
@@ -87,7 +87,7 @@ def setup_build_environment():
     """Set up build environment for different platforms."""
     system = platform.system()
     current_arch = platform.machine()
-    
+
     print(f"\nSetting up build environment...")
     print(f"System: {system}")
     print(f"Architecture: {current_arch}")
@@ -102,18 +102,23 @@ def setup_build_environment():
     # Check if we need to install/update PyInstaller
     try:
         import PyInstaller
+
         print(f"PyInstaller version: {PyInstaller.__version__}")
-        
+
         # Recommend updating to latest version for better compatibility
         if PyInstaller.__version__ < "5.0":
-            print("Warning: Consider updating PyInstaller to version 5.0+ for better compatibility")
+            print(
+                "Warning: Consider updating PyInstaller to version 5.0+ for better compatibility"
+            )
     except ImportError:
         print("PyInstaller not found. Installing...")
         run_command("pip install --upgrade pyinstaller")
 
     # Check Python version
     python_version = sys.version_info
-    print(f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}")
+    print(
+        f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+    )
 
     # Recommend Python 3.8+ for better compatibility
     if python_version < (3, 8):
@@ -202,27 +207,27 @@ def setup_linux_build_environment():
 def rename_build_output():
     """Rename the build output to include system and architecture information."""
     system_name, arch = get_system_info()
-    
+
     # Find the PyInstaller output directory
     dist_dir = Path("dist")
     if not dist_dir.exists():
         print("❌ dist directory not found")
         return
-    
+
     # Look for the FIDU_Vault directory (PyInstaller creates a directory with the spec name)
     fidu_dirs = list(dist_dir.glob("FIDU_Vault*"))
     if not fidu_dirs:
         print("❌ No FIDU_Vault directory found in dist")
         return
-    
+
     fidu_dir = fidu_dirs[0]
     new_name = f"FIDU_Vault_{system_name}_{arch}"
     new_path = dist_dir / new_name
-    
+
     print(f"Renaming build output...")
     print(f"From: {fidu_dir}")
     print(f"To: {new_path}")
-    
+
     # If the directory is already named correctly, don't rename it
     if fidu_dir.name == new_name:
         print(f"✅ Directory already named correctly: {new_name}")
@@ -231,22 +236,22 @@ def rename_build_output():
         # Remove existing directory if it exists
         if new_path.exists():
             shutil.rmtree(new_path)
-        
+
         # Rename the directory
         fidu_dir.rename(new_path)
-    
+
     # The executable is already named FIDU_Vault, so no need to rename it
     executable = new_path / "FIDU_Vault"
     if executable.exists():
         print(f"Executable already named: FIDU_Vault")
-    
+
     print(f"✅ Build output renamed to: {new_name}")
     return new_path
 
 
 def create_launcher_script(script_path):
     """Create the run_fidu.sh launcher script."""
-    script_content = '''#!/bin/bash
+    script_content = """#!/bin/bash
 
 # FIDU Vault Launcher
 # Simple launcher for end users
@@ -308,11 +313,11 @@ else
     cd "$SCRIPT_DIR"
     ./FIDU_Vault
 fi
-'''
-    
-    with open(script_path, 'w', encoding='utf-8') as f:
+"""
+
+    with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
-    
+
     # Make the script executable
     script_path.chmod(0o755)
 
@@ -321,9 +326,9 @@ def include_documentation(build_path):
     """Include documentation and additional files in the build output."""
     if not build_path:
         return
-    
+
     print("Including documentation and additional files...")
-    
+
     # Copy the README file
     readme_source = Path("docs/RUNNING_FIDU_VAULT.md")
     if readme_source.exists():
@@ -332,7 +337,7 @@ def include_documentation(build_path):
         print(f"✅ Copied {readme_source} to {readme_dest}")
     else:
         print(f"⚠️  Warning: {readme_source} not found")
-    
+
     # Copy the fidu-chat-grabber directory
     fidu_chat_grabber_source = Path("src/data_acquisition/fidu-chat-grabber")
     if fidu_chat_grabber_source.exists():
@@ -343,7 +348,7 @@ def include_documentation(build_path):
         print(f"✅ Copied {fidu_chat_grabber_source} to {fidu_chat_grabber_dest}")
     else:
         print(f"⚠️  Warning: {fidu_chat_grabber_source} not found")
-    
+
     # Create the launcher script
     launcher_script = build_path / "run_fidu.sh"
     create_launcher_script(launcher_script)
@@ -359,7 +364,9 @@ def main():
 
     # Check if we're in the right directory
     if not Path("main.spec").exists():
-        print("Error: main.spec not found. Please run this script from the project root.")
+        print(
+            "Error: main.spec not found. Please run this script from the project root."
+        )
         sys.exit(1)
 
     # Build the FIDU Chat Lab frontend first
@@ -387,7 +394,9 @@ def main():
             print(f"Error building FIDU Chat Lab frontend: {e}")
             sys.exit(1)
     else:
-        print("Warning: FIDU Chat Lab frontend directory not found, skipping frontend build")
+        print(
+            "Warning: FIDU Chat Lab frontend directory not found, skipping frontend build"
+        )
 
     # Build with PyInstaller
     print("\n2. Building executable with PyInstaller...")
@@ -410,7 +419,7 @@ def main():
         # Rename the build output
         print("\n3. Renaming build output...")
         build_path = rename_build_output()
-        
+
         # Include documentation and additional files
         print("\n4. Including documentation and additional files...")
         include_documentation(build_path)
@@ -420,7 +429,7 @@ def main():
             print(f"\n✅ Executable created at: {build_path.absolute()}")
             executable_path = build_path / "FIDU_Vault"
             launcher_script = build_path / "run_fidu.sh"
-            
+
             if executable_path.exists():
                 print(f"To run the application: {executable_path}")
                 if launcher_script.exists():
@@ -436,7 +445,9 @@ def main():
                 print("- Test on target macOS versions before distribution")
             elif platform.system() == "Linux":
                 print("\nLinux Build Notes:")
-                print("- The launcher script 'run_fidu.sh' is included for easy startup")
+                print(
+                    "- The launcher script 'run_fidu.sh' is included for easy startup"
+                )
                 print("- Double-click 'run_fidu.sh' or run: ./run_fidu.sh")
                 print("- Test on target Linux distributions before distribution")
         else:
