@@ -38,8 +38,38 @@ if platform.system() == 'Darwin':
         'AppKit',
         'CoreFoundation',
     ]
+elif platform.system() == 'Linux':
+    # Linux-specific hidden imports
+    linux_hidden_imports = [
+        'uvicorn.logging',
+        'uvicorn.loops',
+        'uvicorn.loops.auto',
+        'uvicorn.protocols',
+        'uvicorn.protocols.http',
+        'uvicorn.protocols.http.auto',
+        'uvicorn.protocols.websockets',
+        'uvicorn.protocols.websockets.auto',
+        'uvicorn.lifespan',
+        'uvicorn.lifespan.on',
+        'fastapi',
+        'fastapi.middleware.cors',
+        'fastapi.staticfiles',
+        'fastapi.templating',
+        'starlette.responses',
+        'starlette.middleware.base',
+        'jinja2',
+        'sqlite3',
+        # Linux-specific imports
+        'fcntl',
+        'termios',
+        'pwd',
+        'grp',
+        'crypt',
+        'spwd',
+    ]
 else:
-    macos_hidden_imports = [
+    # Default hidden imports for other platforms
+    default_hidden_imports = [
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',
@@ -65,12 +95,13 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-            ('src/fidu_vault/front_end/static', 'fidu_vault/front_end/static'),
-    ('src/fidu_vault/front_end/templates', 'fidu_vault/front_end/templates'),
+        ('src/fidu_vault/front_end/static', 'fidu_vault/front_end/static'),
+        ('src/fidu_vault/front_end/templates', 'fidu_vault/front_end/templates'),
         ('src/apps/chat-lab/dist', 'apps/chat-lab/dist'),
+        ('src/data_acquisition/fidu-chat-grabber', 'data_acquisition/fidu-chat-grabber'),
     ],
     clean=True,
-    hiddenimports=macos_hidden_imports,
+    hiddenimports=macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else default_hidden_imports),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -112,7 +143,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='main',
+    name='FIDU_Vault',  # Changed from 'main' to 'FIDU_Vault'
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,  # Strip debug symbols
@@ -132,10 +163,10 @@ coll = COLLECT(
     strip=True,  # Strip debug symbols
     upx=True,
     upx_exclude=[],
-    name='main',
+    name='FIDU_Vault',  # Changed from 'main' to 'FIDU_Vault'
 )
 
-# macOS-specific post-processing
+# Platform-specific post-processing
 if platform.system() == 'Darwin':
     # Add post-processing hook for macOS compatibility
     def post_process_macos(binaries, datas, dist_dir):
@@ -144,7 +175,7 @@ if platform.system() == 'Darwin':
         import shutil
         
         # Ensure proper permissions on the Python framework
-        python_framework = os.path.join(dist_dir, 'main', 'Python')
+        python_framework = os.path.join(dist_dir, 'FIDU_Vault', 'Python')
         if os.path.exists(python_framework):
             # Set proper permissions
             os.chmod(python_framework, 0o755)
@@ -164,13 +195,13 @@ if platform.system() == 'Darwin':
         
         # Add architecture information to the build
         if target_arch:
-            arch_file = os.path.join(dist_dir, 'main', 'ARCHITECTURE.txt')
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
             with open(arch_file, 'w') as f:
                 f.write(f"Built for: {target_arch}\n")
                 f.write(f"Build system: {platform.machine()}\n")
                 f.write(f"Target macOS: {target_macos_version}+\n")
         elif build_universal:
-            arch_file = os.path.join(dist_dir, 'main', 'ARCHITECTURE.txt')
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
             with open(arch_file, 'w') as f:
                 f.write("Built for: Universal (Intel + Apple Silicon)\n")
                 f.write(f"Build system: {platform.machine()}\n")
@@ -178,3 +209,33 @@ if platform.system() == 'Darwin':
     
     # Register the post-processing function
     coll.post_process = post_process_macos
+
+elif platform.system() == 'Linux':
+    # Add post-processing hook for Linux compatibility
+    def post_process_linux(binaries, datas, dist_dir):
+        """Post-process the build for better Linux compatibility."""
+        import os
+        import stat
+        
+        # Ensure proper permissions on the executable
+        executable = os.path.join(dist_dir, 'FIDU_Vault', 'FIDU_Vault')
+        if os.path.exists(executable):
+            # Set executable permissions
+            os.chmod(executable, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        
+        # Add architecture information to the build
+        if target_arch:
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write(f"Built for: {target_arch}\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write("Target Linux: Generic\n")
+        elif build_universal:
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write("Built for: Universal (Multiple architectures)\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write("Target Linux: Generic\n")
+    
+    # Register the post-processing function
+    coll.post_process = post_process_linux

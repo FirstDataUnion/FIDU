@@ -14,7 +14,7 @@
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "❌ This script must be run using 'source scripts/setup_dev.sh'"
     echo "❌ Running it with './scripts/setup_dev.sh' will not work correctly"
-    exit 1
+    return 1
 fi
 
 echo "🚀 Setting up development environment..."
@@ -25,7 +25,7 @@ required_version="3.8"
 
 if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
     echo "❌ Python version $required_version or higher is required. You have $python_version"
-    exit 1
+    return 1
 fi
 
 # Create virtual environment if it doesn't exist
@@ -38,7 +38,7 @@ fi
 echo "🔌 Activating virtual environment..."
 if [ ! -f ".venv/bin/activate" ]; then
     echo "❌ Virtual environment activation script not found"
-    exit 1
+    return 1
 fi
 
 source .venv/bin/activate
@@ -46,7 +46,7 @@ source .venv/bin/activate
 # Verify activation worked
 if [ -z "$VIRTUAL_ENV" ]; then
     echo "❌ Virtual environment activation failed"
-    exit 1
+    return 1
 fi
 
 echo "✅ Virtual environment activated: $VIRTUAL_ENV"
@@ -55,28 +55,35 @@ echo "✅ Virtual environment activated: $VIRTUAL_ENV"
 echo "⬆️  Upgrading pip..."
 if ! pip install --upgrade pip; then
     echo "❌ Failed to upgrade pip"
-    exit 1
+    return 1
 fi
 
 # Install requirements
 echo "📚 Installing requirements..."
 if ! pip install -r requirements.txt; then
     echo "❌ Failed to install requirements"
-    exit 1
+    return 1
 fi
 
 # Install the package in development mode with all dev dependencies
 echo "📚 Installing package with development dependencies..."
 if ! pip install -e ".[dev]"; then
     echo "❌ Failed to install package with dev dependencies"
-    exit 1
+    return 1
+fi
+
+# Install PyInstaller for building executables
+echo "📦 Installing PyInstaller..."
+if ! pip install pyinstaller; then
+    echo "❌ Failed to install PyInstaller"
+    return 1
 fi
 
 # Install pre-push hooks
 echo "🔧 Installing pre-push hooks..."
 if [ ! -f "scripts/githooks/pre-push" ]; then
     echo "❌ Pre-push hook script not found"
-    exit 1
+    return 1
 fi
 
 # 'install' the pre-push hook
@@ -107,13 +114,13 @@ fi
 echo "📦 Installing npm dependencies for chat-lab..."
 if [ ! -d "src/apps/chat-lab" ]; then
     echo "❌ chat-lab directory not found"
-    exit 1
+    return 1
 fi
 
 cd src/apps/chat-lab
 if ! npm install --legacy-peer-deps; then
     echo "❌ Failed to install npm dependencies"
-    exit 1
+    return 1
 fi
 
 # Install @types/node for TypeScript support in vite.config.ts

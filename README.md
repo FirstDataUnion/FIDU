@@ -56,7 +56,17 @@ We currently provide three versions of the pre-built FIDU program: Windows, macO
 
 Links to download pre-compiled versions: https://github.com/FirstDataUnion/FIDU/releases
 
-Once downloaded, you can run the executable to start the local FIDU Vault server, which should automatically open a browser page to create or log in to a FIDU account. This server should remain running while using any other FIDU apps.
+Once downloaded and extracted, you can start FIDU Vault in two ways:
+
+**Easy Start (Recommended):**
+- Double-click the `run_fidu.sh` script to start FIDU in a new terminal window (or right click and `run as program`)
+- The browser should automatically open to `http://127.0.0.1:4000`
+
+**Manual Start:**
+- Run `./FIDU_Vault` directly from the terminal
+- Open your browser to `http://127.0.0.1:4000`
+
+The server should remain running while using any other FIDU apps.
 
 ### FIDU Chat Grabber
 
@@ -72,9 +82,42 @@ To install it into Chrome, perform the following:
 
 Once installed, use the plugin option box in the top right of your browser to log into your FIDU account. Any conversations in the supported chatbots in Chrome will be automatically saved to FIDU Vault.
 
+## Building the Application
+
+To build FIDU Vault from source, you'll need the following dependencies:
+- Python 3.10+
+- PyInstaller
+- Node.js
+- npm
+
+Then run the build script:
+
+```sh
+python3 build.py
+```
+
+This will:
+1. Build the FIDU Chat Lab frontend
+2. Create a standalone executable with PyInstaller
+3. Include a `run_fidu.sh` launcher script for easy startup
+4. Package everything into `dist/FIDU_Vault_Linux_x86_64/`
+
+The launcher script (`run_fidu.sh`) provides a user-friendly way to start FIDU:
+- Double-click to run in a new terminal window
+- Automatically detects if FIDU is already running
+- Easy to stop by closing the terminal window
+
 ## Running in Developer Mode
 
-You may also run the FIDU Vault server in development mode. To do this, run the following command from the project root to install all development dependencies:
+You may also run the FIDU Vault server in development mode. To do this, you first need the following dependencies installed:
+- Python
+- Pip 
+- Python venv module
+- Node.js
+- npm
+- MyPy
+
+ Then, run the following command from the project root to install all remaining development dependencies:
 
 ```sh
 source scripts/setup_dev.sh
