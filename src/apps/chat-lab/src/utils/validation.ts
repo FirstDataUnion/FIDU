@@ -12,6 +12,7 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
   }
 
   // Remove null bytes and control characters
+  // eslint-disable-next-line no-control-regex
   let sanitized = input.replace(/[\x00-\x1F\x7F]/g, '');
   
   // HTML escape to prevent XSS
