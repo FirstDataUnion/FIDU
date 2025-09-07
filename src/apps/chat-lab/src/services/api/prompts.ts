@@ -128,23 +128,41 @@ export const createPromptsApi = () => {
 
       let agentCallback = null;
       switch (selectedModel) {
+        // Gemini Models
+        case "gemini-flash":
+          agentCallback = nlpWorkbenchAPIClient.executeGeminiFlashGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "gemini-pro":
+          agentCallback = nlpWorkbenchAPIClient.executeGeminiProGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        // Claude Models
+        case "claude-haiku":
+          agentCallback = nlpWorkbenchAPIClient.executeClaudeHaikuGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "claude-sonnet":
+          agentCallback = nlpWorkbenchAPIClient.executeClaudeSonnetGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        // ChatGPT Models
         case "gpt-3.5-turbo":
           agentCallback = nlpWorkbenchAPIClient.executeChatGPT35TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
+        case "gpt-4.0":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40GeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
         case "gpt-4.0-turbo":
           agentCallback = nlpWorkbenchAPIClient.executeChatGPT40TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
-        case "gpt-4o":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT4oGeneralAgent.bind(nlpWorkbenchAPIClient);
+        case "gpt-4.0-mini":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40MiniGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
-        case "claude-3-opus":
-          agentCallback = nlpWorkbenchAPIClient.executeClaude3OpusGeneralAgent.bind(nlpWorkbenchAPIClient);
+        case "gpt-5.0":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50GeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
-        case "claude-3-sonnet":
-          agentCallback = nlpWorkbenchAPIClient.executeClaude3SonnetGeneralAgent.bind(nlpWorkbenchAPIClient);
+        case "gpt-5.0-mini":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50MiniGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
-        case "claude-3-haiku":
-          agentCallback = nlpWorkbenchAPIClient.executeClaude3HaikuGeneralAgent.bind(nlpWorkbenchAPIClient);
+        case "gpt-5.0-nano":
+          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50NanoGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
         default:
           throw new Error(`Unsupported model: ${selectedModel}`);
