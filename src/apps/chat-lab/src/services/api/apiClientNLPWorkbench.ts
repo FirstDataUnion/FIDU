@@ -136,79 +136,123 @@ const NLP_WORKBENCH_API_CONFIG = {
       // Reload the page to trigger auth flow
       window.location.reload();
     }
-  
+
     /**
-     * Execute an ChatGPT General chat Agent with input text
+     * Execute a Gemini Flash General chat Agent with input text
      */
-    async executeChatGPTGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+    async executeGeminiFlashGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1751898508584306066/execute`,
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247513434443545/execute`,
         { input }
       );
       return response.data;
     }
 
     /**
-     * Execute an ChatGPT 3.5 Turbo General chat Agent with input text
+     * Execute a Gemini Pro General chat Agent with input text
+     */
+    async executeGeminiProGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247536134017642/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a Claude Haiku General chat Agent with input text
+     */
+    async executeClaudeHaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247576782610310/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a Claude Sonnet General chat Agent with input text
+     */
+    async executeClaudeSonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247595523653178/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a chat GPT 3.5 Turbo General chat Agent with input text
      */
     async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755007425582490606/execute`,
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247699977175946/execute`,
         { input }
       );
       return response.data;
     }
-  
+
     /**
-     * Execute an ChatGPT 4.0 Turbo General chat Agent with input text
+     * Execute a chat GPT 4.0 General chat Agent with input text
+     */
+    async executeChatGPT40GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247730785641201/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a chat GPT 4.0 Turbo General chat Agent with input text
      */
     async executeChatGPT40TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755007458371087422/execute`,
-        { input }
-      );
-      return response.data;
-    }
-  
-    /**
-     * Execute an ChatGPT 4o General chat Agent with input text
-     */
-    async executeChatGPT4oGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755008314136173601/execute`,
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247792142471669/execute`,
         { input }
       );
       return response.data;
     }
 
     /**
-     * Execute an Claude 3 Opus General chat Agent with input text
+     * Execute a chat GPT 4.0 Mini chat Agent with input text
      */
-    async executeClaude3OpusGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+    async executeChatGPT40MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755008341384405976/execute`,
-        { input }
-      );
-      return response.data;
-    }
-  
-    /**
-     * Execute an Claude 3 Sonnet General chat Agent with input text
-     */
-    async executeClaude3SonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755008385886004593/execute`,
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247819944085397/execute`,
         { input }
       );
       return response.data;
     }
 
     /**
-     * Execute an Claude 3 Haiku General chat Agent with input text
+     * Execute a chat GPT 5.0 General chat Agent with input text
      */
-    async executeClaude3HaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+    async executeChatGPT50GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1755008467359243995/execute`,
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247842543346249/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a chat GPT 5.0 Mini General chat Agent with input text
+     */
+    async executeChatGPT50MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247909361890725/execute`,
+        { input }
+      );
+      return response.data;
+    }
+
+    /**
+     * Execute a chat GPT 5.0 Nano General chat Agent with input text
+     */
+    async executeChatGPT50NanoGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1757247941934986576/execute`,
         { input }
       );
       return response.data;

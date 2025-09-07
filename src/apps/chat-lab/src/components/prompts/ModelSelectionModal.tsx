@@ -40,20 +40,37 @@ interface ModelSelectionModalProps {
 }
 
 const availableModels: Model[] = [
+  // Gemini Models
   {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'OpenAI',
-    maxTokens: 128000,
-    description: 'Latest GPT-4 model with improved reasoning and multimodal capabilities'
+    id: 'gemini-flash',
+    name: 'Gemini Flash',
+    provider: 'Google',
+    maxTokens: 32768,
+    description: 'Fast and efficient Gemini model for quick responses'
   },
   {
-    id: 'gpt-4-turbo',
-    name: 'GPT-4 Turbo',
-    provider: 'OpenAI',
-    maxTokens: 128000,
-    description: 'Fast and efficient GPT-4 model for most use cases'
+    id: 'gemini-pro',
+    name: 'Gemini Pro',
+    provider: 'Google',
+    maxTokens: 32768,
+    description: 'Google\'s most capable AI model for complex tasks'
   },
+  // Claude Models
+  {
+    id: 'claude-haiku',
+    name: 'Claude Haiku',
+    provider: 'Anthropic',
+    maxTokens: 200000,
+    description: 'Fastest Claude model for quick responses'
+  },
+  {
+    id: 'claude-sonnet',
+    name: 'Claude Sonnet',
+    provider: 'Anthropic',
+    maxTokens: 200000,
+    description: 'Balanced Claude model for general use'
+  },
+  // ChatGPT Models
   {
     id: 'gpt-3.5-turbo',
     name: 'GPT-3.5 Turbo',
@@ -62,39 +79,46 @@ const availableModels: Model[] = [
     description: 'Fast and cost-effective model for simple tasks'
   },
   {
-    id: 'claude-3-opus',
-    name: 'Claude 3 Opus',
-    provider: 'Anthropic',
-    maxTokens: 200000,
-    description: 'Most capable Claude model for complex reasoning tasks'
+    id: 'gpt-4.0',
+    name: 'GPT-4.0',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Standard GPT-4 model with strong reasoning capabilities'
   },
   {
-    id: 'claude-3-sonnet',
-    name: 'Claude 3 Sonnet',
-    provider: 'Anthropic',
-    maxTokens: 200000,
-    description: 'Balanced Claude model for general use'
+    id: 'gpt-4.0-turbo',
+    name: 'GPT-4.0 Turbo',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Fast and efficient GPT-4 model for most use cases'
   },
   {
-    id: 'claude-3-haiku',
-    name: 'Claude 3 Haiku',
-    provider: 'Anthropic',
-    maxTokens: 200000,
-    description: 'Fastest Claude model for quick responses'
+    id: 'gpt-4.0-mini',
+    name: 'GPT-4.0 Mini',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Compact GPT-4 model for cost-effective usage'
   },
   {
-    id: 'gemini-pro',
-    name: 'Gemini Pro',
-    provider: 'Google',
-    maxTokens: 32768,
-    description: 'Google\'s most capable AI model'
+    id: 'gpt-5.0',
+    name: 'GPT-5.0',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Latest GPT-5 model with advanced capabilities'
   },
   {
-    id: 'gemini-flash',
-    name: 'Gemini Flash',
-    provider: 'Google',
-    maxTokens: 32768,
-    description: 'Fast and efficient Gemini model'
+    id: 'gpt-5.0-mini',
+    name: 'GPT-5.0 Mini',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Compact GPT-5 model for efficient processing'
+  },
+  {
+    id: 'gpt-5.0-nano',
+    name: 'GPT-5.0 Nano',
+    provider: 'OpenAI',
+    maxTokens: 128000,
+    description: 'Ultra-compact GPT-5 model for minimal resource usage'
   }
 ];
 

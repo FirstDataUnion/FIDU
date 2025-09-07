@@ -63,12 +63,20 @@ interface ModelSelectionModalProps {
 
 function ModelSelectionModal({ open, onClose, onSelectModel, selectedModel }: ModelSelectionModalProps) {
   const models = [
-    { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-    { id: 'gpt-4.0-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
+    // Gemini Models
+    { id: 'gemini-flash', name: 'Gemini Flash', provider: 'Google' },
+    { id: 'gemini-pro', name: 'Gemini Pro', provider: 'Google' },
+    // Claude Models
+    { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic' },
+    { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic' },
+    // ChatGPT Models
     { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
-    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
-    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic' },
-    { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
+    { id: 'gpt-4.0', name: 'GPT-4.0', provider: 'OpenAI' },
+    { id: 'gpt-4.0-turbo', name: 'GPT-4.0 Turbo', provider: 'OpenAI' },
+    { id: 'gpt-4.0-mini', name: 'GPT-4.0 Mini', provider: 'OpenAI' },
+    { id: 'gpt-5.0', name: 'GPT-5.0', provider: 'OpenAI' },
+    { id: 'gpt-5.0-mini', name: 'GPT-5.0 Mini', provider: 'OpenAI' },
+    { id: 'gpt-5.0-nano', name: 'GPT-5.0 Nano', provider: 'OpenAI' },
   ];
 
   return (
@@ -516,7 +524,7 @@ export default function PromptLabPage() {
   // State for the chat interface
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState('gpt-4.0-turbo');
   const [selectedContext, setSelectedContext] = useState<Context | null>(null);
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
   const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
@@ -597,19 +605,20 @@ export default function PromptLabPage() {
   // Get model-specific colors and display names
   const getModelInfo = (modelId: string) => {
     const modelMap: Record<string, { name: string; color: string; provider: string }> = {
-      'gpt-4o': { name: 'GPT-4o', color: '#10a37f', provider: 'OpenAI' },
-      'gpt-4.0-turbo': { name: 'GPT-4 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      // Gemini Models
+      'gemini-flash': { name: 'Gemini Flash', color: '#4285F4', provider: 'Google' },
+      'gemini-pro': { name: 'Gemini Pro', color: '#4285F4', provider: 'Google' },
+      // Claude Models
+      'claude-haiku': { name: 'Claude Haiku', color: '#C46902', provider: 'Anthropic' },
+      'claude-sonnet': { name: 'Claude Sonnet', color: '#C46902', provider: 'Anthropic' },
+      // ChatGPT Models
       'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', color: '#10a37f', provider: 'OpenAI' },
-      'claude-3-opus': { name: 'Claude 3 Opus', color: '#C46902', provider: 'Anthropic' },
-      'claude-3-sonnet': { name: 'Claude 3 Sonnet', color: '#C46902', provider: 'Anthropic' },
-      'claude-3-haiku': { name: 'Claude 3 Haiku', color: '#C46902', provider: 'Anthropic' },
-      'gemini': {name: 'Gemini', color: '#4285F4', provider: 'Google'},
-      'gemini-2.0-flash': {name: 'Gemini 2.0 Flash', color: '#4285F4', provider: 'Google'},
-      'gemini-2.0-flash-lite': {name: 'Gemini 2.0 Flash Lite', color: '#4285F4', provider: 'Google'},
-      'gemini-2.5-flash': {name: 'Gemini 2.5 Flash', color: '#4285F4', provider: 'Google'},
-      'gemini-2.5-flash-lite': {name: 'Gemini 2.5 Flash Lite', color: '#4285F4', provider: 'Google'},
-      'gemini-2.5-pro': {name: 'Gemini 2.5 Pro', color: '#4285F4', provider: 'Google'},
-      'gemini-2.5-pro-exp': {name: 'Gemini 2.5 Pro Exp', color: '#4285F4', provider: 'Google'},
+      'gpt-4.0': { name: 'GPT-4.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4.0-turbo': { name: 'GPT-4.0 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4.0-mini': { name: 'GPT-4.0 Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5.0': { name: 'GPT-5.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5.0-mini': { name: 'GPT-5.0 Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5.0-nano': { name: 'GPT-5.0 Nano', color: '#10a37f', provider: 'OpenAI' },
     };
 
     // If modelId is missing or unknown, fall back to primary colors

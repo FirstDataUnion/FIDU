@@ -83,15 +83,22 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
     
     const platformLower = platform.toLowerCase();
     switch (platformLower) {
-      case 'gemini':
+      case 'gemini-flash':
+      case 'gemini-pro':
         return 'Gemini';
       case 'chatgpt':
         return 'ChatGPT';
-      case 'claude':
+      case 'claude-haiku':
+      case 'claude-sonnet':
         return 'Claude';
-      case 'gpt-4o':
-      case 'gpt-4':
+      case 'gpt-4.0':
+      case 'gpt-4.0-turbo':
+      case 'gpt-4.0-mini':
         return 'GPT-4';
+      case 'gpt-5.0':
+      case 'gpt-5.0-mini':
+      case 'gpt-5.0-nano':
+        return 'GPT-5';
       case 'gpt-3.5-turbo':
         return 'GPT-3.5';
       default:
