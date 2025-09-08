@@ -157,4 +157,5 @@ $RECYCLE.BIN/
 
 # Tauri
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/src/apps/chat-lab/coverage
+src/apps/chat-lab/coverage/

@@ -97,6 +97,18 @@ jobs:
       run: |
         npx tsc --noEmit
         
+    - name: Run frontend unit tests
+      working-directory: src/apps/chat-lab
+      run: |
+        npm test -- --passWithNoTests --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov
+        
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: src/apps/chat-lab/coverage/lcov.info
+        flags: frontend-tests
+        name: frontend-coverage
+        
     - name: Build frontend
       working-directory: src/apps/chat-lab
       run: |
