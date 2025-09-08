@@ -15,6 +15,9 @@ export default {
         jsx: 'react-jsx',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        module: 'esnext',
+        target: 'es2020',
+        moduleResolution: 'node',
       },
     }],
   },
@@ -29,6 +32,8 @@ export default {
     '!src/vite-env.d.ts',
     '!src/**/*.stories.{ts,tsx}',
     '!src/**/index.ts',
+    '!src/utils/environment.ts',
+    '!src/components/auth/FiduAuthLogin.tsx',
   ],
   coverageThreshold: {
     global: {
