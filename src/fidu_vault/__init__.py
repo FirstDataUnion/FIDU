@@ -2,4 +2,6 @@
 FIDU Vault Application
 """
 
-__version__ = "0.1.0"
+from .versioning.version import get_vault_version
+
+__version__ = get_vault_version()

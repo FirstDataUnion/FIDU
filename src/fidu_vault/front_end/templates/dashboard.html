@@ -13,6 +13,11 @@
                 </div>
                 
                 <div class="flex items-center space-x-4">
+                    <!-- Version info -->
+                    <div class="text-xs text-gray-500">
+                        v<span id="app-version">Loading...</span>
+                    </div>
+                    
                     <div class="text-sm text-gray-700">
                         Welcome, <span class="font-medium">{{ user.email }}</span>
                     </div>
@@ -28,6 +33,38 @@
             </div>
         </div>
     </nav>
+
+    <!-- Update notification banner -->
+    <div id="update-banner" class="hidden bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        <span class="font-medium">Update Available!</span>
+                        A new version (<span id="latest-version"></span>) is available for download.
+                        <a href="https://github.com/FirstDataUnion/FIDU/releases" id="download-link" class="font-medium underline hover:text-blue-600" target="_blank">
+                            Visit our GitHub page for the latest release
+                        </a>
+                    </p>
+                </div>
+                <div class="ml-auto pl-3">
+                    <div class="-mx-1.5 -my-1.5">
+                        <button type="button" onclick="document.getElementById('update-banner').classList.add('hidden')" class="inline-flex bg-blue-50 rounded-md p-1.5 text-blue-500 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-50 focus:ring-blue-600">
+                            <span class="sr-only">Dismiss</span>
+                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Main content -->
     <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -131,4 +168,51 @@
         </div>
     </div>
 </div>
+
+<script>
+// Version checking functionality
+async function loadVersionInfo() {
+    try {
+        // Load current version
+        const versionResponse = await fetch('/version/');
+        const versionData = await versionResponse.json();
+        
+        // Update version display
+        document.getElementById('app-version').textContent = versionData.main_version;
+        
+        // Check for updates
+        await checkForUpdates();
+    } catch (error) {
+        console.error('Error loading version info:', error);
+        document.getElementById('app-version').textContent = 'Error';
+    }
+}
+
+async function checkForUpdates() {
+    try {
+        const updateResponse = await fetch('/version/check-updates');
+        const updateData = await updateResponse.json();
+        
+        if (updateData.status === 'update_available') {
+            showUpdateBanner(updateData);
+        }
+    } catch (error) {
+        console.error('Error checking for updates:', error);
+    }
+}
+
+function showUpdateBanner(updateData) {
+    const banner = document.getElementById('update-banner');
+    const latestVersionSpan = document.getElementById('latest-version');
+    const downloadLink = document.getElementById('download-link');
+    
+    latestVersionSpan.textContent = updateData.latest_version;
+    downloadLink.href = updateData.download_url;
+    
+    banner.classList.remove('hidden');
+}
+
+// Load version info when page loads
+document.addEventListener('DOMContentLoaded', loadVersionInfo);
+</script>
 {% endblock %} 

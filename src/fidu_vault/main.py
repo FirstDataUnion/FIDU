@@ -26,6 +26,8 @@ from fidu_vault.api_keys import (
 )
 from fidu_vault.front_end.api import FrontEndAPI
 from fidu_vault.proxy.router import create_proxy_router
+from .versioning.version import get_vault_version
+from .versioning.version_api import router as version_router
 
 
 def get_base_path():
@@ -84,7 +86,7 @@ def create_app():
     fast_api_app = FastAPI(
         title="FIDU Vault API",
         description="API for interacting with the FIDU Vault Application",
-        version="1.0.0",
+        version=get_vault_version(),
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -159,6 +161,9 @@ def create_app():
     print(f"[{time.time() - start_time:.2f}s] Creating APIs...")
     DataPacketAPI(fast_api_app, data_packet_service)
     APIKeyAPI(fast_api_app, api_key_service)
+
+    # Add version API
+    fast_api_app.include_router(version_router)
     print(f"[{time.time() - start_time:.2f}s] APIs created")
 
     # Initiate the front end, which will serve a simple frontend for logging in and out
