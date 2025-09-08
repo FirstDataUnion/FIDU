@@ -45,7 +45,7 @@ import {
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchContexts, addConversationToContext } from '../store/slices/contextsSlice';
+import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
@@ -125,9 +125,10 @@ interface ContextSelectionModalProps {
   contexts: Context[];
   loading: boolean;
   error: string | null;
+  onCreateNewContext: () => void;
 }
 
-function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error }: ContextSelectionModalProps) {
+function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredContexts = contexts.filter(context => 
@@ -207,7 +208,23 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
           )}
         </Stack>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ justifyContent: 'space-between' }}>
+        <Button 
+          variant="outlined" 
+          startIcon={<AddIcon />}
+          onClick={onCreateNewContext}
+          sx={{
+            borderColor: 'primary.dark',
+            color: 'primary.dark',
+            '&:hover': {
+              backgroundColor: 'primary.main',
+              color: 'white',
+              borderColor: 'primary.dark',
+            }
+          }}
+        >
+          Create New Context
+        </Button>
         <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
       </DialogActions>
     </Dialog>
@@ -652,9 +669,18 @@ export default function PromptLabPage() {
   const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
   const [fullPromptModalOpen, setFullPromptModalOpen] = useState(false);
   const [embellishmentModalOpen, setEmbellishmentModalOpen] = useState(false);
+  const [createContextModalOpen, setCreateContextModalOpen] = useState(false);
   
   // System prompt change state
   const [changingSystemPrompt, setChangingSystemPrompt] = useState<SystemPrompt | null>(null);
+  
+  // Create context form state
+  const [contextForm, setContextForm] = useState({
+    title: '',
+    body: '',
+    tags: []
+  });
+  const [isCreatingContext, setIsCreatingContext] = useState(false);
 
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
@@ -1004,6 +1030,35 @@ export default function PromptLabPage() {
     // Clear embellishments
     setEmbellishments([]);
   }, [systemPrompts]);
+
+  // Handle create context submit
+  const handleCreateContextSubmit = useCallback(async () => {
+    if (!currentProfile?.id || !contextForm.title.trim()) return;
+    
+    setIsCreatingContext(true);
+    try {
+      await dispatch(createContext({ 
+        contextData: {
+          title: contextForm.title.trim(),
+          body: contextForm.body.trim(),
+          tags: contextForm.tags
+        }, 
+        profileId: currentProfile.id 
+      })).unwrap();
+      
+      setCreateContextModalOpen(false);
+      setContextForm({ title: '', body: '', tags: [] });
+      showToast('Context created successfully!');
+      
+      // Refresh contexts list
+      dispatch(fetchContexts(currentProfile.id));
+    } catch (error) {
+      console.error('Error creating context:', error);
+      showToast('Failed to create context');
+    } finally {
+      setIsCreatingContext(false);
+    }
+  }, [dispatch, contextForm, currentProfile?.id, showToast]);
 
   // Handle rewind to a specific message
   const handleRewindToMessage = useCallback((messageIndex: number) => {
@@ -2264,7 +2319,43 @@ export default function PromptLabPage() {
         contexts={contexts}
         loading={contextsLoading}
         error={contextsError}
+        onCreateNewContext={() => setCreateContextModalOpen(true)}
       />
+
+      {/* Create Context Modal */}
+      <Dialog open={createContextModalOpen} onClose={() => setCreateContextModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Create New Context</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Context Title"
+              value={contextForm.title}
+              onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Context Body"
+              multiline
+              rows={4}
+              value={contextForm.body}
+              onChange={(e) => setContextForm(prev => ({ ...prev, body: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateContextModalOpen(false)} sx={{ color: 'primary.dark' }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleCreateContextSubmit}
+            disabled={isCreatingContext || !contextForm.title.trim()}
+          >
+            {isCreatingContext ? 'Creating...' : 'Create Context'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
               <SystemPromptSelectionModal
           open={systemPromptModalOpen}

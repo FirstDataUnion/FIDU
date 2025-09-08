@@ -1,5 +1,118 @@
 // FIDU Vault Frontend JavaScript
 
+// Theme management functionality
+class ThemeManager {
+    constructor() {
+        this.currentTheme = this.getStoredTheme() || 'auto';
+        this.init();
+    }
+
+    init() {
+        this.applyTheme(this.currentTheme);
+        this.setupEventListeners();
+        this.updateThemeIcon();
+    }
+
+    getStoredTheme() {
+        try {
+            return localStorage.getItem('fidu-vault-theme');
+        } catch (error) {
+            console.warn('Failed to load theme from localStorage:', error);
+            return 'auto';
+        }
+    }
+
+    setStoredTheme(theme) {
+        try {
+            localStorage.setItem('fidu-vault-theme', theme);
+        } catch (error) {
+            console.warn('Failed to save theme to localStorage:', error);
+        }
+    }
+
+    getSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    getEffectiveTheme() {
+        if (this.currentTheme === 'auto') {
+            return this.getSystemTheme();
+        }
+        return this.currentTheme;
+    }
+
+    applyTheme(theme) {
+        this.currentTheme = theme;
+        this.setStoredTheme(theme);
+        
+        const effectiveTheme = this.getEffectiveTheme();
+        const html = document.documentElement;
+        
+        if (effectiveTheme === 'dark') {
+            html.classList.add('dark');
+        } else {
+            html.classList.remove('dark');
+        }
+        
+        this.updateThemeIcon();
+    }
+
+    updateThemeIcon() {
+        const lightIcon = document.getElementById('theme-icon-light');
+        const darkIcon = document.getElementById('theme-icon-dark');
+        const autoIcon = document.getElementById('theme-icon-auto');
+        
+        // Hide all icons
+        [lightIcon, darkIcon, autoIcon].forEach(icon => {
+            if (icon) icon.classList.add('hidden');
+        });
+        
+        // Show the appropriate icon
+        switch (this.currentTheme) {
+            case 'light':
+                if (lightIcon) lightIcon.classList.remove('hidden');
+                break;
+            case 'dark':
+                if (darkIcon) darkIcon.classList.remove('hidden');
+                break;
+            case 'auto':
+            default:
+                if (autoIcon) autoIcon.classList.remove('hidden');
+                break;
+        }
+    }
+
+    setupEventListeners() {
+        const toggleButton = document.getElementById('theme-toggle');
+        console.log('Theme toggle button found:', toggleButton);
+        if (toggleButton) {
+            toggleButton.addEventListener('click', (event) => {
+                console.log('Theme toggle clicked');
+                event.preventDefault();
+                this.cycleTheme();
+            });
+        } else {
+            console.error('Theme toggle button not found!');
+        }
+
+        // Listen for system theme changes when in auto mode
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        mediaQuery.addEventListener('change', () => {
+            if (this.currentTheme === 'auto') {
+                this.applyTheme('auto');
+            }
+        });
+    }
+
+    cycleTheme() {
+        const themes = ['light', 'dark', 'auto'];
+        const currentIndex = themes.indexOf(this.currentTheme);
+        const nextIndex = (currentIndex + 1) % themes.length;
+        console.log('Cycling theme from', this.currentTheme, 'to', themes[nextIndex]);
+        this.applyTheme(themes[nextIndex]);
+    }
+}
+
 // HTMX event handlers
 document.addEventListener('htmx:beforeRequest', function(evt) {
     // Add loading state to buttons
@@ -81,8 +194,67 @@ document.addEventListener('click', function(evt) {
     }
 });
 
+// Version checking functionality
+async function loadVersionInfo() {
+    try {
+        // Load current version
+        const versionResponse = await fetch('/version/');
+        const versionData = await versionResponse.json();
+        
+        // Update version display
+        const versionElement = document.getElementById('app-version');
+        if (versionElement) {
+            versionElement.textContent = versionData.main_version;
+        }
+        
+        // Check for updates (only on dashboard)
+        if (document.getElementById('update-banner')) {
+            await checkForUpdates();
+        }
+    } catch (error) {
+        console.error('Error loading version info:', error);
+        const versionElement = document.getElementById('app-version');
+        if (versionElement) {
+            versionElement.textContent = 'Error';
+        }
+    }
+}
+
+async function checkForUpdates() {
+    try {
+        const updateResponse = await fetch('/version/check-updates');
+        const updateData = await updateResponse.json();
+        
+        if (updateData.status === 'update_available') {
+            showUpdateBanner(updateData);
+        }
+    } catch (error) {
+        console.error('Error checking for updates:', error);
+    }
+}
+
+function showUpdateBanner(updateData) {
+    const banner = document.getElementById('update-banner');
+    const latestVersionSpan = document.getElementById('latest-version');
+    const downloadLink = document.getElementById('download-link');
+    
+    if (banner && latestVersionSpan && downloadLink) {
+        latestVersionSpan.textContent = updateData.latest_version;
+        downloadLink.href = updateData.download_url;
+        banner.classList.remove('hidden');
+    }
+}
+
 // Initialize any page-specific functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize theme manager
+    console.log('Initializing theme manager...');
+    window.themeManager = new ThemeManager();
+    console.log('Theme manager initialized:', window.themeManager);
+    
+    // Load version info on all pages
+    loadVersionInfo();
+    
     // Add form validation to all forms
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {

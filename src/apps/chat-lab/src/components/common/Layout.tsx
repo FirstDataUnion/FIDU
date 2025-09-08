@@ -230,7 +230,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </IconButton>
           )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            AI Conversation Memory Lab
+            
           </Typography>
           
           {/* Profile and Logout */}
