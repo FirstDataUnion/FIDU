@@ -11,6 +11,16 @@ import shutil
 from pathlib import Path
 import platform
 
+# Add the src directory to the path so we can import the versioning module
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+try:
+    from fidu_vault.versioning.version import get_version
+except ImportError:
+    print("Warning: Could not import version module, using default version")
+    def get_version():
+        return "0.0.0"
+
 
 def run_command(command, cwd=None, check=True, env=None):
     """Run a shell command and return the result."""
@@ -205,8 +215,31 @@ def setup_linux_build_environment():
 
 
 def rename_build_output():
-    """Rename the build output to include system and architecture information."""
+    """Rename the build output to include version, system and architecture information."""
     system_name, arch = get_system_info()
+    
+    # Get the current version
+    try:
+        version = get_version()
+        print(f"Current version: {version}")
+    except Exception as e:
+        print(f"Warning: Could not get version: {e}")
+        version = "0.0.0"
+
+    # Check if this is a universal build
+    build_universal = os.environ.get("BUILD_UNIVERSAL", "false").lower() == "true"
+    target_arch = os.environ.get("TARGET_ARCH", None)
+    
+    # Determine the architecture string for the directory name
+    if build_universal:
+        arch_string = "universal"
+        print("🌐 Detected universal build")
+    elif target_arch:
+        arch_string = target_arch
+        print(f"🎯 Detected target architecture: {target_arch}")
+    else:
+        arch_string = arch
+        print(f"🏗️ Using current architecture: {arch}")
 
     # Find the PyInstaller output directory
     dist_dir = Path("dist")
@@ -221,7 +254,7 @@ def rename_build_output():
         return
 
     fidu_dir = fidu_dirs[0]
-    new_name = f"FIDU_Vault_{system_name}_{arch}"
+    new_name = f"FIDU_Vault_v{version}_{system_name}_{arch_string}"
     new_path = dist_dir / new_name
 
     print(f"Renaming build output...")
@@ -358,6 +391,14 @@ def include_documentation(build_path):
 def main():
     """Main build function."""
     print("Starting FIDU Vault build process...")
+    
+    # Show version information
+    try:
+        version = get_version()
+        print(f"Building FIDU Vault version: {version}")
+    except Exception as e:
+        print(f"Warning: Could not get version: {e}")
+        print("Using default version: 0.0.0")
 
     # Set up build environment
     setup_build_environment()
@@ -427,6 +468,7 @@ def main():
         # Show output location
         if build_path and build_path.exists():
             print(f"\n✅ Executable created at: {build_path.absolute()}")
+            print(f"📁 Directory name includes version and platform information")
             executable_path = build_path / "FIDU_Vault"
             launcher_script = build_path / "run_fidu.sh"
 
