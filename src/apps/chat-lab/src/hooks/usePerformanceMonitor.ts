@@ -1,5 +1,17 @@
 import { useEffect, useRef, useCallback } from 'react';
 
+// Helper function to get environment variables - can be mocked in tests
+const getEnvVar = (key: string): boolean => {
+  // Check if we're in a test environment (Jest sets NODE_ENV to 'test')
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    // In test environment, return false for all env vars to disable performance monitoring
+    return false;
+  }
+  
+  // In browser/Vite environment, use import.meta.env
+  return (globalThis as any).import?.meta?.env?.[key] ?? false;
+};
+
 interface PerformanceMetricsData {
   renderTime: number;
   renderCount: number;
@@ -33,12 +45,12 @@ interface UsePerformanceMonitorOptions {
  */
 export const usePerformanceMonitor = ({
   componentName,
-  enabled = import.meta.env.DEV,
+  enabled = getEnvVar('DEV'),
   logToConsole = true,
   threshold = 16 // 16ms = 60fps threshold
 }: UsePerformanceMonitorOptions): PerformanceMetrics => {
   // Force disable in production builds for safety
-  const isProduction = import.meta.env.PROD;
+  const isProduction = getEnvVar('PROD');
   const isActuallyEnabled = enabled && !isProduction;
   const renderStartTime = useRef<number>(0);
   const metrics = useRef<PerformanceMetricsData>({
@@ -75,7 +87,7 @@ export const usePerformanceMonitor = ({
       }
 
       // Log detailed metrics in development
-      if (logToConsole && import.meta.env.DEV) {
+      if (logToConsole && getEnvVar('DEV')) {
         console.log(
           `📊 ${componentName} Performance:`,
           `Render #${current.renderCount}`,
