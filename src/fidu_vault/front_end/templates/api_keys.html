@@ -3,59 +3,17 @@
 {% block title %}FIDU Vault - API Keys{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <h1 class="text-xl font-semibold text-gray-900">FIDU Vault</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm text-gray-700">
-                        Welcome, <span class="font-medium">{{ user.email }}</span>
-                    </div>
-                    <a href="https://identity.firstdataunion.org/" target="_blank" class="text-sm text-blue-600 hover:text-blue-800">
-                        Manage Account
-                    </a>
-                    <form method="POST" action="/logout" class="inline">
-                        <button type="submit" class="text-sm text-gray-500 hover:text-gray-700">
-                            Sign out
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </nav>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    {% include 'nav.html' %}
 
     <!-- Main content -->
     <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Navigation tabs -->
-        <div class="border-b border-gray-200 mb-8">
-            <nav class="-mb-px flex space-x-8">
-                <a href="/dashboard" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                    Dashboard
-                </a>
-                <a href="/data-packets" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                    Data Packets
-                </a>
-                <a href="/profiles" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                    Profiles
-                </a>
-                <a href="/apps" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                    Apps
-                </a>
-                <a href="/api-keys" class="border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                    API Keys
-                </a>
-            </nav>
-        </div>
+        {% include 'nav_tabs.html' %}
 
         <!-- Page header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">API Keys</h1>
-            <p class="mt-2 text-gray-600">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">API Keys</h1>
+            <p class="mt-2 text-gray-600 dark:text-gray-300">
                 Use this page to add your own existing API keys to FIDU Vault, allowing connected apps to use them when communicating with AI model providers.
                 <br>
                 This is optional, and paying users do not need to provide their own API keys, but provides an option for free members to use FIDU services with their own existing API keys. 
@@ -65,14 +23,14 @@
         </div>
 
         <!-- Add new API key form -->
-        <div class="bg-white shadow rounded-lg mb-8">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-8">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Add New API Key</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New API Key</h3>
                 <form id="api-key-form" hx-post="/api-keys/add" hx-target="#api-keys-list" hx-swap="outerHTML">
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label for="provider" class="block text-sm font-medium text-gray-700">Provider</label>
-                            <select id="provider" name="provider" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                            <label for="provider" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Provider</label>
+                            <select id="provider" name="provider" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                                 <option value="">Select a provider</option>
                                 <option value="google">Google/Gemini</option>
                                 <option value="openai">OpenAI</option>
@@ -91,9 +49,9 @@
 
                         
                         <div class="sm:col-span-2">
-                            <label for="api_key" class="block text-sm font-medium text-gray-700">API Key</label>
+                            <label for="api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
                             <input type="text" id="api_key" name="api_key" required 
-                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                   class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                    placeholder="Enter your API key"
                                    autocomplete="off"
                                    spellcheck="false">
@@ -113,7 +71,7 @@
 
         <!-- API Keys list -->
         <div id="api-keys-list" hx-get="/api-keys/list" hx-trigger="load" hx-swap="outerHTML">
-            <div class="text-center text-gray-400">Loading API keys...</div>
+            <div class="text-center text-gray-400 dark:text-gray-500">Loading API keys...</div>
         </div>
     </div>
 </div>

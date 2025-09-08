@@ -3,43 +3,16 @@
 {% block title %}FIDU Vault - Profiles{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <h1 class="text-xl font-semibold text-gray-900">FIDU Vault</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm text-gray-700">
-                        Welcome, <span class="font-medium">{{ user.email }}</span>
-                    </div>
-                    <form method="POST" action="/logout" class="inline">
-                        <button type="submit" class="text-sm text-gray-500 hover:text-gray-700">
-                            Sign out
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </nav>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    {% include 'nav.html' %}
 
     <!-- Tabs -->
     <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div class="border-b border-gray-200 mb-8">
-            <nav class="-mb-px flex space-x-8">
-                <a href="/dashboard" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">Dashboard</a>
-                <a href="/data-packets" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">Data Packets</a>
-                <a href="/profiles" class="border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">Profiles</a>
-                <a href="/apps" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">Apps</a>
-                <a href="/api-keys" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">API Keys</a>
-            </nav>
-        </div>
+        {% include 'nav_tabs.html' %}
 
         <!-- Profiles List (HTMX) -->
         <div id="profiles-list" hx-get="/profiles/list" hx-trigger="load" hx-target="#profiles-list" hx-swap="innerHTML">
-            <div class="text-center text-gray-400">Loading profiles...</div>
+            <div class="text-center text-gray-400 dark:text-gray-500">Loading profiles...</div>
         </div>
     </div>
 </div>
