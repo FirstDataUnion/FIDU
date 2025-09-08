@@ -25,7 +25,6 @@ from fidu_vault.api_keys import (
     LocalSqlAPIKeyStore,
 )
 from fidu_vault.front_end.api import FrontEndAPI
-from fidu_vault.proxy.router import create_proxy_router
 from .versioning.version import get_vault_version
 from .versioning.version_api import router as version_router
 
@@ -171,16 +170,6 @@ def create_app():
     print(f"[{time.time() - start_time:.2f}s] Creating front end API...")
     FrontEndAPI(fast_api_app, data_packet_service, api_key_service)
     print(f"[{time.time() - start_time:.2f}s] Front end API created")
-
-    # Add proxy router for external API requests
-    # This is used to proxy requests from the FIDU-Chat-Lab to external APIs as we are serving
-    # the FIDU-Chat-Lab from the same server as the FIDU Vault API for now. When this changes,
-    # we can remove this.
-
-    print(f"[{time.time() - start_time:.2f}s] Creating proxy router...")
-    proxy_router = create_proxy_router()
-    fast_api_app.include_router(proxy_router)
-    print(f"[{time.time() - start_time:.2f}s] Proxy router created")
 
     # Configure CORS for local development
     print(f"[{time.time() - start_time:.2f}s] Configuring CORS...")
