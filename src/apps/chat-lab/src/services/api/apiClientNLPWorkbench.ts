@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosInstance, AxiosError } from 'axios';
 import { ApiError, type ErrorResponse } from './apiClients';
 import { getGatewayUrl } from '../../utils/environment';
 import { refreshTokenService } from './refreshTokenService';
@@ -44,16 +44,12 @@ const NLP_WORKBENCH_API_CONFIG = {
     }
   
     private setupInterceptors(): void {
-      // Request interceptor to add auth token
+      // Use the refresh token service's auth interceptor for consistent behavior
+      const authInterceptor = refreshTokenService.createAuthInterceptor();
+      
+      // Request interceptor
       this.client.interceptors.request.use(
-        (config: InternalAxiosRequestConfig) => {
-          // Get auth token from refresh token service
-          const token = refreshTokenService.getAccessToken();
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-          return config;
-        },
+        authInterceptor.request,
         (error: AxiosError) => {
           return Promise.reject(error);
         }
@@ -61,82 +57,38 @@ const NLP_WORKBENCH_API_CONFIG = {
 
       // Response interceptor
       this.client.interceptors.response.use(
-        (response: AxiosResponse) => response,
-        (error: AxiosError<ErrorResponse>) => {
-          if (error.response) {
-            // Handle authentication errors with refresh token logic
-            if (error.response.status === 401) {
-              return this.handleUnauthorizedWithRefresh(error);
+        authInterceptor.response,
+        async (error: AxiosError<ErrorResponse>) => {
+          // Try the auth interceptor's error handler first
+          try {
+            return await authInterceptor.error(error);
+          } catch (authError) {
+            // If auth interceptor doesn't handle it, handle other errors
+            if (error.response) {
+              throw new ApiError(
+                error.response.status,
+                error.response.data?.message || 'NLP Workbench API error',
+                error.response.data
+              );
+            } else if (error.request) {
+              throw new ApiError(
+                0,
+                'No response received from NLP Workbench API',
+                error.request
+              );
+            } else {
+              throw new ApiError(
+                0,
+                'Error setting up NLP Workbench API request',
+                error.message
+              );
             }
-            
-            throw new ApiError(
-              error.response.status,
-              error.response.data?.message || 'NLP Workbench API error',
-              error.response.data
-            );
-          } else if (error.request) {
-            throw new ApiError(
-              0,
-              'No response received from NLP Workbench API',
-              error.request
-            );
-          } else {
-            throw new ApiError(
-              0,
-              'Error setting up NLP Workbench API request',
-              error.message
-            );
           }
         }
       );
     }
 
-    /**
-     * Handle 401 errors with automatic token refresh and retry
-     */
-    private async handleUnauthorizedWithRefresh(error: AxiosError<ErrorResponse>): Promise<never> {
-      try {
-        // Attempt to refresh the token
-        await refreshTokenService.refreshAccessToken();
-        
-        // Token refreshed successfully, but we can't retry the original request here
-        // The user will need to retry their action manually
-        throw new ApiError(
-          401,
-          'Token expired and refreshed. Please retry your request.',
-          error.response?.data
-        );
-      } catch {
-        // Token refresh failed, clear auth data and redirect to login
-        this.clearAllAuthTokens();
-        
-        throw new ApiError(
-          401,
-          'Authentication required. Please log in again.',
-          error.response?.data
-        );
-      }
-    }
 
-    /**
-     * Clear all authentication tokens and data
-     */
-    private clearAllAuthTokens(): void {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('fiduRefreshToken');
-      localStorage.removeItem('token_expires_in');
-      localStorage.removeItem('user');
-      localStorage.removeItem('current_profile');
-      localStorage.removeItem('fiduToken');
-      
-      // Clear cookies
-      document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
-      document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
-      document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
-      
-      // Reload the page to trigger auth flow
-      window.location.reload();
-    }
 
     /**
      * Enhance request data with API key for the specified provider

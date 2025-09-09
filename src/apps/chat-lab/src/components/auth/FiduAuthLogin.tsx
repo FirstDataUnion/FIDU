@@ -10,6 +10,7 @@ import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/ma
 import { useAppDispatch } from '../../hooks/redux';
 import { initializeAuth } from '../../store/slices/authSlice';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
+import { refreshTokenService } from '../../services/api/refreshTokenService';
 import { getIdentityServiceUrl } from '../../utils/environment';
 
 const FIDU_SDK_ID = 'fidu-sdk-script';
@@ -25,14 +26,6 @@ const FiduAuthLogin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const sdkLoaded = useRef(false);
 
-  // Helper function to clear all auth tokens consistently
-  const clearAllAuthTokens = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('fiduToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('current_profile');
-    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
-  };
 
   // Function to check and clear problematic auth state
   const checkAndClearAuthState = useCallback(() => {
@@ -50,7 +43,7 @@ const FiduAuthLogin: React.FC = () => {
     // If we have partial auth state but no valid session, clear it
     if ((token || user || profile) && !token) {
       console.log('🔑 FiduAuthLogin: Found partial auth state without token, clearing...');
-      clearAllAuthTokens();
+      refreshTokenService.clearAllAuthTokens();
     }
   }, []);
 
@@ -136,7 +129,7 @@ const FiduAuthLogin: React.FC = () => {
         await dispatch(initializeAuth());
       } catch (error) {
         // Clear tokens if user info fetching fails to prevent loops
-        clearAllAuthTokens();
+        refreshTokenService.clearAllAuthTokens();
         console.error('Error fetching user info:', error);
         setError('Authentication succeeded, but failed to fetch user info. Please try again.');
       }
@@ -144,7 +137,7 @@ const FiduAuthLogin: React.FC = () => {
 
     fidu.on('onAuthError', (_err: any) => {
       // Clear any existing auth data to prevent loops
-      clearAllAuthTokens();
+      refreshTokenService.clearAllAuthTokens();
       setError('Authentication failed. Please try again.');
     });
 
@@ -265,7 +258,7 @@ const FiduAuthLogin: React.FC = () => {
                   variant="outlined" 
                   onClick={() => {
                     // Clear any cached data and retry
-                    clearAllAuthTokens();
+                    refreshTokenService.clearAllAuthTokens();
                     window.location.reload();
                   }}
                   sx={{ mr: 1 }}

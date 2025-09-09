@@ -1,22 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '../../services/api/auth';
+import { refreshTokenService } from '../../services/api/refreshTokenService';
 import type { 
   AuthState, 
   Profile, 
 } from '../../types';
-
-// Helper function to clear all auth tokens consistently
-const clearAllAuthTokens = () => {
-  // Clear localStorage
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('fiduToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('current_profile');
-  
-  // Clear cookie
-  document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
-};
 
 // Async thunks
 export const getCurrentUser = createAsyncThunk(
@@ -96,7 +85,7 @@ export const initializeAuth = createAsyncThunk(
       return null;
     } catch (error: any) {
       // Clear invalid auth data
-      clearAllAuthTokens();
+      refreshTokenService.clearAllAuthTokens();
       return rejectWithValue(error.message || 'Failed to initialize auth');
     }
   }
@@ -126,7 +115,7 @@ const authSlice = createSlice({
       state.error = null;
       
       // Clear localStorage
-      clearAllAuthTokens();
+      refreshTokenService.clearAllAuthTokens();
     },
     
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
