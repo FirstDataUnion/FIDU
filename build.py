@@ -18,6 +18,7 @@ try:
     from fidu_vault.versioning.version import get_version
 except ImportError:
     print("Warning: Could not import version module, using default version")
+
     def get_version():
         return "0.0.0"
 
@@ -217,7 +218,7 @@ def setup_linux_build_environment():
 def rename_build_output():
     """Rename the build output to include version, system and architecture information."""
     system_name, arch = get_system_info()
-    
+
     # Get the current version
     try:
         version = get_version()
@@ -229,7 +230,7 @@ def rename_build_output():
     # Check if this is a universal build
     build_universal = os.environ.get("BUILD_UNIVERSAL", "false").lower() == "true"
     target_arch = os.environ.get("TARGET_ARCH", None)
-    
+
     # Determine the architecture string for the directory name
     if build_universal:
         arch_string = "universal"
@@ -391,7 +392,7 @@ def include_documentation(build_path):
 def main():
     """Main build function."""
     print("Starting FIDU Vault build process...")
-    
+
     # Show version information
     try:
         version = get_version()

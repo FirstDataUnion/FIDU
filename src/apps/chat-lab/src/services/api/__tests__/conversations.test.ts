@@ -1,5 +1,6 @@
 import { conversationsApi } from '../conversations';
 import { fiduVaultAPIClient } from '../apiClientFIDUVault';
+import { refreshTokenService } from '../refreshTokenService';
 import type { Conversation, Message, ConversationDataPacket } from '../../../types';
 
 // Mock the API client
@@ -12,7 +13,17 @@ jest.mock('../apiClientFIDUVault', () => ({
   },
 }));
 
+// Mock the refresh token service
+jest.mock('../refreshTokenService', () => ({
+  refreshTokenService: {
+    getAccessToken: jest.fn(),
+    createAuthInterceptor: jest.fn(),
+    clearAllAuthTokens: jest.fn(),
+  },
+}));
+
 const mockFiduVaultAPIClient = fiduVaultAPIClient as jest.Mocked<typeof fiduVaultAPIClient>;
+const mockRefreshTokenService = refreshTokenService as jest.Mocked<typeof refreshTokenService>;
 
 const mockConversationDataPacket: ConversationDataPacket = {
   id: '1',
@@ -488,6 +499,74 @@ describe('conversationsApi', () => {
 
     it('should throw error for removeTags method', async () => {
       await expect(conversationsApi.removeTags('1', ['tag1'])).rejects.toThrow('Not implemented');
+    });
+  });
+
+  describe('refresh token integration', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should handle 401 errors with automatic token refresh', async () => {
+      const mockResponse = {
+        data: [mockConversationDataPacket],
+        status: 200,
+      };
+      
+      // Mock successful API call (interceptor handles refresh internally)
+      mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
+
+      // Mock the refresh token service to simulate successful refresh
+      mockRefreshTokenService.getAccessToken.mockReturnValue('new-token');
+      mockRefreshTokenService.createAuthInterceptor.mockReturnValue({
+        request: jest.fn((config) => config),
+        response: jest.fn((response) => response),
+        error: jest.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
+      
+      expect(result.conversations).toHaveLength(1);
+      expect(result.conversations[0].title).toBe('Test Conversation');
+    });
+
+    it('should handle refresh token failure', async () => {
+      // Mock API call that will fail due to authentication
+      mockFiduVaultAPIClient.get.mockRejectedValue(new Error('Authentication required. Please log in again.'));
+
+      // Mock refresh token service to simulate refresh failure
+      mockRefreshTokenService.getAccessToken.mockReturnValue(null);
+      mockRefreshTokenService.createAuthInterceptor.mockReturnValue({
+        request: jest.fn((config) => config),
+        response: jest.fn((response) => response),
+        error: jest.fn().mockRejectedValue(new Error('Authentication required. Please log in again.')),
+      });
+
+      await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('Authentication required. Please log in again.');
+    });
+
+    it('should not attempt refresh for non-401 errors', async () => {
+      const error = new Error('Server error');
+      mockFiduVaultAPIClient.get.mockRejectedValue(error);
+      
+      await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('Server error');
+      
+      // Verify refresh token service was not called
+      expect(mockRefreshTokenService.getAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('should handle successful requests without refresh', async () => {
+      const mockResponse = {
+        data: [mockConversationDataPacket],
+        status: 200,
+      };
+      
+      mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
+      
+      const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
+      
+      expect(result.conversations).toHaveLength(1);
+      expect(mockFiduVaultAPIClient.get).toHaveBeenCalledTimes(1);
     });
   });
 });

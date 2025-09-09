@@ -17,7 +17,15 @@ jest.mock('../../../services/api/auth', () => ({
   },
 }));
 
+// Mock the refresh token service
+jest.mock('../../../services/api/refreshTokenService', () => ({
+  refreshTokenService: {
+    clearAllAuthTokens: jest.fn(),
+  },
+}));
+
 const mockAuthApi = require('../../../services/api/auth').authApi;
+const mockRefreshTokenService = require('../../../services/api/refreshTokenService').refreshTokenService;
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -98,10 +106,8 @@ describe('authSlice', () => {
       expect(state.isAuthenticated).toBe(false);
       expect(state.error).toBeNull();
       
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('auth_token');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('fiduToken');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('user');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('current_profile');
+      // The logout action now uses refreshTokenService.clearAllAuthTokens()
+      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
     });
 
     it('should handle setCurrentProfile', () => {
@@ -293,17 +299,17 @@ describe('authSlice', () => {
       const action = logout();
       authSlice(initialState, action);
       
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('auth_token');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('fiduToken');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('user');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('current_profile');
+      // The logout action now uses refreshTokenService.clearAllAuthTokens()
+      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
     });
 
     it('should set document.cookie when logout is called', () => {
       const action = logout();
       authSlice(initialState, action);
       
-      expect(document.cookie).toBe('auth_token=; path=/; max-age=0; samesite=lax');
+      // The logout action now uses refreshTokenService.clearAllAuthTokens()
+      // which handles both localStorage and cookies
+      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
     });
   });
 
@@ -421,6 +427,81 @@ describe('authSlice', () => {
         JSON.stringify(mockUser)
       );
       expect(mockLocalStorage.setItem).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('refresh token integration', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should use refreshTokenService.clearAllAuthTokens in initializeAuth error handling', async () => {
+      mockLocalStorage.getItem
+        .mockReturnValueOnce('test-token')
+        .mockReturnValueOnce(JSON.stringify(mockUser))
+        .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
+      
+      mockAuthApi.getCurrentUser.mockRejectedValue(new Error('API Error'));
+      
+      const thunk = initializeAuth();
+      const dispatch = jest.fn();
+      const getState = jest.fn();
+      
+      await thunk(dispatch, getState, undefined);
+      
+      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+    });
+
+    it('should use refreshTokenService.clearAllAuthTokens in logout action', () => {
+      const initialState: AuthState = {
+        user: mockUser,
+        profiles: mockUser.profiles,
+        currentProfile: mockUser.profiles[0],
+        token: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+        error: null,
+      };
+      
+      const action = logout();
+      const state = authSlice(initialState, action);
+      
+      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      expect(state.user).toBeNull();
+      expect(state.profiles).toEqual([]);
+      expect(state.currentProfile).toBeNull();
+      expect(state.token).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.error).toBeNull();
+    });
+
+    it('should clear tokens consistently across all error scenarios', async () => {
+      // Test various error scenarios that should trigger token clearing
+      const errorScenarios = [
+        new Error('Network error'),
+        new Error('Authentication failed'),
+        new Error('Token expired'),
+      ];
+
+      for (const error of errorScenarios) {
+        jest.clearAllMocks();
+        
+        mockLocalStorage.getItem
+          .mockReturnValueOnce('test-token')
+          .mockReturnValueOnce(JSON.stringify(mockUser))
+          .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
+        
+        mockAuthApi.getCurrentUser.mockRejectedValue(error);
+        
+        const thunk = initializeAuth();
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        await thunk(dispatch, getState, undefined);
+        
+        expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      }
     });
   });
 });

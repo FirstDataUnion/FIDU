@@ -1,53 +1,108 @@
+import axios from 'axios';
+import type { AxiosInstance, AxiosError } from 'axios';
 import type { Profile, User } from "../../types";
 import { getIdentityServiceUrl } from "../../utils/environment";
 import { refreshTokenService } from "./refreshTokenService";
+import { ApiError, type ErrorResponse } from './apiClients';
+
+// Identity Service API Configuration
+const IDENTITY_SERVICE_API_CONFIG = {
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
+
+// Identity Service API client class
+class IdentityServiceAPIClient {
+  private client: AxiosInstance;
+
+  constructor() {
+    this.client = axios.create({
+      ...IDENTITY_SERVICE_API_CONFIG,
+      baseURL: getIdentityServiceUrl(),
+    });
+
+    this.setupInterceptors();
+  }
+
+  private setupInterceptors(): void {
+    // Use the refresh token service's auth interceptor for consistent behavior
+    const authInterceptor = refreshTokenService.createAuthInterceptor();
+    
+    // Request interceptor
+    this.client.interceptors.request.use(
+      authInterceptor.request,
+      (error: AxiosError) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor
+    this.client.interceptors.response.use(
+      authInterceptor.response,
+      async (error: AxiosError<ErrorResponse>) => {
+        // Try the auth interceptor's error handler first
+        try {
+          return await authInterceptor.error(error);
+        } catch (authError) {
+          // If auth interceptor doesn't handle it, handle other errors
+          if (error.response) {
+            throw new ApiError(
+              error.response.status,
+              error.response.data?.message || 'Identity Service API error',
+              error.response.data
+            );
+          } else if (error.request) {
+            throw new ApiError(
+              0,
+              'No response received from Identity Service API',
+              error.request
+            );
+          } else {
+            throw new ApiError(
+              0,
+              'Error setting up Identity Service API request',
+              error.message
+            );
+          }
+        }
+      }
+    );
+  }
+
+  async fetchCurrentUser(): Promise<User> {
+    const response = await this.client.get('/user');
+    return createUserFromResponse(response.data);
+  }
+
+  async createProfile(display_name: string): Promise<Profile> {
+    const response = await this.client.post('/profiles', { display_name });
+    return externalProfileToInternalProfile(response.data.profile);
+  }
+}
+
+// Create and export a singleton instance
+export const identityServiceAPIClient = new IdentityServiceAPIClient();
 
 export async function fetchCurrentUser(token?: string) {
-  // If no token provided, get it from the refresh token service
-  const accessToken = token || refreshTokenService.getAccessToken();
-  if (!accessToken) {
-    throw new Error('No access token available');
-  }
-
-  try {
-    const res = await fetch(`${getIdentityServiceUrl()}/user`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    if (res.status === 401) {
-      // Token expired, try to refresh
-      try {
-        await refreshTokenService.refreshAccessToken();
-        // Retry with new token
-        const newToken = refreshTokenService.getAccessToken();
-        if (newToken) {
-          const retryRes = await fetch(`${getIdentityServiceUrl()}/user`, {
-            headers: { Authorization: `Bearer ${newToken}` }
-          });
-          if (!retryRes.ok) throw new Error('Failed to fetch user after token refresh');
-          
-          const externalUser = await retryRes.json();
-          return createUserFromResponse(externalUser);
-        }
-      } catch {
-        // Token refresh failed, clear auth data and redirect to login
-        refreshTokenService.clearAllAuthTokens();
-        window.location.reload();
-        throw new Error('Authentication required. Please log in again.');
+  // If a specific token is provided, temporarily set it for this request
+  if (token) {
+    const originalToken = refreshTokenService.getAccessToken();
+    localStorage.setItem('auth_token', token);
+    try {
+      return await identityServiceAPIClient.fetchCurrentUser();
+    } finally {
+      // Restore original token
+      if (originalToken) {
+        localStorage.setItem('auth_token', originalToken);
+      } else {
+        localStorage.removeItem('auth_token');
       }
     }
-    
-    if (!res.ok) throw new Error('Failed to fetch user');
-
-    // Convert response to User and Profile types
-    const externalUser = await res.json();
-    return createUserFromResponse(externalUser);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      throw error;
-    }
-    throw new Error('Failed to fetch user');
   }
+  
+  return await identityServiceAPIClient.fetchCurrentUser();
 }
 
 function createUserFromResponse(externalUser: any): User {
@@ -72,52 +127,21 @@ export function externalProfileToInternalProfile(externalProfile: any): Profile 
 }
 
 export async function createProfile(display_name: string, token?: string) {
-  // If no token provided, get it from the refresh token service
-  const accessToken = token || refreshTokenService.getAccessToken();
-  if (!accessToken) {
-    throw new Error('No access token available');
-  }
-
-  try {
-    const res = await fetch(`${getIdentityServiceUrl()}/profiles`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      method: 'POST',
-      body: JSON.stringify({"display_name": display_name })
-    });
-    
-    if (res.status === 401) {
-      // Token expired, try to refresh
-      try {
-        await refreshTokenService.refreshAccessToken();
-        // Retry with new token
-        const newToken = refreshTokenService.getAccessToken();
-        if (newToken) {
-          const retryRes = await fetch(`${getIdentityServiceUrl()}/profiles`, {
-            headers: { Authorization: `Bearer ${newToken}` },
-            method: 'POST',
-            body: JSON.stringify({"display_name": display_name })
-          });
-          if (!retryRes.ok) throw new Error('Failed to create profile after token refresh');
-          
-          const externalProfile = await retryRes.json();
-          return externalProfileToInternalProfile(externalProfile.profile);
-        }
-      } catch {
-        // Token refresh failed, clear auth data and redirect to login
-        refreshTokenService.clearAllAuthTokens();
-        window.location.reload();
-        throw new Error('Authentication required. Please log in again.');
+  // If a specific token is provided, temporarily set it for this request
+  if (token) {
+    const originalToken = refreshTokenService.getAccessToken();
+    localStorage.setItem('auth_token', token);
+    try {
+      return await identityServiceAPIClient.createProfile(display_name);
+    } finally {
+      // Restore original token
+      if (originalToken) {
+        localStorage.setItem('auth_token', originalToken);
+      } else {
+        localStorage.removeItem('auth_token');
       }
     }
-    
-    if (!res.ok) throw new Error('Failed to create profile');
-    
-    const externalProfile = await res.json();
-    return externalProfileToInternalProfile(externalProfile.profile);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      throw error;
-    }
-    throw new Error('Failed to create profile');
   }
+  
+  return await identityServiceAPIClient.createProfile(display_name);
 }
