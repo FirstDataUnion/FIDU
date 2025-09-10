@@ -135,9 +135,13 @@ a = Analysis(
         ('src/fidu_vault/front_end/templates', 'fidu_vault/front_end/templates'),
         ('src/apps/chat-lab/dist', 'apps/chat-lab/dist'),
         ('src/data_acquisition/fidu-chat-grabber', 'data_acquisition/fidu-chat-grabber'),
+        ('version.yaml', '.'),  # Include version.yaml in the root of the bundle
     ],
     clean=True,
-    hiddenimports=macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else (windows_hidden_imports if platform.system() == 'Windows' else default_hidden_imports)),
+    hiddenimports=(macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else (windows_hidden_imports if platform.system() == 'Windows' else default_hidden_imports))) + [
+        'fidu_vault.versioning.version',
+        'fidu_vault.versioning.version_api',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

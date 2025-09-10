@@ -6,7 +6,7 @@ Provides centralized version reading and update checking functionality.
 # pylint: disable=broad-exception-caught
 
 import json
-import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -19,9 +19,9 @@ from ..utils.db import get_cursor
 
 def get_project_root() -> Path:
     """Get the project root directory."""
-    if getattr(os, "frozen", False):
-        # PyInstaller mode
-        return Path(os.path.dirname(os.path.abspath(__file__))).parent.parent.parent
+    if getattr(sys, "frozen", False):
+        # PyInstaller mode - version.yaml is in the _internal directory
+        return Path(sys._MEIPASS)  # pylint: disable=protected-access
     # Development mode
     return Path(__file__).parent.parent.parent.parent
 

@@ -129,7 +129,7 @@ if [[ "$TARGET_ARCH" == "aarch64" ]]; then
     export BUILD_UNIVERSAL="false"
     
     # Check if we have the necessary tools for ARM64 cross-compilation
-    if ! command -v gcc-aarch64-linux-gnu &> /dev/null; then
+    if ! command -v aarch64-linux-gnu-gcc &> /dev/null; then
         echo "❌ ARM64 cross-compilation tools not found."
         echo "Install with: sudo apt install gcc-aarch64-linux-gnu"
         echo "Or use --universal for better compatibility"
