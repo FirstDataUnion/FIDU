@@ -34,9 +34,16 @@ const ProfileSelector: React.FC = () => {
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
 
+    // Validate profile name length (assuming max 100 characters based on common patterns)
+    const trimmedName = newProfileName.trim();
+    if (trimmedName.length > 100) {
+      // This should be handled by the input validation, but just in case
+      return;
+    }
+
     dispatch(clearError());
     
-    const result = await dispatch(createProfile(newProfileName.trim()));
+    const result = await dispatch(createProfile(trimmedName));
     
     if (createProfile.fulfilled.match(result)) {
       setShowCreateDialog(false);
@@ -44,6 +51,7 @@ const ProfileSelector: React.FC = () => {
       // Automatically select the newly created profile
       dispatch(setCurrentProfile(result.payload));
     }
+    // Error handling is done by the Redux state, which will show in the error display
   };
 
   return (
@@ -105,6 +113,11 @@ const ProfileSelector: React.FC = () => {
         <Dialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)}>
           <DialogTitle>Create New Profile</DialogTitle>
           <DialogContent>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             <TextField
               autoFocus
               margin="dense"
@@ -118,6 +131,10 @@ const ProfileSelector: React.FC = () => {
                   handleCreateProfile();
                 }
               }}
+              inputProps={{
+                maxLength: 100
+              }}
+              helperText={`${newProfileName.length}/100 characters`}
             />
           </DialogContent>
           <DialogActions>

@@ -312,7 +312,7 @@ class AuthService {
   async createProfile(name) {
     try {
       const currentBaseUrl = await this.getCurrentBaseUrl();
-      const response = await this.authenticatedRequest(`${currentBaseUrl}/profile`, {
+      const response = await this.authenticatedRequest(`${currentBaseUrl}/profiles`, {
         method: 'POST',
         body: JSON.stringify({
           display_name: name

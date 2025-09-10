@@ -80,6 +80,16 @@ class IdentityServiceAPIClient {
     const response = await this.client.post('/profiles', { display_name });
     return externalProfileToInternalProfile(response.data.profile);
   }
+
+  async updateProfile(profile_id: string, display_name: string): Promise<Profile> {
+    const response = await this.client.put(`/profiles/${profile_id}`, { display_name });
+    return externalProfileToInternalProfile(response.data.profile);
+  }
+
+  async deleteProfile(profile_id: string): Promise<boolean> {
+    await this.client.delete(`/profiles/${profile_id}`);
+    return true;
+  }
 }
 
 // Create and export a singleton instance
@@ -144,4 +154,44 @@ export async function createProfile(display_name: string, token?: string) {
   }
   
   return await identityServiceAPIClient.createProfile(display_name);
+}
+
+export async function updateProfile(profile_id: string, display_name: string, token?: string) {
+  // If a specific token is provided, temporarily set it for this request
+  if (token) {
+    const originalToken = refreshTokenService.getAccessToken();
+    localStorage.setItem('auth_token', token);
+    try {
+      return await identityServiceAPIClient.updateProfile(profile_id, display_name);
+    } finally {
+      // Restore original token
+      if (originalToken) {
+        localStorage.setItem('auth_token', originalToken);
+      } else {
+        localStorage.removeItem('auth_token');
+      }
+    }
+  }
+  
+  return await identityServiceAPIClient.updateProfile(profile_id, display_name);
+}
+
+export async function deleteProfile(profile_id: string, token?: string) {
+  // If a specific token is provided, temporarily set it for this request
+  if (token) {
+    const originalToken = refreshTokenService.getAccessToken();
+    localStorage.setItem('auth_token', token);
+    try {
+      return await identityServiceAPIClient.deleteProfile(profile_id);
+    } finally {
+      // Restore original token
+      if (originalToken) {
+        localStorage.setItem('auth_token', originalToken);
+      } else {
+        localStorage.removeItem('auth_token');
+      }
+    }
+  }
+  
+  return await identityServiceAPIClient.deleteProfile(profile_id);
 }

@@ -21,7 +21,11 @@ def get_project_root() -> Path:
     """Get the project root directory."""
     if getattr(sys, "frozen", False):
         # PyInstaller mode - version.yaml is in the _internal directory
-        return Path(sys._MEIPASS)  # pylint: disable=protected-access
+        # _MEIPASS is a PyInstaller-specific attribute that's only available at runtime
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass is None:
+            raise RuntimeError("PyInstaller _MEIPASS not available")
+        return Path(meipass)
     # Development mode
     return Path(__file__).parent.parent.parent.parent
 
