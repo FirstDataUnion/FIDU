@@ -26,10 +26,37 @@ export const createProfile = createAsyncThunk(
     { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token') || '';
-      const response = await authApi.createProfile(token, display_name);
+      const response = await authApi.createProfile(display_name, token);
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to create profile');
+    }
+  }
+);
+
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async ({ profile_id, display_name }: { profile_id: string; display_name: string },
+    { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      const response = await authApi.updateProfile(profile_id, display_name, token);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to update profile');
+    }
+  }
+);
+
+export const deleteProfile = createAsyncThunk(
+  'auth/deleteProfile',
+  async (profile_id: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      const response = await authApi.deleteProfile(profile_id, token);
+      return { profile_id, success: response };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to delete profile');
     }
   }
 );
@@ -160,6 +187,48 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(createProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      
+      // Update Profile
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const index = state.profiles.findIndex(p => p.id === action.payload.id);
+        if (index !== -1) {
+          state.profiles[index] = action.payload;
+        }
+        state.error = null;
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      
+      // Delete Profile
+      .addCase(deleteProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.profiles = state.profiles.filter(p => p.id !== action.payload.profile_id);
+        // If the deleted profile was the current profile, select the first available profile
+        if (state.currentProfile?.id === action.payload.profile_id) {
+          state.currentProfile = state.profiles.length > 0 ? state.profiles[0] : null;
+          if (state.currentProfile) {
+            localStorage.setItem('current_profile', JSON.stringify(state.currentProfile));
+          } else {
+            localStorage.removeItem('current_profile');
+          }
+        }
+        state.error = null;
+      })
+      .addCase(deleteProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })

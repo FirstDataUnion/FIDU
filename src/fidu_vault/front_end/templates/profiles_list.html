@@ -71,10 +71,17 @@
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <button class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-sm font-medium">
+                            <button class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-sm font-medium"
+                                    hx-get="/profiles/{{ profile.id }}/edit"
+                                    hx-target="#profiles-list"
+                                    hx-swap="innerHTML">
                                 Edit
                             </button>
-                            <button class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 text-sm font-medium">
+                            <button class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 text-sm font-medium"
+                                    hx-delete="/profiles/{{ profile.id }}/delete"
+                                    hx-target="#profiles-list"
+                                    hx-swap="innerHTML"
+                                    hx-confirm="Are you sure you want to delete this profile?">
                                 Delete
                             </button>
                         </div>

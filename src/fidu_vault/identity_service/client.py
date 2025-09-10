@@ -177,6 +177,149 @@ async def create_profile(
         ) from e
 
 
+async def update_profile(
+    token: str, profile_id: str, display_name: str
+) -> IdentityServiceProfile | None:
+    """Update a profile in the identity service."""
+    identity_service_url = os.getenv(
+        "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
+    )
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{identity_service_url}/profiles/{profile_id}",
+                headers=headers,
+                json={"display_name": display_name},
+            )
+            if response.status_code == 200:
+                try:
+                    response_data = response.json()
+                    if "profile" in response_data:
+                        return IdentityServiceProfile(**response_data["profile"])
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.error("Failed to parse response JSON: %s", str(e))
+                    raise HTTPException(
+                        status_code=500, detail="Invalid response from identity service"
+                    ) from e
+
+                logger.error(
+                    "Error converting identity service response to IdentityServiceProfile: %s",
+                    response.json(),
+                )
+                raise HTTPException(status_code=500, detail="Identity service error")
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="Profile not found")
+            if response.status_code == 409:
+                raise HTTPException(
+                    status_code=409, detail="Profile with that name already exists"
+                )
+
+            # Use response.text instead of response.json() to avoid JSON parsing errors
+            logger.error(
+                "Identity service error: %s code: %s",
+                response.text,
+                response.status_code,
+            )
+            raise HTTPException(status_code=500, detail="Identity service error")
+    except httpx.ConnectError as e:
+        logger.error(
+            "Failed to connect to identity service at %s: %s",
+            identity_service_url,
+            str(e),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service is currently unavailable. Please try again later.",
+        ) from e
+    except httpx.TimeoutException as e:
+        logger.error("Timeout connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service request timed out. Please try again later.",
+        ) from e
+    except httpx.HTTPError as e:
+        logger.error("HTTP error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to communicate with identity service. Please try again later.",
+        ) from e
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is to preserve their status codes
+        raise
+    except Exception as e:
+        logger.error("Unexpected error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while updating the profile.",
+        ) from e
+
+
+async def delete_profile(token: str, profile_id: str) -> bool:
+    """Delete a profile in the identity service."""
+    identity_service_url = os.getenv(
+        "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
+    )
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"{identity_service_url}/profiles/{profile_id}",
+                headers=headers,
+            )
+            if response.status_code == 200:
+                return True
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="Profile not found")
+
+            # Use response.text instead of response.json() to avoid JSON parsing errors
+            logger.error(
+                "Identity service error: %s code: %s",
+                response.text,
+                response.status_code,
+            )
+            raise HTTPException(status_code=500, detail="Identity service error")
+    except httpx.ConnectError as e:
+        logger.error(
+            "Failed to connect to identity service at %s: %s",
+            identity_service_url,
+            str(e),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service is currently unavailable. Please try again later.",
+        ) from e
+    except httpx.TimeoutException as e:
+        logger.error("Timeout connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Identity service request timed out. Please try again later.",
+        ) from e
+    except httpx.HTTPError as e:
+        logger.error("HTTP error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to communicate with identity service. Please try again later.",
+        ) from e
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is to preserve their status codes
+        raise
+    except Exception as e:
+        logger.error("Unexpected error connecting to identity service: %s", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while deleting the profile.",
+        ) from e
+
+
 async def get_profile_from_identity_service(
     token: str, profile_id: str
 ) -> IdentityServiceProfile | None:

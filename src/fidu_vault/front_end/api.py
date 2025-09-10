@@ -20,7 +20,9 @@ from fidu_vault.data_packets.service import DataPacketService
 from fidu_vault.identity_service.auth_client import auth_client
 from fidu_vault.identity_service.client import (
     create_profile,
+    delete_profile,
     get_user_from_identity_service,
+    update_profile,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,6 +137,27 @@ class FrontEndAPI:
             "/profiles/create",
             self.create_profile,
             methods=["POST"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+        self.app.add_api_route(
+            "/profiles/{profile_id}/edit",
+            self.edit_profile,
+            methods=["GET"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+        self.app.add_api_route(
+            "/profiles/{profile_id}/update",
+            self.update_profile,
+            methods=["POST"],
+            response_model=None,
+            response_class=HTMLResponse,
+        )
+        self.app.add_api_route(
+            "/profiles/{profile_id}/delete",
+            self.delete_profile,
+            methods=["DELETE"],
             response_model=None,
             response_class=HTMLResponse,
         )
@@ -583,6 +606,142 @@ class FrontEndAPI:
             # Log unexpected errors but don't crash
             handle_common_errors("create_profile", e)
             return HTMLResponse("Error creating profile.", status_code=500)
+
+    async def edit_profile(
+        self, request: Request, profile_id: str
+    ) -> HTMLResponse | RedirectResponse:
+        """Handle profile edit form (HTMX endpoint)."""
+        try:
+            user = await self._authenticate_user_with_refresh(request)
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
+
+            # Get the profile to edit
+            token = request.cookies.get("auth_token") or ""
+            refresh_token = request.cookies.get("refresh_token")
+
+            # If we have a refresh token, try to get a fresh access token
+            if refresh_token:
+                auth_client.set_tokens(token, refresh_token, 0)
+                if await auth_client.token_manager.refresh_access_token():
+                    token = auth_client.token_manager.get_valid_access_token() or token
+
+            # Get user profiles to find the one to edit
+            user_data = await get_user_from_identity_service(token)
+            if not user_data or not user_data.profiles:
+                return HTMLResponse("Profile not found.", status_code=404)
+
+            profile_to_edit = None
+            for profile in user_data.profiles:
+                if profile.id == profile_id:
+                    profile_to_edit = profile
+                    break
+
+            if not profile_to_edit:
+                return HTMLResponse("Profile not found.", status_code=404)
+
+            # Return edit form using template
+            response = self.templates.TemplateResponse(
+                "profile_edit_form.html",
+                {
+                    "request": request,
+                    "profile": profile_to_edit,
+                    "profile_id": profile_id,
+                },
+            )
+            return HTMLResponse(
+                content=self._decode_body(response.body), status_code=200
+            )
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Edit profile error: %s", e)
+            return HTMLResponse("Error loading profile edit form.", status_code=500)
+
+    async def update_profile(
+        self, request: Request, profile_id: str
+    ) -> HTMLResponse | RedirectResponse:
+        """Handle profile update (HTMX endpoint)."""
+        try:
+            user = await self._authenticate_user_with_refresh(request)
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
+
+            form_data = await request.form()
+            name = str(form_data.get("name", "")).strip()
+
+            if not name:
+                return HTMLResponse("Profile name is required.", status_code=400)
+
+            # Update profile using the current access token
+            token = request.cookies.get("auth_token") or ""
+            refresh_token = request.cookies.get("refresh_token")
+
+            # If we have a refresh token, try to get a fresh access token
+            if refresh_token:
+                auth_client.set_tokens(token, refresh_token, 0)
+                if await auth_client.token_manager.refresh_access_token():
+                    token = auth_client.token_manager.get_valid_access_token() or token
+
+            # Update profile using the identity service
+            try:
+                updated_profile = await update_profile(token, profile_id, name)
+                if updated_profile:
+                    logger.info("Profile updated successfully: %s", profile_id)
+                else:
+                    logger.error("Failed to update profile: %s", profile_id)
+                    return HTMLResponse("Failed to update profile.", status_code=500)
+            except HTTPException as e:
+                logger.error("Profile update error: %s", e.detail)
+                return HTMLResponse(
+                    f"Error updating profile: {e.detail}", status_code=e.status_code
+                )
+
+            # Return updated profiles list
+            return await self.profiles_list(request)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Update profile error: %s", e)
+            return HTMLResponse("Error updating profile.", status_code=500)
+
+    async def delete_profile(
+        self, request: Request, profile_id: str
+    ) -> HTMLResponse | RedirectResponse:
+        """Handle profile deletion (HTMX endpoint)."""
+        try:
+            user = await self._authenticate_user_with_refresh(request)
+            if not user:
+                return RedirectResponse(url="/", status_code=302)
+
+            # Delete profile using the current access token
+            token = request.cookies.get("auth_token") or ""
+            refresh_token = request.cookies.get("refresh_token")
+
+            # If we have a refresh token, try to get a fresh access token
+            if refresh_token:
+                auth_client.set_tokens(token, refresh_token, 0)
+                if await auth_client.token_manager.refresh_access_token():
+                    token = auth_client.token_manager.get_valid_access_token() or token
+
+            # Delete profile using the identity service
+            try:
+                success = await delete_profile(token, profile_id)
+                if success:
+                    logger.info("Profile deleted successfully: %s", profile_id)
+                else:
+                    logger.error("Failed to delete profile: %s", profile_id)
+                    return HTMLResponse("Failed to delete profile.", status_code=500)
+            except HTTPException as e:
+                logger.error("Profile deletion error: %s", e.detail)
+                return HTMLResponse(
+                    f"Error deleting profile: {e.detail}", status_code=e.status_code
+                )
+
+            # Return updated profiles list
+            return await self.profiles_list(request)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Delete profile error: %s", e)
+            return HTMLResponse("Error deleting profile.", status_code=500)
 
     async def api_keys_page(
         self, request: Request

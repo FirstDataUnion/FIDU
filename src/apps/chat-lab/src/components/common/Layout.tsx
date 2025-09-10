@@ -36,6 +36,7 @@ import {
   AccountCircle as AccountIcon,
   Add as AddIcon,
   Check as CheckIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
@@ -229,6 +230,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <MenuIcon />
             </IconButton>
           )}
+          
+          {/* FIDU Vault Dashboard Button */}
+          <Button
+            color="inherit"
+            startIcon={<HomeIcon />}
+            onClick={() => window.open('http://127.0.0.1:4000', '_blank')}
+            sx={{ 
+              mr: 2,
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            Go back to FIDU Vault Dashboard
+          </Button>
+          
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             
           </Typography>
