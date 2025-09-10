@@ -141,6 +141,9 @@ a = Analysis(
     hiddenimports=(macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else (windows_hidden_imports if platform.system() == 'Windows' else default_hidden_imports))) + [
         'fidu_vault.versioning.version',
         'fidu_vault.versioning.version_api',
+        'yaml',
+        'yaml.loader',
+        'yaml.dumper',
     ],
     hookspath=[],
     hooksconfig={},
