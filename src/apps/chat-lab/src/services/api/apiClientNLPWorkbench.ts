@@ -62,7 +62,7 @@ const NLP_WORKBENCH_API_CONFIG = {
           // Try the auth interceptor's error handler first
           try {
             return await authInterceptor.error(error);
-          } catch (authError) {
+          } catch {
             // If auth interceptor doesn't handle it, handle other errors
             if (error.response) {
               throw new ApiError(

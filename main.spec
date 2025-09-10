@@ -67,6 +67,42 @@ elif platform.system() == 'Linux':
         'crypt',
         'spwd',
     ]
+elif platform.system() == 'Windows':
+    # Windows-specific hidden imports
+    windows_hidden_imports = [
+        'uvicorn.logging',
+        'uvicorn.loops',
+        'uvicorn.loops.auto',
+        'uvicorn.protocols',
+        'uvicorn.protocols.http',
+        'uvicorn.protocols.http.auto',
+        'uvicorn.protocols.websockets',
+        'uvicorn.protocols.websockets.auto',
+        'uvicorn.lifespan',
+        'uvicorn.lifespan.on',
+        'fastapi',
+        'fastapi.middleware.cors',
+        'fastapi.staticfiles',
+        'fastapi.templating',
+        'starlette.responses',
+        'starlette.middleware.base',
+        'jinja2',
+        'sqlite3',
+        # Windows-specific imports
+        'win32api',
+        'win32con',
+        'win32gui',
+        'win32process',
+        'win32security',
+        'win32service',
+        'win32serviceutil',
+        'pywintypes',
+        'pythoncom',
+        'msvcrt',
+        'winsound',
+        'winreg',
+        'ctypes.wintypes',
+    ]
 else:
     # Default hidden imports for other platforms
     default_hidden_imports = [
@@ -101,7 +137,7 @@ a = Analysis(
         ('src/data_acquisition/fidu-chat-grabber', 'data_acquisition/fidu-chat-grabber'),
     ],
     clean=True,
-    hiddenimports=macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else default_hidden_imports),
+    hiddenimports=macos_hidden_imports if platform.system() == 'Darwin' else (linux_hidden_imports if platform.system() == 'Linux' else (windows_hidden_imports if platform.system() == 'Windows' else default_hidden_imports)),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -239,3 +275,33 @@ elif platform.system() == 'Linux':
     
     # Register the post-processing function
     coll.post_process = post_process_linux
+
+elif platform.system() == 'Windows':
+    # Add post-processing hook for Windows compatibility
+    def post_process_windows(binaries, datas, dist_dir):
+        """Post-process the build for better Windows compatibility."""
+        import os
+        import stat
+        
+        # Ensure proper permissions on the executable
+        executable = os.path.join(dist_dir, 'FIDU_Vault', 'FIDU_Vault.exe')
+        if os.path.exists(executable):
+            # Set executable permissions
+            os.chmod(executable, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        
+        # Add architecture information to the build
+        if target_arch:
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write(f"Built for: {target_arch}\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write("Target Windows: 10+\n")
+        elif build_universal:
+            arch_file = os.path.join(dist_dir, 'FIDU_Vault', 'ARCHITECTURE.txt')
+            with open(arch_file, 'w') as f:
+                f.write("Built for: Universal (Multiple architectures)\n")
+                f.write(f"Build system: {platform.machine()}\n")
+                f.write("Target Windows: 10+\n")
+    
+    # Register the post-processing function
+    coll.post_process = post_process_windows

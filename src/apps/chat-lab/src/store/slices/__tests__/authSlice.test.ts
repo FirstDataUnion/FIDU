@@ -24,7 +24,9 @@ jest.mock('../../../services/api/refreshTokenService', () => ({
   },
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const mockAuthApi = require('../../../services/api/auth').authApi;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const mockRefreshTokenService = require('../../../services/api/refreshTokenService').refreshTokenService;
 
 // Mock localStorage
@@ -370,7 +372,7 @@ describe('authSlice', () => {
         .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce(JSON.stringify(savedProfile));
       
-      const firstProfile = mockUser.profiles[0];
+      const _firstProfile = mockUser.profiles[0];
       
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
       
@@ -406,7 +408,7 @@ describe('authSlice', () => {
         .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce('invalid-json');
       
-      const firstProfile = mockUser.profiles[0];
+      const _firstProfile = mockUser.profiles[0];
       
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
       

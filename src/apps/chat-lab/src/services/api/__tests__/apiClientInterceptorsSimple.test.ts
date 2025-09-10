@@ -63,7 +63,7 @@ describe('API Client Interceptor Setup', () => {
 
   describe('FiduVaultAPIClient', () => {
     it('should create client and set up interceptors', () => {
-      const client = new FiduVaultAPIClient();
+      const _client = new FiduVaultAPIClient();
       
       // Verify axios.create was called
       expect(mockAxios.create).toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe('API Client Interceptor Setup', () => {
 
   describe('NLPWorkbenchAPIClient', () => {
     it('should create client and set up interceptors', () => {
-      const client = new NLPWorkbenchAPIClient();
+      const _client = new NLPWorkbenchAPIClient();
       
       // Verify axios.create was called
       expect(mockAxios.create).toHaveBeenCalled();

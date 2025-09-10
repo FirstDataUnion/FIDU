@@ -60,7 +60,11 @@ const localStorageMock = {
   length: 0,
   key: jest.fn(),
 };
-global.localStorage = localStorageMock as any;
+
+Object.defineProperty(global, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+});
 
 // Mock sessionStorage
 const sessionStorageMock = {
@@ -71,7 +75,13 @@ const sessionStorageMock = {
   length: 0,
   key: jest.fn(),
 };
-global.sessionStorage = sessionStorageMock as any;
+
+Object.defineProperty(global, 'sessionStorage', {
+  value: sessionStorageMock,
+  writable: true,
+});
+
+// Note: window.location.reload mocking is handled in individual test files that need it
 
 // Suppress console warnings in tests
 const originalWarn = console.warn;

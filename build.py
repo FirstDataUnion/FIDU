@@ -107,6 +107,8 @@ def setup_build_environment():
         setup_macos_build_environment()
     elif system == "Linux":
         setup_linux_build_environment()
+    elif system == "Windows":
+        setup_windows_build_environment()
     else:
         print(f"Building on {system} - using default configuration")
 
@@ -213,6 +215,52 @@ def setup_linux_build_environment():
         print("   - Will create binary that works on multiple architectures")
         print("   - Larger file size but better compatibility")
         print("   - Recommended for distribution")
+
+
+def setup_windows_build_environment():
+    """Set up Windows-specific build environment."""
+    if platform.system() != "Windows":
+        return
+
+    print("\nSetting up Windows build environment...")
+
+    # Check current architecture
+    current_arch = platform.machine()
+    target_arch = os.environ.get("TARGET_ARCH", None)
+    build_universal = os.environ.get("BUILD_UNIVERSAL", "false").lower() == "true"
+
+    print(f"Current system architecture: {current_arch}")
+
+    if target_arch:
+        print(f"Target architecture: {target_arch}")
+        if target_arch != current_arch:
+            print(f"🔄 Cross-compiling from {current_arch} to {target_arch}")
+        else:
+            print(f"✅ Building for current architecture")
+    elif build_universal:
+        print("🌐 Building universal binary (multiple architectures)")
+    else:
+        print(f"✅ Building for current architecture: {current_arch}")
+
+    # Check for cross-compilation requirements
+    if target_arch and target_arch != current_arch:
+        print(f"\n🪟 Cross-compilation Setup:")
+        print(f"   - Target: {target_arch}")
+        print(f"   - Current: {current_arch}")
+        print("   - Ensure Visual Studio Build Tools are installed")
+        print("   - Consider using --universal for better compatibility")
+
+    elif build_universal:
+        print("\n🌐 Universal Binary Setup:")
+        print("   - Will create binary that works on multiple architectures")
+        print("   - Larger file size but better compatibility")
+        print("   - Recommended for distribution")
+
+    # Windows-specific environment setup
+    print("\n🪟 Windows-specific setup:")
+    print("   - Targeting Windows 10+ compatibility")
+    print("   - Using Windows-specific PyInstaller configuration")
+    print("   - Including Windows-specific dependencies")
 
 
 def rename_build_output():
@@ -356,6 +404,61 @@ fi
     script_path.chmod(0o755)
 
 
+def create_windows_launcher_script(script_path):
+    """Create the run_fidu_windows.bat launcher script."""
+    script_content = """@echo off
+setlocal enabledelayedexpansion
+
+REM FIDU Vault Windows Launcher
+REM Simple launcher for end users
+
+REM Get the directory where this script is located
+set SCRIPT_DIR=%~dp0
+set FIDU_EXECUTABLE=%SCRIPT_DIR%FIDU_Vault.exe
+
+REM Check if the executable exists
+if not exist "%FIDU_EXECUTABLE%" (
+    echo Error: FIDU executable not found!
+    echo Please make sure all files are extracted properly.
+    echo Expected location: %FIDU_EXECUTABLE%
+    pause
+    exit /b 1
+)
+
+REM Check if FIDU is already running (simple port check)
+REM Check if port 4000 is in use, which indicates FIDU is running
+netstat -an | findstr ":4000 " >nul 2>&1
+if not errorlevel 1 (
+    echo FIDU is already running!
+    echo You can access it at: http://127.0.0.1:4000
+    echo.
+    pause
+    exit /b 0
+)
+
+echo Starting FIDU Vault...
+echo This will open FIDU in a new command window.
+echo You can access FIDU at: http://127.0.0.1:4000
+echo To stop FIDU, simply close the command window or press Ctrl+C
+echo.
+
+REM Try to run in a new command window
+start "FIDU Vault" cmd /k "cd /d \\"%SCRIPT_DIR%\\" && \\"%FIDU_EXECUTABLE%\\""
+
+REM Wait a moment for the window to open
+timeout /t 2 /nobreak >nul
+
+echo FIDU Vault should now be running in a new window.
+echo If you don't see a new window, check the taskbar or try running manually:
+echo   %FIDU_EXECUTABLE%
+echo.
+pause
+"""
+
+    with open(script_path, "w", encoding="utf-8") as f:
+        f.write(script_content)
+
+
 def include_documentation(build_path):
     """Include documentation and additional files in the build output."""
     if not build_path:
@@ -384,9 +487,14 @@ def include_documentation(build_path):
         print(f"⚠️  Warning: {fidu_chat_grabber_source} not found")
 
     # Create the launcher script
-    launcher_script = build_path / "run_fidu.sh"
-    create_launcher_script(launcher_script)
-    print(f"✅ Created launcher script: {launcher_script}")
+    if platform.system() == "Windows":
+        launcher_script = build_path / "run_fidu_windows.bat"
+        create_windows_launcher_script(launcher_script)
+        print(f"✅ Created Windows launcher script: {launcher_script}")
+    else:
+        launcher_script = build_path / "run_fidu.sh"
+        create_launcher_script(launcher_script)
+        print(f"✅ Created launcher script: {launcher_script}")
 
 
 def main():
@@ -454,6 +562,10 @@ def main():
             # Add Linux-specific flags
             pyinstaller_cmd += " --clean --noconfirm"
             print("Using Linux-optimized PyInstaller configuration")
+        elif platform.system() == "Windows":
+            # Add Windows-specific flags
+            pyinstaller_cmd += " --clean --noconfirm"
+            print("Using Windows-optimized PyInstaller configuration")
 
         run_command(pyinstaller_cmd)
         print("✓ PyInstaller build completed successfully")
@@ -493,6 +605,12 @@ def main():
                 )
                 print("- Double-click 'run_fidu.sh' or run: ./run_fidu.sh")
                 print("- Test on target Linux distributions before distribution")
+            elif platform.system() == "Windows":
+                print("\nWindows Build Notes:")
+                print("- The launcher script 'run_fidu_windows.bat' is included for easy startup")
+                print("- Double-click 'run_fidu_windows.bat' or run: run_fidu_windows.bat")
+                print("- Test on target Windows versions before distribution")
+                print("- Consider creating an installer for distribution")
         else:
             print("Warning: Expected output directory not found")
 
