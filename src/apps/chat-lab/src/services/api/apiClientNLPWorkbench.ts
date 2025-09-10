@@ -7,7 +7,7 @@ import { apiKeyService, type SupportedProvider } from './apiKeyService';
 
 // NLP Workbench API Configuration
 const NLP_WORKBENCH_API_CONFIG = {
-    timeout: 30000, // Longer timeout for NLP processing
+    timeout: 90000, // 90 seconds timeout for NLP processing
     headers: {
       'Content-Type': 'application/json',
     },
@@ -263,7 +263,7 @@ const NLP_WORKBENCH_API_CONFIG = {
     async executeAgentAndWait(
       input: string, 
       agentCallback: (input: string) => Promise<NLPWorkbenchExecuteResponse>,
-      maxWaitTime: number = 60000, // 60 seconds default
+      maxWaitTime: number = 90000, // 90 seconds default
       pollInterval: number = 2000  // 2 seconds default
     ): Promise<NLPWorkbenchExecutionStatus> {
       // Start the execution

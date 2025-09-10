@@ -96,8 +96,8 @@ export const buildCompletePrompt = (
   return agentPrompt;
 };
 
-const DEFAULT_WAIT_TIME_MS = 10000;
-const DEFAULT_POLL_INTERVAL_MS = 1500;
+const DEFAULT_WAIT_TIME_MS = 90000; // 90 seconds to match server timeout
+const DEFAULT_POLL_INTERVAL_MS = 2000; // 2 seconds polling interval
 
 // Factory function to create prompts API
 export const createPromptsApi = () => {
