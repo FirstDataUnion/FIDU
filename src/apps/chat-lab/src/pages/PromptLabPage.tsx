@@ -687,10 +687,10 @@ export default function PromptLabPage() {
   const [toastMessage, setToastMessage] = useState('');
 
   // Show toast message
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     setToastMessage(message);
     setToastOpen(true);
-  };
+  }, []);
 
   // Function to add messages to context
   const addMessagesToContext = useCallback(async (newMessages: Message[]) => {
@@ -729,7 +729,7 @@ export default function PromptLabPage() {
       console.error('Error adding messages to context:', error);
       showToast('Failed to add messages to context');
     }
-  }, [autoAddToContext, selectedContext, currentProfile, selectedModel, addedMessageIds, dispatch]);
+  }, [autoAddToContext, selectedContext, currentProfile, selectedModel, addedMessageIds, dispatch, showToast]);
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -1078,7 +1078,7 @@ export default function PromptLabPage() {
         showToast('Conversation rewound successfully!');
       }
     }
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, showToast]);
 
   // Handle retry for failed messages
   const handleRetryMessage = useCallback(async (errorMessageIndex: number) => {
@@ -1175,7 +1175,7 @@ export default function PromptLabPage() {
       setIsLoading(false);
       setCurrentMessage(''); // Clear the input after retry
     }
-  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, autoAddToContext, addMessagesToContext, saveConversation]);
+  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, autoAddToContext, addMessagesToContext, saveConversation, showToast]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {

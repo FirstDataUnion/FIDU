@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { ApiError, type ApiResponse, type ErrorResponse } from './apiClients';
 import { refreshTokenService } from './refreshTokenService';
 
@@ -16,10 +16,6 @@ const FIDU_VAULT_API_CONFIG = {
 export class FiduVaultAPIClient {
   private client: AxiosInstance;
 
-  // Helper function to clear all auth tokens consistently
-  private clearAllAuthTokens() {
-    refreshTokenService.clearAllAuthTokens();
-  }
 
   constructor(config: AxiosRequestConfig = {}) {
     this.client = axios.create({
@@ -49,7 +45,7 @@ export class FiduVaultAPIClient {
         // Try the auth interceptor's error handler first
         try {
           return await authInterceptor.error(error);
-        } catch (authError) {
+        } catch {
           // If auth interceptor doesn't handle it, handle other errors
           if (error.response) {
             // The request was made and the server responded with a status code

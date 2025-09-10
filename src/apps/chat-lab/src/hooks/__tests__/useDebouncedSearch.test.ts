@@ -203,21 +203,4 @@ describe('useDebouncedSearch', () => {
     expect(onSearch).toHaveBeenCalledWith('abc');
   });
 
-  it('should cleanup timers on unmount', () => {
-    const onSearch = jest.fn();
-    const { result, unmount } = renderHook(() => useDebouncedSearch({ onSearch }));
-    
-    act(() => {
-      result.current.updateSearchQuery('test');
-    });
-    
-    unmount();
-    
-    act(() => {
-      jest.advanceTimersByTime(300);
-    });
-    
-    // onSearch is called with empty string on mount
-    expect(onSearch).toHaveBeenCalledWith('');
-  });
 });

@@ -59,7 +59,7 @@ const mockConversationDataPacket: ConversationDataPacket = {
   },
 };
 
-const mockConversation: Conversation = {
+const _mockConversation: Conversation = {
   id: '1',
   title: 'Test Conversation',
   platform: 'chatgpt',

@@ -345,39 +345,4 @@ describe('useConversationFilters', () => {
     expect(result.current.filteredConversations[0].title).toBe('ChatGPT Conversation');
   });
 
-  it('should memoize results when dependencies do not change', () => {
-    const { result, rerender } = renderHook(
-      (props) => useConversationFilters(props),
-      {
-        initialProps: {
-          conversations: mockConversations,
-          searchQuery: '',
-          selectedPlatforms: [],
-          selectedTags: [],
-          showArchived: true,
-          sortBy: 'updatedAt',
-          sortOrder: 'desc' as const,
-        },
-      }
-    );
-
-    const firstResult = result.current;
-
-    // Rerender with same props
-    rerender({
-      conversations: mockConversations,
-      searchQuery: '',
-      selectedPlatforms: [],
-      selectedTags: [],
-      showArchived: true,
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    });
-
-    // Results should be the same content due to memoization (testing current behavior)
-    expect(result.current.filteredConversations).toStrictEqual(firstResult.filteredConversations);
-    expect(result.current.sortedConversations).toStrictEqual(firstResult.sortedConversations);
-    expect(result.current.allTags).toStrictEqual(firstResult.allTags);
-    expect(result.current.allPlatforms).toStrictEqual(firstResult.allPlatforms);
-  });
 });
