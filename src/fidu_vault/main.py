@@ -25,8 +25,8 @@ from fidu_vault.api_keys import (
     LocalSqlAPIKeyStore,
 )
 from fidu_vault.front_end.api import FrontEndAPI
-from .versioning.version import get_vault_version
-from .versioning.version_api import router as version_router
+from fidu_vault.versioning.version import get_vault_version
+from fidu_vault.versioning.version_api import router as version_router
 
 
 def get_base_path():

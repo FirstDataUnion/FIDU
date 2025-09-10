@@ -290,6 +290,11 @@ def rename_build_output():
         arch_string = arch
         print(f"🏗️ Using current architecture: {arch}")
 
+    # Add timestamp to make builds unique
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # Find the PyInstaller output directory
     dist_dir = Path("dist")
     if not dist_dir.exists():
@@ -303,7 +308,7 @@ def rename_build_output():
         return
 
     fidu_dir = fidu_dirs[0]
-    new_name = f"FIDU_Vault_v{version}_{system_name}_{arch_string}"
+    new_name = f"FIDU_Vault_v{version}_{system_name}_{arch_string}_{timestamp}"
     new_path = dist_dir / new_name
 
     print(f"Renaming build output...")
@@ -315,7 +320,7 @@ def rename_build_output():
         print(f"✅ Directory already named correctly: {new_name}")
         new_path = fidu_dir
     else:
-        # Remove existing directory if it exists
+        # Remove existing directory if it exists (shouldn't happen with timestamp)
         if new_path.exists():
             shutil.rmtree(new_path)
 
