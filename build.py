@@ -607,8 +607,12 @@ def main():
                 print("- Test on target Linux distributions before distribution")
             elif platform.system() == "Windows":
                 print("\nWindows Build Notes:")
-                print("- The launcher script 'run_fidu_windows.bat' is included for easy startup")
-                print("- Double-click 'run_fidu_windows.bat' or run: run_fidu_windows.bat")
+                print(
+                    "- The launcher script 'run_fidu_windows.bat' is included for easy startup"
+                )
+                print(
+                    "- Double-click 'run_fidu_windows.bat' or run: run_fidu_windows.bat"
+                )
                 print("- Test on target Windows versions before distribution")
                 print("- Consider creating an installer for distribution")
         else:
