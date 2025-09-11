@@ -46,7 +46,9 @@ def run_command(command, cwd=None, check=True, env=None):
 
         # Ensure we're using the right Python version
         print(f"Building on macOS {platform.mac_ver()[0]}")
-        print(f"Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+")
+        print(
+            f"Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+"
+        )
 
     result = subprocess.run(
         command, shell=True, cwd=cwd, capture_output=True, text=True, env=env
@@ -506,16 +508,20 @@ def include_documentation(build_path):
             os.chmod(launcher_script, 0o755)
             print(f"✅ Created macOS launcher script: {launcher_script}")
         else:
-            print(f"⚠️  Warning: {macos_launcher_source} not found, creating basic launcher")
+            print(
+                f"⚠️  Warning: {macos_launcher_source} not found, creating basic launcher"
+            )
             create_launcher_script(launcher_script)
             print(f"✅ Created basic launcher script: {launcher_script}")
-        
+
         # Copy macOS-specific documentation
         macos_troubleshooting_source = Path("docs/MACOS_TROUBLESHOOTING.md")
         if macos_troubleshooting_source.exists():
             macos_troubleshooting_dest = build_path / "MACOS_TROUBLESHOOTING.md"
             shutil.copy2(macos_troubleshooting_source, macos_troubleshooting_dest)
-            print(f"✅ Copied macOS troubleshooting guide: {macos_troubleshooting_dest}")
+            print(
+                f"✅ Copied macOS troubleshooting guide: {macos_troubleshooting_dest}"
+            )
         else:
             print(f"⚠️  Warning: {macos_troubleshooting_source} not found")
     else:
@@ -620,7 +626,9 @@ def main():
             # Platform-specific post-build instructions
             if platform.system() == "Darwin":
                 print("\nmacOS Build Notes:")
-                print("- 🚀 RECOMMENDED: Use the launcher script: ./launch_fidu_vault.sh")
+                print(
+                    "- 🚀 RECOMMENDED: Use the launcher script: ./launch_fidu_vault.sh"
+                )
                 print("- If you encounter 'damaged' errors on newer macOS versions:")
                 print("  1. Run: ./launch_fidu_vault.sh (automatically fixes issues)")
                 print("  2. Or right-click the app and select 'Open'")
