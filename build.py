@@ -37,7 +37,7 @@ def run_command(command, cwd=None, check=True, env=None):
         # macOS-specific environment variables for better compatibility
         env.update(
             {
-                "MACOSX_DEPLOYMENT_TARGET": "10.15",  # Target Catalina as minimum
+                "MACOSX_DEPLOYMENT_TARGET": "11.0",  # Target Big Sur as minimum for Python 3.13+
                 "PYTHON_CONFIGURE_OPTS": "--enable-framework",
                 "LDFLAGS": "-Wl,-rpath,@executable_path/../Frameworks",
                 "CFLAGS": "-I/usr/local/include",
@@ -46,7 +46,7 @@ def run_command(command, cwd=None, check=True, env=None):
 
         # Ensure we're using the right Python version
         print(f"Building on macOS {platform.mac_ver()[0]}")
-        print(f"Targeting minimum macOS version: 10.15 (Catalina)")
+        print(f"Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+")
 
     result = subprocess.run(
         command, shell=True, cwd=cwd, capture_output=True, text=True, env=env
@@ -496,6 +496,28 @@ def include_documentation(build_path):
         launcher_script = build_path / "run_fidu_windows.bat"
         create_windows_launcher_script(launcher_script)
         print(f"✅ Created Windows launcher script: {launcher_script}")
+    elif platform.system() == "Darwin":
+        # macOS-specific launcher script
+        launcher_script = build_path / "launch_fidu_vault.sh"
+        macos_launcher_source = Path("scripts/macos_launcher.sh")
+        if macos_launcher_source.exists():
+            shutil.copy2(macos_launcher_source, launcher_script)
+            # Make it executable
+            os.chmod(launcher_script, 0o755)
+            print(f"✅ Created macOS launcher script: {launcher_script}")
+        else:
+            print(f"⚠️  Warning: {macos_launcher_source} not found, creating basic launcher")
+            create_launcher_script(launcher_script)
+            print(f"✅ Created basic launcher script: {launcher_script}")
+        
+        # Copy macOS-specific documentation
+        macos_troubleshooting_source = Path("docs/MACOS_TROUBLESHOOTING.md")
+        if macos_troubleshooting_source.exists():
+            macos_troubleshooting_dest = build_path / "MACOS_TROUBLESHOOTING.md"
+            shutil.copy2(macos_troubleshooting_source, macos_troubleshooting_dest)
+            print(f"✅ Copied macOS troubleshooting guide: {macos_troubleshooting_dest}")
+        else:
+            print(f"⚠️  Warning: {macos_troubleshooting_source} not found")
     else:
         launcher_script = build_path / "run_fidu.sh"
         create_launcher_script(launcher_script)
@@ -598,9 +620,12 @@ def main():
             # Platform-specific post-build instructions
             if platform.system() == "Darwin":
                 print("\nmacOS Build Notes:")
+                print("- 🚀 RECOMMENDED: Use the launcher script: ./launch_fidu_vault.sh")
                 print("- If you encounter 'damaged' errors on newer macOS versions:")
-                print("  1. Right-click the app and select 'Open'")
-                print("  2. Or run: xattr -cr /path/to/your/app")
+                print("  1. Run: ./launch_fidu_vault.sh (automatically fixes issues)")
+                print("  2. Or right-click the app and select 'Open'")
+                print("  3. Or run: xattr -cr /path/to/your/app")
+                print("- See MACOS_TROUBLESHOOTING.md for detailed troubleshooting")
                 print("- For distribution, consider code signing and notarization")
                 print("- Test on target macOS versions before distribution")
             elif platform.system() == "Linux":
