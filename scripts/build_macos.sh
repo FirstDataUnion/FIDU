@@ -21,12 +21,17 @@ CURRENT_ARCH=$(uname -m)
 echo "📱 Building on macOS $MACOS_VERSION ($CURRENT_ARCH)"
 
 # Set environment variables for better compatibility
-export MACOSX_DEPLOYMENT_TARGET="10.15"  # Target Catalina as minimum
+export MACOSX_DEPLOYMENT_TARGET="11.0"  # Target Big Sur as minimum for Python 3.13
 export PYTHON_CONFIGURE_OPTS="--enable-framework"
 export LDFLAGS="-Wl,-rpath,@executable_path/../Frameworks"
 export CFLAGS="-I/usr/local/include"
 
-echo "🎯 Targeting minimum macOS version: 10.15 (Catalina)"
+# Additional environment variables for Python 3.13+ compatibility
+export PYTHON_CONFIGURE_OPTS="--enable-framework --with-openssl=/opt/homebrew/opt/openssl"
+export CPPFLAGS="-I/opt/homebrew/include"
+export LDFLAGS="-L/opt/homebrew/lib -Wl,-rpath,@executable_path/../Frameworks"
+
+echo "🎯 Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+"
 
 # Check Python version
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
@@ -118,7 +123,7 @@ if [[ "$TARGET_ARCH" == "arm64" ]]; then
     fi
     
     # Verify we can target ARM64
-    if ! clang -target arm64-apple-macos10.15 -E - < /dev/null &> /dev/null; then
+    if ! clang -target arm64-apple-macos11.0 -E - < /dev/null &> /dev/null; then
         echo "❌ ARM64 cross-compilation not supported. Please update Xcode Command Line Tools."
         exit 1
     fi
@@ -153,6 +158,64 @@ python3 build.py
 echo ""
 echo "✅ Build completed!"
 
+# Post-build processing for better compatibility
+echo ""
+echo "🔧 Post-processing for macOS compatibility..."
+
+# Find the built app
+APP_PATH=""
+if [[ -d "dist/FIDU_Vault" ]]; then
+    APP_PATH="dist/FIDU_Vault"
+elif [[ -d "build/FIDU_Vault" ]]; then
+    APP_PATH="build/FIDU_Vault"
+else
+    echo "⚠️  Could not find built app directory"
+fi
+
+if [[ -n "$APP_PATH" ]]; then
+    echo "📱 Processing app at: $APP_PATH"
+    
+    # Remove quarantine attributes to prevent "damaged" errors
+    echo "🧹 Removing quarantine attributes..."
+    xattr -cr "$APP_PATH" 2>/dev/null || echo "   (No quarantine attributes found)"
+    
+    # Set proper permissions on the Python framework
+    PYTHON_FRAMEWORK="$APP_PATH/Python"
+    if [[ -d "$PYTHON_FRAMEWORK" ]]; then
+        echo "🔧 Fixing Python framework permissions..."
+        chmod -R 755 "$PYTHON_FRAMEWORK" 2>/dev/null || true
+        
+        # Fix any broken symlinks in the Python framework
+        find "$PYTHON_FRAMEWORK" -type l -exec sh -c 'for link; do [ -e "$link" ] || rm "$link"; done' _ {} + 2>/dev/null || true
+    fi
+    
+    # Create a simple launcher script for better compatibility
+    LAUNCHER_SCRIPT="$APP_PATH/launch_fidu_vault.sh"
+    cat > "$LAUNCHER_SCRIPT" << 'EOF'
+#!/bin/bash
+# FIDU Vault Launcher Script
+# This script helps bypass macOS security restrictions
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the app directory
+cd "$SCRIPT_DIR"
+
+# Remove quarantine attributes if they exist
+xattr -cr . 2>/dev/null || true
+
+# Launch the main executable
+exec ./FIDU_Vault "$@"
+EOF
+    chmod +x "$LAUNCHER_SCRIPT"
+    echo "📜 Created launcher script: launch_fidu_vault.sh"
+    
+    echo "✅ Post-processing completed!"
+else
+    echo "⚠️  Skipping post-processing - app directory not found"
+fi
+
 # Post-build macOS-specific instructions
 echo ""
 echo "📋 macOS Post-Build Instructions:"
@@ -174,8 +237,10 @@ fi
 
 echo ""
 echo "🔧 If you encounter 'damaged' errors on newer macOS versions:"
-echo "   1. Right-click the app and select 'Open' (bypasses Gatekeeper)"
-echo "   2. Or run: xattr -cr /path/to/your/app (removes quarantine attributes)"
+echo "   1. 🚀 RECOMMENDED: Run ./launch_fidu_vault.sh (automatically fixes issues)"
+echo "   2. Right-click the app and select 'Open' (bypasses Gatekeeper)"
+echo "   3. Or run: xattr -cr /path/to/your/app (removes quarantine attributes)"
+echo "   4. See MACOS_TROUBLESHOOTING.md for detailed troubleshooting"
 echo ""
 echo "📱 For distribution to other macOS versions:"
 echo "   - Test on target macOS versions before distribution"

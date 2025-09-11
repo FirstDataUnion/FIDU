@@ -10,12 +10,15 @@ This guide addresses common macOS compatibility issues when building and distrib
 - App fails to launch on newer macOS versions
 - Error message about damaged Python.framework
 - App appears to be corrupted
+- Error: `code signature in <UUID> not valid for use in process: library load disallowed by system policy`
 
 **Causes:**
 - **macOS Version Mismatch**: Building on older macOS (12.x) for newer macOS (13.x, 14.x)
 - **Code Signing Issues**: Missing or invalid code signatures
 - **Gatekeeper Restrictions**: macOS security blocking unsigned apps
 - **Architecture Mismatch**: Intel vs Apple Silicon compatibility issues
+- **Python 3.13+ Compatibility**: Newer Python versions have stricter security requirements
+- **Quarantine Attributes**: macOS marks downloaded files as potentially unsafe
 
 **Solutions:**
 
@@ -25,6 +28,20 @@ This guide addresses common macOS compatibility issues when building and distrib
 xattr -cr /path/to/your/app
 
 # Alternative: Right-click app → Open (bypasses Gatekeeper)
+# Or use the launcher script if available:
+./launch_fidu_vault.sh
+```
+
+#### Python 3.13+ Specific Fixes:
+```bash
+# For Python 3.13+ builds, ensure minimum macOS target
+export MACOSX_DEPLOYMENT_TARGET="11.0"  # Big Sur minimum
+
+# Remove all quarantine attributes recursively
+xattr -cr /path/to/your/app
+
+# Fix Python framework permissions
+chmod -R 755 /path/to/your/app/Python
 ```
 
 #### Build-Time Fixes:
@@ -47,7 +64,7 @@ xattr -cr /path/to/your/app
 
 #### Set Minimum macOS Target:
 ```bash
-export MACOSX_DEPLOYMENT_TARGET="10.15"  # Catalina
+export MACOSX_DEPLOYMENT_TARGET="11.0"  # Big Sur minimum for Python 3.13+
 ```
 
 #### Use Universal Binary:
@@ -79,16 +96,22 @@ pip install --upgrade pyinstaller
 - **Python 3.8+**: Recommended for modern macOS
 - **Python 3.9+**: Best for macOS 12+ compatibility
 - **Python 3.10+**: Optimal for macOS 13+ compatibility
+- **Python 3.13+**: Requires macOS 11.0+ (Big Sur), has stricter security requirements
 
 ## Build Configuration
 
 ### Environment Variables
 ```bash
 # Set in your shell or build script
-export MACOSX_DEPLOYMENT_TARGET="10.15"
+export MACOSX_DEPLOYMENT_TARGET="11.0"  # Big Sur minimum for Python 3.13+
 export PYTHON_CONFIGURE_OPTS="--enable-framework"
 export LDFLAGS="-Wl,-rpath,@executable_path/../Frameworks"
 export CFLAGS="-I/usr/local/include"
+
+# For Python 3.13+ compatibility
+export PYTHON_CONFIGURE_OPTS="--enable-framework --with-openssl=/opt/homebrew/opt/openssl"
+export CPPFLAGS="-I/opt/homebrew/include"
+export LDFLAGS="-L/opt/homebrew/lib -Wl,-rpath,@executable_path/../Frameworks"
 ```
 
 ### PyInstaller Spec File
@@ -157,6 +180,42 @@ codesign -dv /path/to/your/app
 
 # Verify code signature
 codesign --verify /path/to/your/app
+```
+
+## Python 3.13+ Specific Issues
+
+### Code Signature Errors
+**Error:** `code signature in <UUID> not valid for use in process: library load disallowed by system policy`
+
+**Solutions:**
+```bash
+# 1. Remove quarantine attributes
+xattr -cr /path/to/your/app
+
+# 2. Fix Python framework permissions
+chmod -R 755 /path/to/your/app/Python
+
+# 3. Use the launcher script (if available)
+./launch_fidu_vault.sh
+
+# 4. Right-click and "Open" instead of double-clicking
+```
+
+### Minimum macOS Version Requirements
+- **Python 3.13+**: Requires macOS 11.0 (Big Sur) or later
+- **Build Target**: Set `MACOSX_DEPLOYMENT_TARGET="11.0"`
+- **Testing**: Test on macOS 11.0+ systems
+
+### Build Environment Setup
+```bash
+# Ensure you have the latest Xcode Command Line Tools
+xcode-select --install
+
+# Update PyInstaller for Python 3.13 compatibility
+pip install --upgrade pyinstaller
+
+# Use the updated build script
+./scripts/build_macos.sh
 ```
 
 ## Common Workarounds
