@@ -372,7 +372,7 @@ describe('authSlice', () => {
         .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce(JSON.stringify(savedProfile));
       
-      const _firstProfile = mockUser.profiles[0];
+      // const _firstProfile = mockUser.profiles[0];
       
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
       
@@ -408,7 +408,7 @@ describe('authSlice', () => {
         .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce('invalid-json');
       
-      const _firstProfile = mockUser.profiles[0];
+      // const _firstProfile = mockUser.profiles[0];
       
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
       

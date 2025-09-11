@@ -11,14 +11,7 @@ export default {
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react-jsx',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        module: 'esnext',
-        target: 'es2020',
-        moduleResolution: 'node',
-      },
+      tsconfig: 'tsconfig.jest.json',
     }],
   },
   testMatch: [

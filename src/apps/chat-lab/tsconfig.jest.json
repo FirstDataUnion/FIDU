@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["jest", "@testing-library/jest-dom", "node"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": false
+  },
+  "include": [
+    "src/**/*",
+    "src/**/__tests__/**/*",
+    "src/**/__mocks__/**/*",
+    "src/**/pageObjects/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

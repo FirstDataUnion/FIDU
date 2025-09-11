@@ -1,7 +1,7 @@
 import { conversationsApi } from '../conversations';
 import { fiduVaultAPIClient } from '../apiClientFIDUVault';
 import { refreshTokenService } from '../refreshTokenService';
-import type { Conversation, Message, ConversationDataPacket } from '../../../types';
+import type { Message, ConversationDataPacket } from '../../../types';
 
 // Mock the API client
 jest.mock('../apiClientFIDUVault', () => ({
@@ -59,20 +59,20 @@ const mockConversationDataPacket: ConversationDataPacket = {
   },
 };
 
-const _mockConversation: Conversation = {
-  id: '1',
-  title: 'Test Conversation',
-  platform: 'chatgpt',
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-  lastMessage: 'Hi there!',
-  messageCount: 2,
-  tags: ['test'],
-  isArchived: false,
-  isFavorite: false,
-  participants: [],
-  status: 'active',
-};
+// const _mockConversation: Conversation = {
+//   id: '1',
+//   title: 'Test Conversation',
+//   platform: 'chatgpt',
+//   createdAt: '2024-01-01T00:00:00Z',
+//   updatedAt: '2024-01-01T00:00:00Z',
+//   lastMessage: 'Hi there!',
+//   messageCount: 2,
+//   tags: ['test'],
+//   isArchived: false,
+//   isFavorite: false,
+//   participants: [],
+//   status: 'active',
+// };
 
 const mockMessages: Message[] = [
   {
