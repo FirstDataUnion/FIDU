@@ -16,8 +16,12 @@ LINUX:
     - **Easy Start**: Double-click the `run_fidu.sh` script to start FIDU in a new terminal window (or right click and choose `Run as program` on some Linux systems)
     - **Manual Start**: Run `./FIDU_Vault` directly from the terminal
 
-MACOS + WINDOWS:
+WINDOWS:
     - Double click the FIDU_Vault application. This should open a terminal window to start  the process, and after a second will open a browser. 
+    
+MacOS: 
+    - Try right clicking the FIDU_Vault executable and click Run. 
+    - If this causes errors, try navigating to the downloaded directory in a terminal, and run the `launch_fidu_vault.sh` script, which will try to bypass the MacOS quarantine issues that sometimes block the app from running. 
 
 
 - From here, you're good to go. Log in with your FIDU account, or register for one if you don't already have one. 

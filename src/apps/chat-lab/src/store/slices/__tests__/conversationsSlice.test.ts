@@ -15,6 +15,7 @@ import conversationsSlice, {
   updateConversationLocally,
 } from '../conversationsSlice';
 import type { Conversation, ConversationsState } from '../../../types';
+import { conversationsApi } from '../../../services/api/conversations';
 
 // Mock the API
 jest.mock('../../../services/api/conversations', () => ({
@@ -31,7 +32,7 @@ jest.mock('../../../services/api/conversations', () => ({
   },
 }));
 
-const mockConversationsApi = require('../../../services/api/conversations').conversationsApi;
+const mockConversationsApi = conversationsApi as jest.Mocked<typeof conversationsApi>;
 
 const mockConversation: Conversation = {
   id: '1',
