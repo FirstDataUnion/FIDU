@@ -11,8 +11,14 @@ Thank you for downloading this FIDU Vault development build! This guide will get
 ### Vault + Chat Lab
 
 - Both these apps are in the "FIDU_Vault" executable file in the same folder as this file. To run:
+
+LINUX:
     - **Easy Start**: Double-click the `run_fidu.sh` script to start FIDU in a new terminal window (or right click and choose `Run as program` on some Linux systems)
     - **Manual Start**: Run `./FIDU_Vault` directly from the terminal
+
+MACOS + WINDOWS:
+    - Double click the FIDU_Vault application. This should open a terminal window to start  the process, and after a second will open a browser. 
+
 
 - From here, you're good to go. Log in with your FIDU account, or register for one if you don't already have one. 
 

@@ -25,6 +25,9 @@ def get_project_root() -> Path:
         meipass = getattr(sys, "_MEIPASS", None)
         if meipass is None:
             raise RuntimeError("PyInstaller _MEIPASS not available")
+        
+        # In PyInstaller, the version.yaml file is in the _internal directory
+        # which is the same as _MEIPASS
         return Path(meipass)
     # Development mode
     return Path(__file__).parent.parent.parent.parent
@@ -32,7 +35,8 @@ def get_project_root() -> Path:
 
 def load_version_info() -> Dict[str, Any]:
     """Load version information from version.yaml."""
-    version_file = get_project_root() / "version.yaml"
+    project_root = get_project_root()
+    version_file = project_root / "version.yaml"
 
     if not version_file.exists():
         raise FileNotFoundError(f"Version file not found: {version_file}")

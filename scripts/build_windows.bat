@@ -35,6 +35,10 @@ set PYTHONPATH=%PYTHONPATH%;%CD%
 set PYTHONUNBUFFERED=1
 set PYTHONIOENCODING=utf-8
 
+REM Add PyInstaller Scripts directory to PATH
+for /f "tokens=*" %%i in ('python -c "import site; print(site.getusersitepackages())"') do set USER_SITE_PACKAGES=%%i
+set PATH=%PATH%;%USER_SITE_PACKAGES%\..\Scripts
+
 echo 🎯 Targeting Windows compatibility
 
 REM Check Python version
@@ -69,41 +73,46 @@ set BUILD_TYPE=standard
 set TARGET_ARCH=
 set BUILD_UNIVERSAL=false
 
-REM Parse command line arguments
-:parse_args
-if "%~1"=="" goto args_done
+REM Parse command line arguments inline
+
+REM Process first argument
+if "%~1"=="--arm64" (
+    set BUILD_TYPE=arm64
+    set TARGET_ARCH=ARM
+    echo 🖥️  Building for ARM64 architecture
+    goto args_done
+)
 if "%~1"=="--universal" (
     set BUILD_TYPE=universal
     set BUILD_UNIVERSAL=true
     echo 🌐 Building universal binary (multiple architectures)
-    shift
-    goto parse_args
+    goto args_done
 )
 if "%~1"=="--x86_64" (
     set BUILD_TYPE=x86_64
     set TARGET_ARCH=x86_64
     echo 💻 Building for x86_64 architecture
-    shift
-    goto parse_args
-)
-if "%~1"=="--arm64" (
-    set BUILD_TYPE=arm64
-    set TARGET_ARCH=arm64
-    echo 🖥️  Building for ARM64 architecture
-    shift
-    goto parse_args
+    goto args_done
 )
 if "%~1"=="--minimal" (
     set BUILD_TYPE=minimal
     echo 📦 Building minimal binary (smaller size, may have compatibility issues)
-    shift
-    goto parse_args
+    goto args_done
 )
-if "%~1"=="--help" goto show_help
-if "%~1"=="-h" goto show_help
-echo ❌ Unknown option: %~1
-echo Use --help for usage information
-exit /b 1
+if "%~1"=="--help" (
+    goto show_help
+)
+if "%~1"=="-h" (
+    goto show_help
+)
+if not "%~1"=="" (
+    echo ❌ Unknown option: %~1
+    echo Use --help for usage information
+    exit /b 1
+)
+
+:args_done
+goto continue_build
 
 :show_help
 echo Usage: %~nx0 [OPTIONS]
@@ -122,10 +131,9 @@ echo   %~nx0 --x86_64           # Build for x86_64 systems
 echo   %~nx0 --arm64            # Build for ARM64 systems
 exit /b 0
 
-:args_done
-
+:continue_build
 REM Set environment variables for cross-compilation
-if "%TARGET_ARCH%"=="arm64" (
+if "%TARGET_ARCH%"=="ARM" (
     echo 🔧 Setting up ARM64 cross-compilation environment...
     set TARGET_ARCH=arm64
     set BUILD_UNIVERSAL=false
@@ -158,7 +166,15 @@ echo.
 echo 🚀 Starting build process...
 
 REM Run the main build script
-cd /d "%~dp0\.."
+set SCRIPT_DIR=%~dp0
+set PROJECT_ROOT=%SCRIPT_DIR:~0,-1%
+set PROJECT_ROOT=%PROJECT_ROOT:~0,-1%
+cd /d "%PROJECT_ROOT%"
+
+REM Export environment variables for the Python build script
+set BUILD_UNIVERSAL=%BUILD_UNIVERSAL%
+set TARGET_ARCH=%TARGET_ARCH%
+
 python build.py
 
 if errorlevel 1 (
