@@ -25,7 +25,7 @@ def get_project_root() -> Path:
         meipass = getattr(sys, "_MEIPASS", None)
         if meipass is None:
             raise RuntimeError("PyInstaller _MEIPASS not available")
-        
+
         # In PyInstaller, the version.yaml file is in the _internal directory
         # which is the same as _MEIPASS
         return Path(meipass)
