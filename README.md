@@ -92,7 +92,19 @@ Once downloaded and extracted, you can start FIDU Vault:
 - Double-click `FIDU_Vault.exe` or `run_fidu_windows.bat` (if available)
 - The browser should automatically open to `http://127.0.0.1:4000`
 
-IMPORTANT: As the app is new and not yet signed, you may get warnings from Windows about running the app. To 
+IMPORTANT: As the app is new and not yet signed, you may get warnings from Windows about running the app. To get round these, do the following:
+
+If prompted, extract all files from the ZIP by clicking "Extract All":
+
+![WindowsRunGuide1](docs/WindowsRunGuide1.png)
+
+Then, when clicking FIDUVault again once it's extracted, you may be presented with a window saying Windows Protected your PC (or similar depending on windows version):
+
+![WindowsRunGuide2](docs/WindowsRunGuide2.png)
+
+Click the "More Info" button to see more details. This should also reveal a "Run Anyway" button. Click this to run FIDU Vault:
+
+![WindowsRunGuide3](docs/WindowsRunGuide3.png)
 
 **macOS:**
 - **Easy Start**: Double-click `run_fidu.sh` script (or right-click and "Run as program")
