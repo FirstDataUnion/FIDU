@@ -547,7 +547,9 @@ class FrontEndAPI:
             handle_common_errors("apps_page", e)
             return RedirectResponse(url="/", status_code=302)
 
-    async def profiles_list(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
+    async def profiles_list(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the profiles list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -570,7 +572,9 @@ class FrontEndAPI:
             handle_common_errors("profiles_list", e)
             return RedirectResponse(url="/", status_code=302)
 
-    async def create_profile(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
+    async def create_profile(
+        self, request: Request
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle profile creation (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)

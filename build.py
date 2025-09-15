@@ -171,7 +171,7 @@ def setup_macos_build_environment():
         print("   - Ensure Xcode Command Line Tools are installed")
         print("   - Verify clang supports ARM64 targeting")
         print("   - Consider using --universal for better compatibility")
-    
+
     elif target_arch == "x86_64" and current_arch == "arm64":
         print("\n💻 x86_64 Cross-compilation Setup:")
         print("   - Ensure Xcode Command Line Tools are installed")
