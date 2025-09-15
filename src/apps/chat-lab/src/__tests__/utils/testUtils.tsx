@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, RenderOptions, screen } from '@testing-library/react';
+import { render, RenderOptions } from '@testing-library/react';
+import { screen } from '@testing-library/dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { configureStore } from '@reduxjs/toolkit';
