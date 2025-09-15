@@ -51,13 +51,13 @@ fi
 MACOS_VERSION=$(sw_vers -productVersion)
 echo "📋 macOS version: $MACOS_VERSION"
 
-# Check if macOS version is compatible (Python 3.13+ requires macOS 11.0+)
+# Check if macOS version is compatible (Python 3.8+ requires macOS 10.15+)
 MAJOR_VERSION=$(echo "$MACOS_VERSION" | cut -d. -f1)
 MINOR_VERSION=$(echo "$MACOS_VERSION" | cut -d. -f2)
 
-if [[ $MAJOR_VERSION -lt 11 ]]; then
+if [[ $MAJOR_VERSION -lt 10 ]] || [[ $MAJOR_VERSION -eq 10 && $MINOR_VERSION -lt 15 ]]; then
     echo "⚠️  Warning: macOS $MACOS_VERSION detected"
-    echo "   FIDU Vault requires macOS 11.0 (Big Sur) or later for Python 3.13+ compatibility"
+    echo "   FIDU Vault requires macOS 10.15 (Catalina) or later for Python 3.8+ compatibility"
     echo "   You may experience compatibility issues"
     echo ""
     read -p "   Continue anyway? (y/N): " -n 1 -r

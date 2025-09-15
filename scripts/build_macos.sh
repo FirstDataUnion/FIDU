@@ -21,17 +21,17 @@ CURRENT_ARCH=$(uname -m)
 echo "📱 Building on macOS $MACOS_VERSION ($CURRENT_ARCH)"
 
 # Set environment variables for better compatibility
-export MACOSX_DEPLOYMENT_TARGET="11.0"  # Target Big Sur as minimum for Python 3.13
+export MACOSX_DEPLOYMENT_TARGET="10.15"  # Target Catalina as minimum for Python 3.8+
 export PYTHON_CONFIGURE_OPTS="--enable-framework"
 export LDFLAGS="-Wl,-rpath,@executable_path/../Frameworks"
 export CFLAGS="-I/usr/local/include"
 
-# Additional environment variables for Python 3.13+ compatibility
+# Additional environment variables for Python 3.8+ compatibility
 export PYTHON_CONFIGURE_OPTS="--enable-framework --with-openssl=/opt/homebrew/opt/openssl"
 export CPPFLAGS="-I/opt/homebrew/include"
 export LDFLAGS="-L/opt/homebrew/lib -Wl,-rpath,@executable_path/../Frameworks"
 
-echo "🎯 Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+"
+echo "🎯 Targeting minimum macOS version: 10.15 (Catalina) - Required for Python 3.8+"
 
 # Check Python version
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
@@ -96,8 +96,8 @@ while [[ $# -gt 0 ]]; do
             echo "Examples:"
             echo "  $0                    # Build for current architecture"
             echo "  $0 --universal        # Build universal binary"
-            echo "  $0 --arm64            # Build for Apple Silicon from Intel Mac"
-            echo "  $0 --x86_64           # Build for Intel Macs"
+            echo "  $0 --arm64            # Build for Apple Silicon (cross-compile from Intel)"
+            echo "  $0 --x86_64           # Build for Intel Macs (cross-compile from Apple Silicon)"
             exit 0
             ;;
         *)
@@ -123,12 +123,39 @@ if [[ "$TARGET_ARCH" == "arm64" ]]; then
     fi
     
     # Verify we can target ARM64
-    if ! clang -target arm64-apple-macos11.0 -E - < /dev/null &> /dev/null; then
+    if ! clang -target arm64-apple-macos10.15 -E - < /dev/null &> /dev/null; then
         echo "❌ ARM64 cross-compilation not supported. Please update Xcode Command Line Tools."
         exit 1
     fi
     
     echo "✅ ARM64 cross-compilation environment ready"
+    
+elif [[ "$TARGET_ARCH" == "x86_64" ]]; then
+    echo "🔧 Setting up x86_64 cross-compilation environment..."
+    export TARGET_ARCH="x86_64"
+    export BUILD_UNIVERSAL="false"
+    
+    # Check if we have the necessary tools for x86_64 cross-compilation
+    if ! command -v clang &> /dev/null; then
+        echo "❌ clang not found. Installing Xcode Command Line Tools..."
+        xcode-select --install
+        echo "Please complete the Xcode installation and run this script again."
+        exit 1
+    fi
+    
+    # Verify we can target x86_64
+    if ! clang -target x86_64-apple-macos10.15 -E - < /dev/null &> /dev/null; then
+        echo "❌ x86_64 cross-compilation not supported. Please update Xcode Command Line Tools."
+        exit 1
+    fi
+    
+    # Set additional environment variables for x86_64 cross-compilation
+    export ARCHFLAGS="-arch x86_64"
+    export CFLAGS="-arch x86_64"
+    export CXXFLAGS="-arch x86_64"
+    export LDFLAGS="-arch x86_64"
+    
+    echo "✅ x86_64 cross-compilation environment ready"
     
 elif [[ "$BUILD_UNIVERSAL" == true ]]; then
     echo "🔧 Setting up universal binary build environment..."
@@ -257,6 +284,10 @@ echo "🎯 Architecture-specific notes:"
 if [[ "$TARGET_ARCH" == "arm64" ]]; then
     echo "   - ARM64 builds may be larger due to additional optimizations"
     echo "   - Performance will be best on Apple Silicon Macs"
+    echo "   - Consider also building universal binary for distribution"
+elif [[ "$TARGET_ARCH" == "x86_64" ]]; then
+    echo "   - x86_64 builds optimized for Intel Macs"
+    echo "   - Will run via Rosetta 2 on Apple Silicon Macs"
     echo "   - Consider also building universal binary for distribution"
 elif [[ "$BUILD_UNIVERSAL" == true ]]; then
     echo "   - Universal binaries are larger but provide best compatibility"

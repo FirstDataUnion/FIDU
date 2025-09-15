@@ -4,7 +4,7 @@ If you're here, you probably want to get stuck into our tools!
 
 Go to https://github.com/FirstDataUnion/FIDU/releases and download the binary for your system. It's a very early release, so expect some teething problems. 
 
-The ZIP will contain instructions for running on your platform. Jump to [Installation](#installation) for more detailed guidance.
+The ZIP will contain instructions for running on your platform. Jump to [Installation](#installation) for more detailed guidance or troubleshooting (ESPECIALLY FOR MACOS USERS).
 
 Keep reading for more about the project and what it all does. 
 
@@ -92,10 +92,16 @@ Once downloaded and extracted, you can start FIDU Vault:
 - Double-click `FIDU_Vault.exe` or `run_fidu_windows.bat` (if available)
 - The browser should automatically open to `http://127.0.0.1:4000`
 
+IMPORTANT: As the app is new and not yet signed, you may get warnings from Windows about running the app. To 
+
 **macOS:**
 - **Easy Start**: Double-click `run_fidu.sh` script (or right-click and "Run as program")
 - **If blocked by macOS**: Try `launch_fidu_vault.sh` script or right-click the executable and select "Open"
 - The browser should automatically open to `http://127.0.0.1:4000`
+
+NOTE: Newer macs can be strict when running unsigned apps (we're working on the signing bit). For now, if you get a warning that the app can't be opened as it can't be verified/trusted, you may go to your Privacy & Security settings page (while the error window is open) and you'll see an option to "Run Anyway". 
+
+![MacSecWorkaround](docs/MacGatekeepWorkaround.png)
 
 **Linux:**
 - **Easy Start**: Double-click `run_fidu.sh` script (or right-click and "Run as program")  

@@ -278,7 +278,7 @@ class FrontEndAPI:
         except (json.JSONDecodeError, TypeError, AttributeError):
             pass
 
-    def _decode_body(self, body: bytes | memoryview) -> str:
+    def _decode_body(self, body: Union[bytes, memoryview]) -> str:
         """Decode a bytes or memoryview object to a string for HTMLResponse."""
         if isinstance(body, memoryview):
             return body.tobytes().decode()
@@ -416,7 +416,7 @@ class FrontEndAPI:
 
     async def data_packets_list(
         self, request: Request
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the data packets list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -478,7 +478,7 @@ class FrontEndAPI:
 
     async def delete_data_packet(
         self, request: Request
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle data packet deletion (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -547,7 +547,7 @@ class FrontEndAPI:
             handle_common_errors("apps_page", e)
             return RedirectResponse(url="/", status_code=302)
 
-    async def profiles_list(self, request: Request) -> HTMLResponse | RedirectResponse:
+    async def profiles_list(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Serve the profiles list (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -570,7 +570,7 @@ class FrontEndAPI:
             handle_common_errors("profiles_list", e)
             return RedirectResponse(url="/", status_code=302)
 
-    async def create_profile(self, request: Request) -> HTMLResponse | RedirectResponse:
+    async def create_profile(self, request: Request) -> Union[HTMLResponse, RedirectResponse]:
         """Handle profile creation (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -609,7 +609,7 @@ class FrontEndAPI:
 
     async def edit_profile(
         self, request: Request, profile_id: str
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle profile edit form (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -659,7 +659,7 @@ class FrontEndAPI:
 
     async def update_profile(
         self, request: Request, profile_id: str
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle profile update (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
@@ -705,7 +705,7 @@ class FrontEndAPI:
 
     async def delete_profile(
         self, request: Request, profile_id: str
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Union[HTMLResponse, RedirectResponse]:
         """Handle profile deletion (HTMX endpoint)."""
         try:
             user = await self._authenticate_user_with_refresh(request)
