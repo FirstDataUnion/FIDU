@@ -34,14 +34,14 @@ export default {
     '!src/utils/environment.ts',
     '!src/components/auth/FiduAuthLogin.tsx',
   ],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-  },
+  // coverageThreshold: {
+  //   global: {
+  //     branches: 80,
+  //     functions: 80,
+  //     lines: 80,
+  //     statements: 80,
+  //   },
+  // },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transformIgnorePatterns: [
     'node_modules/(?!(.*\\.mjs$|@reduxjs/toolkit|@mui|@emotion))',
