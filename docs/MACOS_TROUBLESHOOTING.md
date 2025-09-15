@@ -1,5 +1,9 @@
 # macOS Quick Fix Guide
 
+## App can't be verified/untrusted
+
+If you get an error complaining the app can't be trusted or scanned for malware, you will have to go to your Privacy & Security settings page and find the button to "Run FIDU Anyway". This is a short term fix until we are able to sign our apps. See the Installation page of the README on our GitHub for more details + screenshots. 
+
 ## If FIDU Vault Shows "Damaged" or Won't Launch
 
 There have been reports of newer versions of MacOS complaining about the FIDU app. 
@@ -64,7 +68,7 @@ chmod +x /path/to/your/FIDU_Vault/launch_fidu_vault.sh
 ## System Requirements
 
 - **macOS 11.0 (Big Sur)** or later
-- **Python 3.13+** builds require Big Sur minimum
+- **Python 3.8+** builds require Catalina minimum
 
 ## Still Having Issues?
 

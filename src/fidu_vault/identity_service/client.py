@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from typing import Optional
 
 import httpx
 from fastapi import HTTPException
@@ -16,7 +17,7 @@ IDENTITY_SERVICE_DEFAULT_URL = "https://identity.firstdataunion.org"
 
 
 # pylint: disable=too-many-branches
-async def get_user_from_identity_service(token: str) -> IdentityServiceUser | None:
+async def get_user_from_identity_service(token: str) -> Optional[IdentityServiceUser]:
     """Fetch a user from the identity service by user_id."""
     identity_service_url = os.getenv(
         "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
@@ -99,7 +100,7 @@ async def get_user_from_identity_service(token: str) -> IdentityServiceUser | No
 
 async def create_profile(
     token: str, display_name: str
-) -> IdentityServiceProfile | None:
+) -> Optional[IdentityServiceProfile]:
     """Create a profile in the identity service."""
     identity_service_url = os.getenv(
         "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
@@ -179,7 +180,7 @@ async def create_profile(
 
 async def update_profile(
     token: str, profile_id: str, display_name: str
-) -> IdentityServiceProfile | None:
+) -> Optional[IdentityServiceProfile]:
     """Update a profile in the identity service."""
     identity_service_url = os.getenv(
         "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
@@ -322,7 +323,7 @@ async def delete_profile(token: str, profile_id: str) -> bool:
 
 async def get_profile_from_identity_service(
     token: str, profile_id: str
-) -> IdentityServiceProfile | None:
+) -> Optional[IdentityServiceProfile]:
     """Fetch a profile from the identity service by profile_id."""
     identity_service_url = os.getenv(
         "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL

@@ -7,7 +7,7 @@ import os
 # macOS-specific configurations
 if platform.system() == 'Darwin':
     # Target minimum macOS version for better compatibility
-    target_macos_version = '11.0'  # Big Sur - required for Python 3.13+
+    target_macos_version = '10.15'  # Catalina - required for Python 3.8+
     
     # Check if we're building for a specific architecture
     target_arch = os.environ.get('TARGET_ARCH', None)

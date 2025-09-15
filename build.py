@@ -37,7 +37,7 @@ def run_command(command, cwd=None, check=True, env=None):
         # macOS-specific environment variables for better compatibility
         env.update(
             {
-                "MACOSX_DEPLOYMENT_TARGET": "11.0",  # Target Big Sur as minimum for Python 3.13+
+                "MACOSX_DEPLOYMENT_TARGET": "10.15",  # Target Catalina as minimum for Python 3.8+
                 "PYTHON_CONFIGURE_OPTS": "--enable-framework",
                 "LDFLAGS": "-Wl,-rpath,@executable_path/../Frameworks",
                 "CFLAGS": "-I/usr/local/include",
@@ -47,7 +47,7 @@ def run_command(command, cwd=None, check=True, env=None):
         # Ensure we're using the right Python version
         print(f"Building on macOS {platform.mac_ver()[0]}")
         print(
-            f"Targeting minimum macOS version: 11.0 (Big Sur) - Required for Python 3.13+"
+            f"Targeting minimum macOS version: 10.15 (Catalina) - Required for Python 3.8+"
         )
 
     result = subprocess.run(
@@ -170,6 +170,12 @@ def setup_macos_build_environment():
         print("\n🍎 ARM64 Cross-compilation Setup:")
         print("   - Ensure Xcode Command Line Tools are installed")
         print("   - Verify clang supports ARM64 targeting")
+        print("   - Consider using --universal for better compatibility")
+    
+    elif target_arch == "x86_64" and current_arch == "arm64":
+        print("\n💻 x86_64 Cross-compilation Setup:")
+        print("   - Ensure Xcode Command Line Tools are installed")
+        print("   - Verify clang supports x86_64 targeting")
         print("   - Consider using --universal for better compatibility")
 
     elif build_universal:
