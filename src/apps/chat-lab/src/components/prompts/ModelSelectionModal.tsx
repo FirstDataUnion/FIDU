@@ -70,6 +70,13 @@ const availableModels: Model[] = [
     maxTokens: 200000,
     description: 'Balanced Claude model for general use'
   },
+  {
+    id: 'claude-opus-41',
+    name: 'Claude Opus',
+    provider: 'Anthropic',
+    maxTokens: 200000,
+    description: 'Most capable Claude model with advanced reasoning capabilities'
+  },
   // ChatGPT Models
   {
     id: 'gpt-3.5-turbo',

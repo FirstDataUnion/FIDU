@@ -69,6 +69,7 @@ function ModelSelectionModal({ open, onClose, onSelectModel, selectedModel }: Mo
     // Claude Models
     { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic' },
     { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic' },
+    { id: 'claude-opus-41', name: 'Claude Opus', provider: 'Anthropic' },
     // ChatGPT Models
     { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
     { id: 'gpt-4.0', name: 'GPT-4.0', provider: 'OpenAI' },
@@ -628,6 +629,7 @@ export default function PromptLabPage() {
       // Claude Models
       'claude-haiku': { name: 'Claude Haiku', color: '#C46902', provider: 'Anthropic' },
       'claude-sonnet': { name: 'Claude Sonnet', color: '#C46902', provider: 'Anthropic' },
+      'claude-opus-41': { name: 'Claude Opus', color: '#C46902', provider: 'Anthropic' },
       // ChatGPT Models
       'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', color: '#10a37f', provider: 'OpenAI' },
       'gpt-4.0': { name: 'GPT-4.0', color: '#10a37f', provider: 'OpenAI' },

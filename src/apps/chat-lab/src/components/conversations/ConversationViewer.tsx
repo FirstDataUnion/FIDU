@@ -90,6 +90,7 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
         return 'ChatGPT';
       case 'claude-haiku':
       case 'claude-sonnet':
+      case 'claude-opus-41':
         return 'Claude';
       case 'gpt-4.0':
       case 'gpt-4.0-turbo':

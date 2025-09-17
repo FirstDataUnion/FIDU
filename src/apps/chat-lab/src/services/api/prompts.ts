@@ -142,6 +142,9 @@ export const createPromptsApi = () => {
         case "claude-sonnet":
           agentCallback = nlpWorkbenchAPIClient.executeClaudeSonnetGeneralAgent.bind(nlpWorkbenchAPIClient);
           break;
+        case "claude-opus-41":
+          agentCallback = nlpWorkbenchAPIClient.executeClaudeOpus41GeneralAgent.bind(nlpWorkbenchAPIClient);
+          break;
         // ChatGPT Models
         case "gpt-3.5-turbo":
           agentCallback = nlpWorkbenchAPIClient.executeChatGPT35TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
