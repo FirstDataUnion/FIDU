@@ -164,6 +164,18 @@ const NLP_WORKBENCH_API_CONFIG = {
     }
 
     /**
+     * Execute a Claude Opus 4.1 General chat Agent with input text
+     */
+    async executeClaudeOpus41GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
+      const requestData = await this.enhanceRequestWithAPIKey(input, 'anthropic');
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        `${this.getBaseUrl()}/api/public/agents/agent-1758124239529968489/execute`,
+        requestData
+      );
+      return response.data;
+    }
+
+    /**
      * Execute a chat GPT 3.5 Turbo General chat Agent with input text
      */
     async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {

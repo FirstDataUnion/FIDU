@@ -90,7 +90,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
     description: 'General technical assistance with focus on software development',
     tokenCount: 42,
-    modelCompatibility: ['claude-sonnet', 'gpt-4.0-turbo', 'gemini-pro'],
+    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo', 'gemini-pro'],
     categories: ['Technical', 'General'],
     isDefault: true,
     createdAt: new Date('2024-01-10').toISOString()
@@ -101,7 +101,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
     description: 'Specialized in code review and quality assessment',
     tokenCount: 38,
-    modelCompatibility: ['claude-sonnet', 'gpt-4.0-turbo'],
+    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo'],
     categories: ['Development', 'Code Quality'],
     isDefault: false,
     createdAt: new Date('2024-01-12').toISOString()
@@ -112,7 +112,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are an expert API architect. Help design RESTful APIs, GraphQL schemas, and integration patterns following industry standards and best practices.',
     description: 'Specialized in API design and architecture',
     tokenCount: 35,
-    modelCompatibility: ['claude-sonnet', 'gpt-4.0-turbo', 'gemini-pro'],
+    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo', 'gemini-pro'],
     categories: ['Architecture', 'API Design'],
     isDefault: false,
     createdAt: new Date('2024-01-08').toISOString()
@@ -123,7 +123,7 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are a UI/UX expert with extensive experience in modern design patterns, accessibility, and user research. Provide insights on user experience and interface design.',
     description: 'Focused on user experience and interface design',
     tokenCount: 40,
-    modelCompatibility: ['claude-sonnet', 'gpt-4.0-turbo'],
+    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo'],
     categories: ['Design', 'UI/UX'],
     isDefault: false,
     createdAt: new Date('2024-01-15').toISOString()
@@ -158,6 +158,7 @@ const availableModels = [
   'gemini-pro',
   'claude-haiku',
   'claude-sonnet',
+  'claude-opus-41',
   'gpt-3.5-turbo',
   'gpt-4.0',
   'gpt-4.0-turbo',
