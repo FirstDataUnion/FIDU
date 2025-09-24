@@ -291,29 +291,93 @@ const NLP_WORKBENCH_API_CONFIG = {
       const { executionId } = executeResponse;
   
       const startTime = Date.now();
+      let pollCount = 0;
+      let lastKnownStatus = null;
+      let pollingErrors: any[] = [];
+      
+      console.log('Starting NLP Workbench execution polling:', {
+        executionId,
+        maxWaitTime,
+        pollInterval,
+        startTime: new Date(startTime).toISOString()
+      });
       
       while (Date.now() - startTime < maxWaitTime) {
         try {
             const executionStatus = await this.getExecutionStatus(executionId);
+            pollCount++;
+            lastKnownStatus = executionStatus;
+
+            // Log status updates every 10 polls (20 seconds with 2s interval)
+            if (pollCount % 10 === 0) {
+              console.log(`NLP Workbench polling update (${pollCount} polls, ${Math.round((Date.now() - startTime) / 1000)}s elapsed):`, {
+                executionId,
+                status: executionStatus.status,
+                pollCount,
+                elapsedMs: Date.now() - startTime,
+                remainingMs: maxWaitTime - (Date.now() - startTime)
+              });
+            }
 
             // Check if execution is complete
             if (executionStatus.status === 'completed' || executionStatus.status === 'failed') {
+                const totalTime = Date.now() - startTime;
+                console.log('NLP Workbench execution completed:', {
+                  executionId,
+                  status: executionStatus.status,
+                  totalTimeMs: totalTime,
+                  totalPolls: pollCount,
+                  finalStatus: executionStatus
+                });
                 return executionStatus;
             }
             
             // Wait before next poll
             await new Promise(resolve => setTimeout(resolve, pollInterval));
         } catch (error) {
-            console.error('Error polling execution status:', error);
+            pollCount++;
+            pollingErrors.push({
+              pollCount,
+              error: error,
+              timestamp: Date.now(),
+              elapsedMs: Date.now() - startTime
+            });
+            
+            console.error(`Error polling execution status (poll ${pollCount}):`, {
+              executionId,
+              pollCount,
+              elapsedMs: Date.now() - startTime,
+              error: error
+            });
+            
             // Continue polling even if there's an error
             await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
       }
       
+      // Timeout occurred - gather comprehensive debug info
+      const totalTime = Date.now() - startTime;
+      const debugInfo = {
+        executionId,
+        maxWaitTime,
+        actualWaitTime: totalTime,
+        pollInterval,
+        totalPolls: pollCount,
+        lastKnownStatus,
+        pollingErrors: pollingErrors,
+        timeoutReason: totalTime >= maxWaitTime ? 'Maximum wait time exceeded' : 'Unexpected timeout',
+        startTime: new Date(startTime).toISOString(),
+        endTime: new Date().toISOString(),
+        inputLength: input.length,
+        inputPreview: input.substring(0, 100) + (input.length > 100 ? '...' : '')
+      };
+      
+      console.error('NLP Workbench execution timed out - comprehensive debug info:', debugInfo);
+      
       throw new ApiError(
         408,
         'NLP Workbench execution timed out',
-        { executionId, maxWaitTime }
+        debugInfo
       );
     }
   }
