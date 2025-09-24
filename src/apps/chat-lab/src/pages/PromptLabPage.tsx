@@ -106,9 +106,32 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
     // Handle specific HTTP status codes
     switch (error.status) {
       case 408:
+        // Enhanced timeout error handling with detailed debug info
+        const timeoutData = error.data || {};
+        const actualWaitTime = timeoutData.actualWaitTime || timeoutData.maxWaitTime || 'unknown';
+        const pollCount = timeoutData.totalPolls || 'unknown';
+        const lastStatus = timeoutData.lastKnownStatus?.status || 'unknown';
+        const inputLength = timeoutData.inputLength || 'unknown';
+        
         return {
           userMessage: "The request timed out. The model is taking longer than expected. Please try again with a shorter message.",
-          debugInfo: { ...debugInfo, cause: 'Request timeout' }
+          debugInfo: { 
+            ...debugInfo, 
+            cause: 'Request timeout',
+            timeoutDetails: {
+              executionId: timeoutData.executionId,
+              actualWaitTimeMs: actualWaitTime,
+              maxWaitTimeMs: timeoutData.maxWaitTime,
+              pollCount: pollCount,
+              lastKnownStatus: lastStatus,
+              inputLength: inputLength,
+              inputPreview: timeoutData.inputPreview,
+              pollingErrors: timeoutData.pollingErrors?.length || 0,
+              timeoutReason: timeoutData.timeoutReason,
+              startTime: timeoutData.startTime,
+              endTime: timeoutData.endTime
+            }
+          }
         };
       case 401:
         return {
@@ -151,9 +174,13 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
     
     // Handle specific error patterns
     if (message.includes('timeout') || message.includes('timed out')) {
+      // Try to extract timeout details from the error message
+      const timeoutMatch = message.match(/(\d+)s|(\d+)ms/);
+      const timeoutValue = timeoutMatch ? timeoutMatch[1] || timeoutMatch[2] : 'unknown';
+      
       return {
         userMessage: "The request timed out. Please try again with a shorter message or check your connection.",
-        debugInfo: { ...debugInfo, cause: 'Timeout error' }
+        debugInfo: { ...debugInfo, cause: 'Timeout error', extractedTimeout: timeoutValue }
       };
     }
     
@@ -1183,6 +1210,11 @@ export default function PromptLabPage() {
       const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
       console.log('AI Response Error Debug Info:', debugInfo);
       
+      // Log additional timeout details if this is a timeout error
+      if (error instanceof ApiError && error.status === 408 && error.data) {
+        console.log('Detailed Timeout Analysis:', error.data);
+      }
+      
       setError(errorUserMessage);
       
       // Add error message to chat
@@ -1374,6 +1406,11 @@ export default function PromptLabPage() {
       // Determine user-friendly error message and debug info
       const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
       console.log('AI Retry Error Debug Info:', debugInfo);
+      
+      // Log additional timeout details if this is a timeout error
+      if (error instanceof ApiError && error.status === 408 && error.data) {
+        console.log('Detailed Timeout Analysis (Retry):', error.data);
+      }
       
       setError(errorUserMessage);
       

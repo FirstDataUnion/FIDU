@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -6,7 +6,6 @@ import {
   MenuItem,
   Chip,
   Box,
-  Typography,
   OutlinedInput,
   Checkbox,
   ListItemText
