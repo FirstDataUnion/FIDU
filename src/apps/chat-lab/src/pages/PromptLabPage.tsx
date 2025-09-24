@@ -25,8 +25,6 @@ import {
   Alert,
   IconButton,
   Snackbar,
-  Switch,
-  FormControlLabel,
   Tooltip,
 } from '@mui/material';
 import {
@@ -45,7 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
+import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
@@ -548,8 +546,6 @@ export default function PromptLabPage() {
   const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoAddToContext, setAutoAddToContext] = useState(false);
-  const [addedMessageIds, setAddedMessageIds] = useState<Set<string>>(new Set());
 
   // System Prompts Management
   const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);
@@ -694,44 +690,6 @@ export default function PromptLabPage() {
     setToastOpen(true);
   }, []);
 
-  // Function to add messages to context
-  const addMessagesToContext = useCallback(async (newMessages: Message[]) => {
-    if (!autoAddToContext || !selectedContext || !currentProfile) return;
-
-    try {
-      // Filter out messages that have already been added to prevent duplicates
-      const messagesToAdd = newMessages.filter(msg => !addedMessageIds.has(msg.id));
-      
-      if (messagesToAdd.length === 0) return;
-
-      // Prepare conversation data for the context
-      const conversationData = {
-        title: `Auto-added conversation ${new Date().toLocaleString()}`,
-        messages: messagesToAdd,
-        platform: selectedModel
-      };
-
-      // Add to context using the existing action
-      await dispatch(addConversationToContext({
-        contextId: selectedContext.id,
-        conversationId: `auto-${Date.now()}`, // Generate a unique ID for auto-added conversations
-        conversationData,
-        profileId: currentProfile.id
-      })).unwrap();
-
-      // Mark these messages as added to prevent duplicates
-      setAddedMessageIds(prev => {
-        const newSet = new Set(prev);
-        messagesToAdd.forEach(msg => newSet.add(msg.id));
-        return newSet;
-      });
-
-      showToast(`Added ${messagesToAdd.length} message(s) to context "${selectedContext.title}"`);
-    } catch (error) {
-      console.error('Error adding messages to context:', error);
-      showToast('Failed to add messages to context');
-    }
-  }, [autoAddToContext, selectedContext, currentProfile, selectedModel, addedMessageIds, dispatch, showToast]);
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -944,12 +902,6 @@ export default function PromptLabPage() {
       };
       setMessages(prev => [...prev, aiMessage]);
         
-        // Add messages to context if auto-add is enabled
-        if (autoAddToContext && selectedContext) {
-          setTimeout(() => {
-            addMessagesToContext([userMessage, aiMessage]);
-          }, 200);
-        }
         
         // Save conversation after AI response
         setTimeout(() => {
@@ -974,12 +926,6 @@ export default function PromptLabPage() {
       };
       setMessages(prev => [...prev, errorMessage]);
       
-      // Add messages to context if auto-add is enabled (including error messages)
-      if (autoAddToContext && selectedContext) {
-        setTimeout(() => {
-          addMessagesToContext([userMessage, errorMessage]);
-        }, 200);
-      }
       
       // Save conversation even with error message
       setTimeout(() => {
@@ -996,7 +942,6 @@ export default function PromptLabPage() {
       const messages = await conversationsApi.getMessages(conversation.id);
       setMessages(messages);
       setCurrentConversation(conversation);
-      setAddedMessageIds(new Set()); // Clear the added message IDs when loading a conversation
       
       // Update the conversation ID in messages to match the loaded conversation
       const updatedMessages = messages.map(msg => ({
@@ -1021,7 +966,6 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
-    setAddedMessageIds(new Set()); // Clear the added message IDs
     // Reset to default system prompt
     if (systemPrompts.length > 0) {
       const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
@@ -1130,12 +1074,6 @@ export default function PromptLabPage() {
         
         setMessages(prev => [...prev, aiMessage]);
         
-        // Add messages to context if auto-add is enabled
-        if (autoAddToContext && selectedContext) {
-          setTimeout(() => {
-            addMessagesToContext([lastUserMessage, aiMessage]);
-          }, 200);
-        }
         
         // Save conversation after AI response
         setTimeout(() => {
@@ -1162,12 +1100,6 @@ export default function PromptLabPage() {
       };
       setMessages(prev => [...prev, errorMessage]);
       
-      // Add messages to context if auto-add is enabled (including error messages)
-      if (autoAddToContext && selectedContext) {
-        setTimeout(() => {
-          addMessagesToContext([lastUserMessage, errorMessage]);
-        }, 200);
-      }
       
       // Save conversation even with error message
       setTimeout(() => {
@@ -1177,7 +1109,7 @@ export default function PromptLabPage() {
       setIsLoading(false);
       setCurrentMessage(''); // Clear the input after retry
     }
-  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, autoAddToContext, addMessagesToContext, saveConversation, showToast]);
+  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, saveConversation, showToast]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
@@ -1235,75 +1167,31 @@ export default function PromptLabPage() {
           gap: 2
           }}
         >
-          {/* Auto-Context Toggle - Top Right (when context is selected) */}
-          {selectedContext && (
+          {/* New Conversation Button - Top Right (when context is selected and messages exist) */}
+          {selectedContext && messages.length > 0 && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
               right: 8, 
-              zIndex: 1002,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              alignItems: 'flex-end'
+              zIndex: 1002
             }}>
-              <Tooltip 
-                title="When enabled, all new messages are automatically added to the currently selected context"
-                placement="left"
-                arrow
-              >
-                <Paper sx={{ 
-                  p: 1, 
-                  borderRadius: 2,
+              <Button
+                variant="outlined"
+                onClick={startNewConversation}
+                startIcon={<AddIcon />}
+                size="small"
+                sx={{ 
+                  color: 'primary.dark', 
+                  borderColor: 'primary.dark',
                   backgroundColor: 'background.paper',
-                  border: 1,
-                  borderColor: 'divider',
-                  boxShadow: 1
-                }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={autoAddToContext}
-                        onChange={(e) => setAutoAddToContext(e.target.checked)}
-                        size="small"
-                        color="primary"
-                      />
-                    }
-                    label={
-                      <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                        Auto-add to Context
-                      </Typography>
-                    }
-                    sx={{ 
-                      margin: 0,
-                      '& .MuiFormControlLabel-label': {
-                        marginLeft: 0.25
-                      }
-                    }}
-                  />
-                </Paper>
-              </Tooltip>
-              
-              {/* New Conversation Button (only show when there are messages) */}
-          {messages.length > 0 && (
-                <Button
-                  variant="outlined"
-                  onClick={startNewConversation}
-                  startIcon={<AddIcon />}
-                  size="small"
-                  sx={{ 
-                    color: 'primary.dark', 
-                    borderColor: 'primary.dark',
-                    backgroundColor: 'background.paper',
-                    '&:hover': {
-                      backgroundColor: 'primary.light',
-                      borderColor: 'primary.main'
-                    }
-                  }}
-                >
-                  New Chat
-                </Button>
-              )}
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                New Chat
+              </Button>
             </Box>
           )}
 
