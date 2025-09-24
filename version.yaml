@@ -1,11 +1,11 @@
-version: 0.1.0
-build_number: 6
-release_date: '2025-09-08'
-release_notes: Pre-alpha release with chat-lab functionality
+version: 0.1.1
+build_number: 7
+release_date: '2025-09-24'
+release_notes: Minor Chat lab bug fixes and improvements
 components:
-  vault: 0.1.0
-  chat_lab: 0.1.0
-  chat_grabber: 0.1.0
+  vault: 0.1.1
+  chat_lab: 0.1.1
+  chat_grabber: 0.1.1
 update_check:
   github_repo: FirstDataUnion/FIDU
   check_interval_hours: 100

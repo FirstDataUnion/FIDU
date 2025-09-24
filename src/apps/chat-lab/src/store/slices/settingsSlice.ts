@@ -10,6 +10,7 @@ const defaultSettings: UserSettings = {
   notificationsEnabled: false, // Disabled since notifications are removed
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
+  lastUsedModel: 'gpt-5.0-nano', // Default to GPT-5.0 Nano
   apiKeys: {
     nlpWorkbench: '',
   },
@@ -82,6 +83,10 @@ const settingsSlice = createSlice({
       state.settings.theme = action.payload;
       saveSettingsToStorage(state.settings);
     },
+    updateLastUsedModel: (state, action) => {
+      state.settings.lastUsedModel = action.payload;
+      saveSettingsToStorage(state.settings);
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -124,6 +129,7 @@ const settingsSlice = createSlice({
 export const {
   updateSettingsLocally,
   updateTheme,
+  updateLastUsedModel,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;
