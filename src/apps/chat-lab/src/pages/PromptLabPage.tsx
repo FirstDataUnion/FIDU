@@ -105,7 +105,7 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
     
     // Handle specific HTTP status codes
     switch (error.status) {
-      case 408:
+      case 408: {
         // Enhanced timeout error handling with detailed debug info
         const timeoutData = error.data || {};
         const actualWaitTime = timeoutData.actualWaitTime || timeoutData.maxWaitTime || 'unknown';
@@ -133,6 +133,7 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
             }
           }
         };
+      }
       case 401:
         return {
           userMessage: "Authentication failed. Please refresh the page and try again.",
@@ -825,7 +826,7 @@ export default function PromptLabPage() {
     if (settings.lastUsedModel && settings.lastUsedModel !== selectedModel) {
       setSelectedModel(settings.lastUsedModel);
     }
-  }, [settings.lastUsedModel]);
+  }, [settings.lastUsedModel, selectedModel]);
 
   // System Prompts Management
   const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);

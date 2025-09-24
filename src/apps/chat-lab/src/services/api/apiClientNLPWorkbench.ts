@@ -293,7 +293,7 @@ const NLP_WORKBENCH_API_CONFIG = {
       const startTime = Date.now();
       let pollCount = 0;
       let lastKnownStatus = null;
-      let pollingErrors: any[] = [];
+      const pollingErrors: any[] = [];
       
       console.log('Starting NLP Workbench execution polling:', {
         executionId,
