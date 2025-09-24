@@ -200,11 +200,11 @@ class RefreshTokenService {
         } catch (refreshError) {
           console.error('Token refresh failed, logging out user:', refreshError);
           
-          // Clear all auth tokens and redirect to login
+          // Clear all auth tokens and dispatch logout action
           this.clearAllAuthTokens();
           
-          // Reload the page to trigger auth flow
-          window.location.reload();
+          // Dispatch logout action to update Redux state
+          this.dispatchLogout();
           
           throw new Error('Authentication required. Please log in again.');
         }
@@ -230,6 +230,34 @@ class RefreshTokenService {
     document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
+  }
+
+  /**
+   * Dispatch logout action to update Redux state
+   * This ensures the UI properly reflects the authentication state change
+   */
+  private dispatchLogout(): void {
+    try {
+      // Import the store dynamically to avoid circular dependencies
+      import('../../store').then(({ store }) => {
+        // Import the logout action dynamically
+        import('../../store/slices/authSlice').then(({ logout }) => {
+          store.dispatch(logout());
+        }).catch((error) => {
+          console.warn('Failed to import logout action:', error);
+          // Fallback to page reload if Redux dispatch fails
+          window.location.reload();
+        });
+      }).catch((error) => {
+        console.warn('Failed to import store:', error);
+        // Fallback to page reload if Redux dispatch fails
+        window.location.reload();
+      });
+    } catch (error) {
+      console.warn('Failed to dispatch logout action:', error);
+      // Fallback to page reload if Redux dispatch fails
+      window.location.reload();
+    }
   }
 
   /**
@@ -270,11 +298,11 @@ class RefreshTokenService {
           } catch (refreshError) {
             console.error('Token refresh failed, logging out user:', refreshError);
             
-            // Clear all auth tokens and redirect to login
+            // Clear all auth tokens and dispatch logout action
             this.clearAllAuthTokens();
             
-            // Reload the page to trigger auth flow
-            window.location.reload();
+            // Dispatch logout action to update Redux state
+            this.dispatchLogout();
             
             return Promise.reject(new Error('Authentication required. Please log in again.'));
           }

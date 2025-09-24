@@ -26,7 +26,12 @@ import {
   IconButton,
   Snackbar,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
+import CategoryFilter from '../components/common/CategoryFilter';
 import {
   ContentCopy as ContentCopyIcon,
   Add as AddIcon,
@@ -44,12 +49,170 @@ import {
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
+import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
 import { conversationsApi } from '../services/api/conversations';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import { formatMessageContent } from '../utils/conversationUtils';
 import type { Conversation, Message, Context, SystemPrompt, Embellishment } from '../types';
+import { ApiError } from '../services/api/apiClients';
+
+// Helper function to detect if content from NLP service looks like an error
+const isExternalError = (content: string): boolean => {
+  const lowerContent = content.toLowerCase();
+  
+  // Check for common error indicators
+  const errorPatterns = [
+    'error',
+    'failed',
+    'exception',
+    'invalid',
+    'unauthorized',
+    'forbidden',
+    'not found',
+    'timeout',
+    'connection failed',
+    'service unavailable',
+    'internal server error',
+    'bad request',
+    'access denied',
+    'quota exceeded',
+    'rate limit',
+    'authentication failed'
+  ];
+  
+  return errorPatterns.some(pattern => lowerContent.includes(pattern));
+};
+
+// Helper function to wrap external error messages with context
+const wrapExternalError = (content: string, model: string): string => {
+  return `Error: The model (${model}) reported an issue: ${content}`;
+};
+
+// Helper function to generate user-friendly error messages and debug info
+const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage: string; debugInfo: any } => {
+  const debugInfo: any = {
+    error: error,
+    errorType: error?.constructor?.name,
+    selectedModel,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (error instanceof ApiError) {
+    debugInfo.statusCode = error.status;
+    debugInfo.errorData = error.data;
+    
+    // Handle specific HTTP status codes
+    switch (error.status) {
+      case 408:
+        return {
+          userMessage: "The request timed out. The model is taking longer than expected. Please try again with a shorter message.",
+          debugInfo: { ...debugInfo, cause: 'Request timeout' }
+        };
+      case 401:
+        return {
+          userMessage: "Authentication failed. Please refresh the page and try again.",
+          debugInfo: { ...debugInfo, cause: 'Authentication error' }
+        };
+      case 403:
+        return {
+          userMessage: "Access denied. You don't have permission to use this model. Please contact support.",
+          debugInfo: { ...debugInfo, cause: 'Access denied' }
+        };
+      case 404:
+        return {
+          userMessage: "The requested service is not available. Please try a different model or contact support.",
+          debugInfo: { ...debugInfo, cause: 'Service not found' }
+        };
+      case 429:
+        return {
+          userMessage: "Too many requests. Please wait a moment and try again.",
+          debugInfo: { ...debugInfo, cause: 'Rate limit exceeded' }
+        };
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return {
+          userMessage: "Server error occurred. Please try again in a few moments.",
+          debugInfo: { ...debugInfo, cause: 'Server error' }
+        };
+      default:
+        return {
+          userMessage: `API error (${error.status}). Please try again or contact support if the problem persists.`,
+          debugInfo: { ...debugInfo, cause: 'API error' }
+        };
+    }
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    
+    // Handle specific error patterns
+    if (message.includes('timeout') || message.includes('timed out')) {
+      return {
+        userMessage: "The request timed out. Please try again with a shorter message or check your connection.",
+        debugInfo: { ...debugInfo, cause: 'Timeout error' }
+      };
+    }
+    
+    if (message.includes('network') || message.includes('connection')) {
+      return {
+        userMessage: "Network connection issue. Please check your internet connection and try again.",
+        debugInfo: { ...debugInfo, cause: 'Network error' }
+      };
+    }
+    
+    if (message.includes('authentication') || message.includes('unauthorized')) {
+      return {
+        userMessage: "Authentication failed. Please refresh the page and log in again.",
+        debugInfo: { ...debugInfo, cause: 'Authentication error' }
+      };
+    }
+    
+    if (message.includes('unsupported model')) {
+      return {
+        userMessage: `The model "${selectedModel}" is not supported. Please select a different model.`,
+        debugInfo: { ...debugInfo, cause: 'Unsupported model' }
+      };
+    }
+    
+    if (message.includes('profile id is required')) {
+      return {
+        userMessage: "Profile configuration error. Please refresh the page and try again.",
+        debugInfo: { ...debugInfo, cause: 'Missing profile' }
+      };
+    }
+    
+    if (message.includes('no response received')) {
+      return {
+        userMessage: "No response from server. Please check your connection and try again.",
+        debugInfo: { ...debugInfo, cause: 'No response' }
+      };
+    }
+    
+    // For known error messages, return them as-is
+    if (message.includes('failed to complete') || message.includes('try again shortly')) {
+      return {
+        userMessage: error.message,
+        debugInfo: { ...debugInfo, cause: 'Model execution failed' }
+      };
+    }
+    
+    // Default for other errors
+    return {
+      userMessage: "An unexpected error occurred. Please try again or contact support if the problem persists.",
+      debugInfo: { ...debugInfo, cause: 'Unknown error' }
+    };
+  }
+
+  // Fallback for non-Error objects
+  return {
+    userMessage: "An unexpected error occurred. Please try again.",
+    debugInfo: { ...debugInfo, cause: 'Non-Error object' }
+  };
+};
 
 // Modal Components
 interface ModelSelectionModalProps {
@@ -129,30 +292,59 @@ interface ContextSelectionModalProps {
 
 function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'recent-desc' | 'recent-asc' | 'alpha-asc' | 'alpha-desc'>('recent-desc');
 
-  const filteredContexts = contexts.filter(context => 
-    context.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    context.body.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAndSortedContexts = contexts
+    .filter(context => 
+      context.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      context.body.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortBy.startsWith('alpha')) {
+        const comparison = a.title.localeCompare(b.title);
+        return sortBy === 'alpha-desc' ? -comparison : comparison;
+      } else {
+        // Sort by date (updatedAt takes precedence, fallback to createdAt)
+        const aDate = new Date(a.updatedAt || a.createdAt);
+        const bDate = new Date(b.updatedAt || b.createdAt);
+        const comparison = bDate.getTime() - aDate.getTime();
+        return sortBy === 'recent-asc' ? -comparison : comparison;
+      }
+    });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Select Context</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            fullWidth
-            placeholder="Search contexts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
-            }}
-          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+            <TextField
+              fullWidth
+              placeholder="Search contexts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
+              }}
+            />
+            <FormControl size="small" sx={{ minWidth: 250 }}>
+              <InputLabel>Sort by</InputLabel>
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'recent-desc' | 'recent-asc' | 'alpha-asc' | 'alpha-desc')}
+                label="Sort by"
+              >
+                <MenuItem value="recent-desc">Most Recent (Newest First)</MenuItem>
+                <MenuItem value="recent-asc">Oldest First</MenuItem>
+                <MenuItem value="alpha-asc">Alphabetical (A-Z)</MenuItem>
+                <MenuItem value="alpha-desc">Alphabetical (Z-A)</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
           
           {loading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -164,7 +356,7 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
             <Alert severity="error">{error}</Alert>
           )}
 
-          {!loading && !error && filteredContexts.length === 0 && (
+          {!loading && !error && filteredAndSortedContexts.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography variant="body1" color="text.secondary">
                 {searchQuery ? 'No contexts match your search' : 'No contexts available'}
@@ -172,10 +364,22 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
             </Box>
           )}
 
-          {!loading && !error && filteredContexts.length > 0 && (
+          {!loading && !error && filteredAndSortedContexts.length > 0 && (
             <List>
-              {filteredContexts.map((context) => (
-                <ListItem key={context.id} divider>
+              {filteredAndSortedContexts.map((context) => (
+                <ListItemButton 
+                  key={context.id} 
+                  divider
+                  onClick={() => onSelectContext(context)}
+                  sx={{
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    mb: 1,
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    }
+                  }}
+                >
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
                       {context.title}
@@ -192,16 +396,25 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                         size="small" 
                         variant="outlined"
                       />
+                      <Chip 
+                        label={new Date(context.updatedAt || context.createdAt).toLocaleDateString()} 
+                        size="small" 
+                        variant="outlined"
+                        color="secondary"
+                      />
                     </Box>
                   </Box>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => onSelectContext(context)}
-                    >
-                      Select
-                    </Button>
-                </ListItem>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectContext(context);
+                    }}
+                  >
+                    Select
+                  </Button>
+                </ListItemButton>
               ))}
             </List>
           )}
@@ -242,12 +455,20 @@ interface SystemPromptSelectionModalProps {
 
 function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error, title = 'Add System Prompt' }: SystemPromptSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  const filteredSystemPrompts = systemPrompts.filter(sp => 
-    sp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (sp.description && sp.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (sp.categories && sp.categories.some(cat => cat.toLowerCase().includes(searchQuery.toLowerCase())))
-  );
+  const filteredSystemPrompts = systemPrompts.filter(sp => {
+    // Text search filter
+    const matchesText = sp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sp.description && sp.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (sp.categories && sp.categories.some(cat => cat.toLowerCase().includes(searchQuery.toLowerCase())));
+    
+    // Category filter
+    const matchesCategory = selectedCategories.length === 0 || 
+      (sp.categories && sp.categories.some(cat => selectedCategories.includes(cat)));
+    
+    return matchesText && matchesCategory;
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -266,6 +487,15 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
                 </InputAdornment>
               )
             }}
+          />
+          
+          <CategoryFilter
+            systemPrompts={systemPrompts}
+            selectedCategories={selectedCategories}
+            onCategoriesChange={setSelectedCategories}
+            placeholder="Filter by category"
+            size="small"
+            fullWidth
           />
           
           {loading && (
@@ -289,7 +519,19 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
           {!loading && !error && filteredSystemPrompts.length > 0 && (
             <List>
               {filteredSystemPrompts.map((systemPrompt) => (
-                <ListItem key={systemPrompt.id} divider>
+                <ListItemButton 
+                  key={systemPrompt.id} 
+                  divider
+                  onClick={() => onSelectSystemPrompt(systemPrompt)}
+                  sx={{
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    mb: 1,
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    }
+                  }}
+                >
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography variant="body1" component="div" sx={{ fontWeight: 500 }}>
@@ -323,11 +565,14 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
                   <Button
                     size="small"
                     variant="contained"
-                    onClick={() => onSelectSystemPrompt(systemPrompt)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectSystemPrompt(systemPrompt);
+                    }}
                   >
                     Select
                   </Button>
-                </ListItem>
+                </ListItemButton>
               ))}
             </List>
           )}
@@ -536,16 +781,24 @@ export default function PromptLabPage() {
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { items: allEmbellishments, loading: embellishmentsLoading } = useAppSelector((state) => state.embellishments);
+  const { settings } = useAppSelector((state) => state.settings);
 
   // State for the chat interface
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4.0-turbo');
+  const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'gpt-5.0-nano');
   const [selectedContext, setSelectedContext] = useState<Context | null>(null);
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
   const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
+  useEffect(() => {
+    if (settings.lastUsedModel && settings.lastUsedModel !== selectedModel) {
+      setSelectedModel(settings.lastUsedModel);
+    }
+  }, [settings.lastUsedModel]);
 
   // System Prompts Management
   const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);
@@ -891,34 +1144,52 @@ export default function PromptLabPage() {
       );
 
       if (response.status === 'completed' && response.responses?.content) {
-      const aiMessage: Message = {
-        id: `msg-${Date.now()}-ai`,
-        conversationId: 'current',
-          content: response.responses.content,
-        role: 'assistant',
-        timestamp: new Date().toISOString(),
-          platform: selectedModel, // Store the selected model ID for AI responses
-        isEdited: false
-      };
-      setMessages(prev => [...prev, aiMessage]);
+        // Check if the response content looks like an error message
+        const content = response.responses.content;
+        const isExternalErrorDetected = isExternalError(content);
         
+        const aiMessage: Message = {
+          id: `msg-${Date.now()}-ai`,
+          conversationId: 'current',
+          content: isExternalErrorDetected ? wrapExternalError(content, selectedModel) : content,
+          role: 'assistant',
+          timestamp: new Date().toISOString(),
+          platform: selectedModel, // Store the selected model ID for AI responses
+          isEdited: false
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        
+        // Log external errors for debugging
+        if (isExternalErrorDetected) {
+          console.log('External NLP service error detected:', {
+            model: selectedModel,
+            content: content,
+            fullResponse: response
+          });
+        }
         
         // Save conversation after AI response
         setTimeout(() => {
           saveConversation([...messages, userMessage, aiMessage]);
         }, 100);
       } else {
-        throw new Error('AI response was not successful or content is missing');
+        console.log('AI response failed - Status:', response.status, 'Content present:', !!response.responses?.content, 'Full response:', response);
+        throw new Error('The model failed to complete the call, please try again shortly');
       }
     } catch (error) {
       console.error('Error getting AI response:', error);
-      setError(error instanceof Error ? error.message : 'Failed to get AI response');
+      
+      // Determine user-friendly error message and debug info
+      const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
+      console.log('AI Response Error Debug Info:', debugInfo);
+      
+      setError(errorUserMessage);
       
       // Add error message to chat
       const errorMessage: Message = {
         id: `msg-${Date.now()}-error`,
         conversationId: 'current',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to get AI response'}`,
+        content: `Error: ${errorUserMessage}`,
         role: 'assistant',
         timestamp: new Date().toISOString(),
         platform: selectedModel, // Store the selected model ID for error messages
@@ -1062,10 +1333,14 @@ export default function PromptLabPage() {
       );
 
       if (response.status === 'completed' && response.responses?.content) {
+        // Check if the response content looks like an error message
+        const content = response.responses.content;
+        const isExternalErrorDetected = isExternalError(content);
+        
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
           conversationId: 'current',
-          content: response.responses.content,
+          content: isExternalErrorDetected ? wrapExternalError(content, selectedModel) : content,
           role: 'assistant',
           timestamp: new Date().toISOString(),
           platform: selectedModel,
@@ -1074,6 +1349,14 @@ export default function PromptLabPage() {
         
         setMessages(prev => [...prev, aiMessage]);
         
+        // Log external errors for debugging
+        if (isExternalErrorDetected) {
+          console.log('External NLP service error detected during retry:', {
+            model: selectedModel,
+            content: content,
+            fullResponse: response
+          });
+        }
         
         // Save conversation after AI response
         setTimeout(() => {
@@ -1082,17 +1365,23 @@ export default function PromptLabPage() {
         
         showToast('Message retried successfully!');
       } else {
-        throw new Error('AI response was not successful or content is missing');
+        console.log('AI retry response failed - Status:', response.status, 'Content present:', !!response.responses?.content, 'Full response:', response);
+        throw new Error('The model failed to complete the call, please try again shortly');
       }
     } catch (error) {
       console.error('Error retrying message:', error);
-      setError(error instanceof Error ? error.message : 'Failed to retry message');
+      
+      // Determine user-friendly error message and debug info
+      const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
+      console.log('AI Retry Error Debug Info:', debugInfo);
+      
+      setError(errorUserMessage);
       
       // Add error message to chat
       const errorMessage: Message = {
         id: `msg-${Date.now()}-error`,
         conversationId: 'current',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to retry message'}`,
+        content: `Error: ${errorUserMessage}`,
         role: 'assistant',
         timestamp: new Date().toISOString(),
         platform: selectedModel,
@@ -1403,7 +1692,16 @@ export default function PromptLabPage() {
                     paddingRight: message.role === 'user' ? '44px' : '44px', // Space for rewind/copy buttons
                     paddingBottom: message.role === 'assistant' ? '44px' : '8px' // Extra bottom padding for copy button
                   }}>
-                    <Markdown remarkPlugins={[remarkGfm]}>
+                    <Markdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children, ...props }) => (
+                          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                            {children}
+                          </a>
+                        )
+                      }}
+                    >
                       {formatMessageContent(message.content)}
                     </Markdown>
                   </Box>
@@ -2194,6 +2492,7 @@ export default function PromptLabPage() {
         onClose={() => setModelModalOpen(false)}
         onSelectModel={(model) => {
           setSelectedModel(model);
+          dispatch(updateLastUsedModel(model));
           setModelModalOpen(false);
         }}
         selectedModel={selectedModel}

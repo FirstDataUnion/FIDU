@@ -108,7 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const mainMenuItems = [
-    { text: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
+    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
     { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
   ];
 

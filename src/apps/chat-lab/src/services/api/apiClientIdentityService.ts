@@ -45,7 +45,15 @@ class IdentityServiceAPIClient {
         // Try the auth interceptor's error handler first
         try {
           return await authInterceptor.error(error);
-        } catch {
+        } catch (authError) {
+          // If the auth interceptor throws an authentication-related error,
+          // let it propagate (this will trigger logout)
+          if (authError instanceof Error && 
+              (authError.message.includes('Authentication required') || 
+               authError.message.includes('Please log in again'))) {
+            throw authError;
+          }
+          
           // If auth interceptor doesn't handle it, handle other errors
           if (error.response) {
             throw new ApiError(

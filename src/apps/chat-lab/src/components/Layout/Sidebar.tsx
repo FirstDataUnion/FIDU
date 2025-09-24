@@ -28,7 +28,7 @@ const Sidebar: React.FC = () => {
     { label: 'Conversations', icon: <ConversationsIcon />, path: '/conversations' },
     { label: 'Contexts', icon: <ContextsIcon />, path: '/contexts' },
     { label: 'System Prompts', icon: <SystemPromptsIcon />, path: '/system-prompts' },
-    { label: 'Prompt Lab', icon: <PromptLabIcon />, path: '/prompt-lab' },
+    { label: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
   ];
 
   const secondaryItems = [

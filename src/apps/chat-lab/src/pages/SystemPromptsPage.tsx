@@ -25,6 +25,7 @@ import {
   Tab,
   CircularProgress
 } from '@mui/material';
+import CategoryFilter from '../components/common/CategoryFilter';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -262,6 +263,7 @@ const SystemPromptsPage = React.memo(() => {
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(0); // 0: All, 1: Fabric, 2: Built-in, 3: User
   
   // Dialog states
@@ -327,18 +329,30 @@ const SystemPromptsPage = React.memo(() => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Memoize filtered prompts based on debounced search query and current tab
+  // Memoize filtered prompts based on debounced search query, category filter, and current tab
   const filteredPrompts = useMemo(() => {
-    if (!debouncedSearchQuery) return currentTabPrompts;
+    let filtered = currentTabPrompts;
     
-    const query = debouncedSearchQuery.toLowerCase();
-    return currentTabPrompts.filter(prompt => 
-      prompt.name.toLowerCase().includes(query) ||
-      (prompt.description && prompt.description.toLowerCase().includes(query)) ||
-      prompt.content.toLowerCase().includes(query) ||
-      (prompt.categories && prompt.categories.some(cat => cat.toLowerCase().includes(query)))
-    );
-  }, [currentTabPrompts, debouncedSearchQuery]);
+    // Apply text search filter
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter(prompt => 
+        prompt.name.toLowerCase().includes(query) ||
+        (prompt.description && prompt.description.toLowerCase().includes(query)) ||
+        prompt.content.toLowerCase().includes(query) ||
+        (prompt.categories && prompt.categories.some(cat => cat.toLowerCase().includes(query)))
+      );
+    }
+    
+    // Apply category filter
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(prompt => 
+        prompt.categories && prompt.categories.some(cat => selectedCategories.includes(cat))
+      );
+    }
+    
+    return filtered;
+  }, [currentTabPrompts, debouncedSearchQuery, selectedCategories]);
 
   // Memoize event handlers to prevent unnecessary re-renders
   const handleContextMenuClose = useCallback(() => {
@@ -549,6 +563,16 @@ const SystemPromptsPage = React.memo(() => {
                     </InputAdornment>
                   ),
                 }}
+              />
+            </Box>
+            <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+              <CategoryFilter
+                systemPrompts={currentTabPrompts}
+                selectedCategories={selectedCategories}
+                onCategoriesChange={setSelectedCategories}
+                placeholder="Filter by category"
+                size="small"
+                fullWidth
               />
             </Box>
           </Stack>
