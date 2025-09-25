@@ -9,6 +9,8 @@ export const getEnvironmentInfo = () => {
     isProduction: import.meta.env.PROD,
     identityServiceUrl: import.meta.env.VITE_IDENTITY_SERVICE_URL || 'https://identity.firstdataunion.org',
     gatewayUrl: import.meta.env.VITE_GATEWAY_URL || 'https://gateway.firstdataunion.org',
+    storageMode: import.meta.env.VITE_STORAGE_MODE || 'local',
+    syncInterval: parseInt(import.meta.env.VITE_SYNC_INTERVAL || '300000'),
   };
 };
 
@@ -22,6 +24,9 @@ export const logEnvironmentInfo = () => {
   if (envInfo.isProduction && envInfo.gatewayUrl.includes('dev.')) {
     console.warn('⚠️  WARNING: Production build is using dev gateway URL!');
   }
+
+  console.log(`📦 Storage Mode: ${envInfo.storageMode}`);
+  console.log(`⏱️  Sync Interval: ${envInfo.syncInterval}ms`);
 };
 
 export const getIdentityServiceUrl = () => {
