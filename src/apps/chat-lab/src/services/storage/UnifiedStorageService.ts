@@ -1,189 +1,168 @@
 /**
- * Unified storage service that provides a consistent interface for all storage operations
- * This service abstracts away the differences between local and cloud storage
+ * Unified Storage Service
+ * Provides a unified interface to interact with the currently active storage adapter
  */
 
-import { storageService } from './StorageService';
-import type { Conversation, Message, FilterOptions } from '../../types';
+import { getStorageService } from './StorageService';
+import type { Conversation, Message, FilterOptions, ConversationsResponse } from '../../types';
 
 export class UnifiedStorageService {
-  private initialized = false;
+  private storageService = getStorageService();
 
-  /**
-   * Initialize the unified storage service
-   */
   async initialize(): Promise<void> {
-    if (!this.initialized) {
-      await storageService.initialize();
-      this.initialized = true;
-    }
+    await this.storageService.initialize();
   }
 
-  /**
-   * Check if the service is initialized
-   */
+  async switchMode(mode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
+    await this.storageService.switchMode(mode);
+  }
+
+  getAdapter() {
+    return this.storageService.getAdapter();
+  }
+
   isInitialized(): boolean {
-    return this.initialized && storageService.isInitialized();
+    return this.storageService.isInitialized();
   }
 
-  /**
-   * Get the current storage mode
-   */
-  getStorageMode(): string {
-    return storageService.getStorageMode();
-  }
-
-  /**
-   * Check if running in cloud mode
-   */
-  isCloudMode(): boolean {
-    return storageService.isCloudMode();
-  }
-
-  /**
-   * Check if running in local mode
-   */
-  isLocalMode(): boolean {
-    return storageService.isLocalMode();
+  getCurrentMode(): string {
+    return this.storageService.getCurrentMode();
   }
 
   // Conversation operations
   async createConversation(
-    profileId: string, 
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    profileId: string,
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().createConversation(profileId, conversation, messages, originalPrompt);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createConversation(profileId, conversation, messages, originalPrompt);
   }
 
   async updateConversation(
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().updateConversation(conversation, messages, originalPrompt);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateConversation(conversation, messages, originalPrompt);
   }
 
   async getConversations(
-    filters?: FilterOptions, 
-    page = 1, 
-    limit = 20, 
+    filters?: FilterOptions,
+    page = 1,
+    limit = 20,
     profileId?: string
-  ) {
-    this.ensureInitialized();
-    return await storageService.getAdapter().getConversations(filters, page, limit, profileId);
+  ): Promise<ConversationsResponse> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getConversations(filters, page, limit, profileId);
   }
 
   async getConversationById(id: string): Promise<Conversation> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().getConversationById(id);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getConversationById(id);
   }
 
   async getMessages(conversationId: string): Promise<Message[]> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().getMessages(conversationId);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getMessages(conversationId);
   }
 
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().getAPIKey(provider);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getAPIKey(provider);
   }
 
   async isAPIKeyAvailable(provider: string): Promise<boolean> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().isAPIKeyAvailable(provider);
+    const adapter = this.storageService.getAdapter();
+    return await adapter.isAPIKeyAvailable(provider);
   }
 
   // Context operations
-  async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string) {
-    this.ensureInitialized();
-    return await storageService.getAdapter().getContexts(queryParams, page, limit, profileId);
+  async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContexts(queryParams, page, limit, profileId);
   }
 
-  async createContext(context: any, profileId: string) {
-    this.ensureInitialized();
-    return await storageService.getAdapter().createContext(context, profileId);
+  async getContextById(contextId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextById(contextId);
   }
 
-  async updateContext(context: any, profileId: string) {
-    this.ensureInitialized();
-    return await storageService.getAdapter().updateContext(context, profileId);
+  async createContext(context: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createContext(context, profileId);
   }
 
-  async deleteContext(contextId: string): Promise<string> {
-    this.ensureInitialized();
-    return await storageService.getAdapter().deleteContext(contextId);
+  async updateContext(context: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateContext(context, profileId);
+  }
+
+  async deleteContext(contextId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteContext(contextId);
   }
 
   // System Prompt operations
-  async getSystemPrompts(queryParams?: any, page = 1, limit = 20, profileId?: string) {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.getSystemPrompts) {
-      return await adapter.getSystemPrompts(queryParams, page, limit, profileId);
-    }
-    throw new Error('System prompts not supported by current storage adapter');
+  async getSystemPrompts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getSystemPrompts(queryParams, page, limit, profileId);
   }
 
-  async createSystemPrompt(systemPrompt: any, profileId: string) {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.createSystemPrompt) {
-      return await adapter.createSystemPrompt(systemPrompt, profileId);
-    }
-    throw new Error('System prompts not supported by current storage adapter');
+  async getSystemPromptById(systemPromptId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getSystemPromptById(systemPromptId);
   }
 
-  async updateSystemPrompt(systemPrompt: any, profileId: string) {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.updateSystemPrompt) {
-      return await adapter.updateSystemPrompt(systemPrompt, profileId);
-    }
-    throw new Error('System prompts not supported by current storage adapter');
+  async createSystemPrompt(systemPrompt: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createSystemPrompt(systemPrompt, profileId);
+  }
+
+  async updateSystemPrompt(systemPrompt: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateSystemPrompt(systemPrompt, profileId);
   }
 
   async deleteSystemPrompt(systemPromptId: string): Promise<string> {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.deleteSystemPrompt) {
-      return await adapter.deleteSystemPrompt(systemPromptId);
-    }
-    throw new Error('System prompts not supported by current storage adapter');
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteSystemPrompt(systemPromptId);
   }
 
-  // Sync operations (for cloud mode)
+  // Sync operations
   async sync(): Promise<void> {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.sync) {
-      return await adapter.sync();
-    }
-    // Local mode doesn't need sync
-  }
-
-  isOnline(): boolean {
-    this.ensureInitialized();
-    const adapter = storageService.getAdapter();
-    if (adapter.isOnline) {
-      return adapter.isOnline();
-    }
-    return true; // Default to online for local mode
+    const adapter = this.storageService.getAdapter();
+    return await adapter.sync();
   }
 
   /**
-   * Ensure the service is initialized before performing operations
+   * Clear all database files from Google Drive (for testing)
    */
-  private ensureInitialized(): void {
-    if (!this.isInitialized()) {
-      throw new Error('UnifiedStorageService not initialized. Call initialize() first.');
+  async clearAllCloudDatabaseFiles(): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    // Check if the adapter supports clearing database files 
+    if ('clearAllCloudDatabaseFiles' in adapter && typeof adapter.clearAllCloudDatabaseFiles === 'function') {
+      return await (adapter as any).clearAllCloudDatabaseFiles();
+    } else {
+      throw new Error('Clear cloud database files not supported by current storage adapter');
     }
+  }
+
+  isOnline(): boolean {
+    const adapter = this.storageService.getAdapter();
+    return adapter.isOnline();
   }
 }
 
-// Export singleton instance
-export const unifiedStorageService = new UnifiedStorageService();
+// Singleton instance
+let unifiedStorageServiceInstance: UnifiedStorageService | null = null;
+
+export function getUnifiedStorageService(): UnifiedStorageService {
+  if (!unifiedStorageServiceInstance) {
+    unifiedStorageServiceInstance = new UnifiedStorageService();
+  }
+  return unifiedStorageServiceInstance;
+}

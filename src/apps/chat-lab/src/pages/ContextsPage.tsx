@@ -81,9 +81,9 @@ export default function ContextsPage() {
       const query = searchQuery.toLowerCase();
     return contexts.filter(context => {
       return (
-        context.title.toLowerCase().includes(query) ||
-        context.body.toLowerCase().includes(query) ||
-        context.tags.some(tag => tag.toLowerCase().includes(query))
+        (context.title || '').toLowerCase().includes(query) ||
+        (context.body || '').toLowerCase().includes(query) ||
+        (context.tags || []).some(tag => (tag || '').toLowerCase().includes(query))
       );
   });
   }, [contexts, searchQuery]);
@@ -105,9 +105,9 @@ export default function ContextsPage() {
   const handleEditContext = useCallback(() => {
     if (selectedContext) {
       setContextForm({
-        title: selectedContext.title,
-        body: selectedContext.body,
-        tags: selectedContext.tags
+        title: selectedContext.title || '',
+        body: selectedContext.body || '',
+        tags: selectedContext.tags || []
       });
       setEditDialogOpen(true);
     }
@@ -178,14 +178,14 @@ export default function ContextsPage() {
   const handleViewEditContext = useCallback((context: Context) => {
     setSelectedContext(context);
     setViewEditForm({
-      title: context.title,
-      body: context.body
+      title: context.title || '',
+      body: context.body || ''
     });
     setViewEditDialogOpen(true);
   }, []);
 
   const handleViewEditSubmit = useCallback(async () => {
-    if (!selectedContext || !currentProfile?.id) return;
+    if (!selectedContext || !currentProfile?.id || !viewEditForm.title || !viewEditForm.body) return;
     
     setIsViewEditing(true);
     try {
@@ -365,9 +365,9 @@ export default function ContextsPage() {
           }, 
           gap: 3 
         }}>
-          {filteredContexts.map((context) => (
+          {filteredContexts.map((context, index) => (
               <ContextCard 
-                key={context.id} 
+                key={context.id || `context-${index}`} 
                 context={context} 
                 onViewEdit={handleViewEditContext}
               />

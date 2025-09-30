@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { contextsApi } from '../../services/api/contexts';
+import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 export interface Context {
   id: string;
@@ -43,33 +43,63 @@ const initialState: ContextsState = {
 // Async actions
 export const fetchContexts = createAsyncThunk(
   'contexts/fetchContexts',
-  async (profileId?: string) => {
-    const response = await contextsApi.getAll(undefined, 1, 100, profileId);
-    return response;
+  async (profileId?: string, { rejectWithValue }) => {
+    try {
+      const storageService = getUnifiedStorageService();
+      const response = await storageService.getContexts(undefined, 1, 100, profileId);
+      return response;
+    } catch (error: any) {
+      // Check if this is a storage init error and handle gracefully
+      if (error.message?.includes('Cloud storage adapter not initialized') ||
+          error.message?.includes('Cloud storage not fully initialized')) {
+        console.warn('Storage adapter not ready yet, will retry later:', error.message);
+        return rejectWithValue('Storage not ready, retrying...');
+      }
+      console.error('Failed to fetch contexts using unified storage:', error);
+      throw error;
+    }
   }
 );
 
 export const createContext = createAsyncThunk(
   'contexts/createContext',
   async ({ contextData, profileId }: { contextData: Partial<Context>; profileId: string }) => {
-    const newContext = await contextsApi.createContext(contextData, profileId);
-    return newContext;
+    try {
+      const storageService = getUnifiedStorageService();
+      const newContext = await storageService.createContext(contextData, profileId);
+      return newContext;
+    } catch (error: any) {
+      console.error('Failed to create context using unified storage:', error);
+      throw error;
+    }
   }
 );
 
 export const updateContext = createAsyncThunk(
   'contexts/updateContext',
   async ({ context, profileId }: { context: Partial<Context>; profileId: string }) => {
-    const updatedContext = await contextsApi.updateContext(context, profileId);
-    return updatedContext;
+    try {
+      const storageService = getUnifiedStorageService();
+      const updatedContext = await storageService.updateContext(context, profileId);
+      return updatedContext;
+    } catch (error: any) {
+      console.error('Failed to update context using unified storage:', error);
+      throw error;
+    }
   }
 );
 
 export const deleteContext = createAsyncThunk(
   'contexts/deleteContext',
   async (contextId: string) => {
-    await contextsApi.deleteContext(contextId);
-    return contextId;
+    try {
+      const storageService = getUnifiedStorageService();
+      await storageService.deleteContext(contextId);
+      return contextId;
+    } catch (error: any) {
+      console.error('Failed to delete context using unified storage:', error);
+      throw error;
+    }
   }
 );
 
@@ -82,8 +112,9 @@ export const addConversationToContext = createAsyncThunk(
     profileId: string;
   }) => {
     // Get the current context to update it
-    const contextsResponse = await contextsApi.getAll(profileId);
-    const currentContext = contextsResponse.contexts.find(c => c.id === contextId);
+    const storageService = getUnifiedStorageService();
+    const contextsResponse = await storageService.getContexts(undefined, 1, 100, profileId);
+    const currentContext = contextsResponse.contexts.find((c: any) => c.id === contextId);
     
     if (!currentContext) {
       throw new Error('Context not found');
@@ -104,8 +135,8 @@ export const addConversationToContext = createAsyncThunk(
       updatedAt: new Date().toISOString()
     };
     
-    // Update the context in FIDU Vault
-    const updatedContextResponse = await contextsApi.updateContext(updatedContext, profileId);
+    // Update the context using unified storage
+    const updatedContextResponse = await storageService.updateContext(updatedContext, profileId);
     
     // Return the updated context data
     return { contextId, conversationId, conversationData, updatedContext: updatedContextResponse };

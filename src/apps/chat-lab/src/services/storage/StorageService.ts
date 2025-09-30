@@ -1,27 +1,52 @@
 /**
- * Storage service that manages the storage adapter based on environment configuration
+ * Storage Service
+ * Manages the active storage adapter and provides initialization
  */
 
 import type { StorageAdapter, StorageConfig } from './types';
-import { StorageMode } from './types';
-import { storageFactory } from './StorageFactory';
+import { createStorageAdapter } from './StorageFactory';
+import { getEnvironmentInfo } from '../../utils/environment';
 
-class StorageService {
+export class StorageService {
   private adapter: StorageAdapter | null = null;
   private config: StorageConfig | null = null;
+  private initialized = false;
 
-  /**
-   * Initialize the storage service with the appropriate adapter
-   */
   async initialize(): Promise<void> {
-    this.config = this.getStorageConfig();
-    this.adapter = storageFactory.createAdapter(this.config);
+    if (this.initialized) {
+      return;
+    }
+
+    const envInfo = getEnvironmentInfo();
+    this.config = {
+      mode: envInfo.storageMode as 'local' | 'cloud',
+      baseURL: envInfo.storageMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
+    };
+
+    this.adapter = createStorageAdapter(this.config);
     await this.adapter.initialize();
+    
+    this.initialized = true;
+    console.log(`Storage service initialized in ${this.config.mode} mode`);
   }
 
-  /**
-   * Get the current storage adapter
-   */
+  async switchMode(newMode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
+    if (this.config?.mode === newMode) {
+      return;
+    }
+
+    const newConfig: StorageConfig = {
+      mode: newMode,
+      baseURL: newMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
+    };
+
+    this.adapter = createStorageAdapter(newConfig);
+    await this.adapter.initialize();
+    
+    this.config = newConfig;
+    console.log(`Storage service switched to ${newMode} mode`);
+  }
+
   getAdapter(): StorageAdapter {
     if (!this.adapter) {
       throw new Error('Storage service not initialized. Call initialize() first.');
@@ -29,84 +54,21 @@ class StorageService {
     return this.adapter;
   }
 
-  /**
-   * Get the current storage configuration
-   */
-  getConfig(): StorageConfig {
-    if (!this.config) {
-      throw new Error('Storage service not initialized. Call initialize() first.');
-    }
-    return this.config;
-  }
-
-  /**
-   * Check if the storage service is initialized
-   */
   isInitialized(): boolean {
-    return this.adapter !== null && this.adapter.isInitialized();
+    return this.initialized && this.adapter?.isInitialized() === true;
   }
 
-  /**
-   * Get the current storage mode
-   */
-  getStorageMode(): StorageMode {
-    return this.getConfig().mode;
-  }
-
-  /**
-   * Check if running in cloud mode
-   */
-  isCloudMode(): boolean {
-    return this.getStorageMode() === StorageMode.CLOUD;
-  }
-
-  /**
-   * Check if running in local mode
-   */
-  isLocalMode(): boolean {
-    return this.getStorageMode() === StorageMode.LOCAL;
-  }
-
-  /**
-   * Get storage configuration from environment variables
-   */
-  private getStorageConfig(): StorageConfig {
-    // Check for environment variable to determine storage mode
-    const storageMode = import.meta.env.VITE_STORAGE_MODE as string;
-    
-    let mode: StorageMode;
-    if (storageMode === 'cloud') {
-      mode = StorageMode.CLOUD;
-    } else {
-      mode = StorageMode.LOCAL; // Default to local mode
-    }
-
-    return {
-      mode,
-      localConfig: {
-        baseURL: 'http://127.0.0.1:4000/api/v1', // Always use local FIDU Vault
-        timeout: 10000
-      },
-      cloudConfig: {
-        googleDriveEnabled: true,
-        syncInterval: parseInt(import.meta.env.VITE_SYNC_INTERVAL || '300000') // 5 minutes default
-      }
-    };
-  }
-
-  /**
-   * Switch storage mode (for testing purposes)
-   */
-  async switchMode(newMode: StorageMode): Promise<void> {
-    if (this.config) {
-      this.config.mode = newMode;
-      this.adapter = storageFactory.createAdapter(this.config);
-      if (this.adapter) {
-        await this.adapter.initialize();
-      }
-    }
+  getCurrentMode(): string {
+    return this.config?.mode || 'unknown';
   }
 }
 
-// Export singleton instance
-export const storageService = new StorageService();
+// Singleton instance
+let storageServiceInstance: StorageService | null = null;
+
+export function getStorageService(): StorageService {
+  if (!storageServiceInstance) {
+    storageServiceInstance = new StorageService();
+  }
+  return storageServiceInstance;
+}

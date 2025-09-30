@@ -51,11 +51,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
-import { fetchEmbellishments } from '../store/slices/embellishmentsSlice';
-import { conversationsApi } from '../services/api/conversations';
+import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import { formatMessageContent } from '../utils/conversationUtils';
-import type { Conversation, Message, Context, SystemPrompt, Embellishment } from '../types';
+import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 
 // Helper function to detect if content from NLP service looks like an error
@@ -324,12 +323,12 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
 
   const filteredAndSortedContexts = contexts
     .filter(context => 
-      context.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      context.body.toLowerCase().includes(searchQuery.toLowerCase())
+      (context.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (context.body?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
       if (sortBy.startsWith('alpha')) {
-        const comparison = a.title.localeCompare(b.title);
+        const comparison = (a.title || '').localeCompare(b.title || '');
         return sortBy === 'alpha-desc' ? -comparison : comparison;
       } else {
         // Sort by date (updatedAt takes precedence, fallback to createdAt)
@@ -410,13 +409,16 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                 >
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
-                      {context.title}
+                      {context.title || 'Untitled Context'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {context.body.length > 150 
-                        ? `${context.body.substring(0, 150)}...` 
-                        : context.body
-                      }
+                      {context.body ? (
+                        context.body.length > 150 
+                          ? `${context.body.substring(0, 150)}...` 
+                          : context.body
+                      ) : (
+                        'No content available'
+                      )}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip 
@@ -671,133 +673,7 @@ function FullPromptModal({ open, onClose, fullPrompt }: FullPromptModalProps) {
   );
 }
 
-// Embellishment Selection Modal
-interface EmbellishmentSelectionModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSelectEmbellishments: (embellishments: Embellishment[]) => void;
-  selectedEmbellishments: Embellishment[];
-  embellishments: Embellishment[];
-  loading: boolean;
-}
 
-function EmbellishmentSelectionModal({ open, onClose, onSelectEmbellishments, selectedEmbellishments, embellishments, loading }: EmbellishmentSelectionModalProps) {
-  // Map selected embellishment objects to their IDs
-  const getSelectedIds = useCallback((): string[] => {
-    return embellishments
-      .filter((emb: Embellishment) => selectedEmbellishments.some((selected: Embellishment) => selected.id === emb.id))
-      .map((emb: Embellishment) => emb.id);
-  }, [embellishments, selectedEmbellishments]);
-
-  const [selectedIds, setSelectedIds] = useState<string[]>(getSelectedIds());
-
-  // Update selectedIds when selectedEmbellishments changes
-  useEffect(() => {
-    setSelectedIds(getSelectedIds());
-  }, [selectedEmbellishments, getSelectedIds]);
-
-  const handleToggleEmbellishment = (embellishmentId: string) => {
-    setSelectedIds(prev => 
-      prev.includes(embellishmentId) 
-        ? prev.filter(id => id !== embellishmentId)
-        : [...prev, embellishmentId]
-    );
-  };
-
-  const handleConfirm = () => {
-    // Filter from embellishments prop and ensure no duplicates
-    const selectedEmbellishments: Embellishment[] = embellishments
-      .filter((emb: Embellishment) => selectedIds.includes(emb.id));
-    
-    // Ensure no duplicates by using a Map
-    const uniqueEmbellishments = Array.from(
-      new Map(selectedEmbellishments.map(emb => [emb.id, emb])).values()
-    );
-    
-    onSelectEmbellishments(uniqueEmbellishments);
-    onClose();
-  };
-
-  const handleClearAll = () => {
-    setSelectedIds([]);
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select Embellishments</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Choose embellishments to enhance your prompt. These will add specific instructions to make your AI responses more effective.
-        </Typography>
-        
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
-
-          {embellishments.map((embellishment) => (
-            <ListItemButton
-              key={embellishment.id}
-              onClick={() => handleToggleEmbellishment(embellishment.id)}
-              selected={selectedIds.includes(embellishment.id)}
-              sx={{
-                borderRadius: 1,
-                border: 1,
-                borderColor: 'divider',
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  borderColor: 'primary.main',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon>
-                <Box sx={{ 
-                  width: 20, 
-                  height: 20, 
-                  borderRadius: '50%', 
-                  backgroundColor: selectedIds.includes(embellishment.id) ? 'primary.contrastText' : 'primary.main',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {selectedIds.includes(embellishment.id) && (
-                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                      ✓
-                    </Typography>
-                  )}
-                </Box>
-              </ListItemIcon>
-              <ListItemText
-                primary={embellishment.name}
-                secondary={
-                  <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                    "{embellishment.instructions}"
-                  </Typography>
-                }
-              />
-            </ListItemButton>
-          ))}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClearAll} sx={{ color: 'error.main' }}>Clear All</Button>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
-        <Button 
-          onClick={handleConfirm} 
-          variant="contained"
-        >
-          {selectedEmbellishments.length === 0 ? 'Add Selected' : 'Update Selection'} ({selectedIds.length})
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 export default function PromptLabPage() {
   const dispatch = useAppDispatch();
@@ -808,7 +684,6 @@ export default function PromptLabPage() {
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
-  const { items: allEmbellishments, loading: embellishmentsLoading } = useAppSelector((state) => state.embellishments);
   const { settings } = useAppSelector((state) => state.settings);
 
   // State for the chat interface
@@ -817,7 +692,6 @@ export default function PromptLabPage() {
   const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'gpt-5.0-nano');
   const [selectedContext, setSelectedContext] = useState<Context | null>(null);
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
-  const [embellishments, setEmbellishments] = useState<Embellishment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -852,9 +726,7 @@ export default function PromptLabPage() {
         setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
       }
       
-      if (conversation.originalPrompt.embellishments && conversation.originalPrompt.embellishments.length > 0) {
-        setEmbellishments(conversation.originalPrompt.embellishments);
-      }
+      // Note: Embellishments removed
     }
   }, []);
 
@@ -947,7 +819,6 @@ export default function PromptLabPage() {
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
   const [fullPromptModalOpen, setFullPromptModalOpen] = useState(false);
-  const [embellishmentModalOpen, setEmbellishmentModalOpen] = useState(false);
   const [createContextModalOpen, setCreateContextModalOpen] = useState(false);
   
   // System prompt change state
@@ -977,7 +848,6 @@ export default function PromptLabPage() {
     if (currentProfile) {
       dispatch(fetchContexts(currentProfile.id));
       dispatch(fetchSystemPrompts(currentProfile.id));
-      dispatch(fetchEmbellishments(currentProfile.id));
     }
   }, [currentProfile, dispatch]);
 
@@ -997,10 +867,17 @@ export default function PromptLabPage() {
     
     setLoadingConversations(true);
     try {
-      const response = await conversationsApi.getAll({}, 1, 5, currentProfile.id);
+      const response = await conversationsService.getAll({}, 1, 5, currentProfile.id);
       setRecentConversations(response.conversations);
-    } catch (error) {
-      console.error('Error loading recent conversations:', error);
+    } catch (error: any) {
+      // Check if this is a storage initialization timing issue
+      if (error.message?.includes('Cloud storage adapter not initialized') ||
+          error.message?.includes('Cloud storage not fully initialized')) {
+        console.warn('Storage not ready for recent conversations, will skip for now');
+        setRecentConversations([]);
+      } else {
+        console.error('Error loading recent conversations:', error);
+      }
     } finally {
       setLoadingConversations(false);
     }
@@ -1017,7 +894,7 @@ export default function PromptLabPage() {
         try {
           const conversationId = location.state.conversationId;
           // Get messages for the conversation
-          const messages = await conversationsApi.getMessages(conversationId);
+          const messages = await conversationsService.getMessages(conversationId);
           
           // Use the complete conversation object from navigation state
           if (location.state.conversation) {
@@ -1072,7 +949,7 @@ export default function PromptLabPage() {
     try {
       if (currentConversation) {
         // Update existing conversation
-        const updatedConversation =         await conversationsApi.updateConversation(
+        const updatedConversation = await conversationsService.updateConversation(
           currentConversation,
           messages,
           {
@@ -1080,7 +957,7 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
-            embellishments: embellishments, // Store selected embellishments
+            embellishments: [], // Embellishments removed
             metadata: { estimatedTokens: 0 }
           }
         );
@@ -1110,14 +987,22 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
-            embellishments: embellishments, // Store selected embellishments
+            embellishments: [], // Embellishments removed
             metadata: { estimatedTokens: 0 }
           }
         };
-        const newConversation = await conversationsApi.createConversation(
+        const newConversation = await conversationsService.createConversation(
           currentProfile.id,
           conversationData,
-          messages
+          messages,
+          {
+            promptText: messages[0]?.content || '',
+            context: selectedContext,
+            systemPrompts: selectedSystemPrompts,
+            systemPrompt: selectedSystemPrompts[0] || null,
+            embellishments: [],
+            metadata: { estimatedTokens: 0 }
+          }
         );
         setCurrentConversation(newConversation);
         
@@ -1133,7 +1018,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, embellishments]);
+  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts]);
 
   // Handle sending a message
   const handleSendMessage = async () => {
@@ -1168,7 +1053,7 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
-        embellishments // Pass selected embellishments
+        [] // Embellishments removed
       );
 
       if (response.status === 'completed' && response.responses?.content) {
@@ -1243,7 +1128,7 @@ export default function PromptLabPage() {
   // Handle conversation selection
   const handleSelectConversation = async (conversation: Conversation) => {
     try {
-      const messages = await conversationsApi.getMessages(conversation.id);
+      const messages = await conversationsService.getMessages(conversation.id);
       setMessages(messages);
       setCurrentConversation(conversation);
       
@@ -1277,8 +1162,7 @@ export default function PromptLabPage() {
         setSelectedSystemPrompts([defaultPrompt]);
       }
     }
-    // Clear embellishments
-    setEmbellishments([]);
+    // Note: Embellishments removed
   }, [systemPrompts]);
 
   // Handle create context submit
@@ -1362,7 +1246,7 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile!.id,
         selectedSystemPrompts,
-        embellishments
+        [] // Embellishments removed
       );
 
       if (response.status === 'completed' && response.responses?.content) {
@@ -1436,19 +1320,19 @@ export default function PromptLabPage() {
       setIsLoading(false);
       setCurrentMessage(''); // Clear the input after retry
     }
-  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, embellishments, saveConversation, showToast]);
+  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
     // Use the same unified function that builds prompts for the API
     return buildCompletePrompt(
       selectedSystemPrompts,
-      embellishments,
+      [], // Embellishments removed
       selectedContext,
       messages,
       currentMessage.trim() || (messages.length > 0 ? messages.filter(m => m.role === 'user').pop()?.content || '' : '')
     );
-  }, [selectedSystemPrompts, selectedContext, messages, currentMessage, embellishments]);
+  }, [selectedSystemPrompts, selectedContext, messages, currentMessage]);
 
   return (
     <Box sx={{ 
@@ -2617,17 +2501,6 @@ export default function PromptLabPage() {
           title={changingSystemPrompt ? `Change System Prompt: ${changingSystemPrompt.name}` : 'Add System Prompt'}
         />
 
-      <EmbellishmentSelectionModal
-        open={embellishmentModalOpen}
-        onClose={() => setEmbellishmentModalOpen(false)}
-        onSelectEmbellishments={(selected) => {
-          setEmbellishments(selected);
-          setEmbellishmentModalOpen(false);
-        }}
-        selectedEmbellishments={embellishments}
-        embellishments={allEmbellishments}
-        loading={embellishmentsLoading}
-      />
 
       <FullPromptModal
         open={fullPromptModalOpen}

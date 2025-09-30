@@ -24,6 +24,7 @@ import {
   DialogActions,
   TextField,
   Button,
+  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -37,6 +38,7 @@ import {
   Add as AddIcon,
   Check as CheckIcon,
   Home as HomeIcon,
+  Sync as SyncIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
@@ -44,6 +46,10 @@ import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
+import GoogleDriveStatus from '../auth/GoogleDriveStatus';
+import UnsyncedDataIndicator from './UnsyncedDataIndicator';
+import { useCallback } from 'react';
+import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 const drawerWidth = 240;
 
@@ -66,6 +72,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [profileMenuAnchorEl, setProfileMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+  const [isSyncInProgress, setIsSyncInProgress] = useState(false);
+
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -106,6 +114,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       dispatch(setCurrentProfile(result.payload));
     }
   };
+
+  const handleManualSync = useCallback(async () => {
+    if (!currentProfile) {
+      console.log('Cannot sync: no current profile');
+      return;
+    }
+
+    setIsSyncInProgress(true);
+    try {
+      console.log('Starting manual sync to Google Drive...');
+      const storageService = getUnifiedStorageService();
+      await storageService.sync();
+      console.log('Manual sync completed successfully');
+    } catch (error) {
+      console.error('Manual sync failed:', error);
+    } finally {
+      setIsSyncInProgress(false);
+    }
+  }, [currentProfile]);
 
   const mainMenuItems = [
     { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
@@ -251,6 +278,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             
           </Typography>
+          
+                 {/* Google Drive Status */}
+                 <Box sx={{ mr: 2 }}>
+                   <GoogleDriveStatus variant="compact" />
+                 </Box>
+                 
+                 {/* Unsynced Data Indicator */}
+                 <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                   <UnsyncedDataIndicator variant="compact" />
+                 </Box>
+                 
+                 {/* Manual Sync Button */}
+          <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync to Google Drive"} arrow>
+            <Button
+              color="inherit"
+              variant="outlined"
+              size="small"
+              startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
+              onClick={handleManualSync}
+              disabled={isSyncInProgress}
+              sx={{ 
+                mr: 2,
+                textTransform: 'none',
+                borderColor: 'rgba(255,255,255,0.3)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderColor: 'rgba(255,255,255,0.8)'
+                },
+                '&:disabled': {
+                  opacity: 0.5
+                }
+              }}
+            >
+              {isSyncInProgress ? 'Syncing...' : 'Sync'}
+            </Button>
+          </Tooltip>
           
           {/* Profile and Logout */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

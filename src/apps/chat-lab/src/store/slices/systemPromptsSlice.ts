@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { systemPromptsApi } from '../../services/api/systemPrompts';
+import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { fabricSystemPrompts } from '../../data/prompts/fabricSystemPrompts';
 import { builtInSystemPrompts } from '../../data/prompts/builtInSystemPrompts';
 
@@ -37,36 +37,66 @@ const initialState: SystemPromptsState = {
 // Async actions
 export const fetchSystemPrompts = createAsyncThunk(
   'systemPrompts/fetchSystemPrompts',
-  async (profileId?: string) => {
-    if (profileId) {
-      const response = await systemPromptsApi.getAll(undefined, 1, 100, profileId);
-      return response;
+  async (profileId?: string, { rejectWithValue }) => {
+    try {
+      if (profileId) {
+        const storageService = getUnifiedStorageService();
+        const response = await storageService.getSystemPrompts(undefined, 1, 100, profileId);
+        return response;
+      }
+      return { systemPrompts: [], total: 0, page: 1, limit: 100 };
+    } catch (error: any) {
+      // Check if this is a storage init error and handle gracefully
+      if (error.message?.includes('Cloud storage adapter not initialized') ||
+          error.message?.includes('Cloud storage not fully initialized')) {
+        console.warn('Storage adapter not ready yet for system prompts, will retry later:', error.message);
+        return rejectWithValue('Storage not ready, retrying...');
+      }
+      console.error('Failed to fetch system prompts using unified storage:', error);
+      throw error;
     }
-    return { systemPrompts: [], total: 0, page: 1, limit: 100 };
   }
 );
 
 export const createSystemPrompt = createAsyncThunk(
   'systemPrompts/createSystemPrompt',
   async ({ systemPromptData, profileId }: { systemPromptData: Partial<SystemPrompt>; profileId: string }) => {
-    const newSystemPrompt = await systemPromptsApi.createSystemPrompt(systemPromptData, profileId);
-    return newSystemPrompt;
+    try {
+      const storageService = getUnifiedStorageService();
+      const newSystemPrompt = await storageService.createSystemPrompt(systemPromptData, profileId);
+      return newSystemPrompt;
+    } catch (error: any) {
+      console.error('Failed to create system prompt using unified storage:', error);
+      throw error;
+    }
   }
 );
 
 export const updateSystemPrompt = createAsyncThunk(
   'systemPrompts/updateSystemPrompt',
   async ({ systemPrompt, profileId }: { systemPrompt: Partial<SystemPrompt>; profileId: string }) => {
-    const updatedSystemPrompt = await systemPromptsApi.updateSystemPrompt(systemPrompt, profileId);
-    return updatedSystemPrompt;
+    try {
+      const storageService = getUnifiedStorageService();
+      const updatedSystemPrompt = await storageService.updateSystemPrompt(systemPrompt, profileId);
+      return updatedSystemPrompt;
+    } catch (error: any) {
+      console.error('Failed to update system prompt using unified storage:', error);
+      throw error;
+    }
   }
 );
 
 export const deleteSystemPrompt = createAsyncThunk(
   'systemPrompts/deleteSystemPrompt',
   async (systemPromptId: string) => {
-    await systemPromptsApi.deleteSystemPrompt(systemPromptId);
-    return systemPromptId;
+    try {
+      const storageService = getUnifiedStorageService();
+      await storageService.deleteSystemPrompt(systemPromptId);
+      return systemPromptId;
+    } catch (error: any) {
+      console.error('Failed to delete system prompt using unified storage:', error);
+      throw error;
+    }
   }
 );
 

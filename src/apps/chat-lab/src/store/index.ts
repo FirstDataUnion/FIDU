@@ -10,7 +10,7 @@ import systemPromptsSlice from './slices/systemPromptsSlice';
 import promptLabSlice from './slices/promptLabSlice';
 import searchSlice from './slices/searchSlice';
 import authSlice from './slices/authSlice';
-import embellishmentsSlice from './slices/embellishmentsSlice';
+import googleDriveAuthSlice from './slices/googleDriveAuthSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,7 +22,7 @@ export const store = configureStore({
     promptLab: promptLabSlice,
     search: searchSlice,
     auth: authSlice,
-    embellishments: embellishmentsSlice,
+    googleDriveAuth: googleDriveAuthSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

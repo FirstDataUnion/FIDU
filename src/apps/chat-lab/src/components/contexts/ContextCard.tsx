@@ -71,7 +71,7 @@ export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }
             overflowWrap: 'break-word' // Modern CSS for better word breaking
           }}
         >
-          {context.title}
+          {context.title || 'Untitled Context'}
         </Typography>
         <Typography 
           variant="body2" 
@@ -84,12 +84,12 @@ export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }
             overflow: 'hidden'
           }}
         >
-          {context.body}
+          {context.body || 'No content available'}
         </Typography>
 
         {/* Tags */}
         <Box sx={{ mb: 2 }}>
-          {context.tags.map((tag: string) => (
+          {(context.tags || []).map((tag: string) => (
             <Chip
               key={tag}
               label={tag}
@@ -108,14 +108,14 @@ export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }
         {/* Stats */}
         <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
           <Box>
-            {context.tokenCount.toLocaleString()} tokens
+            {(context.tokenCount || 0).toLocaleString()} tokens
           </Box>
         </Box>
       </CardContent>
 
       <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
         <Typography variant="caption" color="text.secondary">
-          {!isBuiltIn && `Updated ${new Date(context.updatedAt).toLocaleDateString()}`}
+          {!isBuiltIn && context.updatedAt && `Updated ${new Date(context.updatedAt).toLocaleDateString()}`}
         </Typography>
         <Box>
           <Button 

@@ -18,11 +18,17 @@ export interface Conversation {
     context?: Context | null;
     systemPrompts: SystemPrompt[]; // Support multiple system prompts
     systemPrompt?: SystemPrompt; // Keep for backward compatibility
-    embellishments?: Embellishment[]; // Store selected embellishments
     metadata?: {
       estimatedTokens: number;
     };
   };
+}
+
+export interface ConversationsResponse {
+  conversations: Conversation[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 // Context interface for prompt context
@@ -256,17 +262,6 @@ export interface Tag {
   category?: string;
 }
 
-// Embellishment interface for prompt enhancements
-export interface Embellishment {
-  id: string;
-  name: string;
-  instructions: string;
-  category: 'style' | 'tone' | 'format' | 'approach';
-  color: string;
-  isBuiltIn: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface SearchResult {
   type: 'conversation' | 'message' | 'context' | 'prompt' | 'tag';
@@ -380,6 +375,7 @@ export interface RootState {
   settings: SettingsState;
   ui: UIState;
   auth: AuthState;
+  googleDriveAuth: GoogleDriveAuthState;
 }
 
 export interface AuthState {
@@ -391,6 +387,23 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
+}
+
+// Google Drive Authentication Types
+export interface GoogleDriveUser {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+export interface GoogleDriveAuthState {
+  isAuthenticated: boolean;
+  user: GoogleDriveUser | null;
+  isLoading: boolean;
+  error: string | null;
+  showAuthModal: boolean;
+  expiresAt: number | null;
 }
 
 export interface ConversationsState {

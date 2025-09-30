@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Conversation, FilterOptions, ConversationsState } from '../../types';
-import { conversationsApi } from '../../services/api/conversations';
+import { conversationsService } from '../../services/conversationsService';
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
@@ -10,21 +10,21 @@ export const fetchConversations = createAsyncThunk(
     if (!profileId) {
       throw new Error('No profile selected. Please select a profile to continue.');
     }
-    return await conversationsApi.getAll(filters, page, limit, profileId);
+    return await conversationsService.getAll(filters, page, limit, profileId);
   }
 );
 
 export const fetchConversation = createAsyncThunk(
   'conversations/fetchConversation',
   async (id: string) => {
-    return await conversationsApi.getById(id);
+    return await conversationsService.getById(id);
   }
 );
 
 export const fetchConversationMessages = createAsyncThunk(
   'conversations/fetchConversationMessages',
   async (conversationId: string) => {
-    const messages = await conversationsApi.getMessages(conversationId);
+    const messages = await conversationsService.getMessages(conversationId);
     return messages;
   }
 );
@@ -33,9 +33,10 @@ export const saveConversation = createAsyncThunk<Conversation, Conversation>(
   'conversations/saveConversation',
   async (conversation: Conversation) => {
     if (conversation.id) {
-      return await conversationsApi.update(conversation.id, conversation);
+      return await conversationsService.updateConversation(conversation, [], conversation.originalPrompt);
     } else {
-      return await conversationsApi.create(conversation);
+      // For new conversations, we need a profile ID - this should be handled by the caller
+      throw new Error('Profile ID required for creating new conversations');
     }
   }
 );
@@ -43,7 +44,7 @@ export const saveConversation = createAsyncThunk<Conversation, Conversation>(
 export const deleteConversation = createAsyncThunk(
   'conversations/deleteConversation',
   async (id: string) => {
-    await conversationsApi.delete(id);
+    await conversationsService.delete(id);
     return id;
   }
 );
@@ -51,21 +52,21 @@ export const deleteConversation = createAsyncThunk(
 export const archiveConversation = createAsyncThunk<Conversation, string>(
   'conversations/archiveConversation',
   async (id: string) => {
-    return await conversationsApi.archive(id);
+    return await conversationsService.archive(id);
   }
 );
 
 export const unarchiveConversation = createAsyncThunk<Conversation, string>(
   'conversations/unarchiveConversation',
   async (id: string) => {
-    return await conversationsApi.unarchive(id);
+    return await conversationsService.unarchive(id);
   }
 );
 
 export const toggleFavoriteConversation = createAsyncThunk<Conversation, string>(
   'conversations/toggleFavorite',
   async (id: string) => {
-    return await conversationsApi.toggleFavorite(id);
+    return await conversationsService.toggleFavorite(id);
   }
 );
 

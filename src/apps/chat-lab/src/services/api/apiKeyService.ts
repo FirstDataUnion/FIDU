@@ -1,5 +1,7 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import { ApiError } from './apiClients';
+import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
+import { getEnvironmentInfo } from '../../utils/environment';
 
 // API Key response types from FIDU Vault
 export interface APIKeyWithValue {
@@ -35,32 +37,49 @@ export class APIKeyService {
    */
   async getAPIKeyForProvider(provider: SupportedProvider): Promise<string | null> {
     try {
-      // Check cache first
-      const cached = this.getCachedAPIKey(provider);
-      if (cached) {
-        return cached.api_key;
+      // Check the storage mode to determine where to fetch from
+      const envInfo = getEnvironmentInfo();
+      const isCloudMode = envInfo.storageMode === 'cloud';
+
+      if (isCloudMode) {
+        // Use cloud storage (UnifiedStorageService)
+        const storage = getUnifiedStorageService();
+        const apiKey = await storage.getAPIKey(provider);
+        if (apiKey) {
+          console.log(`🔑 [APIKeyService] Retrieved API key from cloud storage for provider: ${provider}`);
+        }
+        return apiKey;
+      } else {
+        // Use FIDU Vault API (original behavior)
+        console.log(`🔑 [APIKeyService] Fetching API key from FIDU Vault API for provider: ${provider}`);
+        
+        // Check cache first
+        const cached = this.getCachedAPIKey(provider);
+        if (cached) {
+          return cached.api_key;
+        }
+
+        // Fetch from FIDU Vault API
+        const response = await fiduVaultAPIClient.get<APIKeyWithValue>(
+          `/api-keys/provider/${provider}/value`
+        );
+
+        if (response.data) {
+          // Cache the result
+          this.setCachedAPIKey(provider, response.data);
+          return response.data.api_key;
+        }
+
+        return null;
       }
-
-      // Fetch from FIDU Vault API
-      const response = await fiduVaultAPIClient.get<APIKeyWithValue>(
-        `/api-keys/provider/${provider}/value`
-      );
-
-      if (response.data) {
-        // Cache the result
-        this.setCachedAPIKey(provider, response.data);
-        return response.data.api_key;
-      }
-
-      return null;
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        // API key not found for this provider
-        console.warn(`No API key found for provider: ${provider}`);
+        // API key not found for this provider - this is expected and normal
+        console.info(`ℹ️ [APIKeyService] No API key configured for provider: ${provider}`);
         return null;
       }
       
-      console.error(`Error fetching API key for provider ${provider}:`, error);
+      console.error(`🚨 [APIKeyService] Unexpected error fetching API key for provider ${provider}:`, error);
       return null;
     }
   }
@@ -119,8 +138,25 @@ export class APIKeyService {
    * Check if API key is available for a provider
    */
   async isAPIKeyAvailable(provider: SupportedProvider): Promise<boolean> {
-    const apiKey = await this.getAPIKeyForProvider(provider);
-    return apiKey !== null;
+    try {
+      // Check the storage mode to determine where to check from
+      const envInfo = getEnvironmentInfo();
+      const isCloudMode = envInfo.storageMode === 'cloud';
+
+      if (isCloudMode) {
+        // Use cloud storage (UnifiedStorageService) - more efficient without fetching the full key
+        const storage = getUnifiedStorageService();
+        const available = await storage.isAPIKeyAvailable(provider);
+        return available;
+      } else {
+        // Use existing logic for local mode
+        const apiKey = await this.getAPIKeyForProvider(provider);
+        return apiKey !== null;
+      }
+    } catch (error) {
+      console.error(`Error checking API key availability for provider ${provider}:`, error);
+      return false;
+    }
   }
 }
 

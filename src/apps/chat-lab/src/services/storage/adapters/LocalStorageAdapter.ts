@@ -1,6 +1,6 @@
 /**
- * Local storage adapter that wraps the existing FIDU Vault API calls
- * This adapter maintains backward compatibility with the current implementation
+ * Local storage adapter that wraps FIDU Vault API calls
+ * This adapter implements the storage interface for local mode
  */
 
 import type { 
@@ -22,9 +22,9 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 
   async initialize(): Promise<void> {
-    // Local storage doesn't require initialization
-    // The existing API clients handle their own initialization
+    // Local storage doesn't need initialization
     this.initialized = true;
+    console.log('Local storage adapter initialized successfully');
   }
 
   isInitialized(): boolean {
@@ -68,16 +68,21 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
-    return await apiKeyService.getAPIKeyForProvider(provider as any);
+    return await apiKeyService.getAPIKeyForProvider(provider as 'openai' | 'anthropic' | 'google');
   }
 
   async isAPIKeyAvailable(provider: string): Promise<boolean> {
-    return await apiKeyService.isAPIKeyAvailable(provider as any);
+    return await apiKeyService.isAPIKeyAvailable(provider as 'openai' | 'anthropic' | 'google');
   }
 
   // Context operations
   async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
     return await contextsApi.getAll(queryParams, page, limit, profileId);
+  }
+
+  async getContextById(_contextId: string): Promise<any> {
+    // Note: contextsApi doesn't have getById, would need to be implemented
+    throw new Error('getContextById not implemented in contextsApi');
   }
 
   async createContext(context: any, profileId: string): Promise<any> {
@@ -88,47 +93,39 @@ export class LocalStorageAdapter implements StorageAdapter {
     return await contextsApi.updateContext(context, profileId);
   }
 
-  async deleteContext(contextId: string): Promise<string> {
-    return await contextsApi.deleteContext(contextId);
+  async deleteContext(contextId: string): Promise<void> {
+    await contextsApi.deleteContext(contextId);
   }
 
-  // System Prompt operations (optional)
+  // System Prompt operations
   async getSystemPrompts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
-    if (systemPromptsApi) {
-      return await systemPromptsApi.getAll(queryParams, page, limit, profileId);
-    }
-    throw new Error('System prompts not available');
+    return await systemPromptsApi.getAll(queryParams, page, limit, profileId);
+  }
+
+  async getSystemPromptById(_systemPromptId: string): Promise<any> {
+    // Note: systemPromptsApi doesn't have getById, would need to be implemented
+    throw new Error('getSystemPromptById not implemented in systemPromptsApi');
   }
 
   async createSystemPrompt(systemPrompt: any, profileId: string): Promise<any> {
-    if (systemPromptsApi) {
-      return await systemPromptsApi.createSystemPrompt(systemPrompt, profileId);
-    }
-    throw new Error('System prompts not available');
+    return await systemPromptsApi.createSystemPrompt(systemPrompt, profileId);
   }
 
   async updateSystemPrompt(systemPrompt: any, profileId: string): Promise<any> {
-    if (systemPromptsApi) {
-      return await systemPromptsApi.updateSystemPrompt(systemPrompt, profileId);
-    }
-    throw new Error('System prompts not available');
+    return await systemPromptsApi.updateSystemPrompt(systemPrompt, profileId);
   }
 
   async deleteSystemPrompt(systemPromptId: string): Promise<string> {
-    if (systemPromptsApi) {
-      return await systemPromptsApi.deleteSystemPrompt(systemPromptId);
-    }
-    throw new Error('System prompts not available');
+    return await systemPromptsApi.deleteSystemPrompt(systemPromptId);
   }
 
-  // Sync operations (not applicable for local storage)
+  // Sync operations
   async sync(): Promise<void> {
     // Local storage doesn't need sync
-    return Promise.resolve();
+    console.log('Local storage sync - no action needed');
   }
 
   isOnline(): boolean {
-    // Local storage is always "online" when the local FIDU Vault is running
-    return true;
+    return true; // Web app always online
   }
 }
