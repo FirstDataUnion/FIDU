@@ -56,12 +56,13 @@ import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import { formatMessageContent } from '../utils/conversationUtils';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 
 // Helper function to detect if content from NLP service looks like an error
 const isExternalError = (content: string): boolean => {
   const lowerContent = content.toLowerCase();
   
-  // Check for common error indicators
+  // Check for common error indicators using whole-word matching
   const errorPatterns = [
     'error',
     'failed',
@@ -81,7 +82,16 @@ const isExternalError = (content: string): boolean => {
     'authentication failed'
   ];
   
-  return errorPatterns.some(pattern => lowerContent.includes(pattern));
+  // Use word boundary regex to match whole words only
+  return errorPatterns.some(pattern => {
+    // For multi-word patterns, use simple includes
+    if (pattern.includes(' ')) {
+      return lowerContent.includes(pattern);
+    }
+    // For single words, use word boundary regex to avoid false positives
+    const regex = new RegExp(`\\b${pattern}\\b`, 'i');
+    return regex.test(content);
+  });
 };
 
 // Helper function to wrap external error messages with context
@@ -1342,6 +1352,9 @@ export default function PromptLabPage() {
       position: 'relative',
       overflow: 'hidden' // Prevent outer page scrolling
     }}>
+      {/* Storage Directory Banner */}
+      <StorageDirectoryBanner pageType="prompt-lab" />
+      
       {/* Main Chat Area */}
       <Box sx={{ 
         flex: 1, 

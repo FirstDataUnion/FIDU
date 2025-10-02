@@ -26,6 +26,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
+import { StorageModeSelector } from '../components/settings';
 
 const SettingsPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -104,15 +105,14 @@ const SettingsPage: React.FC = () => {
   return (
     <Box 
       sx={{ 
+        width: '100%',
         minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        p: 3
+        py: 3,
+        px: 3,
+        boxSizing: 'border-box'
       }}
     >
-      <Box sx={{ maxWidth: 600, width: '100%', textAlign: 'center' }}>
+      <Box sx={{ maxWidth: 600, width: '100%', mx: 'auto', textAlign: 'center' }}>
       <Typography variant="h4" gutterBottom>
         Settings
       </Typography>
@@ -178,6 +178,9 @@ const SettingsPage: React.FC = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      {/* Data Storage Options */}
+      <StorageModeSelector />
 
       {/* Cloud Data Management */}
       <Card sx={{ mt: 3 }}>

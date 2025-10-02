@@ -8,12 +8,13 @@ import type { GoogleDriveAuthState, GoogleDriveUser } from '../../types';
 // Async thunks
 export const initializeGoogleDriveAuth = createAsyncThunk(
   'googleDriveAuth/initialize',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
-      const envInfo = getEnvironmentInfo();
+      const state = getState() as { settings: { settings: { storageMode: string } } };
+      const storageMode = state.settings.settings.storageMode;
       
-      // Only initialize Google Drive auth in cloud mode
-      if (envInfo.storageMode !== 'cloud') {
+      // Only initialize Google Drive auth in cloud storage mode
+      if (storageMode !== 'cloud') {
         return {
           isAuthenticated: true, // Local mode doesn't need Google Drive
           user: null,
@@ -53,12 +54,13 @@ export const authenticateGoogleDrive = createAsyncThunk(
 
 export const checkGoogleDriveAuthStatus = createAsyncThunk(
   'googleDriveAuth/checkStatus',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
-      const envInfo = getEnvironmentInfo();
+      const state = getState() as { settings: { settings: { storageMode: string } } };
+      const storageMode = state.settings.settings.storageMode;
       
-      // In local mode, always return authenticated
-      if (envInfo.storageMode !== 'cloud') {
+      // In non-cloud storage mode, always return authenticated
+      if (storageMode !== 'cloud') {
         return {
           isAuthenticated: true,
           user: null,
@@ -128,8 +130,8 @@ const googleDriveAuthSlice = createSlice({
     
     // Action to show auth modal when authentication is needed
     showAuthModalIfNeeded: (state) => {
-      const envInfo = getEnvironmentInfo();
-      if (envInfo.storageMode === 'cloud' && !state.isAuthenticated && !state.isLoading) {
+      // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
+      if (!state.isAuthenticated && !state.isLoading) {
         state.showAuthModal = true;
       }
     },
@@ -149,12 +151,8 @@ const googleDriveAuthSlice = createSlice({
         state.error = null;
         
         // Update modal visibility based on authentication status
-        const envInfo = getEnvironmentInfo();
-        if (envInfo.storageMode === 'cloud') {
-          state.showAuthModal = !action.payload.isAuthenticated;
-        } else {
-          state.showAuthModal = false;
-        }
+        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
+        state.showAuthModal = !action.payload.isAuthenticated;
       })
       .addCase(initializeGoogleDriveAuth.rejected, (state, action) => {
         state.isLoading = false;
@@ -163,13 +161,9 @@ const googleDriveAuthSlice = createSlice({
         state.user = null;
         state.expiresAt = null;
         
-        // Show auth modal on error in cloud mode
-        const envInfo = getEnvironmentInfo();
-        if (envInfo.storageMode === 'cloud') {
-          state.showAuthModal = true;
-        } else {
-          state.showAuthModal = false;
-        }
+        // Show auth modal on error
+        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
+        state.showAuthModal = true;
       })
       
       // Authenticate Google Drive
@@ -203,12 +197,8 @@ const googleDriveAuthSlice = createSlice({
         state.error = null;
         
         // Update modal visibility based on authentication status
-        const envInfo = getEnvironmentInfo();
-        if (envInfo.storageMode === 'cloud') {
-          state.showAuthModal = !action.payload.isAuthenticated;
-        } else {
-          state.showAuthModal = false;
-        }
+        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
+        state.showAuthModal = !action.payload.isAuthenticated;
       })
       .addCase(checkGoogleDriveAuthStatus.rejected, (state, action) => {
         // Don't set isLoading = false for background checks
@@ -217,13 +207,9 @@ const googleDriveAuthSlice = createSlice({
         state.user = null;
         state.expiresAt = null;
         
-        // Show auth modal on error in cloud mode
-        const envInfo = getEnvironmentInfo();
-        if (envInfo.storageMode === 'cloud') {
-          state.showAuthModal = true;
-        } else {
-          state.showAuthModal = false;
-        }
+        // Show auth modal on error
+        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
+        state.showAuthModal = true;
       })
       
       // Revoke Google Drive Access

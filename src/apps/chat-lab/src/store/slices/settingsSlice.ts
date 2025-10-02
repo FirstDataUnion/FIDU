@@ -1,5 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { UserSettings, SettingsState } from '../../types';
+import { getEnvironmentInfo } from '../../utils/environment';
+
+// Get default storage mode based on environment
+const getDefaultStorageMode = (): 'local' | 'cloud' | 'filesystem' => {
+  const envInfo = getEnvironmentInfo();
+  return envInfo.storageMode === 'cloud' ? 'cloud' : 'local';
+};
 
 // Simplified settings - only theme is needed
 const defaultSettings: UserSettings = {
@@ -11,6 +18,7 @@ const defaultSettings: UserSettings = {
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
   lastUsedModel: 'gpt-5.0-nano', // Default to GPT-5.0 Nano
+  storageMode: getDefaultStorageMode(), // Default based on environment
   apiKeys: {
     nlpWorkbench: '',
   },
@@ -87,6 +95,10 @@ const settingsSlice = createSlice({
       state.settings.lastUsedModel = action.payload;
       saveSettingsToStorage(state.settings);
     },
+    updateStorageMode: (state, action) => {
+      state.settings.storageMode = action.payload;
+      saveSettingsToStorage(state.settings);
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -130,6 +142,7 @@ export const {
   updateSettingsLocally,
   updateTheme,
   updateLastUsedModel,
+  updateStorageMode,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;

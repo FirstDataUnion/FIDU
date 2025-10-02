@@ -30,12 +30,15 @@ import { fetchContexts, createContext, updateContext, deleteContext } from '../s
 import { fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { ContextCard } from '../components/contexts/ContextCard';
 import { ConversationSelectionList } from '../components/contexts/ConversationSelectionList';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 
 export default function ContextsPage() {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
+  const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
@@ -290,6 +293,9 @@ export default function ContextsPage() {
       position: 'relative',
       overflow: 'hidden' // Prevent outer page scrolling
     }}>
+      {/* Storage Directory Banner */}
+      <StorageDirectoryBanner pageType="contexts" />
+      
       {/* Scrollable Content Area */}
       <Box sx={{ 
         flex: 1, 
@@ -311,6 +317,7 @@ export default function ContextsPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleCreateContext}
+          disabled={isDirectoryRequired}
           sx={{ borderRadius: 2 }}
         >
           Add Context
@@ -385,7 +392,7 @@ export default function ContextsPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
           </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext} disabled={isDirectoryRequired}>
             Create Context
           </Button>
         </Box>

@@ -12,15 +12,40 @@ export class StorageService {
   private config: StorageConfig | null = null;
   private initialized = false;
 
-  async initialize(): Promise<void> {
+  async initialize(storageMode?: 'local' | 'cloud' | 'filesystem'): Promise<void> {
     if (this.initialized) {
       return;
     }
 
-    const envInfo = getEnvironmentInfo();
+    // Get storage mode from parameter, settings, or environment
+    let mode: 'local' | 'cloud' | 'filesystem' = 'local'; // default
+    
+    if (storageMode) {
+      mode = storageMode;
+    } else {
+      // Try to get from localStorage settings
+      try {
+        const stored = localStorage.getItem('fidu-chat-lab-settings');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.storageMode) {
+            mode = parsed.storageMode;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load storage mode from settings, using default');
+      }
+      
+      // Fallback to environment variable
+      if (mode === 'local') {
+        const envInfo = getEnvironmentInfo();
+        mode = envInfo.storageMode as 'local' | 'cloud';
+      }
+    }
+
     this.config = {
-      mode: envInfo.storageMode as 'local' | 'cloud',
-      baseURL: envInfo.storageMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
+      mode,
+      baseURL: mode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
     };
 
     this.adapter = createStorageAdapter(this.config);

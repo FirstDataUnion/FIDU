@@ -325,8 +325,8 @@ const AppContent: React.FC<AppContentProps> = () => {
     </ThemeProvider>
   );
 
-  // Show Google Drive auth modal as overlay if needed in cloud mode
-  if (getEnvironmentInfo().storageMode === 'cloud' && showAuthModal) {
+  // Show Google Drive auth modal as overlay if needed in cloud storage mode
+  if (settings.storageMode === 'cloud' && showAuthModal) {
     return (
       <>
         {mainAppContent}

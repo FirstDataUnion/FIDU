@@ -34,6 +34,7 @@ import { useDebouncedSearch } from '../hooks/useDebouncedSearch';
 import { useLazyLoad } from '../hooks/useLazyLoad';
 import VirtualList from '../components/common/VirtualList';
 import { validateSearchQuery } from '../utils/validation';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import {
   selectConversationsLoading,
   selectConversationsError,
@@ -370,6 +371,46 @@ const ConversationsPage: React.FC = React.memo(() => {
   }
 
   if (error) {
+    // Check if this is a directory access error for filesystem storage
+    const isDirectoryAccessError = error.includes('No directory access') || error.includes('Please select a directory first');
+    
+    if (isDirectoryAccessError) {
+      // Show the page with our banner instead of the raw error
+      return (
+        <Box sx={{ 
+          overflow: 'hidden',
+          width: '100%',
+          boxSizing: 'border-box',
+          height: '100%', // Use full height of parent container
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Storage Directory Banner */}
+          <StorageDirectoryBanner pageType="conversations" />
+          
+          {/* Empty state with message */}
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            p: 3,
+            textAlign: 'center'
+          }}>
+            <ChatIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+            <Typography variant="h5" sx={{ mb: 1, opacity: 0.7 }}>
+              No Conversations Available
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.5 }}>
+              Select a directory in Settings to load your conversations
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
+    
+    // For other errors, show the original error handling
     return (
       <Box p={3}>
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -391,6 +432,9 @@ const ConversationsPage: React.FC = React.memo(() => {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* Storage Directory Banner */}
+      <StorageDirectoryBanner pageType="conversations" />
+      
       {/* Header with Search and Actions */}
       <Box sx={{ mb: 3, flexShrink: 0 }} component="header">
         <Box sx={{ 

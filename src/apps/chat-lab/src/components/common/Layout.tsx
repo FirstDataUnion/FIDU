@@ -64,6 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
+  const { settings } = useAppSelector((state) => state.settings);
   
   // Always keep sidebar open on desktop
   const sidebarOpen = !isMobile;
@@ -73,6 +74,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [isSyncInProgress, setIsSyncInProgress] = useState(false);
+  
+  // Check if we're in cloud storage mode (Google Drive)
+  const isCloudStorageMode = settings.storageMode === 'cloud';
 
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -279,41 +283,47 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             
           </Typography>
           
-                 {/* Google Drive Status */}
-                 <Box sx={{ mr: 2 }}>
-                   <GoogleDriveStatus variant="compact" />
-                 </Box>
+                 {/* Google Drive Status - only show in cloud storage mode */}
+                 {isCloudStorageMode && (
+                   <Box sx={{ mr: 2 }}>
+                     <GoogleDriveStatus variant="compact" />
+                   </Box>
+                 )}
                  
-                 {/* Unsynced Data Indicator */}
-                 <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                   <UnsyncedDataIndicator variant="compact" />
-                 </Box>
+                 {/* Unsynced Data Indicator - only show in cloud storage mode */}
+                 {isCloudStorageMode && (
+                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                     <UnsyncedDataIndicator variant="compact" />
+                   </Box>
+                 )}
                  
-                 {/* Manual Sync Button */}
-          <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync to Google Drive"} arrow>
-            <Button
-              color="inherit"
-              variant="outlined"
-              size="small"
-              startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
-              onClick={handleManualSync}
-              disabled={isSyncInProgress}
-              sx={{ 
-                mr: 2,
-                textTransform: 'none',
-                borderColor: 'rgba(255,255,255,0.3)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  borderColor: 'rgba(255,255,255,0.8)'
-                },
-                '&:disabled': {
-                  opacity: 0.5
-                }
-              }}
-            >
-              {isSyncInProgress ? 'Syncing...' : 'Sync'}
-            </Button>
-          </Tooltip>
+                 {/* Manual Sync Button - only show in cloud storage mode */}
+                 {isCloudStorageMode && (
+                   <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync to Google Drive"} arrow>
+                     <Button
+                       color="inherit"
+                       variant="outlined"
+                       size="small"
+                       startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
+                       onClick={handleManualSync}
+                       disabled={isSyncInProgress}
+                       sx={{ 
+                         mr: 2,
+                         textTransform: 'none',
+                         borderColor: 'rgba(255,255,255,0.3)',
+                         '&:hover': {
+                           backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                           borderColor: 'rgba(255,255,255,0.8)'
+                         },
+                         '&:disabled': {
+                           opacity: 0.5
+                         }
+                       }}
+                     >
+                       {isSyncInProgress ? 'Syncing...' : 'Sync'}
+                     </Button>
+                   </Tooltip>
+                 )}
           
           {/* Profile and Logout */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -486,7 +496,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         }}
       >
         <Toolbar sx={{ flexShrink: 0 }} />
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
           {children}
         </Box>
       </Box>

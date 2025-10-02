@@ -283,6 +283,7 @@ export interface UserSettings {
   defaultPlatform?: string;
   exportFormat: 'json' | 'markdown' | 'csv';
   lastUsedModel?: string; // Store the last used model for persistence across tab switches
+  storageMode: 'local' | 'cloud' | 'filesystem'; // Storage mode preference
   apiKeys: {
     nlpWorkbench?: string;
   };

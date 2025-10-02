@@ -44,6 +44,8 @@ import {
   updateSystemPrompt, 
   deleteSystemPrompt
 } from '../store/slices/systemPromptsSlice';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{ 
@@ -260,6 +262,7 @@ const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
+  const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
@@ -518,6 +521,9 @@ const SystemPromptsPage = React.memo(() => {
       position: 'relative',
       overflow: 'hidden' // Prevent outer page scrolling
     }}>
+      {/* Storage Directory Banner */}
+      <StorageDirectoryBanner pageType="system-prompts" />
+      
       {/* Scrollable Content Area */}
       <Box sx={{ 
         flex: 1, 
@@ -539,6 +545,7 @@ const SystemPromptsPage = React.memo(() => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleCreateSystemPrompt}
+          disabled={isDirectoryRequired}
           sx={{ borderRadius: 2 }}
         >
           Add System Prompt
@@ -640,7 +647,7 @@ const SystemPromptsPage = React.memo(() => {
              'Try adjusting your search or switching to a different tab'}
           </Typography>
           {activeTab === 3 && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt} disabled={isDirectoryRequired}>
               Create System Prompt
             </Button>
           )}

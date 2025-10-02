@@ -38,6 +38,7 @@ interface GoogleDriveStatusProps {
 export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveStatusProps) {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user, error, isLoading } = useAppSelector((state) => state.googleDriveAuth);
+  const { settings } = useAppSelector((state) => state.settings);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
 
@@ -97,12 +98,11 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
     return 'Not connected to Google Drive';
   };
 
-  // For storage mode detection
-  const storageMode = import.meta.env.VITE_STORAGE_MODE || 'local';
-  const isCloudMode = storageMode === 'cloud';
+  // Check if we're in cloud storage mode (Google Drive)
+  const isCloudStorageMode = settings.storageMode === 'cloud';
 
-  // Don't show widget in local mode
-  if (!isCloudMode) {
+  // Don't show widget if not in cloud storage mode
+  if (!isCloudStorageMode) {
     return null;
   }
 
