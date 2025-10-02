@@ -23,6 +23,7 @@ const ContextsPage = React.lazy(() => import('./pages/ContextsPage'));
 const SystemPromptsPage = React.lazy(() => import('./pages/SystemPromptsPage'));
 const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const DataMigrationPage = React.lazy(() => import('./pages/DataMigrationPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 
 // Loading fallback component for lazy-loaded routes
@@ -62,8 +63,12 @@ const AppContent: React.FC<AppContentProps> = () => {
     
     // Initialize Google Drive authentication
     dispatch(initializeGoogleDriveAuth());
+  }, [dispatch]);
+
+  // Initialize storage service after settings are loaded
+  useEffect(() => {
+    if (!settings.storageMode) return; // Wait for settings to load
     
-    // Initialize storage service with enhanced cloud detection and operation validation
     const initializeStorage = async () => {
       try {
         // Check storage mode early to show appropriate loading message
@@ -104,6 +109,15 @@ const AppContent: React.FC<AppContentProps> = () => {
                 await adapter.getContexts(undefined, 1, 1);
               } else {
                 // For local adapters, just check readiness without authentication
+                // For filesystem adapter, check if directory access is available first
+                if ('isDirectoryAccessible' in adapter && typeof adapter.isDirectoryAccessible === 'function') {
+                  const isAccessible = adapter.isDirectoryAccessible();
+                  if (!isAccessible) {
+                    console.log(`⏳ [App.Filter] Filesystem adapter not accessible - continuing to allow directory selection in UI`);
+                    // This is expected - let the App proceed, UI will handle directory selection
+                    break;
+                  }
+                }
                 await adapter.getContexts(undefined, 1, 1);
               }
               
@@ -118,6 +132,10 @@ const AppContent: React.FC<AppContentProps> = () => {
               } else if (probeError.message?.includes('User must authenticate with Google Drive first')) {
                 console.log(`⏳ [App.Filter] Cloud adapter authentication required on attempt ${attempts} - continuing`);
                 // This is expected for unauthenticated cloud mode
+                break;
+              } else if (probeError.message?.includes('No directory access. Please select a directory first')) {
+                console.log(`⏳ [App.Filter] Filesystem adapter directory access required on attempt ${attempts} - continuing`);
+                // This is expected for filesystem mode without directory access
                 break;
               } else {
                 // Other error (permissions, connectivity) — bail, let that error surface normally
@@ -148,7 +166,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
     
     initializeStorage();
-  }, [dispatch]);
+  }, [settings.storageMode]);
 
   // Periodically check Google Drive auth status to detect changes
   useEffect(() => {
@@ -314,6 +332,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/conversations" element={<ConversationsPage />} />
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
+                  <Route path="/data-migration" element={<DataMigrationPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/cloud-test" element={<CloudModeTest />} />
                 </Routes>

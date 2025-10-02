@@ -23,23 +23,31 @@ export class StorageService {
     if (storageMode) {
       mode = storageMode;
     } else {
-      // Try to get from localStorage settings
-      try {
-        const stored = localStorage.getItem('fidu-chat-lab-settings');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.storageMode) {
-            mode = parsed.storageMode;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load storage mode from settings, using default');
-      }
+      // Check environment variable for deployment type
+      const envInfo = getEnvironmentInfo();
+      const envMode = envInfo.storageMode as 'local' | 'cloud' | 'filesystem';
       
-      // Fallback to environment variable
-      if (mode === 'local') {
-        const envInfo = getEnvironmentInfo();
-        mode = envInfo.storageMode as 'local' | 'cloud';
+      // For local deployment, always use local mode (FIDU Vault API)
+      if (envMode === 'local') {
+        mode = 'local';
+      } else {
+        // For cloud deployment, respect user's storage mode choice from localStorage
+        try {
+          const stored = localStorage.getItem('fidu-chat-lab-settings');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.storageMode) {
+              mode = parsed.storageMode;
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to load storage mode from settings, using default');
+        }
+        
+        // Fallback to environment mode if no user preference
+        if (mode === 'local') {
+          mode = envMode || 'local';
+        }
       }
     }
 
@@ -53,6 +61,7 @@ export class StorageService {
     
     this.initialized = true;
     console.log(`Storage service initialized in ${this.config.mode} mode`);
+    console.log(`Storage config:`, this.config);
   }
 
   async switchMode(newMode: 'local' | 'cloud' | 'filesystem'): Promise<void> {

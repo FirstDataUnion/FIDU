@@ -27,11 +27,16 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { StorageModeSelector } from '../components/settings';
+import { getEnvironmentInfo } from '../utils/environment';
 
 const SettingsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  
+  // Check environment mode - this determines deployment type
+  const envInfo = getEnvironmentInfo();
+  const isLocalDeployment = envInfo.storageMode === 'local';
   const [isClearing, setIsClearing] = useState(false);
   const [clearStatus, setClearStatus] = useState<{
     success: boolean | null;
@@ -182,40 +187,42 @@ const SettingsPage: React.FC = () => {
       {/* Data Storage Options */}
       <StorageModeSelector />
 
-      {/* Cloud Data Management */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DeleteForeverIcon />
-            Cloud Data Management
-          </Typography>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Manage your cloud-stored database files. Use this option to clear all database files from Google Drive for testing purposes.
-          </Typography>
-          
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<DeleteForeverIcon />}
-            onClick={handleConfirmClear}
-            disabled={isClearing}
-            sx={{ mb: 2 }}
-          >
-            Clear Cloud Data
-          </Button>
-          
-          {clearStatus.message && (
-            <Alert 
-              severity={clearStatus.success ? "success" : "error"}
-              sx={{ mt: 2 }}
-              onClose={() => setClearStatus({ success: null, message: null })}
+      {/* Cloud Data Management - Hide in local deployment */}
+      {!isLocalDeployment && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DeleteForeverIcon />
+              Cloud Data Management
+            </Typography>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Manage your cloud-stored database files. Use this option to clear all database files from Google Drive for testing purposes.
+            </Typography>
+            
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<DeleteForeverIcon />}
+              onClick={handleConfirmClear}
+              disabled={isClearing}
+              sx={{ mb: 2 }}
             >
-              {clearStatus.message}
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+              Clear Cloud Data
+            </Button>
+            
+            {clearStatus.message && (
+              <Alert 
+                severity={clearStatus.success ? "success" : "error"}
+                sx={{ mt: 2 }}
+                onClose={() => setClearStatus({ success: null, message: null })}
+              >
+                {clearStatus.message}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Clear Cloud Data Confirmation Dialog */}
       <Dialog

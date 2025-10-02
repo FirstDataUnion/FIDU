@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -107,7 +107,19 @@ export const StorageModeSelector: React.FC = () => {
       const storageService = getUnifiedStorageService();
       
       // Switch to the new storage mode
-      await storageService.switchMode(pendingMode);
+      await storageService.switchMode(pendingMode as 'local' | 'cloud' | 'filesystem');
+      
+      // If switching to filesystem mode, check if directory access is needed
+      if (pendingMode === 'filesystem') {
+        const adapter = storageService.getAdapter();
+        if ('requiresDirectoryAccessAfterMigration' in adapter && 
+            typeof adapter.requiresDirectoryAccessAfterMigration === 'function' &&
+            adapter.requiresDirectoryAccessAfterMigration()) {
+          // Directory access is required after migration
+          // The user will need to select a directory when they try to use the app
+          console.log('Directory access required after migration to filesystem mode');
+        }
+      }
       
       // Update the settings
       dispatch(updateStorageMode(pendingMode));
@@ -320,15 +332,18 @@ export const StorageModeSelector: React.FC = () => {
           </Button>
           
           <Button 
-            onClick={() => {
-              setShowMigrationDialog(false);
-              setShowMigrationWizard(true);
-            }}
+            disabled
             variant="outlined"
-            disabled={isSwitching}
+            sx={{ opacity: 0.6 }}
           >
             <SyncIcon sx={{ mr: 1 }} />
             Use Migration Wizard
+            <Chip 
+              label="Coming Soon" 
+              size="small" 
+              color="default" 
+              sx={{ ml: 1, fontSize: '0.7rem', height: '20px' }}
+            />
           </Button>
           
           <Button 
@@ -350,7 +365,7 @@ export const StorageModeSelector: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Storage Migration Wizard */}
+      {/* Storage Migration Wizard - Disabled for now */}
       <StorageMigrationWizard
         open={showMigrationWizard}
         onClose={() => setShowMigrationWizard(false)}

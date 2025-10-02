@@ -145,6 +145,16 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   }
 
   /**
+   * Check if directory access is required after migration
+   * Returns true if we have directory metadata but no active handle
+   */
+  requiresDirectoryAccessAfterMigration(): boolean {
+    const hasDirectoryName = this.fileSystemService.getDirectoryName() !== null;
+    const hasDirectoryHandle = this.fileSystemService.isDirectoryAccessible();
+    return hasDirectoryName && !hasDirectoryHandle;
+  }
+
+  /**
    * Verify current directory permission is still valid
    */
   async verifyPermission(): Promise<boolean> {
@@ -583,7 +593,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Load database and delete the packet
       const dbManager = new BrowserSQLiteManager({
         conversationsDbName: 'conversations',
-        apiKeysDbName: 'api_keys'
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
       });
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(conversationsDbData));
@@ -746,7 +757,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Load database and delete the packet
       const dbManager = new BrowserSQLiteManager({
         conversationsDbName: 'conversations',
-        apiKeysDbName: 'api_keys'
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
       });
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(conversationsDbData));
@@ -821,7 +833,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     if (dbData.byteLength === 0) {
       const dbManager = new BrowserSQLiteManager({
         conversationsDbName: 'conversations',
-        apiKeysDbName: 'api_keys'
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
       });
       await dbManager.initialize();
       await dbManager.storeDataPacket(requestId, dataPacket);
@@ -831,7 +844,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Load existing database, add packet, export
       const dbManager = new BrowserSQLiteManager({
         conversationsDbName: 'conversations',
-        apiKeysDbName: 'api_keys'
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
       });
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(dbData));
@@ -854,7 +868,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Load database and query for data packets
       const dbManager = new BrowserSQLiteManager({
         conversationsDbName: 'conversations',
-        apiKeysDbName: 'api_keys'
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
       });
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(dbData));
@@ -984,10 +999,11 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     console.log('Creating new database manager...');
     
-    // Create new database manager
+    // Create new database manager with encryption enabled
     this.dbManager = new BrowserSQLiteManager({
       conversationsDbName: 'fidu_conversations',
-      apiKeysDbName: 'fidu_api_keys'
+      apiKeysDbName: 'fidu_api_keys',
+      enableEncryption: true
     });
 
     console.log('Initializing database manager...');
@@ -1183,15 +1199,25 @@ export class FileSystemStorageAdapter implements StorageAdapter {
             try {
               // Check if the handle has the requestPermission method
               if (typeof data.handle.requestPermission === 'function') {
-                console.log('Handle has requestPermission method, requesting permission...');
-                const permission = await data.handle.requestPermission({ mode: 'readwrite' });
+                console.log('Handle has requestPermission method, checking permission state...');
                 
-                if (permission === 'granted') {
-                  console.log('Permission granted! Restoring directory handle...');
-                  this.fileSystemService.setDirectoryHandle(data.handle, data.directoryName);
-                  console.log('Directory handle restored successfully!');
-                } else {
-                  console.log('Permission denied, falling back to directory name display');
+                // First, try to check permission state without requesting
+                // This avoids the "User activation is required" error during initialization
+                try {
+                  // Check if we can query the permission state
+                  const permissionState = await data.handle.queryPermission({ mode: 'readwrite' });
+                  
+                  if (permissionState === 'granted') {
+                    console.log('Permission already granted! Restoring directory handle...');
+                    this.fileSystemService.setDirectoryHandle(data.handle, data.directoryName);
+                    console.log('Directory handle restored successfully!');
+                  } else {
+                    console.log('Permission not granted, falling back to directory name display');
+                    this.fileSystemService.setDirectoryName(data.directoryName);
+                  }
+                } catch (queryError) {
+                  // If queryPermission is not available or fails, fall back to directory name
+                  console.log('Cannot query permission state, falling back to directory name display');
                   this.fileSystemService.setDirectoryName(data.directoryName);
                 }
               } else {
@@ -1199,7 +1225,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
                 this.fileSystemService.setDirectoryName(data.directoryName);
               }
             } catch (permissionError) {
-              console.error('Error requesting permission for handle:', permissionError);
+              console.error('Error checking permission for handle:', permissionError);
               console.log('Handle is invalid, falling back to directory name display');
               this.fileSystemService.setDirectoryName(data.directoryName);
             }

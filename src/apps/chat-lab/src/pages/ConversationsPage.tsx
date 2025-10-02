@@ -659,9 +659,6 @@ const ConversationsPage: React.FC = React.memo(() => {
                       Clear Filters
                     </Button>
                   )}
-                  <Button variant="outlined" href="/settings" aria-label="Go to settings">
-                    Load Sample Data
-                  </Button>
                 </Stack>
               </Box>
             ) : (

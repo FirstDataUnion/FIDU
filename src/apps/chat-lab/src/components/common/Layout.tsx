@@ -39,6 +39,7 @@ import {
   Check as CheckIcon,
   Home as HomeIcon,
   Sync as SyncIcon,
+  // CloudUpload as MigrationIcon, // Temporarily disabled
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
@@ -50,6 +51,7 @@ import GoogleDriveStatus from '../auth/GoogleDriveStatus';
 import UnsyncedDataIndicator from './UnsyncedDataIndicator';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+// import { getEnvironmentInfo } from '../../utils/environment'; // Temporarily disabled
 
 const drawerWidth = 240;
 
@@ -77,6 +79,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   // Check if we're in cloud storage mode (Google Drive)
   const isCloudStorageMode = settings.storageMode === 'cloud';
+  
+  // Check environment mode - this determines deployment type
+  // const envInfo = getEnvironmentInfo(); // Temporarily disabled
+  // const isLocalDeployment = envInfo.storageMode === 'local'; // Temporarily disabled
 
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -151,8 +157,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   const systemMenuItems = [
+    // NOTE: Data Migration temporarily disabled due to stability issues
+    // The UI remains in place but is hidden from navigation for future re-implementation
+    // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
+
 
   const handleDrawerToggle = () => {
     dispatch(toggleSidebar());

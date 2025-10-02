@@ -62,10 +62,11 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   private async initializeWithAuthentication(): Promise<void> {
-    // Initialize the browser SQLite manager
+    // Initialize the browser SQLite manager with encryption enabled
     this.dbManager = new BrowserSQLiteManager({
       conversationsDbName: 'fidu_conversations',
-      apiKeysDbName: 'fidu_api_keys'
+      apiKeysDbName: 'fidu_api_keys',
+      enableEncryption: true
     });
 
     await this.dbManager.initialize();

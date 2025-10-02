@@ -5,7 +5,8 @@ import { getEnvironmentInfo } from '../../utils/environment';
 // Get default storage mode based on environment
 const getDefaultStorageMode = (): 'local' | 'cloud' | 'filesystem' => {
   const envInfo = getEnvironmentInfo();
-  return envInfo.storageMode === 'cloud' ? 'cloud' : 'local';
+  // Always use environment storage mode if specified
+  return envInfo.storageMode as 'local' | 'cloud' | 'filesystem' || 'local';
 };
 
 // Simplified settings - only theme is needed

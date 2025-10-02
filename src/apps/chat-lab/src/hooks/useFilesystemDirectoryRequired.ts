@@ -10,6 +10,11 @@ export const useFilesystemDirectoryRequired = () => {
   const { settings } = useAppSelector((state) => state.settings);
 
   const isDirectoryRequired = useMemo(() => {
+    // Don't require directory in local mode - FIDU Vault API handles storage
+    if (settings.storageMode === 'local') {
+      return false;
+    }
+    
     // Only check if storage mode is filesystem
     if (settings.storageMode !== 'filesystem') {
       return false;

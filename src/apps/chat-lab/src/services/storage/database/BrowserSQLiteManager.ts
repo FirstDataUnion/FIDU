@@ -3,9 +3,12 @@
  * Manages SQLite databases in browser memory using sql.js
  */
 
+import { encryptionService } from '../../encryption';
+
 export interface DatabaseConfig {
   conversationsDbName: string;
   apiKeysDbName: string;
+  enableEncryption?: boolean;
 }
 
 export interface DataPacketRow {
@@ -46,8 +49,10 @@ export class BrowserSQLiteManager {
   private conversationsDb: any = null;
   private apiKeysDb: any = null;
   private initialized = false;
+  private config: DatabaseConfig;
 
-  constructor(_config: DatabaseConfig) {
+  constructor(config: DatabaseConfig) {
+    this.config = config;
     // Config will be used for database names in future implementations
   }
 
@@ -291,7 +296,25 @@ export class BrowserSQLiteManager {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const dataToStore = JSON.stringify(dataPacket.data || {});
+    // Encrypt data if encryption is enabled
+    let dataToStore: string;
+    if (this.config.enableEncryption) {
+      try {
+        const encryptedResult = await encryptionService.encryptData(dataPacket.data || {}, dataPacket.user_id);
+        dataToStore = JSON.stringify({
+          encrypted: true,
+          data: encryptedResult.encryptedData,
+          nonce: encryptedResult.nonce,
+          tag: encryptedResult.tag
+        });
+      } catch (error) {
+        console.error('Failed to encrypt data packet:', error);
+        throw new Error('Failed to encrypt data. Please try again.');
+      }
+    } else {
+      dataToStore = JSON.stringify(dataPacket.data || {});
+    }
+    
     const tagsToStore = JSON.stringify(dataPacket.tags || []);
 
     try {
@@ -359,7 +382,23 @@ export class BrowserSQLiteManager {
 
     if (dataPacket.data !== undefined) {
       updateFields.push('data = ?');
-      params.push(JSON.stringify(dataPacket.data));
+      // Encrypt data if encryption is enabled
+      if (this.config.enableEncryption) {
+        try {
+          const encryptedResult = await encryptionService.encryptData(dataPacket.data, dataPacket.user_id);
+          params.push(JSON.stringify({
+            encrypted: true,
+            data: encryptedResult.encryptedData,
+            nonce: encryptedResult.nonce,
+            tag: encryptedResult.tag
+          }));
+        } catch (error) {
+          console.error('Failed to encrypt data packet during update:', error);
+          throw new Error('Failed to encrypt data. Please try again.');
+        }
+      } else {
+        params.push(JSON.stringify(dataPacket.data));
+      }
     }
 
     params.push(dataPacket.id);
@@ -434,7 +473,7 @@ export class BrowserSQLiteManager {
 
       console.log('🔍 [BrowserSQLiteManager] getDataPacketById mapped to object:', rowObject);
 
-      return this.rowToDataPacket(rowObject);
+      return await this.rowToDataPacket(rowObject);
     } finally {
       stmt.free();
     }
@@ -476,7 +515,7 @@ export class BrowserSQLiteManager {
 
       console.log('🔍 [BrowserSQLiteManager] getDataPacketByRequestId mapped object:', rowObject);
 
-      const convertedPacket = this.rowToDataPacket(rowObject);
+      const convertedPacket = await this.rowToDataPacket(rowObject);
       console.log('🔍 [BrowserSQLiteManager] Converted packet:', convertedPacket);
       return convertedPacket;
     } finally {
@@ -555,7 +594,7 @@ export class BrowserSQLiteManager {
         };
         rows.push(rowObject);
       }
-      return rows.map((row: any) => this.rowToDataPacket(row));
+      return await Promise.all(rows.map((row: any) => this.rowToDataPacket(row)));
     } finally {
       stmt.free();
     }
@@ -591,11 +630,30 @@ export class BrowserSQLiteManager {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
+    // Encrypt API key if encryption is enabled
+    let encryptedApiKey: string;
+    if (this.config.enableEncryption) {
+      try {
+        const encryptedResult = await encryptionService.encryptData(apiKey.api_key, apiKey.user_id);
+        encryptedApiKey = JSON.stringify({
+          encrypted: true,
+          data: encryptedResult.encryptedData,
+          nonce: encryptedResult.nonce,
+          tag: encryptedResult.tag
+        });
+      } catch (error) {
+        console.error('Failed to encrypt API key:', error);
+        throw new Error('Failed to encrypt API key. Please try again.');
+      }
+    } else {
+      encryptedApiKey = apiKey.api_key;
+    }
+
     try {
       stmt.run([
         apiKey.id,
         apiKey.provider,
-        apiKey.api_key,
+        encryptedApiKey,
         apiKey.user_id,
         apiKey.create_timestamp,
         apiKey.update_timestamp
@@ -641,7 +699,7 @@ export class BrowserSQLiteManager {
       };
 
       console.log('🔍 [BrowserSQLiteManager] getAPIKeyByProvider mapped object:', rowObject);
-      return this.rowToAPIKey(rowObject);
+      return await this.rowToAPIKey(rowObject);
     } finally {
       stmt.free();
     }
@@ -674,7 +732,7 @@ export class BrowserSQLiteManager {
         rows.push(rowObject);
       }
       console.log('🔍 [BrowserSQLiteManager] getAllAPIKeys mapped rows:', rows);
-      return rows.map((row: any) => this.rowToAPIKey(row));
+      return await Promise.all(rows.map((row: any) => this.rowToAPIKey(row)));
     } finally {
       stmt.free();
     }
@@ -701,6 +759,8 @@ export class BrowserSQLiteManager {
 
   // Helper methods
   private async syncTagsToJunctionTable(dataPacketId: string, tags: string[]): Promise<void> {
+    console.log(`🔍 syncTagsToJunctionTable called with dataPacketId: ${dataPacketId}, tags:`, tags);
+    
     // Remove existing tags
     const deleteStmt = this.conversationsDb.prepare(`
       DELETE FROM data_packet_tags WHERE data_packet_id = ?
@@ -715,6 +775,7 @@ export class BrowserSQLiteManager {
       `);
       
       for (const tag of tags) {
+        console.log(`🔍 Inserting tag: dataPacketId=${dataPacketId}, tag=${tag}`);
         insertStmt.run([dataPacketId, tag]);
       }
       
@@ -722,7 +783,7 @@ export class BrowserSQLiteManager {
     }
   }
 
-  private rowToDataPacket(row: any): any {
+  private async rowToDataPacket(row: any): Promise<any> {
     // Handle both object format and array format from database
     let id, profile_id, user_id, create_timestamp, update_timestamp, tags, data;
     
@@ -756,6 +817,24 @@ export class BrowserSQLiteManager {
       } else if (data) {
         parsedData = data;
       }
+      
+      // Decrypt data if encryption is enabled and data is encrypted
+      if (this.config.enableEncryption && parsedData && typeof parsedData === 'object' && 'encrypted' in parsedData && parsedData.encrypted) {
+        try {
+          const encryptedData = parsedData as { encrypted: boolean; data: string; nonce: string; tag: string };
+          const decryptedResult = await encryptionService.decryptData(
+            encryptedData.data,
+            encryptedData.nonce,
+            encryptedData.tag,
+            user_id
+          );
+          parsedData = decryptedResult.decryptedData;
+        } catch (error) {
+          console.error('Failed to decrypt data packet:', error);
+          // Return empty data rather than throwing to prevent breaking the app
+          parsedData = {};
+        }
+      }
     } catch (error) {
       console.warn('Failed to parse data from row:', error);
       parsedData = {};
@@ -772,7 +851,7 @@ export class BrowserSQLiteManager {
     };
   }
 
-  private rowToAPIKey(row: any): any {
+  private async rowToAPIKey(row: any): Promise<any> {
     // Handle both object format and array format from database
     let id, provider, api_key, user_id, create_timestamp, update_timestamp;
     
@@ -784,10 +863,31 @@ export class BrowserSQLiteManager {
       ({ id, provider, api_key, user_id, create_timestamp, update_timestamp } = row);
     }
 
+    // Decrypt API key if encryption is enabled and key is encrypted
+    let decryptedApiKey = api_key;
+    if (this.config.enableEncryption && api_key && typeof api_key === 'string') {
+      try {
+        const parsedKey = JSON.parse(api_key);
+        if (parsedKey && typeof parsedKey === 'object' && parsedKey.encrypted) {
+          const decryptedResult = await encryptionService.decryptData(
+            parsedKey.data,
+            parsedKey.nonce,
+            parsedKey.tag,
+            user_id
+          );
+          decryptedApiKey = decryptedResult.decryptedData;
+        }
+      } catch (error) {
+        console.error('Failed to decrypt API key:', error);
+        // Return empty string rather than throwing to prevent breaking the app
+        decryptedApiKey = '';
+      }
+    }
+
     return {
       id,
       provider,
-      api_key,
+      api_key: decryptedApiKey,
       user_id,
       create_timestamp,
       update_timestamp
@@ -1176,7 +1276,7 @@ export class BrowserSQLiteManager {
     const packets = [];
     while (stmt.step()) {
       const row = stmt.get();
-      const packet = this.rowToDataPacket(row);
+      const packet = await this.rowToDataPacket(row);
       packets.push(packet);
     }
     stmt.free();
@@ -1202,7 +1302,7 @@ export class BrowserSQLiteManager {
     const keys = [];
     while (stmt.step()) {
       const row = stmt.get();
-      keys.push(this.rowToAPIKey(row));
+      keys.push(await this.rowToAPIKey(row));
     }
     stmt.free();
 
