@@ -52,7 +52,6 @@ import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
-import { formatMessageContent } from '../utils/conversationUtils';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';

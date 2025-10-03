@@ -11,7 +11,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { PROTECTED_TAGS, isProtectedTag, getManageableTags, ensureProtectedTags } from '../../constants/protectedTags';
+import { isProtectedTag, getManageableTags, ensureProtectedTags } from '../../constants/protectedTags';
 
 interface TagManagerProps {
   open: boolean;

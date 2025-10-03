@@ -134,7 +134,7 @@ export function validateMarkdownContent(content: string): {
     const lines = content.split('\n');
     let problematicHyphens = 0;
     
-    lines.forEach((line, index) => {
+    lines.forEach((line, _index) => {
       const hyphenIndex = line.indexOf('-');
       if (hyphenIndex !== -1) {
         const globalIndex = content.indexOf(line) + hyphenIndex;

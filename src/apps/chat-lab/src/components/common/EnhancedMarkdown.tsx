@@ -20,7 +20,6 @@ import {
   TableRow,
   Paper,
   Divider,
-  Chip,
   Checkbox,
   ListItem,
   ListItemText,
@@ -118,7 +117,7 @@ const CodeBlock: React.FC<{
   className?: string;
   children?: React.ReactNode;
   showCopyButton?: boolean;
-}> = ({ node, inline, className, children, showCopyButton = true }) => {
+}> = ({ node: _node, inline, className, children, showCopyButton = true }) => {
   const theme = useTheme();
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
@@ -306,7 +305,7 @@ const Strikethrough: React.FC<{ children: React.ReactNode }> = ({ children }) =>
  */
 export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
   content,
-  enableSyntaxHighlighting = true,
+  enableSyntaxHighlighting: _enableSyntaxHighlighting = true,
   showCopyButtons = true,
   className,
   sx,
