@@ -46,8 +46,8 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
         id: id,
         name: packet.data.originalPrompt!.systemPromptNames?.[index] || 'Unknown',
         content: packet.data.originalPrompt!.systemPromptContents?.[index] || '',
-        description: '', // We don't store descriptions in conversations
-        tokenCount: 0, // We don't store this in the conversation
+        description: '',
+        tokenCount: 0,
         isDefault: false,
         isBuiltIn: true,
         source: 'user',
@@ -61,8 +61,8 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
         id: packet.data.originalPrompt.systemPromptId,
         name: packet.data.originalPrompt.systemPromptName || 'Unknown',
         content: packet.data.originalPrompt.systemPromptContent || '',
-        description: '', // We don't store descriptions in conversations
-        tokenCount: 0, // We don't store this in the conversation
+        description: '',
+        tokenCount: 0,
         isDefault: false,
         isBuiltIn: true,
         source: 'user',
@@ -78,7 +78,7 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
         id: packet.data.originalPrompt.contextId,
         title: packet.data.originalPrompt.contextTitle || 'Unknown Context',
         body: packet.data.originalPrompt.contextDescription || '',
-        tokenCount: 0, // We don't store this in the conversation
+        tokenCount: 0,
         createdAt: packet.create_timestamp,
         updatedAt: packet.update_timestamp,
         tags: [],
@@ -155,7 +155,7 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
         systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
         systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
         // Store embellishment IDs
-        embellishmentIds: originalPrompt.embellishments?.map(emb => emb.id) || [],
+        embellishmentIds: (originalPrompt as any).embellishments?.map((emb: any) => emb.id) || [],
         estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
       } : undefined
     }
@@ -201,7 +201,7 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
         systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
         systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
         // Store embellishment IDs
-        embellishmentIds: originalPrompt.embellishments?.map(emb => emb.id) || [],
+        embellishmentIds: (originalPrompt as any).embellishments?.map((emb: any) => emb.id) || [],
         estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
       } : undefined
     }
@@ -228,7 +228,7 @@ export const conversationsApi = {
 
   updateConversation: async (conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']) => {
     const dataPacket = transformConversationToDataPacketUpdate(conversation, messages, originalPrompt);
-    // Currently don't see a strong need for a deterministic request_id here, we could 
+    // No strong need for deterministic request_id here 
     // seed one from timestamp, but i see it causing more problems than it'd fix. 
     const request_id = uuidv4().toString()
     const dataPacketUpdateRequest = {

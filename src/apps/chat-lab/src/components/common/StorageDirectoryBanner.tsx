@@ -54,7 +54,7 @@ export const StorageDirectoryBanner: React.FC<StorageDirectoryBannerProps> = ({
 
   // Check if we should show the banner
   const shouldShowBanner = React.useMemo(() => {
-    // Don't show banner in local mode - FIDU Vault API handles storage
+    // Hide banner in local mode - FIDU Vault API handles storage
     if (settings.storageMode === 'local') {
       return false;
     }
@@ -118,7 +118,7 @@ export const StorageDirectoryBanner: React.FC<StorageDirectoryBannerProps> = ({
     }
   };
 
-  // Don't render if we shouldn't show the banner
+  // Hide if banner shouldn't be shown
   if (!shouldShowBanner) {
     return null;
   }

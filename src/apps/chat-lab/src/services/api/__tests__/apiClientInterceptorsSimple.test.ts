@@ -15,8 +15,23 @@ jest.mock('axios', () => ({
 
 // Mock the environment module
 jest.mock('../../../utils/environment', () => ({
+  getEnvironmentInfo: () => ({
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    identityServiceUrl: 'https://identity.firstdataunion.org',
+    gatewayUrl: 'https://gateway.firstdataunion.org',
+    storageMode: 'local',
+    syncInterval: 300000,
+  }),
   getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
   getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+}));
+
+// Mock GoogleDriveAuth to fix import.meta errors
+jest.mock('../../auth/GoogleDriveAuth', () => ({
+  GoogleDriveAuthService: jest.fn(),
+  getGoogleDriveAuthService: jest.fn(),
 }));
 
 // Mock the refresh token service

@@ -39,7 +39,7 @@ import {
   Check as CheckIcon,
   Home as HomeIcon,
   Sync as SyncIcon,
-  // CloudUpload as MigrationIcon, // Temporarily disabled
+  // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
@@ -51,7 +51,7 @@ import GoogleDriveStatus from '../auth/GoogleDriveStatus';
 import UnsyncedDataIndicator from './UnsyncedDataIndicator';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
-// import { getEnvironmentInfo } from '../../utils/environment'; // Temporarily disabled
+import { getEnvironmentInfo } from '../../utils/environment';
 
 const drawerWidth = 240;
 
@@ -81,8 +81,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isCloudStorageMode = settings.storageMode === 'cloud';
   
   // Check environment mode - this determines deployment type
-  // const envInfo = getEnvironmentInfo(); // Temporarily disabled
-  // const isLocalDeployment = envInfo.storageMode === 'local'; // Temporarily disabled
+  const envInfo = getEnvironmentInfo();
+  const isCloudDeployment = envInfo.storageMode === 'cloud';
 
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -106,6 +106,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     handleProfileMenuClose();
   };
 
+  const handleManageAccount = () => {
+    const identityServiceUrl = envInfo.identityServiceUrl;
+    window.open(identityServiceUrl, '_blank');
+    handleProfileMenuClose();
+  };
+
   const handleProfileSwitch = (profile: Profile) => {
 
     dispatch(setCurrentProfile(profile));
@@ -120,7 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (createProfile.fulfilled.match(result)) {
       setShowCreateProfileDialog(false);
       setNewProfileName('');
-      // Automatically switch to the newly created profile
+      // Switch to the newly created profile
       dispatch(setCurrentProfile(result.payload));
     }
   };
@@ -272,22 +278,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </IconButton>
           )}
           
-          {/* FIDU Vault Dashboard Button */}
-          <Button
-            color="inherit"
-            startIcon={<HomeIcon />}
-            onClick={() => window.open('http://127.0.0.1:4000', '_blank')}
-            sx={{ 
-              mr: 2,
-              textTransform: 'none',
-              fontWeight: 500,
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)'
-              }
-            }}
-          >
-            Go back to FIDU Vault Dashboard
-          </Button>
+          {/* FIDU Vault Dashboard Button - only show in local deployment */}
+          {!isCloudDeployment && (
+            <Button
+              color="inherit"
+              startIcon={<HomeIcon />}
+              onClick={() => window.open('http://127.0.0.1:4000', '_blank')}
+              sx={{ 
+                mr: 2,
+                textTransform: 'none',
+                fontWeight: 500,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Go back to FIDU Vault Dashboard
+            </Button>
+          )}
           
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             
@@ -423,6 +431,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Typography variant="body2" color="text.secondary">
                   {user?.email}
                 </Typography>
+              </MenuItem>
+              <MenuItem onClick={handleManageAccount}>
+                <ListItemIcon>
+                  <AccountIcon fontSize="small" />
+                </ListItemIcon>
+                Manage Account
               </MenuItem>
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>

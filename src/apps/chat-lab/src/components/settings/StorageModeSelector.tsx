@@ -221,7 +221,7 @@ export const StorageModeSelector: React.FC = () => {
                 {mode.id === 'filesystem' && settings.storageMode === 'filesystem' && (
                   <Box sx={{ ml: 4, mt: 2 }}>
                     <FileSystemDirectoryManager
-                      onDirectoryChange={(isAccessible, directoryName) => {
+                      onDirectoryChange={(_isAccessible, _directoryName) => {
                         // Handle directory changes if needed
                       }}
                       showTitle={false}

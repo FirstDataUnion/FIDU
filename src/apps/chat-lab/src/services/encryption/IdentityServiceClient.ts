@@ -58,7 +58,6 @@ export class IdentityServiceClient {
       }
 
       const data: EncryptionKeyResponse = await response.json();
-      console.log('🔑 [IdentityServiceClient] Received encryption key response:', data);
       
       // Validate the response structure
       if (!data.encryption_key || !data.encryption_key.key || typeof data.encryption_key.key !== 'string') {
@@ -80,7 +79,7 @@ export class IdentityServiceClient {
    * @param userId - The user ID (not used in API call, kept for compatibility)
    * @returns Promise<string> - Base64 encoded encryption key
    */
-  async createEncryptionKey(userId: string): Promise<string> {
+  async createEncryptionKey(_userId: string): Promise<string> {
     const token = this.getAuthToken();
     if (!token) {
       throw new Error('Authentication token not found. Please log in again.');
@@ -128,7 +127,7 @@ export class IdentityServiceClient {
    * @param userId - The user ID (not used in API call, kept for compatibility)
    * @returns Promise<void>
    */
-  async deleteEncryptionKey(userId: string): Promise<void> {
+  async deleteEncryptionKey(_userId: string): Promise<void> {
     const token = this.getAuthToken();
     if (!token) {
       throw new Error('Authentication token not found. Please log in again.');

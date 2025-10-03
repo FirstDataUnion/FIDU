@@ -70,7 +70,7 @@ export class GoogleDriveService {
       const data: DriveFileList = await response.json();
       return data.files;
       
-    } catch (error: any) {
+    } catch {
       return this.fallbackAccessMode();
     }
   }

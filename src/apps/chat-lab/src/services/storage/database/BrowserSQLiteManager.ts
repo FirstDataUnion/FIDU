@@ -457,8 +457,6 @@ export class BrowserSQLiteManager {
         throw new Error(`Data packet with ID ${id} not found`);
       }
 
-      console.log('🔍 [BrowserSQLiteManager] getDataPacketById raw row:', rawRow);
-
       // Convert array to object with proper field names
       const rowObject = {
         id: rawRow[0],
@@ -470,8 +468,6 @@ export class BrowserSQLiteManager {
         tags: rawRow[6],
         data: rawRow[7]
       };
-
-      console.log('🔍 [BrowserSQLiteManager] getDataPacketById mapped to object:', rowObject);
 
       return await this.rowToDataPacket(rowObject);
     } finally {
@@ -759,7 +755,6 @@ export class BrowserSQLiteManager {
 
   // Helper methods
   private async syncTagsToJunctionTable(dataPacketId: string, tags: string[]): Promise<void> {
-    console.log(`🔍 syncTagsToJunctionTable called with dataPacketId: ${dataPacketId}, tags:`, tags);
     
     // Remove existing tags
     const deleteStmt = this.conversationsDb.prepare(`
@@ -775,7 +770,6 @@ export class BrowserSQLiteManager {
       `);
       
       for (const tag of tags) {
-        console.log(`🔍 Inserting tag: dataPacketId=${dataPacketId}, tag=${tag}`);
         insertStmt.run([dataPacketId, tag]);
       }
       

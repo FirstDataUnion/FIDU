@@ -29,6 +29,10 @@ export class UnifiedStorageService {
     return this.storageService.getCurrentMode();
   }
 
+  setUserId(userId: string): void {
+    this.storageService.setUserId(userId);
+  }
+
   // Conversation operations
   async createConversation(
     profileId: string,

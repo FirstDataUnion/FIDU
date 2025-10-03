@@ -139,7 +139,7 @@ export class SyncService {
 
       console.log(`Syncing ${pendingCounts.dataPackets} data packets and ${pendingCounts.apiKeys} API keys`);
 
-      // For now, we'll still do full database export for simplicity
+      // Full database export for simplicity
       // In the future, we could implement incremental sync here
       const conversationsData = await this.dbManager.exportConversationsDB();
       if (conversationsData && conversationsData.length > 0) {
@@ -202,7 +202,7 @@ export class SyncService {
         await this.fullSync();
       } catch (error) {
         console.error('Auto sync failed:', error);
-        // Don't throw - let it retry on next interval
+        // Let it retry on next interval
       }
     }, this.syncInterval);
   }

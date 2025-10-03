@@ -37,7 +37,7 @@ const ProfileSelector: React.FC = () => {
     // Validate profile name length (assuming max 100 characters based on common patterns)
     const trimmedName = newProfileName.trim();
     if (trimmedName.length > 100) {
-      // This should be handled by the input validation, but just in case
+      // Input validation fallback
       return;
     }
 
@@ -48,7 +48,7 @@ const ProfileSelector: React.FC = () => {
     if (createProfile.fulfilled.match(result)) {
       setShowCreateDialog(false);
       setNewProfileName('');
-      // Automatically select the newly created profile
+      // Select the newly created profile
       dispatch(setCurrentProfile(result.payload));
     }
     // Error handling is done by the Redux state, which will show in the error display

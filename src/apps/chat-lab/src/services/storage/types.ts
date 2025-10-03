@@ -15,6 +15,7 @@ export type StorageMode = typeof StorageMode[keyof typeof StorageMode];
 export interface StorageConfig {
   mode: StorageMode;
   baseURL?: string;
+  userId?: string;
 }
 
 export interface ConversationsResponse {
@@ -27,6 +28,7 @@ export interface ConversationsResponse {
 export interface StorageAdapter {
   initialize(): Promise<void>;
   isInitialized(): boolean;
+  setUserId(userId: string): void;
   
   // Conversation operations
   createConversation(

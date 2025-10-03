@@ -6,6 +6,7 @@ import {
   Button,
   Alert,
   LinearProgress,
+  CircularProgress,
   Card,
   CardContent,
   List,
@@ -15,7 +16,6 @@ import {
   Divider,
   Chip,
   IconButton,
-  Tooltip,
   Collapse,
 } from '@mui/material';
 import {
@@ -44,7 +44,6 @@ interface MigrationStep {
 const DataMigrationPage: React.FC = () => {
   const { settings } = useAppSelector((state) => state.settings);
   const { currentProfile } = useAppSelector((state) => state.auth);
-  const [isDragActive, setIsDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [migrationSteps, setMigrationSteps] = useState<MigrationStep[]>([]);
@@ -171,7 +170,7 @@ const DataMigrationPage: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [settings.storageMode, initializeMigrationSteps, updateStepStatus]);
+  }, [settings.storageMode, initializeMigrationSteps, updateStepStatus, currentProfile?.id]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -205,7 +204,7 @@ const DataMigrationPage: React.FC = () => {
       case 'completed':
         return <CheckIcon color="success" />;
       case 'in-progress':
-        return <LinearProgress size={20} />;
+        return <CircularProgress size={20} />;
       case 'error':
         return <ErrorIcon color="error" />;
       default:

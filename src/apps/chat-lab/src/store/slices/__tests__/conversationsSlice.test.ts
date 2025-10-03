@@ -1,3 +1,24 @@
+// Mock the environment module to fix import.meta errors
+jest.mock('../../../utils/environment', () => ({
+  getEnvironmentInfo: () => ({
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    identityServiceUrl: 'https://identity.firstdataunion.org',
+    gatewayUrl: 'https://gateway.firstdataunion.org',
+    storageMode: 'local',
+    syncInterval: 300000,
+  }),
+  getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
+  getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+}));
+
+// Mock GoogleDriveAuth to fix import.meta errors
+jest.mock('../../../services/auth/GoogleDriveAuth', () => ({
+  GoogleDriveAuthService: jest.fn(),
+  getGoogleDriveAuthService: jest.fn(),
+}));
+
 import conversationsSlice, {
   fetchConversations,
   fetchConversation,
@@ -15,24 +36,24 @@ import conversationsSlice, {
   updateConversationLocally,
 } from '../conversationsSlice';
 import type { Conversation, ConversationsState } from '../../../types';
-import { conversationsApi } from '../../../services/api/conversations';
+import { conversationsService } from '../../../services/conversationsService';
 
 // Mock the API
-jest.mock('../../../services/api/conversations', () => ({
-  conversationsApi: {
+jest.mock('../../../services/conversationsService', () => ({
+  conversationsService: {
     getAll: jest.fn(),
     getById: jest.fn(),
     getMessages: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    archive: jest.fn(),
-    unarchive: jest.fn(),
-    toggleFavorite: jest.fn(),
+    createConversation: jest.fn(),
+    updateConversation: jest.fn(),
+    deleteConversation: jest.fn(),
+    archiveConversation: jest.fn(),
+    unarchiveConversation: jest.fn(),
+    toggleFavoriteConversation: jest.fn(),
   },
 }));
 
-const mockConversationsApi = conversationsApi as jest.Mocked<typeof conversationsApi>;
+const mockConversationsService = conversationsService as jest.Mocked<typeof conversationsService>;
 
 const mockConversation: Conversation = {
   id: '1',
@@ -199,7 +220,7 @@ describe('conversationsSlice', () => {
           limit: 20,
         };
         
-        mockConversationsApi.getAll.mockResolvedValue(mockResponse);
+        mockConversationsService.getAll.mockResolvedValue(mockResponse);
         
         const thunk = fetchConversations({ filters: undefined, page: 1, limit: 20 });
         const dispatch = jest.fn();
@@ -209,7 +230,7 @@ describe('conversationsSlice', () => {
         
         await thunk(dispatch, getState, undefined);
         
-        expect(mockConversationsApi.getAll).toHaveBeenCalledWith(
+        expect(mockConversationsService.getAll).toHaveBeenCalledWith(
           undefined,
           1,
           20,

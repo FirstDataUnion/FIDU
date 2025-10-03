@@ -58,46 +58,6 @@ import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 
-// Helper function to detect if content from NLP service looks like an error
-const isExternalError = (content: string): boolean => {
-  const lowerContent = content.toLowerCase();
-  
-  // Check for common error indicators using whole-word matching
-  const errorPatterns = [
-    'error',
-    'failed',
-    'exception',
-    'invalid',
-    'unauthorized',
-    'forbidden',
-    'not found',
-    'timeout',
-    'connection failed',
-    'service unavailable',
-    'internal server error',
-    'bad request',
-    'access denied',
-    'quota exceeded',
-    'rate limit',
-    'authentication failed'
-  ];
-  
-  // Use word boundary regex to match whole words only
-  return errorPatterns.some(pattern => {
-    // For multi-word patterns, use simple includes
-    if (pattern.includes(' ')) {
-      return lowerContent.includes(pattern);
-    }
-    // For single words, use word boundary regex to avoid false positives
-    const regex = new RegExp(`\\b${pattern}\\b`, 'i');
-    return regex.test(content);
-  });
-};
-
-// Helper function to wrap external error messages with context
-const wrapExternalError = (content: string, model: string): string => {
-  return `Error: The model (${model}) reported an issue: ${content}`;
-};
 
 // Helper function to generate user-friendly error messages and debug info
 const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage: string; debugInfo: any } => {
@@ -115,7 +75,7 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
     // Handle specific HTTP status codes
     switch (error.status) {
       case 408: {
-        // Enhanced timeout error handling with detailed debug info
+        // Timeout error handling with detailed debug info
         const timeoutData = error.data || {};
         const actualWaitTime = timeoutData.actualWaitTime || timeoutData.maxWaitTime || 'unknown';
         const pollCount = timeoutData.totalPolls || 'unknown';
@@ -726,7 +686,7 @@ export default function PromptLabPage() {
     setSystemPromptModalOpen(true);
   };
 
-  // Helper function to restore system prompts and embellishments from a conversation
+  // Helper function to restore system prompts from a conversation
   const restoreConversationSettings = useCallback((conversation: Conversation) => {
     if (conversation.originalPrompt) {
       if (conversation.originalPrompt.systemPrompts && conversation.originalPrompt.systemPrompts.length > 0) {
@@ -736,7 +696,7 @@ export default function PromptLabPage() {
         setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
       }
       
-      // Note: Embellishments removed
+      // Embellishments removed
     }
   }, []);
 
@@ -911,7 +871,7 @@ export default function PromptLabPage() {
             setCurrentConversation(location.state.conversation);
             setMessages(messages);
             
-            // Restore system prompts and embellishments from the conversation
+            // Restore system prompts from the conversation
             if (location.state.conversation.originalPrompt) {
               restoreConversationSettings(location.state.conversation);
             }
@@ -967,7 +927,6 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
-            embellishments: [], // Embellishments removed
             metadata: { estimatedTokens: 0 }
           }
         );
@@ -997,7 +956,7 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
-            embellishments: [], // Embellishments removed
+            embellishments: [],
             metadata: { estimatedTokens: 0 }
           }
         };
@@ -1010,7 +969,6 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts,
             systemPrompt: selectedSystemPrompts[0] || null,
-            embellishments: [],
             metadata: { estimatedTokens: 0 }
           }
         );
@@ -1034,7 +992,7 @@ export default function PromptLabPage() {
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompts.length || !currentProfile) return;
 
-    // Automatically close the system prompt drawer when sending a message
+    // Close the system prompt drawer when sending a message
     if (systemPromptDrawerOpen) {
       setSystemPromptDrawerOpen(false);
     }
@@ -1063,33 +1021,22 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
-        [] // Embellishments removed
+        []
       );
 
       if (response.status === 'completed' && response.responses?.content) {
-        // Check if the response content looks like an error message
         const content = response.responses.content;
-        const isExternalErrorDetected = isExternalError(content);
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
           conversationId: 'current',
-          content: isExternalErrorDetected ? wrapExternalError(content, selectedModel) : content,
+          content: content,
           role: 'assistant',
           timestamp: new Date().toISOString(),
           platform: selectedModel, // Store the selected model ID for AI responses
           isEdited: false
         };
         setMessages(prev => [...prev, aiMessage]);
-        
-        // Log external errors for debugging
-        if (isExternalErrorDetected) {
-          console.log('External NLP service error detected:', {
-            model: selectedModel,
-            content: content,
-            fullResponse: response
-          });
-        }
         
         // Save conversation after AI response
         setTimeout(() => {
@@ -1256,18 +1203,16 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile!.id,
         selectedSystemPrompts,
-        [] // Embellishments removed
+        []
       );
 
       if (response.status === 'completed' && response.responses?.content) {
-        // Check if the response content looks like an error message
         const content = response.responses.content;
-        const isExternalErrorDetected = isExternalError(content);
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
           conversationId: 'current',
-          content: isExternalErrorDetected ? wrapExternalError(content, selectedModel) : content,
+          content: content,
           role: 'assistant',
           timestamp: new Date().toISOString(),
           platform: selectedModel,
@@ -1275,15 +1220,6 @@ export default function PromptLabPage() {
         };
         
         setMessages(prev => [...prev, aiMessage]);
-        
-        // Log external errors for debugging
-        if (isExternalErrorDetected) {
-          console.log('External NLP service error detected during retry:', {
-            model: selectedModel,
-            content: content,
-            fullResponse: response
-          });
-        }
         
         // Save conversation after AI response
         setTimeout(() => {

@@ -15,13 +15,13 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  DialogActions,
   Backdrop,
   useTheme,
   IconButton
 } from '@mui/material';
 import { CloudUpload, Google, Close } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { serverLogger } from '../../utils/serverLogger';
 import { useAppDispatch } from '../../hooks/redux';
 import { checkGoogleDriveAuthStatus } from '../../store/slices/googleDriveAuthSlice';
 
@@ -43,10 +43,24 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
 
     // If we have an OAuth code or error, check auth status
     if (code || error) {
+      serverLogger.info('🔄 OAuth callback detected, processing...', { code: !!code, error });
+      
       // Wait a moment for the auth service to process the callback
-      setTimeout(() => {
-        dispatch(checkGoogleDriveAuthStatus());
-        onAuthenticated?.();
+      setTimeout(async () => {
+        try {
+          serverLogger.info('🔍 Checking Google Drive auth status...');
+          const result = await dispatch(checkGoogleDriveAuthStatus()).unwrap();
+          serverLogger.info('✅ Auth status check result:', result);
+          
+          if (result.isAuthenticated) {
+            serverLogger.info('🎉 Authentication successful, calling onAuthenticated callback');
+            onAuthenticated?.();
+          } else {
+            serverLogger.warn('❌ Authentication failed or not complete');
+          }
+        } catch (error) {
+          serverLogger.error('🚫 Auth status check failed:', error);
+        }
       }, 1000);
     }
   }, [dispatch, onAuthenticated]);

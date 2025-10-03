@@ -1,3 +1,18 @@
+// Mock the environment module to fix import.meta errors
+jest.mock('../../../utils/environment', () => ({
+  getEnvironmentInfo: () => ({
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    identityServiceUrl: 'https://identity.firstdataunion.org',
+    gatewayUrl: 'https://gateway.firstdataunion.org',
+    storageMode: 'local',
+    syncInterval: 300000,
+  }),
+  getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
+  getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+}));
+
 /**
  * Identity Service Client Tests
  * Tests for the IdentityServiceClient class
@@ -182,8 +197,9 @@ describe('IdentityServiceClient', () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
-        statusText: 'Internal Server Error'
-      } as Response);
+        statusText: 'Internal Server Error',
+        text: jest.fn().mockResolvedValue('Server Error')
+      } as any);
 
       await expect(client.createEncryptionKey('user-123'))
         .rejects.toThrow('Failed to create encryption key: 500 Internal Server Error');

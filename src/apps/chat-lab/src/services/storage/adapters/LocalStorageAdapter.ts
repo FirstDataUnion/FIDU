@@ -31,6 +31,12 @@ export class LocalStorageAdapter implements StorageAdapter {
     return this.initialized;
   }
 
+  setUserId(userId: string): void {
+    // Local storage adapter doesn't need to track user ID as it uses the FIDU Vault API
+    // which handles user authentication through the API token
+    console.log('LocalStorageAdapter: setUserId called with', userId);
+  }
+
   // Conversation operations
   async createConversation(
     profileId: string, 

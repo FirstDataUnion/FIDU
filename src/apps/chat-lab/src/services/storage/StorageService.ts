@@ -40,7 +40,7 @@ export class StorageService {
               mode = parsed.storageMode;
             }
           }
-        } catch (error) {
+        } catch {
           console.warn('Failed to load storage mode from settings, using default');
         }
         
@@ -94,6 +94,15 @@ export class StorageService {
 
   getCurrentMode(): string {
     return this.config?.mode || 'unknown';
+  }
+
+  setUserId(userId: string): void {
+    if (this.config) {
+      this.config.userId = userId;
+    }
+    if (this.adapter) {
+      this.adapter.setUserId(userId);
+    }
   }
 }
 

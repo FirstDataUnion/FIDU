@@ -23,6 +23,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   private initialized = false;
   private fileSystemService: FileSystemService;
   private dbManager: BrowserSQLiteManager | null = null;
+  private userId: string = 'current_user'; // Default fallback
 
   constructor(_config: StorageConfig) {
     this.fileSystemService = new FileSystemService();
@@ -43,11 +44,15 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     await this.restoreDirectoryHandle();
 
     this.initialized = true;
-    console.log('File System Storage Adapter initialized successfully');
+    // File System Storage Adapter initialized successfully
   }
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  setUserId(userId: string): void {
+    this.userId = userId;
   }
 
   /**
@@ -81,7 +86,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       const hasPreviousSelection = this.fileSystemService.getDirectoryName() !== null;
       
       if (hasPreviousSelection) {
-        console.log('Re-selecting directory for user - providing smart hints');
+        // Re-selecting directory for user - providing smart hints
       }
       
       await this.fileSystemService.requestDirectoryAccessWithHints();
@@ -186,7 +191,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         }
       }
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -233,14 +238,12 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Transform conversation to data packet format (same as CloudStorageAdapter)
       const dataPacket = this.transformConversationToDataPacket(profileId, conversation, messages, originalPrompt);
       
-      console.log('Creating conversation with direct file operations:', dataPacket.id);
-      console.log('Data packet user_id:', dataPacket.user_id);
-      console.log('Data packet profile_id:', dataPacket.profile_id);
+      // Creating conversation with direct file operations
       
       // Store directly in the conversations database file
       await this.storeDataPacketDirectly(dataPacket);
       
-      console.log('Conversation created successfully:', dataPacket.id);
+      // Conversation created successfully
       
       return this.transformDataPacketToConversation(dataPacket);
     } catch (error) {
@@ -269,7 +272,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     const dataPacket = this.transformConversationToDataPacketUpdate(conversation, messages, originalPrompt);
     
     // Generate request ID for idempotency
-    const requestId = this.generateRequestId('current_user', dataPacket.id, 'update');
+    const requestId = this.generateRequestId(this.userId, dataPacket.id, 'update');
     
     try {
       const storedPacket = await dbManager.storeDataPacket(requestId, dataPacket);
@@ -296,13 +299,13 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Ensure we have a valid userId for the query
-      const userId = profileId || 'current_user';
-      console.log('Loading conversations with direct file operations for userId:', userId);
+      const userId = profileId || this.userId;
+      // Loading conversations with direct file operations
       
       // Read data packets directly from the conversations database file
       const allDataPackets = await this.readDataPacketsFromFile(userId);
       
-      console.log('Retrieved data packets from file:', allDataPackets?.length || 0);
+      // Retrieved data packets from file
       
       // Apply filtering - first filter for conversation packets, then apply additional filters
       let filteredPackets = (allDataPackets || []).filter(packet => 
@@ -361,7 +364,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Find the conversation with the matching ID
       const conversationPacket = allDataPackets.find((packet: any) => 
@@ -386,7 +389,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Find the conversation with the matching ID
       const conversationPacket = allDataPackets.find((packet: any) => 
@@ -403,7 +406,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       if (typeof data === 'string') {
         try {
           parsedData = JSON.parse(data);
-        } catch (error) {
+        } catch {
           parsedData = {};
         }
       }
@@ -433,7 +436,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
 
     const dbManager = await this.getOrCreateDbManager();
-    const apiKey = await dbManager.getAPIKeyByProvider(provider, 'current_user');
+    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.userId);
     return apiKey?.api_key || null;
   }
 
@@ -443,7 +446,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
 
     const dbManager = await this.getOrCreateDbManager();
-    const apiKey = await dbManager.getAPIKeyByProvider(provider, 'current_user');
+    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.userId);
     return !!apiKey;
   }
 
@@ -455,7 +458,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Filter for context data packets (those with FIDU-CHAT-LAB-Context tag)
       const contextPackets = (allDataPackets || []).filter((packet: any) => 
@@ -504,7 +507,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Find the context with the matching ID
       const contextPacket = allDataPackets.find((packet: any) => 
@@ -619,7 +622,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Filter for system prompt data packets (those with FIDU-CHAT-LAB-SystemPrompt tag)
       const systemPromptPackets = (allDataPackets || []).filter((packet: any) => 
@@ -668,7 +671,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile('current_user');
+      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
       
       // Find the system prompt with the matching ID
       const systemPromptPacket = allDataPackets.find((packet: any) => 
@@ -874,13 +877,13 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(dbData));
       
-      // Get data packets for the user - use 'current_user' as that's what we store in the data packets
-      const dataPackets = await dbManager.listDataPackets({ user_id: 'current_user' });
+      // Get data packets for the user - use this.userId as that's what we store in the data packets
+      const dataPackets = await dbManager.listDataPackets({ user_id: this.userId });
       
-      console.log(`Read ${dataPackets?.length || 0} data packets from file for user current_user`);
+      console.log(`Read ${dataPackets?.length || 0} data packets from file for user ${this.userId}`);
       
       // Debug: Check all packets in database
-      const allPackets = await dbManager.listDataPackets({ user_id: 'current_user' });
+      const allPackets = await dbManager.listDataPackets({ user_id: this.userId });
       console.log(`Total packets in database: ${allPackets?.length || 0}`);
       if (allPackets && allPackets.length > 0) {
         console.log('All packet user_ids:', allPackets.map(p => p.user_id));
@@ -1044,7 +1047,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
           console.warn('Failed to import API keys database, starting with empty database:', importError);
         }
       }
-    } catch (error) {
+    } catch {
       console.log('No existing database files found or failed to load, starting with empty database');
     }
   }
@@ -1139,7 +1142,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
   private async restoreDirectoryHandle(): Promise<void> {
     try {
-      console.log('Attempting to restore directory handle from IndexedDB...');
+      // Attempting to restore directory handle from IndexedDB
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['directoryHandles'], 'readonly');
       const store = transaction.objectStore('directoryHandles');
@@ -1148,18 +1151,11 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
-      console.log('Raw data from IndexedDB:', rawData);
+      // Raw data from IndexedDB retrieved
       
       // Test if we can access properties directly like the Stack Overflow example
       if (rawData && typeof rawData === 'object') {
-        console.log('Testing direct property access:');
-        const data = rawData as any;
-        console.log('- rawData.name:', data.name);
-        console.log('- rawData.directoryName:', data.directoryName);
-        console.log('- rawData.handle:', data.handle);
-        console.log('- rawData.handle?.name:', data.handle?.name);
-        console.log('- rawData.handle?.kind:', data.handle?.kind);
-        console.log('- Object.keys(rawData):', Object.keys(rawData));
+        // Testing direct property access
       }
       
       const handleData = rawData as unknown as { 
@@ -1169,17 +1165,10 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         permissionState?: string;
       } | undefined;
       
-      console.log('Retrieved handle data from IndexedDB:', handleData ? 'Found data' : 'No data found');
+      // Retrieved handle data from IndexedDB
       
       if (handleData) {
-        console.log('Handle data details:', {
-          hasHandle: !!handleData.handle,
-          handleType: handleData.handle ? typeof handleData.handle : 'undefined',
-          directoryName: handleData.directoryName,
-          timestamp: handleData.timestamp,
-          permissionState: handleData.permissionState,
-          rawDataKeys: rawData ? Object.keys(rawData) : 'no raw data'
-        });
+        // Handle data details available
       }
       
       // Check if we have any data at all
@@ -1215,7 +1204,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
                     console.log('Permission not granted, falling back to directory name display');
                     this.fileSystemService.setDirectoryName(data.directoryName);
                   }
-                } catch (queryError) {
+                } catch {
                   // If queryPermission is not available or fails, fall back to directory name
                   console.log('Cannot query permission state, falling back to directory name display');
                   this.fileSystemService.setDirectoryName(data.directoryName);
@@ -1308,7 +1297,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: conversation.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user',
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
@@ -1496,7 +1485,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: context.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user',
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -1512,7 +1501,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: context.id,
       profile_id: profileId,
-      user_id: 'current_user',
+      user_id: this.userId,
       create_timestamp: context.createdAt || new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -1563,7 +1552,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user',
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],
@@ -1583,7 +1572,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id,
       profile_id: profileId,
-      user_id: 'current_user',
+      user_id: this.userId,
       create_timestamp: systemPrompt.createdAt || new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],

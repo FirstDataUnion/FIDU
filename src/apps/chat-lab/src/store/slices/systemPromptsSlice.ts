@@ -37,7 +37,7 @@ const initialState: SystemPromptsState = {
 // Async actions
 export const fetchSystemPrompts = createAsyncThunk(
   'systemPrompts/fetchSystemPrompts',
-  async (profileId?: string, { rejectWithValue }) => {
+  async (profileId: string | undefined, { rejectWithValue }) => {
     try {
       if (profileId) {
         const storageService = getUnifiedStorageService();

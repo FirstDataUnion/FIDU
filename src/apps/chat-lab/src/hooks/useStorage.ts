@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { unifiedStorageService } from '../services/storage/UnifiedStorageService';
+import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import type { Conversation, Message, FilterOptions } from '../types';
 
 export interface UseStorageReturn {
@@ -50,10 +50,11 @@ export function useStorage(): UseStorageReturn {
   useEffect(() => {
     const initializeStorage = async () => {
       try {
-        await unifiedStorageService.initialize();
+        const service = getUnifiedStorageService();
+        await service.initialize();
         setIsInitialized(true);
-        setStorageMode(unifiedStorageService.getStorageMode());
-        setIsOnline(unifiedStorageService.isOnline());
+        setStorageMode(localStorage.getItem('storage_mode') || 'local');
+        setIsOnline(service.isOnline());
       } catch (error) {
         console.error('Failed to initialize storage service:', error);
       }
@@ -62,38 +63,40 @@ export function useStorage(): UseStorageReturn {
     initializeStorage();
   }, []);
 
+  const service = getUnifiedStorageService();
+  
   return {
     // Service state
     isInitialized,
     storageMode,
-    isCloudMode: unifiedStorageService.isCloudMode(),
-    isLocalMode: unifiedStorageService.isLocalMode(),
+    isCloudMode: storageMode === 'cloud',
+    isLocalMode: storageMode === 'local',
     isOnline,
     
     // Conversation operations
-    createConversation: unifiedStorageService.createConversation.bind(unifiedStorageService),
-    updateConversation: unifiedStorageService.updateConversation.bind(unifiedStorageService),
-    getConversations: unifiedStorageService.getConversations.bind(unifiedStorageService),
-    getConversationById: unifiedStorageService.getConversationById.bind(unifiedStorageService),
-    getMessages: unifiedStorageService.getMessages.bind(unifiedStorageService),
+    createConversation: service.createConversation.bind(service),
+    updateConversation: service.updateConversation.bind(service),
+    getConversations: service.getConversations.bind(service),
+    getConversationById: service.getConversationById.bind(service),
+    getMessages: service.getMessages.bind(service),
     
     // API Key operations
-    getAPIKey: unifiedStorageService.getAPIKey.bind(unifiedStorageService),
-    isAPIKeyAvailable: unifiedStorageService.isAPIKeyAvailable.bind(unifiedStorageService),
+    getAPIKey: service.getAPIKey.bind(service),
+    isAPIKeyAvailable: service.isAPIKeyAvailable.bind(service),
     
     // Context operations
-    getContexts: unifiedStorageService.getContexts.bind(unifiedStorageService),
-    createContext: unifiedStorageService.createContext.bind(unifiedStorageService),
-    updateContext: unifiedStorageService.updateContext.bind(unifiedStorageService),
-    deleteContext: unifiedStorageService.deleteContext.bind(unifiedStorageService),
+    getContexts: service.getContexts.bind(service),
+    createContext: service.createContext.bind(service),
+    updateContext: service.updateContext.bind(service),
+    deleteContext: (contextId: string) => service.deleteContext(contextId).then(() => contextId),
     
     // System Prompt operations
-    getSystemPrompts: unifiedStorageService.getSystemPrompts.bind(unifiedStorageService),
-    createSystemPrompt: unifiedStorageService.createSystemPrompt.bind(unifiedStorageService),
-    updateSystemPrompt: unifiedStorageService.updateSystemPrompt.bind(unifiedStorageService),
-    deleteSystemPrompt: unifiedStorageService.deleteSystemPrompt.bind(unifiedStorageService),
+    getSystemPrompts: service.getSystemPrompts.bind(service),
+    createSystemPrompt: service.createSystemPrompt.bind(service),
+    updateSystemPrompt: service.updateSystemPrompt.bind(service),
+    deleteSystemPrompt: service.deleteSystemPrompt.bind(service),
     
     // Sync operations
-    sync: unifiedStorageService.sync.bind(unifiedStorageService),
+    sync: service.sync.bind(service),
   };
 }

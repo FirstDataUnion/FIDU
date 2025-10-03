@@ -43,7 +43,7 @@ const initialState: ContextsState = {
 // Async actions
 export const fetchContexts = createAsyncThunk(
   'contexts/fetchContexts',
-  async (profileId?: string, { rejectWithValue }) => {
+  async (profileId: string | undefined, { rejectWithValue }) => {
     try {
       const storageService = getUnifiedStorageService();
       const response = await storageService.getContexts(undefined, 1, 100, profileId);

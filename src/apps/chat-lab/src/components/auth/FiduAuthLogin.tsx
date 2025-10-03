@@ -12,6 +12,7 @@ import { initializeAuth } from '../../store/slices/authSlice';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
 import { refreshTokenService } from '../../services/api/refreshTokenService';
 import { getIdentityServiceUrl } from '../../utils/environment';
+import { isEmailAllowed, getAllowedEmails } from '../../utils/emailAllowlist';
 
 const FIDU_SDK_ID = 'fidu-sdk-script';
 
@@ -27,33 +28,15 @@ const FiduAuthLogin: React.FC = () => {
   const sdkLoaded = useRef(false);
 
 
-  // Function to check and clear problematic auth state
   const checkAndClearAuthState = useCallback(() => {
-    console.log('🔑 FiduAuthLogin: Checking current auth state...');
     const token = localStorage.getItem('auth_token');
     const user = localStorage.getItem('user');
     const profile = localStorage.getItem('current_profile');
     
-    console.log('🔑 FiduAuthLogin: Current localStorage state:', {
-      hasToken: !!token,
-      hasUser: !!user,
-      hasProfile: !!profile
-    });
-    
-    // If we have partial auth state but no valid session, clear it
     if ((token || user || profile) && !token) {
-      console.log('🔑 FiduAuthLogin: Found partial auth state without token, clearing...');
       refreshTokenService.clearAllAuthTokens();
     }
   }, []);
-
-  // Log the FIDU host for debugging
-  console.log('🔑 FiduAuthLogin: FIDU host URL:', getFiduHost());
-  console.log('🔑 FiduAuthLogin: Environment info:', {
-    mode: import.meta.env.MODE,
-    isDev: import.meta.env.DEV,
-    identityServiceUrl: import.meta.env.VITE_IDENTITY_SERVICE_URL
-  });
 
   // Check auth state on component mount
   useEffect(() => {
@@ -69,7 +52,7 @@ const FiduAuthLogin: React.FC = () => {
         console.warn('🔑 FiduAuthLogin: SDK loading timeout - taking longer than expected');
         setError('Authentication system is taking longer than expected to load. Please wait or try refreshing the page.');
       }
-    }, 10000); // 10 second timeout
+    }, 10000);
     
     if (document.getElementById(FIDU_SDK_ID)) {
       sdkLoaded.current = true;
@@ -118,10 +101,23 @@ const FiduAuthLogin: React.FC = () => {
 
     fidu.on('onAuthSuccess', async (_user: any, token: string) => {
       try {
-        // Store token
         localStorage.setItem('auth_token', token);
         // Fetch user info from identity service
         const user = await fetchCurrentUser(token);
+        
+        // Check email allowlist (development only)
+        if (!isEmailAllowed(user.email)) {
+          refreshTokenService.clearAllAuthTokens();
+          
+          const allowedEmails = getAllowedEmails();
+          const emailListStr = allowedEmails ? allowedEmails.join(', ') : 'configured list';
+          setError(
+            `Access restricted. Your email (${user.email}) is not authorized for this development environment. ` +
+            `Authorized emails: ${emailListStr}. Please contact an administrator for access.`
+          );
+          return;
+        }
+        
         localStorage.setItem('user', JSON.stringify(user));
         // Set auth_token cookie for backend compatibility (expires in 1 hour)
         document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
@@ -257,7 +253,6 @@ const FiduAuthLogin: React.FC = () => {
                 <Button 
                   variant="outlined" 
                   onClick={() => {
-                    // Clear any cached data and retry
                     refreshTokenService.clearAllAuthTokens();
                     window.location.reload();
                   }}
@@ -273,12 +268,10 @@ const FiduAuthLogin: React.FC = () => {
                     setError(null);
                     setLoading(true);
                     sdkLoaded.current = false;
-                    // Remove existing script and retry
                     const existingScript = document.getElementById(FIDU_SDK_ID);
                     if (existingScript) {
                       existingScript.remove();
                     }
-                    // Force a re-render by updating state
                     setTimeout(() => setLoading(false), 100);
                   }}
                 >

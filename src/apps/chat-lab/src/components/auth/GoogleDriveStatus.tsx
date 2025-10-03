@@ -101,7 +101,7 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
   // Check if we're in cloud storage mode (Google Drive)
   const isCloudStorageMode = settings.storageMode === 'cloud';
 
-  // Don't show widget if not in cloud storage mode
+  // Hide widget if not in cloud storage mode
   if (!isCloudStorageMode) {
     return null;
   }

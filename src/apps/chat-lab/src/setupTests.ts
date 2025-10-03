@@ -1,5 +1,18 @@
 import '@testing-library/jest-dom';
 
+// Mock TextEncoder and TextDecoder for tests
+global.TextEncoder = class TextEncoder {
+  encode(input: string): Uint8Array {
+    return new Uint8Array(Buffer.from(input, 'utf8'));
+  }
+} as any;
+
+global.TextDecoder = class TextDecoder {
+  decode(input: Uint8Array): string {
+    return Buffer.from(input).toString('utf8');
+  }
+} as any;
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

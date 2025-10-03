@@ -4,7 +4,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Divider,
   Alert
 } from '@mui/material';
 import {
@@ -54,9 +53,9 @@ export const FileSystemDirectoryManager: React.FC<FileSystemDirectoryManagerProp
         return;
       }
 
-      const isAccessible = adapter.isDirectoryAccessible();
-      const hasMetadata = adapter.hasDirectoryMetadata();
-      const directoryName = adapter.getDirectoryName();
+      const isAccessible = (adapter as any).isDirectoryAccessible();
+      const hasMetadata = (adapter as any).hasDirectoryMetadata();
+      const directoryName = (adapter as any).getDirectoryName();
 
       setDirectoryName(directoryName);
       setHasMetadata(hasMetadata);
@@ -97,7 +96,7 @@ export const FileSystemDirectoryManager: React.FC<FileSystemDirectoryManagerProp
     setIsChecking(true);
     try {
       const storageService = getUnifiedStorageService();
-      const adapter = storageService.getAdapter();
+      const adapter = storageService.getAdapter() as any;
       
       if ('requestDirectoryAccess' in adapter) {
         const result = await adapter.requestDirectoryAccess();
@@ -121,7 +120,7 @@ export const FileSystemDirectoryManager: React.FC<FileSystemDirectoryManagerProp
       const adapter = storageService.getAdapter();
       
       if ('clearDirectoryAccess' in adapter) {
-        await adapter.clearDirectoryAccess();
+        await (adapter as any).clearDirectoryAccess();
         await checkDirectoryStatus(); // Refresh status
       }
     } catch (error) {

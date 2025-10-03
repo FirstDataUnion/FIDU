@@ -187,7 +187,7 @@ export class FileSystemService {
       // Try to access the directory to check permission
       await handle.keys().next();
       return { state: 'granted' };
-    } catch (error) {
+    } catch {
       return { state: 'denied' };
     }
   }
@@ -205,7 +205,7 @@ export class FileSystemService {
       await this.directoryHandle.keys().next();
       this.permissionState = 'granted';
       return true;
-    } catch (error) {
+    } catch {
       this.permissionState = 'denied';
       return false;
     }
@@ -349,7 +349,7 @@ export class FileSystemService {
     try {
       await this.directoryHandle.getFileHandle(filename, { create: false });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

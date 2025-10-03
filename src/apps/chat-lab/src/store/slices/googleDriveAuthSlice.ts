@@ -1,9 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
-import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
-import { getEnvironmentInfo } from '../../utils/environment';
-import type { GoogleDriveAuthState, GoogleDriveUser } from '../../types';
+import type { GoogleDriveAuthState } from '../../types';
 
 // Async thunks
 export const initializeGoogleDriveAuth = createAsyncThunk(
@@ -198,7 +196,8 @@ const googleDriveAuthSlice = createSlice({
         
         // Update modal visibility based on authentication status
         // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
-        state.showAuthModal = !action.payload.isAuthenticated;
+        const shouldShowModal = !action.payload.isAuthenticated;
+        state.showAuthModal = shouldShowModal;
       })
       .addCase(checkGoogleDriveAuthStatus.rejected, (state, action) => {
         // Don't set isLoading = false for background checks

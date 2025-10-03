@@ -65,7 +65,7 @@ export class GoogleDriveAuthService {
           await this.refreshAccessToken();
         } catch (error) {
           console.warn('Failed to refresh token during initialization:', error);
-          // Don't throw here, let the app handle the unauthenticated state
+          // Let the app handle the unauthenticated state
         }
       }
       
@@ -75,7 +75,7 @@ export class GoogleDriveAuthService {
           await this.getUser();
         } catch (error) {
           console.warn('Failed to load user info during initialization:', error);
-          // Don't throw here, let the app handle the missing user info
+          // Let the app handle the missing user info
         }
       }
     }
@@ -334,7 +334,7 @@ export class GoogleDriveAuthService {
 
   private getClientSecret(): string {
     // In a real app, you'd get this from environment variables
-    // For now, we'll need to add it to the config
+    // Add to config
     const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
     if (!clientSecret) {
       throw new Error('Google Client Secret not configured');
@@ -385,7 +385,7 @@ export class GoogleDriveAuthService {
     } catch (error) {
       console.warn('Failed to store tokens:', error);
       // If localStorage is full or blocked, we'll need to handle this gracefully
-      // For now, just log the error
+      // Log the error
     }
   }
 

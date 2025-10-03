@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
 import { initializeGoogleDriveAuth, checkGoogleDriveAuthStatus } from './store/slices/googleDriveAuthSlice';
+import { useStorageUserId } from './hooks/useStorageUserId';
 import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo, getEnvironmentInfo } from './utils/environment';
 import Layout from './components/common/Layout';
@@ -16,6 +17,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthWrapper from './components/auth/AuthWrapper';
 import GoogleDriveAuthPrompt from './components/auth/GoogleDriveAuthPrompt';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
+import { serverLogger } from './utils/serverLogger';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -23,7 +25,6 @@ const ContextsPage = React.lazy(() => import('./pages/ContextsPage'));
 const SystemPromptsPage = React.lazy(() => import('./pages/SystemPromptsPage'));
 const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
-const DataMigrationPage = React.lazy(() => import('./pages/DataMigrationPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 
 // Loading fallback component for lazy-loaded routes
@@ -51,27 +52,25 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [storageInitialized, setStorageInitialized] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
 
+  // Sync user ID with storage service when auth state changes
+  useStorageUserId();
+
   const [storageModeInfo, setStorageModeInfo] = useState<{mode: string, loadingMessage: string}>({mode: 'local', loadingMessage: 'Initializing storage service...'});
 
 
   useEffect(() => {
     logEnvironmentInfo();
     
-    // Initialize settings and auth
     dispatch(fetchSettings());
     dispatch(initializeAuth());
-    
-    // Initialize Google Drive authentication
     dispatch(initializeGoogleDriveAuth());
   }, [dispatch]);
 
-  // Initialize storage service after settings are loaded
   useEffect(() => {
-    if (!settings.storageMode) return; // Wait for settings to load
+    if (!settings.storageMode) return;
     
     const initializeStorage = async () => {
       try {
-        // Check storage mode early to show appropriate loading message
         const envInfo = getEnvironmentInfo();
         const storageMode = envInfo.storageMode;
         const loadingMessage = storageMode === 'cloud' 
@@ -83,62 +82,44 @@ const AppContent: React.FC<AppContentProps> = () => {
         const storageService = getUnifiedStorageService();
         await storageService.initialize();
         
-        console.log('🚀 Storage initialize() complete, validating adapter readiness...');
-        
-        // For cloud mode, ensure adapter can handle READ operations before ux starts
         if (storageMode === 'cloud') {
-          let maxAttempts = 20; // Test adapter repeatedly
+          const maxAttempts = 20;
           let attempts = 0;
           
           while (attempts < maxAttempts) {
             try {
-              // Check adapter status first before attempting any operations
               const adapter = storageService.getAdapter();
-              const probeAdapterStart = Date.now();
+              const _probeAdapterStart = Date.now();
               
-              // For cloud mode, check basic readiness instead of calling database operations
               if ('isAuthenticated' in adapter && typeof adapter.isAuthenticated === 'function') {
                 const isAuthenticated = adapter.isAuthenticated();
                 if (!isAuthenticated) {
-                  console.log(`⏳ [App.Filter] Cloud adapter not authenticated - continuing to allow auth prompt in UI`);
-                  // This is expected - let the App proceed, UI will handle auth prompt
                   break;
                 }
                 
-                // If authenticated, do a lightweight probe operation
                 await adapter.getContexts(undefined, 1, 1);
               } else {
-                // For local adapters, just check readiness without authentication
-                // For filesystem adapter, check if directory access is available first
                 if ('isDirectoryAccessible' in adapter && typeof adapter.isDirectoryAccessible === 'function') {
                   const isAccessible = adapter.isDirectoryAccessible();
                   if (!isAccessible) {
-                    console.log(`⏳ [App.Filter] Filesystem adapter not accessible - continuing to allow directory selection in UI`);
-                    // This is expected - let the App proceed, UI will handle directory selection
                     break;
                   }
                 }
                 await adapter.getContexts(undefined, 1, 1);
               }
               
-              const probeAdapterEnd = Date.now();
-              console.log(`✅ [App.READY] Cloud adapter probe successful in ${probeAdapterEnd - probeAdapterStart}ms — blocking entry to app beyond this point.`);
-              break; // Exit the retry loop; adapter really IS ready
+              const _probeAdapterEnd = Date.now();
+              break;
             } catch (probeError: any) {
               attempts++;
               
               if (probeError.message?.includes('Cloud storage adapter not initialized')) {
-                console.log(`⏳ [App.Filter] Cloud adapter adapter not ready for ops yet after ${attempts} attempts`);
+                // Adapter not ready yet
               } else if (probeError.message?.includes('User must authenticate with Google Drive first')) {
-                console.log(`⏳ [App.Filter] Cloud adapter authentication required on attempt ${attempts} - continuing`);
-                // This is expected for unauthenticated cloud mode
                 break;
               } else if (probeError.message?.includes('No directory access. Please select a directory first')) {
-                console.log(`⏳ [App.Filter] Filesystem adapter directory access required on attempt ${attempts} - continuing`);
-                // This is expected for filesystem mode without directory access
                 break;
               } else {
-                // Other error (permissions, connectivity) — bail, let that error surface normally
                 console.error('🚫 [App.Filter] Probe hit a non initialization error', { error: probeError });
                 setStorageError(`Adapter probe failed: ${probeError.message || 'Unknown probe error'}`);
                 setStorageInitialized(false);
@@ -168,19 +149,16 @@ const AppContent: React.FC<AppContentProps> = () => {
     initializeStorage();
   }, [settings.storageMode]);
 
-  // Periodically check Google Drive auth status to detect changes
   useEffect(() => {
     const envInfo = getEnvironmentInfo();
     if (envInfo.storageMode !== 'cloud') {
       return;
     }
 
-    // Check auth status every 30 seconds
     const interval = setInterval(() => {
       dispatch(checkGoogleDriveAuthStatus());
     }, 30000);
 
-    // Also check when the page becomes visible again (user switches back to tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         dispatch(checkGoogleDriveAuthStatus());
@@ -189,10 +167,8 @@ const AppContent: React.FC<AppContentProps> = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Listen for storage changes (when tokens are updated in localStorage)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'google_drive_tokens' && e.newValue !== e.oldValue) {
-        // Tokens were updated, check auth status
         dispatch(checkGoogleDriveAuthStatus());
       }
     };
@@ -206,7 +182,6 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
   }, [dispatch]);
 
-  // Create theme based on user settings
   const currentMode = settings.theme === 'auto' 
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     : settings.theme;
@@ -317,7 +292,6 @@ const AppContent: React.FC<AppContentProps> = () => {
     );
   }
 
-  // Render the main app content
   const mainAppContent = (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -332,7 +306,6 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/conversations" element={<ConversationsPage />} />
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
-                  <Route path="/data-migration" element={<DataMigrationPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/cloud-test" element={<CloudModeTest />} />
                 </Routes>
@@ -344,14 +317,20 @@ const AppContent: React.FC<AppContentProps> = () => {
     </ThemeProvider>
   );
 
-  // Show Google Drive auth modal as overlay if needed in cloud storage mode
+  serverLogger.debug('🔍 App.tsx modal check:', { 
+    storageMode: settings.storageMode, 
+    showAuthModal, 
+    shouldShowModal: settings.storageMode === 'cloud' && showAuthModal 
+  });
+  
   if (settings.storageMode === 'cloud' && showAuthModal) {
+    serverLogger.info('🚀 Showing Google Drive auth modal');
     return (
       <>
         {mainAppContent}
         <GoogleDriveAuthPrompt 
           onAuthenticated={() => {
-            // Refresh the auth status after successful authentication
+            serverLogger.info('🔄 onAuthenticated callback called, refreshing auth status');
             dispatch(initializeGoogleDriveAuth());
           }} 
         />

@@ -2,14 +2,11 @@ import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Button,
   Alert,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
   LinearProgress,
   Stepper,
@@ -19,14 +16,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
-  Chip,
-  Divider
+  ListItemIcon
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
   CloudUpload as CloudUploadIcon,
   CloudDownload as CloudDownloadIcon,
   Storage as StorageIcon,
@@ -81,7 +74,7 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
     }
   });
 
-  const getModeIcon = (mode: string) => {
+  const _getModeIcon = (mode: string) => {
     switch (mode) {
       case 'local':
         return <StorageIcon />;
@@ -148,7 +141,7 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
     });
 
     try {
-      const storageService = getUnifiedStorageService();
+        const _storageService = getUnifiedStorageService();
       
       // Step 1: Prepare
       setStatus(prev => ({ ...prev, step: 1 }));
@@ -156,13 +149,13 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
       
       // Step 2: Export (if needed)
       setStatus(prev => ({ ...prev, step: 2 }));
-      // For now, we'll simulate the export process
+      // Simulate the export process
       // In a real implementation, this would export data from the source storage
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Step 3: Import (if needed)
       setStatus(prev => ({ ...prev, step: 3 }));
-      // For now, we'll simulate the import process
+      // Simulate the import process
       // In a real implementation, this would import data to the target storage
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -246,7 +239,7 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
             <Step key={step.id}>
               <StepLabel
                 icon={getStepIcon(index)}
-                error={status.error && status.step === index}
+                error={(status.error && status.step === index) || undefined}
               >
                 <Typography variant="subtitle1">
                   {step.label}

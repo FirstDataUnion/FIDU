@@ -22,6 +22,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   private authService: GoogleDriveAuthService | null = null;
   private driveService: GoogleDriveService | null = null;
   private syncService: SyncService | null = null;
+  private userId: string = 'current_user'; // Default fallback
 
   constructor(_config: StorageConfig) {
     // Config not used in current implementation
@@ -99,6 +100,10 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  setUserId(userId: string): void {
+    this.userId = userId;
   }
 
   isFullyInitialized(): boolean {
@@ -181,7 +186,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     // Build query parameters
     const queryParams = {
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       profile_id: profileId,
       tags: filters?.tags ? ['Chat-Bot-Conversation', ...filters.tags] : ['Chat-Bot-Conversation'],
       from_timestamp: filters?.dateRange?.start,
@@ -276,7 +281,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, 'current_user'); // TODO: Get from auth context
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.userId);
       if (apiKey && apiKey.api_key) {
         console.log(`🔑 [CloudStorageAdapter] Found API key for provider: ${provider}`);
         return apiKey.api_key;
@@ -294,7 +299,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, 'current_user'); // TODO: Get from auth context
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.userId);
       const available = apiKey !== null;
       console.log(`🔑 [CloudStorageAdapter] API key availability for ${provider}: ${available ? 'Available' : 'Not configured'}`);
       return available;
@@ -320,7 +325,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureFullyReady();
 
     const contextQueryParams = {
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       profile_id: profileId,
       tags: ['FIDU-CHAT-LAB-Context'],
       limit: limit,
@@ -420,7 +425,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     const systemPromptQueryParams = {
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       profile_id: profileId,
       tags: ['FIDU-CHAT-LAB-SystemPrompt'],
       limit: limit,
@@ -657,7 +662,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: conversation.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
@@ -857,7 +862,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: context.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -907,7 +912,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: 'current_user', // TODO: Get from auth context
+      user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],

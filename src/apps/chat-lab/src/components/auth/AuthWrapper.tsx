@@ -13,7 +13,7 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
 
   // Show loading while auth is initializing
   if (!isInitialized) {
-    return null; // This will be handled by the main App component
+    return null; // Handled by the main App component
   }
 
   // If not authenticated, show login/register forms

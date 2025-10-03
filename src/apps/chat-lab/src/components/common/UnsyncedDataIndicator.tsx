@@ -27,7 +27,7 @@ export default function UnsyncedDataIndicator({ variant = 'compact' }: UnsyncedD
     return unsubscribe;
   }, []);
 
-  // Don't render anything if there's no unsynced data
+  // Hide if no unsynced data
   if (!hasUnsyncedData) {
     return null;
   }

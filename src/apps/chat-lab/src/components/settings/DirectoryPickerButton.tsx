@@ -2,14 +2,11 @@ import React, { useState } from 'react';
 import {
   Button,
   Box,
-  Typography,
   Alert,
   CircularProgress
 } from '@mui/material';
 import {
-  FolderOpen as FolderOpenIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon
+  FolderOpen as FolderOpenIcon
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { FileSystemService } from '../../services/storage/filesystem/FileSystemService';
@@ -42,7 +39,7 @@ export const DirectoryPickerButton: React.FC<DirectoryPickerButtonProps> = ({
 
     try {
       const storageService = getUnifiedStorageService();
-      const adapter = storageService.getAdapter();
+      const adapter = storageService.getAdapter() as any;
       
       if ('requestDirectoryAccessWithHints' in adapter) {
         const result = await adapter.requestDirectoryAccessWithHints();

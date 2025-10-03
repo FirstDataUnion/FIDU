@@ -8,7 +8,8 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "jsx": "react-jsx",
-    "verbatimModuleSyntax": false
+    "verbatimModuleSyntax": false,
+    "target": "ES2020"
   },
   "include": [
     "src/**/*",

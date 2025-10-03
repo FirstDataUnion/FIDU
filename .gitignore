@@ -159,3 +159,6 @@ $RECYCLE.BIN/
 src-tauri/target/
 src-tauri/gen/src/apps/chat-lab/coverage
 src/apps/chat-lab/coverage/
+
+# Deployment configurations
+src/apps/chat-lab/nginx-setup/
