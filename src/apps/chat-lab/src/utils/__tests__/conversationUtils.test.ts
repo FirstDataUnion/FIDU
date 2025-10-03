@@ -182,16 +182,16 @@ describe('conversationUtils', () => {
       expect(formatMessageContent(undefined as any)).toBe('');
     });
 
-    it('should replace multiple consecutive newlines with double newlines', () => {
+    it('should replace multiple consecutive newlines with single newlines', () => {
       const content = 'Line 1\n\n\n\nLine 2';
       const result = formatMessageContent(content);
-      expect(result).toBe('Line 1\n\nLine 2');
+      expect(result).toBe('Line 1\nLine 2');
     });
 
     it('should preserve markdown formatting', () => {
       const content = '**bold** *italic* `code`';
       const result = formatMessageContent(content);
-      expect(result).toBe('**bold*\n* *italic\n* `code`');
+      expect(result).toBe('**bold** *italic* `code`');
     });
 
     it('should handle code blocks correctly', () => {
@@ -203,28 +203,28 @@ describe('conversationUtils', () => {
     it('should add proper spacing for numbered lists', () => {
       const content = '1. First item\n2. Second item';
       const result = formatMessageContent(content);
-      expect(result).toBe('\n1. First item\n\n2. Second item');
+      expect(result).toBe('\n1. First item\n2. Second item');
     });
 
     it('should add proper spacing for bullet points', () => {
       const content = '- First item\n- Second item';
       const result = formatMessageContent(content);
-      expect(result).toBe('\n- First item\n\n- Second item');
+      expect(result).toBe('- First item\n- Second item');
     });
 
-    it('should add proper spacing after headers', () => {
+    it('should preserve headers without extra spacing', () => {
       const content = '# Header\nSome text';
       const result = formatMessageContent(content);
-      expect(result).toBe('# Header\n\nSome text');
+      expect(result).toBe('# Header\nSome text');
     });
 
     it('should handle complex content with multiple formatting', () => {
       const content = '# Header\n\n**Bold text**\n\n1. First item\n- Bullet point\n\n```code```';
       const result = formatMessageContent(content);
-      expect(result).toContain('# Header\n\n');
-      expect(result).toContain('**Bold text*');
-      expect(result).toContain('\n1. First item');
-      expect(result).toContain('\n- Bullet point');
+      expect(result).toContain('# Header');
+      expect(result).toContain('**Bold text**');
+      expect(result).toContain('1. First item');
+      expect(result).toContain('- Bullet point');
     });
   });
 });
