@@ -27,7 +27,7 @@ black .
 
 # Run pylint
 echo "🔎 Running pylint..."
-if ! pylint src/ --output-format=colorized; then
+if ! pylint src/ --output-format=colorized --ignore-paths=".*node_modules.*"; then
     echo "❌ Pylint found issues in your code. Please fix them before committing."
     echo "NOTE: make sure you are running this within your virtual environment."
     exit 1

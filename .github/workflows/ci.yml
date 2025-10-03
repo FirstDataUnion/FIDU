@@ -49,7 +49,7 @@ jobs:
         
     - name: Run linting (pylint)
       run: |
-        pylint src/ --output-format=colorized
+        pylint src/ --output-format=colorized --ignore-paths=".*node_modules.*"
         
     - name: Run type checking (mypy)
       run: |
