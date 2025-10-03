@@ -21,7 +21,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { fetchConversations, fetchConversationMessages, setFilters, clearFilters } from '../store/slices/conversationsSlice';
+import { fetchConversations, fetchConversationMessages, setFilters, clearFilters, updateConversationTags } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation } from '../types';
 import ConversationViewer from '../components/conversations/ConversationViewer';
@@ -338,13 +338,11 @@ const ConversationsPage: React.FC = React.memo(() => {
   const handleSaveTags = useCallback(() => {
     if (selectedConversation) {
       try {
-        // Here you would dispatch an action to update the conversation tags
-        console.log('Updating conversation tags:', {
-          conversationId: selectedConversation.id,
-          newTags: editedTags
-        });
-        // For now, we'll just update locally
-        // dispatch(updateConversationTags({ id: selectedConversation.id, tags: editedTags }));
+        // Dispatch action to update conversation tags
+        dispatch(updateConversationTags({ 
+          id: selectedConversation.id, 
+          tags: editedTags 
+        }));
         
         // Add success handling here
         // You could dispatch a success action or show a snackbar
@@ -357,7 +355,7 @@ const ConversationsPage: React.FC = React.memo(() => {
     setShowTagDialog(false);
     setSelectedConversation(null);
     setEditedTags([]);
-  }, [selectedConversation, editedTags]);
+  }, [selectedConversation, editedTags, dispatch]);
 
   if (loading) {
     return (

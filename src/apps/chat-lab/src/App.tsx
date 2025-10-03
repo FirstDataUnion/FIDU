@@ -63,7 +63,8 @@ const AppContent: React.FC<AppContentProps> = () => {
     
     dispatch(fetchSettings());
     dispatch(initializeAuth());
-    dispatch(initializeGoogleDriveAuth());
+    // Only initialize Google Drive auth if we're in cloud mode
+    // This will be handled in the settings effect below
   }, [dispatch]);
 
   useEffect(() => {
@@ -78,6 +79,11 @@ const AppContent: React.FC<AppContentProps> = () => {
           : 'Initializing storage service...';
         
         setStorageModeInfo({ mode: storageMode, loadingMessage });
+        
+        // Only initialize Google Drive auth if we're in cloud mode
+        if (storageMode === 'cloud') {
+          dispatch(initializeGoogleDriveAuth());
+        }
         
         const storageService = getUnifiedStorageService();
         await storageService.initialize();
@@ -147,7 +153,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
     
     initializeStorage();
-  }, [settings.storageMode]);
+  }, [settings.storageMode, dispatch]);
 
   useEffect(() => {
     const envInfo = getEnvironmentInfo();
@@ -317,13 +323,10 @@ const AppContent: React.FC<AppContentProps> = () => {
     </ThemeProvider>
   );
 
-  serverLogger.debug('🔍 App.tsx modal check:', { 
-    storageMode: settings.storageMode, 
-    showAuthModal, 
-    shouldShowModal: settings.storageMode === 'cloud' && showAuthModal 
-  });
+  const envInfo = getEnvironmentInfo();
   
-  if (settings.storageMode === 'cloud' && showAuthModal) {
+  // Only show Google Drive auth modal if we're in cloud environment AND cloud storage mode
+  if (envInfo.storageMode === 'cloud' && settings.storageMode === 'cloud' && showAuthModal) {
     serverLogger.info('🚀 Showing Google Drive auth modal');
     return (
       <>

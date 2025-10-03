@@ -2,6 +2,8 @@
  * Server-side logging utility for debugging in production
  */
 
+import { getEnvironmentInfo } from './environment';
+
 interface LogData {
   level: 'info' | 'warn' | 'error' | 'debug';
   message: string;
@@ -15,8 +17,13 @@ class ServerLogger {
   private shouldLogToConsole = true;
 
   constructor() {
-    // Enable server logging in development or when explicitly enabled
-    this.isEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_SERVER_LOGGING === 'true';
+    const envInfo = getEnvironmentInfo();
+    
+    // Disable server logging when in local mode (no server to send logs to)
+    const isLocalMode = envInfo.storageMode === 'local';
+    
+    // Enable server logging in development or when explicitly enabled, but not in local mode
+    this.isEnabled = !isLocalMode && (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SERVER_LOGGING === 'true');
     
     // Determine if we should log to console
     // In development mode, always log to console

@@ -15,6 +15,7 @@ import { GoogleDriveService } from '../drive/GoogleDriveService';
 import { SyncService } from '../sync/SyncService';
 import { unsyncedDataManager } from '../UnsyncedDataManager';
 import { v5 as uuidv5 } from 'uuid';
+import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 
 export class CloudStorageAdapter implements StorageAdapter {
   private initialized = false;
@@ -188,7 +189,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     const queryParams = {
       user_id: this.userId,
       profile_id: profileId,
-      tags: filters?.tags ? ['Chat-Bot-Conversation', ...filters.tags] : ['Chat-Bot-Conversation'],
+      tags: filters?.tags ? [...PROTECTED_TAGS, ...filters.tags] : [...PROTECTED_TAGS],
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
       limit: limit,
@@ -665,7 +666,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
-      tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
+      tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
         interactions: messages.map((message) => ({

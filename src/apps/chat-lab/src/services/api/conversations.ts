@@ -1,6 +1,7 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate, SystemPrompt } from '../../types';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
+import { PROTECTED_TAGS } from '../../constants/protectedTags';
 
 
 export interface ConversationsResponse {
@@ -122,7 +123,7 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
     profile_id: profile_id,
     create_timestamp: '',
     update_timestamp: '',
-    tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
+    tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
     data: {
       sourceChatbot: (conversation.platform || 'other').toUpperCase(),
       interactions: messages.map((message) => ({

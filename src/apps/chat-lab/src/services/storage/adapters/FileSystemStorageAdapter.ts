@@ -13,6 +13,7 @@ import type { Conversation, Message, FilterOptions } from '../../../types';
 import { FileSystemService } from '../filesystem/FileSystemService';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { v5 as uuidv5 } from 'uuid';
+import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 
 // File names for our SQLite databases (matching Google Drive naming convention)
 const CONVERSATIONS_DB_FILE = 'fidu_conversations_v1.db';
@@ -309,7 +310,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       
       // Apply filtering - first filter for conversation packets, then apply additional filters
       let filteredPackets = (allDataPackets || []).filter(packet => 
-        packet.tags && packet.tags.includes('Chat-Bot-Conversation')
+        packet.tags && packet.tags.some((tag: string) => PROTECTED_TAGS.includes(tag as any))
       );
       
       // Apply additional tag filters if provided
@@ -1300,7 +1301,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       user_id: this.userId,
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
-      tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', ...(conversation.tags?.filter(tag => tag !== 'FIDU-CHAT-LAB-Conversation') || [])],
+      tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
         interactions: messages.map((message) => ({

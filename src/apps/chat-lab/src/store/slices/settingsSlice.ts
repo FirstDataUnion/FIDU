@@ -42,7 +42,16 @@ const loadSettingsFromStorage = (): UserSettings => {
     const stored = localStorage.getItem('fidu-chat-lab-settings');
     if (stored) {
       const parsed = JSON.parse(stored);
-      return { ...defaultSettings, ...parsed };
+      const mergedSettings = { ...defaultSettings, ...parsed };
+      
+      // Always respect environment storage mode if it's set to 'local'
+      // This prevents Google Drive auth when VITE_STORAGE_MODE=local
+      const envInfo = getEnvironmentInfo();
+      if (envInfo.storageMode === 'local') {
+        mergedSettings.storageMode = 'local';
+      }
+      
+      return mergedSettings;
     }
   } catch (error) {
     console.warn('Failed to load settings from localStorage:', error);

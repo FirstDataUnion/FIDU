@@ -70,6 +70,13 @@ export const toggleFavoriteConversation = createAsyncThunk<Conversation, string>
   }
 );
 
+export const updateConversationTags = createAsyncThunk<Conversation, { id: string; tags: string[] }>(
+  'conversations/updateTags',
+  async ({ id, tags }) => {
+    return await conversationsService.updateTags(id, tags);
+  }
+);
+
 const initialState: ConversationsState = {
   items: [],
   currentConversation: null,
@@ -235,6 +242,25 @@ const conversationsSlice = createSlice({
         if (state.currentConversation?.id === action.payload.id) {
           state.currentConversation = action.payload;
         }
+      })
+      // Update conversation tags
+      .addCase(updateConversationTags.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateConversationTags.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+        if (state.currentConversation?.id === action.payload.id) {
+          state.currentConversation = action.payload;
+        }
+      })
+      .addCase(updateConversationTags.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to update conversation tags';
       });
   }
 });

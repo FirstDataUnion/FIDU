@@ -19,6 +19,7 @@ import {
   Send as SendIcon,
   Minimize as MinimizeIcon
 } from '@mui/icons-material';
+import EnhancedMarkdown from '../common/EnhancedMarkdown';
 
 // Conversation input component with internal state management
 const ConversationInput = ({ 
@@ -291,15 +292,16 @@ export const ConversationWindow: React.FC<ConversationWindowProps> = ({
                   </Box>
 
                   {/* Message Content */}
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      whiteSpace: 'pre-wrap',
-                      lineHeight: 1.5
+                  <EnhancedMarkdown 
+                    content={message.content}
+                    enableSyntaxHighlighting={true}
+                    showCopyButtons={true}
+                    preprocess={true}
+                    sx={{
+                      '& p': { margin: 0 },
+                      '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '4px', marginBottom: '4px' },
                     }}
-                  >
-                    {message.content}
-                  </Typography>
+                  />
                 </Box>
               </Box>
             ))}

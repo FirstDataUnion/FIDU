@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import EnhancedMarkdown from '../components/common/EnhancedMarkdown';
 import {
   Box,
   Typography,
@@ -1563,18 +1562,12 @@ export default function PromptLabPage() {
                     paddingRight: message.role === 'user' ? '44px' : '44px', // Space for rewind/copy buttons
                     paddingBottom: message.role === 'assistant' ? '44px' : '8px' // Extra bottom padding for copy button
                   }}>
-                    <Markdown 
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        a: ({ href, children, ...props }) => (
-                          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                            {children}
-                          </a>
-                        )
-                      }}
-                    >
-                      {formatMessageContent(message.content)}
-                    </Markdown>
+                    <EnhancedMarkdown 
+                      content={message.content}
+                      enableSyntaxHighlighting={true}
+                      showCopyButtons={true}
+                      preprocess={true}
+                    />
                   </Box>
 
                   {/* Rewind Button for User Messages */}

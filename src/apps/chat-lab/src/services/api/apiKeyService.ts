@@ -75,7 +75,6 @@ export class APIKeyService {
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         // API key not found for this provider - this is expected and normal
-        console.info(`ℹ️ [APIKeyService] No API key configured for provider: ${provider}`);
         return null;
       }
       

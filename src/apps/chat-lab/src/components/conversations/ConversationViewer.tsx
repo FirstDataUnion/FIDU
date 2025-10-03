@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import type { Conversation } from '../../types';
 import { getPlatformColor } from '../../utils/conversationUtils';
+import EnhancedMarkdown from '../common/EnhancedMarkdown';
 
 interface ConversationViewerProps {
   conversation: Conversation;
@@ -298,16 +299,16 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
                     </Box>
                   </Box>
                   
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      lineHeight: 1.6
+                  <EnhancedMarkdown 
+                    content={message.content}
+                    enableSyntaxHighlighting={true}
+                    showCopyButtons={true}
+                    preprocess={true}
+                    sx={{
+                      '& p': { margin: 0 },
+                      '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '8px', marginBottom: '8px' },
                     }}
-                  >
-                    {message.content}
-                  </Typography>
+                  />
                   
                   {/* Show attachments if any */}
                   {message.attachments && message.attachments.length > 0 && (

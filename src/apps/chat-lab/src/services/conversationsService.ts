@@ -5,6 +5,7 @@
 
 import { getUnifiedStorageService } from './storage/UnifiedStorageService';
 import type { Conversation, Message, FilterOptions, ConversationsResponse } from '../types';
+import { ensureProtectedTags } from '../constants/protectedTags';
 
 export const conversationsService = {
   /**
@@ -88,6 +89,20 @@ export const conversationsService = {
     const storage = getUnifiedStorageService();
     const conversation = await storage.getConversationById(id);
     const updatedConversation = { ...conversation, isFavorite: !conversation.isFavorite };
+    return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
+  },
+
+  /**
+   * Update tags for a conversation
+   */
+  async updateTags(id: string, tags: string[]): Promise<Conversation> {
+    const storage = getUnifiedStorageService();
+    const conversation = await storage.getConversationById(id);
+    
+    // Ensure protected tags are always included
+    const updatedTags = ensureProtectedTags(tags);
+    const updatedConversation = { ...conversation, tags: updatedTags };
+    
     return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
   },
 
