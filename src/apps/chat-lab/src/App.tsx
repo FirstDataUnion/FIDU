@@ -16,6 +16,7 @@ import Layout from './components/common/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthWrapper from './components/auth/AuthWrapper';
 import GoogleDriveAuthPrompt from './components/auth/GoogleDriveAuthPrompt';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
 import { serverLogger } from './utils/serverLogger';
 
@@ -314,6 +315,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/cloud-test" element={<CloudModeTest />} />
+                  <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 </Routes>
               </Suspense>
             </Layout>
@@ -333,8 +335,9 @@ const AppContent: React.FC<AppContentProps> = () => {
         {mainAppContent}
         <GoogleDriveAuthPrompt 
           onAuthenticated={() => {
-            serverLogger.info('🔄 onAuthenticated callback called, refreshing auth status');
-            dispatch(initializeGoogleDriveAuth());
+            // This callback is now handled by the OAuthCallbackPage
+            // The OAuth flow will redirect to /oauth-callback which handles everything
+            serverLogger.info('🔄 OAuth flow initiated - will redirect to callback page');
           }} 
         />
       </>

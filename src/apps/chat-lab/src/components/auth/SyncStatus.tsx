@@ -141,6 +141,31 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
               </Box>
             )}
 
+            {syncStatus.smartAutoSync && (
+              <Box mb={2}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Auto-Sync Status:
+                </Typography>
+        <Box display="flex" gap={1} flexWrap="wrap">
+          <Chip
+            label={`Unsynced Data: ${syncStatus.smartAutoSync.hasUnsyncedData ? 'Yes' : 'No'}`}
+            size="small"
+            color={syncStatus.smartAutoSync.hasUnsyncedData ? 'warning' : 'success'}
+          />
+          <Chip
+            label={`Next Sync: ${syncStatus.smartAutoSync.nextSyncScheduled ? 'Scheduled' : 'None'}`}
+            size="small"
+            color={syncStatus.smartAutoSync.nextSyncScheduled ? 'primary' : 'default'}
+          />
+          <Chip
+            label={`Delay: ${syncStatus.smartAutoSync.config.delayMinutes}min`}
+            size="small"
+            color="info"
+          />
+        </Box>
+              </Box>
+            )}
+
             <Box display="flex" gap={1}>
               <Button
                 variant="contained"
@@ -151,13 +176,14 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
                 {isManualSyncing ? 'Syncing...' : 'Sync Now'}
               </Button>
               
-              <Tooltip title="Sync automatically every 15 minutes">
+              <Tooltip title={syncStatus.autoSyncEnabled ? "Smart auto-sync enabled (5min delay, activity-aware)" : "Auto-sync disabled"}>
                 <Button
                   variant="outlined"
                   size="small"
                   disabled
+                  color={syncStatus.autoSyncEnabled ? "success" : "inherit"}
                 >
-                  Auto-sync: 15min
+                  {syncStatus.autoSyncEnabled ? "Smart Auto-sync: ON" : "Auto-sync: OFF"}
                 </Button>
               </Tooltip>
             </Box>

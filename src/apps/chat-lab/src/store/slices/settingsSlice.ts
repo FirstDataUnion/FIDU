@@ -34,6 +34,9 @@ const defaultSettings: UserSettings = {
     compactView: false,
     groupByDate: true,
   },
+  syncSettings: {
+    autoSyncDelayMinutes: 5, // Default 5 minutes delay
+  },
 };
 
 // Load settings from localStorage
@@ -109,6 +112,10 @@ const settingsSlice = createSlice({
       state.settings.storageMode = action.payload;
       saveSettingsToStorage(state.settings);
     },
+    updateSyncDelay: (state, action) => {
+      state.settings.syncSettings.autoSyncDelayMinutes = action.payload;
+      saveSettingsToStorage(state.settings);
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -153,6 +160,7 @@ export const {
   updateTheme,
   updateLastUsedModel,
   updateStorageMode,
+  updateSyncDelay,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;

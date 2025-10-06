@@ -401,7 +401,7 @@ export function getGoogleDriveAuthService(): GoogleDriveAuthService {
   if (!authServiceInstance) {
     const config: GoogleDriveAuthConfig = {
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || window.location.origin,
+      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
       scopes: [
         'https://www.googleapis.com/auth/drive.appdata',
         'https://www.googleapis.com/auth/userinfo.email'

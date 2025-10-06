@@ -9,5 +9,6 @@ export { default as ClearDirectoryButton } from './ClearDirectoryButton';
 export { default as FileSystemDirectoryManager } from './FileSystemDirectoryManager';
 export { default as StorageModeSelector } from './StorageModeSelector';
 export { default as StorageMigrationWizard } from './StorageMigrationWizard';
+export { SyncSettings } from './SyncSettings';
 
 export type { PermissionState } from './PermissionStatusIndicator';

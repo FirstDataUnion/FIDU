@@ -298,6 +298,9 @@ export interface UserSettings {
     compactView: boolean;
     groupByDate: boolean;
   };
+  syncSettings: {
+    autoSyncDelayMinutes: number; // Delay before auto-sync (default: 5 minutes)
+  };
 }
 
 export interface ExportData {

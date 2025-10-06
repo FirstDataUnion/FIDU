@@ -13,6 +13,7 @@ import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { GoogleDriveAuthService, getGoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../drive/GoogleDriveService';
 import { SyncService } from '../sync/SyncService';
+import { SmartAutoSyncService } from '../sync/SmartAutoSyncService';
 import { unsyncedDataManager } from '../UnsyncedDataManager';
 import { v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
@@ -23,6 +24,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   private authService: GoogleDriveAuthService | null = null;
   private driveService: GoogleDriveService | null = null;
   private syncService: SyncService | null = null;
+  private smartAutoSyncService: SmartAutoSyncService | null = null;
   private userId: string = 'current_user'; // Default fallback
 
   constructor(_config: StorageConfig) {
@@ -82,9 +84,25 @@ export class CloudStorageAdapter implements StorageAdapter {
       this.dbManager,
       this.driveService,
       this.authService!,
-      15 * 60 * 1000 // 15 minutes sync interval
+      15 * 60 * 1000 // 15 minutes sync interval (not used by smart auto-sync)
     );
     await this.syncService.initialize();
+    
+    // Initialize smart auto-sync service with settings from localStorage
+    const settings = this.loadSettingsFromStorage();
+    const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 5;
+    
+    console.log('🔍 [CloudStorageAdapter] Loading sync settings:', {
+      settings,
+      delayMinutes,
+      syncSettings: settings?.syncSettings
+    });
+    
+    this.smartAutoSyncService = new SmartAutoSyncService(this.syncService, {
+      delayMinutes,               // Use setting from localStorage or default to 5 minutes
+      maxRetries: 3,            // Max 3 retry attempts
+      retryDelayMinutes: 10     // Wait 10 minutes between retries
+    });
     
     // Perform initial sync from Google Drive
     try {
@@ -92,6 +110,9 @@ export class CloudStorageAdapter implements StorageAdapter {
     } catch (error) {
       console.error('Initial sync failed, continuing with empty database:', error);
     }
+    
+    // Enable smart auto-sync
+    this.smartAutoSyncService.enable();
 
     // Ensure database is ready
     if (!this.dbManager?.isInitialized()) {
@@ -524,12 +545,14 @@ export class CloudStorageAdapter implements StorageAdapter {
   async sync(): Promise<void> {
     await this.ensureAuthenticated();
     
-    if (this.syncService) {
-      // User initiated sync - upload local changes to Drive only (no download)
-      console.log('🔍 [CloudStorageAdapter] User triggered sync - uploading local changes to Drive');
+    if (this.smartAutoSyncService) {
+      // User initiated sync - use force sync to bypass smart timing
+      console.log('🔍 [CloudStorageAdapter] User triggered sync - forcing immediate sync');
+      await this.smartAutoSyncService.forceSync();
+    } else if (this.syncService) {
+      // Fallback to regular sync if smart auto-sync not available
+      console.log('🔍 [CloudStorageAdapter] User triggered sync - using fallback sync');
       await this.syncService.syncToDrive({ forceUpload: true });
-      
-      // Mark as synced after successful sync
       unsyncedDataManager.markAsSynced();
     }
   }
@@ -586,19 +609,67 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.driveService = null;
     this.syncService = null;
     
+    // Clean up smart auto-sync service
+    if (this.smartAutoSyncService) {
+      this.smartAutoSyncService.destroy();
+      this.smartAutoSyncService = null;
+    }
+    
     console.log('De-authenticated from Google Drive');
   }
 
   async getSyncStatus(): Promise<any> {
-    if (this.syncService) {
+    if (this.smartAutoSyncService) {
+      const smartStatus = this.smartAutoSyncService.getStatus();
+      const baseStatus = this.syncService?.getSyncStatus() || {
+        lastSyncTime: null,
+        syncInProgress: false,
+        error: null,
+        filesStatus: { conversations: false, apiKeys: false, metadata: false }
+      };
+      
+      return {
+        ...baseStatus,
+        smartAutoSync: smartStatus,
+        autoSyncEnabled: smartStatus.enabled
+      };
+    } else if (this.syncService) {
       return this.syncService.getSyncStatus();
     }
     return {
       lastSyncTime: null,
       syncInProgress: false,
       error: null,
-      filesStatus: { conversations: false, apiKeys: false, metadata: false }
+      filesStatus: { conversations: false, apiKeys: false, metadata: false },
+      autoSyncEnabled: false
     };
+  }
+
+  /**
+   * Load settings from localStorage
+   */
+  private loadSettingsFromStorage(): any {
+    try {
+      const stored = localStorage.getItem('fidu-chat-lab-settings');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load settings from localStorage:', error);
+    }
+    return null;
+  }
+
+  /**
+   * Update auto-sync configuration
+   */
+  updateAutoSyncConfig(config: { delayMinutes?: number }): void {
+    console.log('🔍 [CloudStorageAdapter] Updating auto-sync config:', config);
+    if (this.smartAutoSyncService) {
+      this.smartAutoSyncService.updateConfig(config);
+    } else {
+      console.warn('🔍 [CloudStorageAdapter] Smart auto-sync service not available');
+    }
   }
 
   // Helper methods
@@ -711,6 +782,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     
     return {
       id: conversation.id,
+      update_timestamp: new Date().toISOString(),
       tags: conversation.tags || [],
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),

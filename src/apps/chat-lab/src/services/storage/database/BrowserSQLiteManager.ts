@@ -366,7 +366,13 @@ export class BrowserSQLiteManager {
     const existingUpdate = updateCheck.get([requestId]);
     updateCheck.free();
 
-    if (existingUpdate) {
+    // Check if existingUpdate actually has valid data (not just an empty object)
+    const hasValidExistingUpdate = existingUpdate && 
+      existingUpdate.request_id && 
+      existingUpdate.data_packet_id && 
+      existingUpdate.update_timestamp;
+
+    if (hasValidExistingUpdate) {
       // Request already processed, return existing packet
       return await this.getDataPacketById(dataPacket.id);
     }

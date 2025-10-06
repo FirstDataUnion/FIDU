@@ -13,6 +13,14 @@ export class UnifiedStorageService {
     await this.storageService.initialize();
   }
 
+  /**
+   * Force re-initialization of the storage service
+   * Useful after authentication changes
+   */
+  async reinitialize(): Promise<void> {
+    await this.storageService.initialize();
+  }
+
   async switchMode(mode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
     await this.storageService.switchMode(mode);
   }

@@ -50,6 +50,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
+import { saveConversation as saveConversationAction, updateConversationWithMessages } from '../store/slices/conversationsSlice';
 import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
@@ -916,18 +917,19 @@ export default function PromptLabPage() {
     setIsSavingConversation(true);
     try {
       if (currentConversation) {
-        // Update existing conversation
-        const updatedConversation = await conversationsService.updateConversation(
-          currentConversation,
+        // Update existing conversation using Redux action
+        const updatedConversation = await dispatch(updateConversationWithMessages({
+          conversation: currentConversation,
           messages,
-          {
+          originalPrompt: {
             promptText: messages[0]?.content || '',
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
             metadata: { estimatedTokens: 0 }
           }
-        );
+        })).unwrap();
+        
         setCurrentConversation(updatedConversation);
         
         // Update recent conversations list - ensure no duplicates

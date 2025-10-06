@@ -35,35 +35,7 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
   const theme = useTheme();
   const dispatch = useAppDispatch();
 
-  // Check for OAuth callback completion
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const error = urlParams.get('error');
-
-    // If we have an OAuth code or error, check auth status
-    if (code || error) {
-      serverLogger.info('🔄 OAuth callback detected, processing...', { code: !!code, error });
-      
-      // Wait a moment for the auth service to process the callback
-      setTimeout(async () => {
-        try {
-          serverLogger.info('🔍 Checking Google Drive auth status...');
-          const result = await dispatch(checkGoogleDriveAuthStatus()).unwrap();
-          serverLogger.info('✅ Auth status check result:', result);
-          
-          if (result.isAuthenticated) {
-            serverLogger.info('🎉 Authentication successful, calling onAuthenticated callback');
-            onAuthenticated?.();
-          } else {
-            serverLogger.warn('❌ Authentication failed or not complete');
-          }
-        } catch (error) {
-          serverLogger.error('🚫 Auth status check failed:', error);
-        }
-      }, 1000);
-    }
-  }, [dispatch, onAuthenticated]);
+  // Note: OAuth callback handling is now done in the dedicated OAuthCallbackPage
 
   const handleAuthenticate = async () => {
     setIsAuthenticating(true);
@@ -76,8 +48,9 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
       // Check if the adapter has an authenticate method
       if ('authenticate' in adapter && typeof adapter.authenticate === 'function') {
         await (adapter as any).authenticate();
-        console.log('Google Drive authentication successful');
-        onAuthenticated?.();
+        console.log('Google Drive authentication initiated - redirecting to OAuth flow');
+        // The authenticate method will redirect to Google OAuth, which will then redirect to our callback page
+        // No need to call onAuthenticated here as the callback page will handle it
       } else {
         throw new Error('Authentication not supported by current storage adapter');
       }

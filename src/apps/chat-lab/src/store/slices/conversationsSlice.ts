@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { Conversation, FilterOptions, ConversationsState } from '../../types';
+import type { Conversation, FilterOptions, ConversationsState, Message } from '../../types';
 import { conversationsService } from '../../services/conversationsService';
 
 export const fetchConversations = createAsyncThunk(
@@ -46,6 +46,13 @@ export const deleteConversation = createAsyncThunk(
   async (id: string) => {
     await conversationsService.delete(id);
     return id;
+  }
+);
+
+export const updateConversationWithMessages = createAsyncThunk<Conversation, { conversation: Partial<Conversation>; messages: Message[]; originalPrompt?: Conversation['originalPrompt'] }>(
+  'conversations/updateConversationWithMessages',
+  async ({ conversation, messages, originalPrompt }) => {
+    return await conversationsService.updateConversation(conversation, messages, originalPrompt);
   }
 );
 
@@ -195,6 +202,27 @@ const conversationsSlice = createSlice({
       .addCase(saveConversation.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to save conversation';
+      })
+      // Update conversation with messages
+      .addCase(updateConversationWithMessages.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateConversationWithMessages.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.items.findIndex((c: Conversation) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        } else {
+          state.items.push(action.payload);
+        }
+        if (state.currentConversation?.id === action.payload.id) {
+          state.currentConversation = action.payload;
+        }
+      })
+      .addCase(updateConversationWithMessages.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to update conversation';
       })
       // Delete conversation
       .addCase(deleteConversation.pending, (state) => {

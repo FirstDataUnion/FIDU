@@ -1,152 +1,294 @@
 /**
- * Cloud Mode Test Component
- * Tests the cloud storage functionality
+ * Smart Auto-Sync Test Component
+ * Helps verify and debug the smart auto-sync behavior
  */
 
-import { useState, useEffect } from 'react';
-import { Box, Typography, Alert, CircularProgress, Paper } from '@mui/material';
-import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
-import GoogleDriveAuthPrompt from './auth/GoogleDriveAuthPrompt';
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Card, 
+  CardContent, 
+  Typography, 
+  Button, 
+  Chip, 
+  Alert,
+  Divider,
+  Stack
+} from '@mui/material';
+import { 
+  PlayArrow, 
+  Stop, 
+  Refresh, 
+  Schedule,
+  Person,
+  CloudSync
+} from '@mui/icons-material';
+import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { unsyncedDataManager } from '../../services/storage/UnsyncedDataManager';
 
-export default function CloudModeTest() {
-  const [status, setStatus] = useState<string>('Initializing...');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [storageMode, setStorageMode] = useState<string>('unknown');
-  const [needsAuth, setNeedsAuth] = useState<boolean>(false);
+const CloudModeTest: React.FC = () => {
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [testData, setTestData] = useState<any>(null);
 
-  useEffect(() => {
-    const testCloudMode = async () => {
-      try {
-        setLoading(true);
-        setStatus('Testing cloud mode initialization...');
-        
-        // Get the storage service
-        const storageService = getUnifiedStorageService();
-        
-        // Check current storage mode
-        const envInfo = {
-          storageMode: import.meta.env.VITE_STORAGE_MODE || 'local'
-        };
-        setStorageMode(envInfo.storageMode);
-        
-        if (envInfo.storageMode === 'cloud') {
-          setStatus('Initializing cloud storage...');
-          
-          // Try to initialize the storage service
-          await storageService.initialize();
-          
-          // Check if we need authentication
-          const adapter = storageService.getAdapter();
-          if (adapter && 'isAuthenticated' in adapter && typeof adapter.isAuthenticated === 'function') {
-            const isAuthenticated = adapter.isAuthenticated();
-            if (!isAuthenticated) {
-              setNeedsAuth(true);
-              setStatus('Google Drive authentication required');
-              setLoading(false);
-              return;
-            }
-          }
-          
-          setStatus('Cloud storage initialized successfully!');
-          setError(null);
-        } else {
-          setStatus('Running in local mode');
-          setError(null);
-        }
-        
-      } catch (err: any) {
-        console.error('Cloud mode test error:', err);
-        setError(err.message || 'Unknown error occurred');
-        setStatus('Cloud mode test failed');
-      } finally {
-        setLoading(false);
+  const refreshStatus = async () => {
+    setIsLoading(true);
+    try {
+      const storageService = getUnifiedStorageService();
+      const adapter = storageService.getAdapter();
+      
+      if ('getSyncStatus' in adapter) {
+        const status = await (adapter as any).getSyncStatus();
+        setSyncStatus(status);
       }
-    };
-
-    testCloudMode();
-  }, []);
-
-  const handleAuthenticated = () => {
-    setNeedsAuth(false);
-    setLoading(true);
-    setStatus('Authentication successful, testing storage...');
-    
-    // Re-run the test after authentication
-    setTimeout(() => {
-      window.location.reload(); // Simple way to refresh the test
-    }, 1000);
+    } catch (error) {
+      console.error('Failed to get sync status:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (needsAuth) {
-    return <GoogleDriveAuthPrompt onAuthenticated={handleAuthenticated} />;
-  }
+  const createTestData = async () => {
+    setIsLoading(true);
+    try {
+      const storageService = getUnifiedStorageService();
+      
+      // Create a test conversation to trigger unsynced data
+      const testConversation = {
+        title: `Test Conversation ${new Date().toLocaleTimeString()}`,
+        platform: 'other' as const,
+        messages: [{
+          id: 'test-msg-1',
+          conversationId: 'test-conv-1',
+          content: 'This is a test message to trigger auto-sync',
+          role: 'user' as const,
+          timestamp: new Date().toISOString(),
+          platform: 'other',
+          attachments: [],
+          isEdited: false
+        }]
+      };
+
+      await storageService.createConversation('test-profile', testConversation, testConversation.messages);
+      
+      setTestData({
+        message: 'Test conversation created! This should trigger auto-sync in 5 minutes.',
+        timestamp: new Date().toLocaleTimeString()
+      });
+      
+      // Refresh status to see unsynced data
+      setTimeout(refreshStatus, 1000);
+      
+    } catch (error) {
+      console.error('Failed to create test data:', error);
+      setTestData({
+        message: 'Failed to create test data',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const forceSync = async () => {
+    setIsLoading(true);
+    try {
+      const storageService = getUnifiedStorageService();
+      await storageService.sync();
+      setTestData({
+        message: 'Manual sync completed!',
+        timestamp: new Date().toLocaleTimeString()
+      });
+      setTimeout(refreshStatus, 1000);
+    } catch (error) {
+      console.error('Failed to force sync:', error);
+      setTestData({
+        message: 'Failed to force sync',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshStatus();
+    
+    // Refresh status every 10 seconds
+    const interval = setInterval(refreshStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (date: Date | string | null): string => {
+    if (!date) return 'Never';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleTimeString();
+  };
+
+  const getCountdownStatus = (): string => {
+    if (!syncStatus?.smartAutoSync) return 'Unknown';
+    
+    const { countdownSeconds, nextSyncScheduledFor } = syncStatus.smartAutoSync;
+    
+    if (countdownSeconds > 0) {
+      const minutes = Math.floor(countdownSeconds / 60);
+      const seconds = countdownSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    } else if (nextSyncScheduledFor) {
+      return 'Scheduled';
+    } else {
+      return 'None';
+    }
+  };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom>
-        Cloud Mode Test
+    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+      <Typography variant="h5" gutterBottom>
+        Smart Auto-Sync Test
       </Typography>
       
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Current Configuration
-        </Typography>
-        <Typography variant="body1">
-          Storage Mode: <strong>{storageMode}</strong>
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Environment: {import.meta.env.MODE}
-        </Typography>
-      </Paper>
-
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Test Status
-        </Typography>
-        
-        {loading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CircularProgress size={20} />
-            <Typography variant="body1">{status}</Typography>
-          </Box>
-        )}
-        
-        {!loading && !error && (
-          <Typography variant="body1" color="success.main">
-            ✅ {status}
-          </Typography>
-        )}
-        
-        {error && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            <Typography variant="body2">
-              <strong>Error:</strong> {error}
+      <Stack spacing={3}>
+        {/* Test Actions */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Test Actions
             </Typography>
-          </Alert>
-        )}
-      </Paper>
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<PlayArrow />}
+                onClick={createTestData}
+                disabled={isLoading}
+              >
+                Create Test Data
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Refresh />}
+                onClick={forceSync}
+                disabled={isLoading}
+              >
+                Force Sync
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Schedule />}
+                onClick={refreshStatus}
+                disabled={isLoading}
+              >
+                Refresh Status
+              </Button>
+            </Stack>
+            
+            {testData && (
+              <Alert 
+                severity={testData.error ? 'error' : 'info'}
+                sx={{ mt: 2 }}
+              >
+                <Typography variant="body2">
+                  <strong>{testData.timestamp}:</strong> {testData.message}
+                  {testData.error && (
+                    <><br /><strong>Error:</strong> {testData.error}</>
+                  )}
+                </Typography>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Instructions
-        </Typography>
-        <Typography variant="body2" paragraph>
-          To test cloud mode:
-        </Typography>
-        <Typography variant="body2" component="div">
-          1. Set <code>VITE_STORAGE_MODE=cloud</code> in your environment
-        </Typography>
-        <Typography variant="body2" component="div">
-          2. Configure Google Drive OAuth credentials
-        </Typography>
-        <Typography variant="body2" component="div">
-          3. Authenticate with Google Drive
-        </Typography>
-        <Typography variant="body2" component="div">
-          4. Test conversation operations
-        </Typography>
-      </Paper>
+        {/* Auto-Sync Status */}
+        {syncStatus?.smartAutoSync && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Smart Auto-Sync Status
+              </Typography>
+              
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Status:
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      icon={<CloudSync />}
+                      label={syncStatus.smartAutoSync.enabled ? 'Enabled' : 'Disabled'}
+                      color={syncStatus.smartAutoSync.enabled ? 'success' : 'default'}
+                      size="small"
+                    />
+                    <Chip
+                      icon={<Schedule />}
+                      label={`Countdown: ${getCountdownStatus()}`}
+                      color={syncStatus.smartAutoSync.nextSyncScheduled ? 'primary' : 'default'}
+                      size="small"
+                    />
+                    <Chip
+                      label={`Unsynced: ${syncStatus.smartAutoSync.hasUnsyncedData ? 'Yes' : 'No'}`}
+                      color={syncStatus.smartAutoSync.hasUnsyncedData ? 'warning' : 'success'}
+                      size="small"
+                    />
+                    <Chip
+                      label={`Next Sync: ${syncStatus.smartAutoSync.nextSyncScheduled ? 'Scheduled' : 'None'}`}
+                      color={syncStatus.smartAutoSync.nextSyncScheduled ? 'primary' : 'default'}
+                      size="small"
+                    />
+                  </Stack>
+                </Box>
+
+                <Divider />
+
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Details:
+                  </Typography>
+                  <Typography variant="body2" component="div">
+                    <strong>Last Activity:</strong> {formatTime(syncStatus.smartAutoSync.lastActivity)}<br />
+                    <strong>Last Sync Attempt:</strong> {formatTime(syncStatus.smartAutoSync.lastSyncAttempt)}<br />
+                    <strong>Retry Count:</strong> {syncStatus.smartAutoSync.retryCount}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Base Sync Status */}
+        {syncStatus && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Base Sync Status
+              </Typography>
+              
+              <Typography variant="body2" component="div">
+                <strong>Last Sync Time:</strong> {formatTime(syncStatus.lastSyncTime)}<br />
+                <strong>Sync In Progress:</strong> {syncStatus.syncInProgress ? 'Yes' : 'No'}<br />
+                <strong>Error:</strong> {syncStatus.error || 'None'}<br />
+                <strong>Auto-Sync Enabled:</strong> {syncStatus.autoSyncEnabled ? 'Yes' : 'No'}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Instructions */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              How to Test
+            </Typography>
+            <Typography variant="body2" component="div">
+              1. <strong>Create Test Data:</strong> Click "Create Test Data" to add a test conversation<br />
+              2. <strong>Watch Countdown:</strong> See countdown timer in header (no activity timeout)<br />
+              3. <strong>Auto-Sync:</strong> Sync triggers when countdown reaches zero<br />
+              4. <strong>Check Status:</strong> Use "Refresh Status" to see current state<br />
+              5. <strong>Force Sync:</strong> Use "Force Sync" to bypass countdown timing
+            </Typography>
+          </CardContent>
+        </Card>
+      </Stack>
     </Box>
   );
-}
+};
+
+export default CloudModeTest;

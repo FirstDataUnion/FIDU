@@ -49,6 +49,7 @@ import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
 import GoogleDriveStatus from '../auth/GoogleDriveStatus';
 import UnsyncedDataIndicator from './UnsyncedDataIndicator';
+import { AutoSyncCountdown } from './AutoSyncCountdown';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
@@ -315,9 +316,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                    </Box>
                  )}
                  
+                 {/* Auto-Sync Countdown - only show in cloud storage mode */}
+                 {isCloudStorageMode && (
+                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                     <AutoSyncCountdown variant="compact" />
+                   </Box>
+                 )}
+                 
                  {/* Manual Sync Button - only show in cloud storage mode */}
                  {isCloudStorageMode && (
-                   <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync to Google Drive"} arrow>
+                   <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync Now to Google Drive"} arrow>
                      <Button
                        color="inherit"
                        variant="outlined"
@@ -338,7 +346,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                          }
                        }}
                      >
-                       {isSyncInProgress ? 'Syncing...' : 'Sync'}
+                       {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
                      </Button>
                    </Tooltip>
                  )}

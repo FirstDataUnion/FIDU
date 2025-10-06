@@ -25,9 +25,12 @@ class UnsyncedDataManager {
    * Mark that we have unsynced data (called when creating new data)
    */
   markAsUnsynced(): void {
+    console.log('📝 [UnsyncedDataManager] markAsUnsynced called, current state:', this.hasUnsyncedData);
     if (!this.hasUnsyncedData) {
       this.hasUnsyncedData = true;
       this.notifyListeners();
+    } else {
+      console.log('📝 [UnsyncedDataManager] Already marked as unsynced, skipping notification');
     }
   }
 
@@ -56,6 +59,7 @@ class UnsyncedDataManager {
    * Notify all listeners of state change
    */
   private notifyListeners(): void {
+    console.log('🔔 [UnsyncedDataManager] Notifying listeners, hasUnsynced:', this.hasUnsyncedData, 'listeners:', this.listeners.size);
     this.listeners.forEach(listener => {
       try {
         listener(this.hasUnsyncedData);

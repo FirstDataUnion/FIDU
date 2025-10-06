@@ -26,7 +26,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
-import { StorageModeSelector } from '../components/settings';
+import { StorageModeSelector, SyncSettings } from '../components/settings';
 import { getEnvironmentInfo } from '../utils/environment';
 
 const SettingsPage: React.FC = () => {
@@ -186,6 +186,9 @@ const SettingsPage: React.FC = () => {
 
       {/* Data Storage Options */}
       <StorageModeSelector />
+
+      {/* Sync Settings - Only show for cloud storage mode */}
+      <SyncSettings />
 
       {/* Cloud Data Management - Hide in local deployment */}
       {!isLocalDeployment && (
