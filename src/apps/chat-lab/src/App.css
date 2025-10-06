@@ -5,6 +5,15 @@
   text-align: center;
 }
 
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  #root {
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+  }
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;

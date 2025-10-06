@@ -29,6 +29,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  useTheme,
+  useMediaQuery,
+  Collapse,
+  Fab,
+  SpeedDial,
+  SpeedDialAction,
+  SpeedDialIcon,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -43,7 +50,13 @@ import {
   ExpandMore,
   ArrowBackIos as ArrowBackIosIcon,
   RestartAlt as RestartAltIcon,
-  Replay as ReplayIcon
+  Replay as ReplayIcon,
+  Send as SendIcon,
+  Settings as SettingsIcon,
+  ViewKanban as ContextIcon,
+  Psychology as PersonaIcon,
+  ExpandLess as ExpandLessIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -56,6 +69,7 @@ import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import { useMobile, useResponsiveSpacing, useResponsiveSizing } from '../hooks/useMobile';
 
 
 // Helper function to generate user-friendly error messages and debug info
@@ -453,6 +467,7 @@ interface SystemPromptSelectionModalProps {
 }
 
 function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error, title = 'Add System Prompt' }: SystemPromptSelectionModalProps) {
+  const { isMobile } = useMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
@@ -470,8 +485,16 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
   });
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+    >
+      <DialogTitle sx={{ fontSize: isMobile ? '1.25rem' : '1.5rem' }}>
+        {title}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
@@ -577,8 +600,17 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
           )}
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
+      <DialogActions sx={{ p: isMobile ? 2 : 1 }}>
+        <Button 
+          onClick={onClose} 
+          size={isMobile ? 'large' : 'medium'}
+          sx={{ 
+            color: 'primary.dark',
+            minWidth: isMobile ? 100 : 80
+          }}
+        >
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -649,6 +681,11 @@ export default function PromptLabPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Mobile responsiveness
+  const { isMobile, isTablet } = useMobile();
+  const spacing = useResponsiveSpacing();
+  const sizing = useResponsiveSizing();
+  
   // Redux state
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
@@ -663,6 +700,11 @@ export default function PromptLabPage() {
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mobile-specific state
+  const [showMobileControls, setShowMobileControls] = useState(false);
+  const [showSystemPromptDrawer, setShowSystemPromptDrawer] = useState(false);
+  const [showContextDrawer, setShowContextDrawer] = useState(false);
 
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
@@ -1286,7 +1328,11 @@ export default function PromptLabPage() {
       display: 'flex', 
       flexDirection: 'column', 
       position: 'relative',
-      overflow: 'hidden' // Prevent outer page scrolling
+      overflow: 'hidden', // Prevent outer page scrolling
+      // Mobile-specific adjustments
+      ...(isMobile && {
+        height: 'calc(100vh - 120px)', // Account for bottom navigation
+      })
     }}>
       {/* Storage Directory Banner */}
       <StorageDirectoryBanner pageType="prompt-lab" />
@@ -1296,8 +1342,12 @@ export default function PromptLabPage() {
         flex: 1, 
         overflow: 'hidden', 
         position: 'relative',
-        pb: 0, // No bottom padding needed since prompt bar is fixed
-        minHeight: 0 // Ensure flex child can shrink properly
+        pb: isMobile ? 0 : 0, // No bottom padding needed since prompt bar is fixed
+        minHeight: 0, // Ensure flex child can shrink properly
+        // Mobile-specific adjustments
+        ...(isMobile && {
+          pb: 2, // Add padding for mobile
+        })
       }}>
         {/* Error Display */}
         {error && (
@@ -1317,18 +1367,31 @@ export default function PromptLabPage() {
           ref={messagesContainerRef}
           onScroll={handleScroll}
           sx={{ 
-          height: '100%', 
-          overflowY: 'auto', 
-          overflowX: 'hidden', // Prevent horizontal scrolling
-          p: 3,
-            pb: 24, // Reduced bottom padding to eliminate unnecessary empty space
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2
+            height: '100%', 
+            overflowY: 'auto', 
+            overflowX: 'hidden', // Prevent horizontal scrolling
+            p: isMobile ? spacing.padding.sm : 3,
+            pb: isMobile ? 25 : 24, // Extra bottom padding for mobile input box
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isMobile ? 1.5 : 2,
+            // Mobile-specific scroll behavior
+            ...(isMobile && {
+              '&::-webkit-scrollbar': {
+                width: '4px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '2px',
+              },
+            })
           }}
         >
-          {/* New Conversation Button - Top Right (when context is selected and messages exist) */}
-          {selectedContext && messages.length > 0 && (
+          {/* New Conversation Button - Top Right (when context is selected and messages exist) - Desktop Only */}
+          {!isMobile && selectedContext && messages.length > 0 && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -1355,8 +1418,8 @@ export default function PromptLabPage() {
             </Box>
           )}
 
-          {/* New Conversation Button - Top Right (when no context selected and messages exist) */}
-          {messages.length > 0 && !selectedContext && (
+          {/* New Conversation Button - Top Right (when no context selected and messages exist) - Desktop Only */}
+          {!isMobile && messages.length > 0 && !selectedContext && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -1434,14 +1497,16 @@ export default function PromptLabPage() {
                 sx={{
                   display: 'flex',
                   justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
-                  mb: 2,
-                  mr: message.role === 'user' ? '15%' : 0
+                  mb: isMobile ? 1.5 : 2,
+                  mr: message.role === 'user' ? (isMobile ? '5%' : '15%') : 0,
+                  ml: message.role === 'assistant' ? (isMobile ? '5%' : 0) : 0,
                 }}
               >
                 <Paper
                   sx={{
-                    p: 2,
-                    maxWidth: '70%',
+                    p: isMobile ? 1.5 : 2,
+                    maxWidth: isMobile ? '90%' : '70%',
+                    minWidth: isMobile ? '60%' : 'auto',
                     backgroundColor: message.role === 'user' 
                       ? 'primary.light' 
                           : message.role === 'assistant' && message.content.startsWith('Error:')
@@ -1450,12 +1515,12 @@ export default function PromptLabPage() {
                     color: message.role === 'user' 
                       ? 'primary.contrastText' 
                       : 'white', 
-                    borderRadius: 2,
+                    borderRadius: isMobile ? 3 : 2,
                     position: 'relative',
                     // Add subtle shadow for better visual separation
                     boxShadow: message.role === 'assistant' ? 2 : 1,
                     // Add hover effect for user messages to indicate rewind functionality
-                    ...(message.role === 'user' && {
+                    ...(message.role === 'user' && !isMobile && {
                       '&:hover': {
                         boxShadow: 3,
                         transform: 'translateY(-1px)',
@@ -1463,19 +1528,26 @@ export default function PromptLabPage() {
                       }
                     }),
                     // Add subtle border to indicate interactive elements
-                    border: message.role === 'user' ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)'
+                    border: message.role === 'user' ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)',
+                    // Mobile-specific touch feedback
+                    ...(isMobile && message.role === 'user' && {
+                      '&:active': {
+                        transform: 'scale(0.98)',
+                        transition: 'transform 0.1s ease'
+                      }
+                    })
                   }}
                 >
                   {message.role === 'assistant' && (
                     <Avatar sx={{ 
-                      width: 24, 
-                      height: 24, 
+                      width: isMobile ? 20 : 24, 
+                      height: isMobile ? 20 : 24, 
                       position: 'absolute', 
-                      top: -12, 
-                      left: -12,
-                          bgcolor: message.content.startsWith('Error:') ? 'error.dark' : modelInfo.color
+                      top: isMobile ? -10 : -12, 
+                      left: isMobile ? -10 : -12,
+                      bgcolor: message.content.startsWith('Error:') ? 'error.dark' : modelInfo.color
                     }}>
-                      <ModelIcon fontSize="small" />
+                      <ModelIcon fontSize={isMobile ? 'small' : 'small'} />
                     </Avatar>
                   )}
                       
@@ -1484,75 +1556,81 @@ export default function PromptLabPage() {
                         <Box sx={{ 
                           display: 'flex', 
                           alignItems: 'center', 
-                          gap: 1, 
-                          mb: 1
+                          gap: isMobile ? 0.5 : 1, 
+                          mb: isMobile ? 0.5 : 1,
+                          flexWrap: isMobile ? 'wrap' : 'nowrap'
                         }}>
                           <Chip
                             label={modelInfo.name}
                             size="small"
                             sx={{
-                              height: 20,
-                              fontSize: '0.7rem',
+                              height: isMobile ? 18 : 20,
+                              fontSize: isMobile ? '0.6rem' : '0.7rem',
                               backgroundColor: 'rgba(255,255,255,0.2)',
                               color: 'white',
                               '& .MuiChip-label': {
-                                px: 1
+                                px: isMobile ? 0.5 : 1
                               }
                             }}
                           />
-                          <Typography variant="caption" sx={{ opacity: 0.7, color: 'white' }}>
-                            {modelInfo.provider}
-                          </Typography>
+                          {!isMobile && (
+                            <Typography variant="caption" sx={{ opacity: 0.7, color: 'white' }}>
+                              {modelInfo.provider}
+                            </Typography>
+                          )}
                         </Box>
                       )}
                       
                   <Box sx={{ 
-                    '& p': { margin: 0, marginBottom: 1 },
+                    '& p': { margin: 0, marginBottom: isMobile ? 0.5 : 1 },
                     '& p:last-child': { marginBottom: 0 },
                     '& pre': { 
                       backgroundColor: 'rgba(0,0,0,0.1)', 
-                      padding: 1, 
-                      borderRadius: 1, 
+                      padding: isMobile ? 0.75 : 1, 
+                      borderRadius: isMobile ? 0.75 : 1, 
                       overflow: 'auto',
-                      margin: '8px 0'
+                      margin: isMobile ? '6px 0' : '8px 0',
+                      fontSize: isMobile ? '0.8rem' : '0.9rem'
                     },
                     '& code': { 
                       backgroundColor: 'rgba(0,0,0,0.1)', 
-                      padding: '2px 4px', 
-                      borderRadius: 1,
-                      fontFamily: 'monospace'
+                      padding: isMobile ? '1px 3px' : '2px 4px', 
+                      borderRadius: isMobile ? 0.5 : 1,
+                      fontFamily: 'monospace',
+                      fontSize: isMobile ? '0.8rem' : '0.9rem'
                     },
-                    '& ul, & ol': { margin: '8px 0', paddingLeft: 2 },
-                    '& li': { margin: '4px 0' },
+                    '& ul, & ol': { margin: isMobile ? '6px 0' : '8px 0', paddingLeft: isMobile ? 1.5 : 2 },
+                    '& li': { margin: isMobile ? '2px 0' : '4px 0' },
                     '& blockquote': { 
                       borderLeft: '3px solid rgba(255,255,255,0.3)', 
-                      paddingLeft: 1, 
-                      margin: '8px 0',
+                      paddingLeft: isMobile ? 0.75 : 1, 
+                      margin: isMobile ? '6px 0' : '8px 0',
                       fontStyle: 'italic'
                     },
                     '& h1, & h2, & h3, & h4, & h5, & h6': {
-                      margin: '12px 0 8px 0',
+                      margin: isMobile ? '8px 0 4px 0' : '12px 0 8px 0',
                       fontWeight: 600,
                       lineHeight: 1.2
                     },
-                    '& h1': { fontSize: '1.5em' },
-                    '& h2': { fontSize: '1.3em' },
-                    '& h3': { fontSize: '1.1em' },
+                    '& h1': { fontSize: isMobile ? '1.3em' : '1.5em' },
+                    '& h2': { fontSize: isMobile ? '1.2em' : '1.3em' },
+                    '& h3': { fontSize: isMobile ? '1.1em' : '1.1em' },
                     '& strong': { fontWeight: 600 },
                     '& em': { fontStyle: 'italic' },
                     '& hr': { 
                       border: 'none', 
                       borderTop: '1px solid rgba(255,255,255,0.2)', 
-                      margin: '16px 0' 
+                      margin: isMobile ? '12px 0' : '16px 0' 
                     },
                     '& table': {
                       borderCollapse: 'collapse',
                       width: '100%',
-                      margin: '8px 0'
+                      margin: isMobile ? '6px 0' : '8px 0',
+                      fontSize: isMobile ? '0.8rem' : '0.9rem'
                     },
                     '& th, & td': {
                       border: '1px solid rgba(255,255,255,0.2)',
-                      padding: '4px 8px',
+                      padding: isMobile ? '2px 4px' : '4px 8px',
                       textAlign: 'left'
                     },
                     '& th': {
@@ -1560,8 +1638,11 @@ export default function PromptLabPage() {
                       fontWeight: 600
                     },
                     // Add padding to prevent button overlap
-                    paddingRight: message.role === 'user' ? '44px' : '44px', // Space for rewind/copy buttons
-                    paddingBottom: message.role === 'assistant' ? '44px' : '8px' // Extra bottom padding for copy button
+                    paddingRight: message.role === 'user' ? (isMobile ? '36px' : '44px') : (isMobile ? '36px' : '44px'), // Space for rewind/copy buttons
+                    paddingBottom: message.role === 'assistant' ? (isMobile ? '36px' : '44px') : (isMobile ? '6px' : '8px'), // Extra bottom padding for copy button
+                    // Mobile-specific typography
+                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    lineHeight: isMobile ? 1.4 : 1.5
                   }}>
                     <EnhancedMarkdown 
                       content={message.content}
@@ -1577,10 +1658,10 @@ export default function PromptLabPage() {
                       onClick={() => handleRewindToMessage(messageIndex)}
                       sx={{
                         position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        width: 28,
-                        height: 28,
+                        top: isMobile ? 6 : 8,
+                        right: isMobile ? 6 : 8,
+                        width: isMobile ? 32 : 28,
+                        height: isMobile ? 32 : 28,
                         borderRadius: '50%',
                         backgroundColor: 'rgba(0,0,0,0.15)',
                         color: 'primary.contrastText',
@@ -1593,11 +1674,15 @@ export default function PromptLabPage() {
                           transform: 'scale(1.1)',
                           boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                         },
+                        '&:active': isMobile ? {
+                          transform: 'scale(0.95)',
+                          backgroundColor: 'rgba(0,0,0,0.3)'
+                        } : {},
                         transition: 'all 0.2s ease'
                       }}
                       title="Rewind conversation to this point (removes all messages after this message)"
                     >
-                      <RestartAltIcon sx={{ fontSize: 14 }} />
+                      <RestartAltIcon sx={{ fontSize: isMobile ? 16 : 14 }} />
                     </IconButton>
                   )}
 
@@ -1638,10 +1723,10 @@ export default function PromptLabPage() {
                       }}
                       sx={{
                         position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        width: 28,
-                        height: 28,
+                        bottom: isMobile ? 6 : 8,
+                        right: isMobile ? 6 : 8,
+                        width: isMobile ? 32 : 28,
+                        height: isMobile ? 32 : 28,
                         borderRadius: '50%',
                         backgroundColor: 'rgba(255,255,255,0.2)',
                         color: 'white',
@@ -1654,10 +1739,14 @@ export default function PromptLabPage() {
                           transform: 'scale(1.1)',
                           boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                         },
+                        '&:active': isMobile ? {
+                          transform: 'scale(0.95)',
+                          backgroundColor: 'rgba(255,255,255,0.4)'
+                        } : {},
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                      <ContentCopyIcon sx={{ fontSize: isMobile ? 16 : 14 }} />
                     </IconButton>
                   )}
 
@@ -1785,19 +1874,20 @@ export default function PromptLabPage() {
       <Box sx={{ 
           position: 'fixed',
           bottom: 0,
-          left: 240, // Account for sidebar width
+          left: isMobile ? 0 : 240, // Account for sidebar width on desktop
           right: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 10%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.9) 100%)',
-          p: 3,
+          background: isMobile ? 'transparent' : 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 10%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.9) 100%)',
+          p: isMobile ? 0 : 3,
           zIndex: 1000
         }}>
           {/* Container to center content within chat window */}
           <Box sx={{ 
-            maxWidth: 800,
-            mx: 'auto',
-            px: 2
+            maxWidth: isMobile ? '100%' : 800,
+            mx: isMobile ? 0 : 'auto',
+            px: isMobile ? 0 : 2
           }}>
-            {/* System Prompts Sliding Drawer */}
+            {/* System Prompts Sliding Drawer - Desktop Only */}
+            {!isMobile && (
             <Box sx={{ 
               position: 'relative',
               mb: 2
@@ -2031,15 +2121,31 @@ export default function PromptLabPage() {
                 </Box>
               </Box>
             </Box>
+            )}
 
             {/* Unified Prompt Entry Container */}
             <Paper sx={{ 
-              p: 0.75, 
-              borderRadius: 2,
+              p: isMobile ? 2 : 0.75, 
+              borderRadius: isMobile ? 0 : 2,
               backgroundColor: 'background.paper',
               border: 1,
               borderColor: 'divider',
-              boxShadow: 1
+              boxShadow: isMobile ? 3 : 1,
+              // Mobile-specific positioning
+              ...(isMobile ? {
+                position: 'fixed',
+                bottom: 0, // At the very bottom of the screen
+                left: 0,
+                right: 0,
+                zIndex: 1000,
+                maxWidth: '100vw',
+                borderRadius: 0, // Full width, no border radius
+                borderLeft: 'none',
+                borderRight: 'none',
+                borderBottom: 'none',
+                borderTop: 1,
+                borderTopColor: 'divider',
+              } : {})
             }}>
               {/* Message Input Container */}
               <Box sx={{ 
@@ -2049,9 +2155,9 @@ export default function PromptLabPage() {
                 <TextField
                   fullWidth
                   multiline
-                  minRows={1}
-                  maxRows={6}
-                  placeholder="Type your message..."
+                  minRows={isMobile ? 2 : 1}
+                  maxRows={isMobile ? 4 : 6}
+                  placeholder={isMobile ? "Type your message..." : "Type your message..."}
                   value={currentMessage}
                   onChange={(e) => setCurrentMessage(e.target.value)}
                   onKeyPress={(e) => {
@@ -2063,16 +2169,23 @@ export default function PromptLabPage() {
                   variant="outlined"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
+                      borderRadius: isMobile ? 2 : 2,
                       backgroundColor: 'background.paper',
-                      boxShadow: 1,
-                      pr: 8 // Add right padding to make room for send button only
+                      boxShadow: isMobile ? 1 : 1,
+                      pr: isMobile ? 10 : 8, // Add right padding to make room for send button
+                      fontSize: isMobile ? '1rem' : '0.875rem',
+                      minHeight: isMobile ? 48 : 'auto',
+                      border: isMobile ? '1px solid rgba(0,0,0,0.12)' : 'none',
+                    },
+                    '& .MuiInputBase-input': {
+                      fontSize: isMobile ? '1rem' : '0.875rem',
+                      padding: isMobile ? '12px 14px' : '8px 14px',
                     }
                   }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <ChatIcon color="action" />
+                        <ChatIcon color="action" sx={{ fontSize: isMobile ? 20 : 18 }} />
                       </InputAdornment>
                     )
                   }}
@@ -2084,11 +2197,11 @@ export default function PromptLabPage() {
                   disabled={!currentMessage.trim() || isLoading}
                   sx={{
                     position: 'absolute',
-                    right: 8,
+                    right: isMobile ? 10 : 8,
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    width: 32,
-                    height: 32,
+                    width: isMobile ? 40 : 32,
+                    height: isMobile ? 40 : 32,
                     borderRadius: '50%',
                     backgroundColor: 'primary.main',
                     color: 'primary.contrastText',
@@ -2098,96 +2211,276 @@ export default function PromptLabPage() {
                     '&:disabled': {
                       backgroundColor: 'action.disabledBackground',
                       color: 'action.disabled'
-                    }
+                    },
+                    '&:active': isMobile ? {
+                      transform: 'translateY(-50%) scale(0.95)',
+                    } : {},
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   {isLoading ? (
-                    <CircularProgress size={16} color="inherit" />
+                    <CircularProgress size={isMobile ? 20 : 16} color="inherit" />
                   ) : (
-                    <Box sx={{ 
-                      fontSize: 16,
-                      transform: 'rotate(90deg) translate(5px, 2px)' // Rotate to point upward
-                    }}>
-                     <ArrowBackIosIcon />
-                    </Box>
+                    <SendIcon sx={{ fontSize: isMobile ? 20 : 16 }} />
                   )}
                 </IconButton>
               </Box>
 
-              {/* Controls Container Box - Now below the prompt input */}
-              <Box sx={{ 
-                display: 'flex', 
-                gap: 4, 
-                justifyContent: 'center', 
-                flexWrap: 'wrap', 
-                mt: 1 
-              }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setModelModalOpen(true)}
-                  sx={{ 
-                    minWidth: 200,
-                    borderRadius: 4,
-                    backgroundColor: 'background.paper',
-                    color: 'primary.dark',
-                    borderColor: 'primary.dark',
-                    boxShadow: 1,
-                    fontSize: '0.75rem',
-                    '&:hover': {
-                      backgroundColor: 'primary.light',
-                      borderColor: 'primary.main',
-                      boxShadow: 2
-                    }
-                  }}
-                >
-                  {selectedModel + '  ▾' || 'Select Target Model ▾'}
-                </Button>
-                
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setContextModalOpen(true)}
-                  sx={{ 
-                    minWidth: 150,
-                    borderRadius: 4,
-                    backgroundColor: 'background.paper',
-                    color: 'primary.dark',
-                    borderColor: 'primary.dark',
-                    boxShadow: 1,
-                    fontSize: '0.75rem',
-                    '&:hover': {
-                      backgroundColor: 'primary.light',
-                      borderColor: 'primary.main',
-                      boxShadow: 2
-                    }
-                  }}
-                >
-                  Context: {selectedContext ? selectedContext.title : 'None'} ▾
-                </Button>
+              {/* Controls Container Box - Mobile responsive */}
+              {!isMobile ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: 4, 
+                  justifyContent: 'center', 
+                  flexWrap: 'wrap', 
+                  mt: 1 
+                }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setModelModalOpen(true)}
+                    sx={{ 
+                      minWidth: 200,
+                      borderRadius: 4,
+                      backgroundColor: 'background.paper',
+                      color: 'primary.dark',
+                      borderColor: 'primary.dark',
+                      boxShadow: 1,
+                      fontSize: '0.75rem',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        borderColor: 'primary.main',
+                        boxShadow: 2
+                      }
+                    }}
+                  >
+                    {selectedModel + '  ▾' || 'Select Target Model ▾'}
+                  </Button>
+                  
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setContextModalOpen(true)}
+                    sx={{ 
+                      minWidth: 150,
+                      borderRadius: 4,
+                      backgroundColor: 'background.paper',
+                      color: 'primary.dark',
+                      borderColor: 'primary.dark',
+                      boxShadow: 1,
+                      fontSize: '0.75rem',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        borderColor: 'primary.main',
+                        boxShadow: 2
+                      }
+                    }}
+                  >
+                    Context: {selectedContext ? selectedContext.title : 'None'} ▾
+                  </Button>
 
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setFullPromptModalOpen(true)}
-                  sx={{ 
-                    minWidth: 150,
-                    borderRadius: 4,
-                    backgroundColor: 'background.paper',
-                    color: 'primary.dark',
-                    borderColor: 'primary.dark',
-                    boxShadow: 1,
-                    fontSize: '0.75rem',
-                    '&:hover': {
-                      backgroundColor: 'primary.light',
-                      borderColor: 'primary.main',
-                      boxShadow: 2
-                    }
-                  }}
-                >
-                  View/Copy Full Prompt
-                </Button>
-              </Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setFullPromptModalOpen(true)}
+                    sx={{ 
+                      minWidth: 150,
+                      borderRadius: 4,
+                      backgroundColor: 'background.paper',
+                      color: 'primary.dark',
+                      borderColor: 'primary.dark',
+                      boxShadow: 1,
+                      fontSize: '0.75rem',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        borderColor: 'primary.main',
+                        boxShadow: 2
+                      }
+                    }}
+                  >
+                    View/Copy Full Prompt
+                  </Button>
+                </Box>
+              ) : (
+                // Mobile controls - Collapsible
+                <Collapse in={showMobileControls}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    gap: 1.5, 
+                    mt: 1.5,
+                    px: 0.5
+                  }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setModelModalOpen(true)}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      Model: {selectedModel} ▾
+                    </Button>
+                    
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setContextModalOpen(true)}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      Context: {selectedContext ? selectedContext.title : 'None'} ▾
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setSystemPromptModalOpen(true)}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      System Prompts ({selectedSystemPrompts.length}) ▾
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setFullPromptModalOpen(true)}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      View Full Prompt
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      Recent Conversations
+                    </Button>
+                  </Box>
+                </Collapse>
+              )}
+
+              {/* Mobile Controls Toggle and New Chat Button */}
+              {isMobile && (
+                <Box sx={{ 
+                  position: 'relative',
+                  display: 'flex', 
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  mt: 1.5,
+                  mb: 0.5,
+                  px: 2,
+                }}>
+                  {/* New Chat Button - Positioned at 1/4 from left */}
+                  {messages.length > 0 && (
+                    <Box sx={{
+                      position: 'absolute',
+                      left: '25%',
+                      transform: 'translateX(-50%)',
+                    }}>
+                      <Button
+                        variant="outlined"
+                        onClick={startNewConversation}
+                        startIcon={<AddIcon />}
+                        size="small"
+                        sx={{ 
+                          color: 'primary.dark', 
+                          borderColor: 'primary.dark',
+                          fontSize: '0.75rem',
+                          px: 2,
+                          py: 0.75,
+                          whiteSpace: 'nowrap',
+                          '&:hover': {
+                            backgroundColor: 'primary.light',
+                            borderColor: 'primary.main'
+                          }
+                        }}
+                      >
+                        New Chat
+                      </Button>
+                    </Box>
+                  )}
+                  
+                  {/* Menu Toggle Button - Centered */}
+                  <IconButton
+                    onClick={() => setShowMobileControls(!showMobileControls)}
+                    sx={{
+                      backgroundColor: 'action.hover',
+                      '&:hover': {
+                        backgroundColor: 'action.selected'
+                      },
+                      width: 44,
+                      height: 44,
+                    }}
+                  >
+                    {showMobileControls ? <ExpandMore /> : <ExpandLessIcon />}
+                  </IconButton>
+                </Box>
+              )}
             </Paper>
 
 
@@ -2199,10 +2492,11 @@ export default function PromptLabPage() {
         anchor="right"
         open={conversationsDrawerOpen}
         onClose={() => setConversationsDrawerOpen(false)}
-        variant="persistent"
+        variant={isMobile ? "temporary" : "persistent"}
         sx={{
           '& .MuiDrawer-paper': {
-            width: 300,
+            width: isMobile ? '85vw' : 300,
+            maxWidth: isMobile ? 400 : 300,
             boxSizing: 'border-box',
             borderLeft: 1,
             borderColor: 'divider',
@@ -2306,7 +2600,8 @@ export default function PromptLabPage() {
         </Box>
       </Drawer>
 
-      {/* Chat History Tab */}
+      {/* Chat History Tab - Desktop Only */}
+      {!isMobile && (
       <Box
         onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
         sx={{
@@ -2350,6 +2645,7 @@ export default function PromptLabPage() {
           </Box>
         </Paper>
       </Box>
+      )}
 
       {/* Modals */}
       <ModelSelectionModal

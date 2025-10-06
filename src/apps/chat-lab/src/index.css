@@ -26,6 +26,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  /* Mobile optimizations */
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 h1 {

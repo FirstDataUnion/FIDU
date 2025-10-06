@@ -69,8 +69,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   const { settings } = useAppSelector((state) => state.settings);
   
-  // Always keep sidebar open on desktop
-  const sidebarOpen = !isMobile;
+  // Mobile sidebar state management
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  
+  // Sidebar state: always open on desktop, controlled on mobile
+  const sidebarOpen = isMobile ? mobileSidebarOpen : true;
   
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileMenuAnchorEl, setProfileMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -172,12 +175,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   const handleDrawerToggle = () => {
+    if (isMobile) {
+      setMobileSidebarOpen(!mobileSidebarOpen);
+    }
     dispatch(toggleSidebar());
   };
 
   const handleNavigation = (path: string) => {
     navigate(path);
     if (isMobile) {
+      setMobileSidebarOpen(false);
       dispatch(toggleSidebar());
     }
   };
