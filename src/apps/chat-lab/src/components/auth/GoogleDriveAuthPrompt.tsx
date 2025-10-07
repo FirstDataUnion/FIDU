@@ -23,7 +23,7 @@ import { CloudUpload, Google, Close } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { serverLogger } from '../../utils/serverLogger';
 import { useAppDispatch } from '../../hooks/redux';
-import { checkGoogleDriveAuthStatus } from '../../store/slices/googleDriveAuthSlice';
+import { checkGoogleDriveAuthStatus } from '../../store/slices/unifiedStorageSlice';
 
 interface GoogleDriveAuthPromptProps {
   onAuthenticated?: () => void;

@@ -8,7 +8,14 @@ import { store } from './store';
 import { useAppDispatch, useAppSelector } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
-import { initializeGoogleDriveAuth, checkGoogleDriveAuthStatus } from './store/slices/googleDriveAuthSlice';
+import { 
+  initializeGoogleDriveAuth, 
+  checkGoogleDriveAuthStatus,
+  markStorageConfigured,
+  resetStorageConfiguration,
+  setShowAuthModal,
+  updateFilesystemStatus
+} from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
 import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo, getEnvironmentInfo } from './utils/environment';
@@ -17,6 +24,8 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthWrapper from './components/auth/AuthWrapper';
 import GoogleDriveAuthPrompt from './components/auth/GoogleDriveAuthPrompt';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import { StorageSelectionModal } from './components/storage/StorageSelectionModal';
+import { StorageConfigurationBanner } from './components/storage/StorageConfigurationBanner';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
 import { serverLogger } from './utils/serverLogger';
 
@@ -49,9 +58,10 @@ const AppContent: React.FC<AppContentProps> = () => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
   const { isInitialized: authInitialized, isLoading: authLoading } = useAppSelector((state) => state.auth);
-  const { showAuthModal, isLoading: googleDriveLoading } = useAppSelector((state) => state.googleDriveAuth);
+  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
   const [storageInitialized, setStorageInitialized] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [showStorageSelectionModal, setShowStorageSelectionModal] = useState(false);
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -68,8 +78,45 @@ const AppContent: React.FC<AppContentProps> = () => {
     // This will be handled in the settings effect below
   }, [dispatch]);
 
+  // Check if storage configuration is needed
   useEffect(() => {
-    if (!settings.storageMode) return;
+    if (!authInitialized || !unifiedStorage.mode) return;
+    
+    const envInfo = getEnvironmentInfo();
+    
+    // Only show storage selection modal in cloud deployment mode
+    if (envInfo.storageMode === 'cloud' && unifiedStorage.status !== 'configured' && !unifiedStorage.userSelectedMode) {
+      // Only show storage selection modal for completely new users who haven't made any selection
+      setShowStorageSelectionModal(true);
+    }
+  }, [authInitialized, unifiedStorage.mode, unifiedStorage.status, unifiedStorage.userSelectedMode]);
+
+  // Handle Google Drive authentication status changes
+  useEffect(() => {
+    const envInfo = getEnvironmentInfo();
+    
+    // If we're in cloud mode and Google Drive is authenticated but storage isn't marked as configured
+    if (envInfo.storageMode === 'cloud' && 
+        unifiedStorage.mode === 'cloud' && 
+        unifiedStorage.googleDrive.isAuthenticated && 
+        unifiedStorage.status !== 'configured' && 
+        !unifiedStorage.googleDrive.isLoading) {
+      // Auto-configure storage since Google Drive is already authenticated
+      dispatch(markStorageConfigured());
+    }
+    
+    // If we're in cloud mode and Google Drive auth is lost, reset storage configuration
+    if (envInfo.storageMode === 'cloud' && 
+        unifiedStorage.mode === 'cloud' && 
+        unifiedStorage.status === 'configured' && 
+        !unifiedStorage.googleDrive.isAuthenticated && 
+        !unifiedStorage.googleDrive.isLoading) {
+      dispatch(resetStorageConfiguration());
+    }
+  }, [dispatch, unifiedStorage.mode, unifiedStorage.status, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading]);
+
+  useEffect(() => {
+    if (!unifiedStorage.mode) return;
     
     const initializeStorage = async () => {
       try {
@@ -154,7 +201,32 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
     
     initializeStorage();
-  }, [settings.storageMode, dispatch]);
+  }, [unifiedStorage.mode, dispatch]);
+
+  // Sync filesystem status from adapter to unified state
+  useEffect(() => {
+    if (unifiedStorage.mode === 'filesystem' && storageInitialized) {
+      try {
+        const storageService = getUnifiedStorageService();
+        const adapter = storageService.getAdapter();
+        
+        // Check if this is a filesystem adapter
+        if ('isDirectoryAccessible' in adapter && 'hasDirectoryMetadata' in adapter) {
+          const isAccessible = (adapter as any).isDirectoryAccessible();
+          const hasMetadata = (adapter as any).hasDirectoryMetadata();
+          const directoryName = hasMetadata ? 'FIDU-Data' : null; // We use a consistent name
+          
+          dispatch(updateFilesystemStatus({
+            isAccessible,
+            directoryName: directoryName || undefined,
+            permissionState: isAccessible ? 'granted' : (hasMetadata ? 'denied' : 'prompt')
+          }));
+        }
+      } catch (error) {
+        console.error('Error syncing filesystem status:', error);
+      }
+    }
+  }, [unifiedStorage.mode, storageInitialized, dispatch]);
 
   useEffect(() => {
     const envInfo = getEnvironmentInfo();
@@ -246,7 +318,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     },
   });
 
-  if (authLoading || !storageInitialized || googleDriveLoading) {
+  if (authLoading || !storageInitialized || unifiedStorage.googleDrive.isLoading) {
     return (
       <Box 
         display="flex" 
@@ -259,7 +331,7 @@ const AppContent: React.FC<AppContentProps> = () => {
         <CircularProgress size={60} />
         <Box>
           {authLoading ? 'Initializing FIDU Chat Lab...' : 
-           googleDriveLoading ? 'Checking Google Drive connection...' :
+           unifiedStorage.googleDrive.isLoading ? 'Checking Google Drive connection...' :
            storageModeInfo.loadingMessage}
         </Box>
         {storageModeInfo.mode === 'cloud' && !storageError && (
@@ -299,13 +371,31 @@ const AppContent: React.FC<AppContentProps> = () => {
     );
   }
 
+  const envInfo = getEnvironmentInfo();
+  
+  // Handler for when storage is configured
+  const handleStorageConfigured = () => {
+    dispatch(markStorageConfigured());
+    setShowStorageSelectionModal(false);
+  };
+
+  // Handler for dismissing the storage selection modal
+  const handleDismissStorageModal = () => {
+    setShowStorageSelectionModal(false);
+  };
+
+  // Check if we should show the storage configuration banner
+  const shouldShowStorageBanner = envInfo.storageMode === 'cloud' && 
+    unifiedStorage.status !== 'configured' && 
+    !showStorageSelectionModal;
+
   const mainAppContent = (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router basename="/fidu-chat-lab">
         <ErrorBoundary>
           <AuthWrapper>
-            <Layout>
+            <Layout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <Routes>
                   <Route path="/" element={<PromptLabPage />} />
@@ -325,14 +415,19 @@ const AppContent: React.FC<AppContentProps> = () => {
     </ThemeProvider>
   );
 
-  const envInfo = getEnvironmentInfo();
-  
-  // Only show Google Drive auth modal if we're in cloud environment AND cloud storage mode
-  if (envInfo.storageMode === 'cloud' && settings.storageMode === 'cloud' && showAuthModal) {
-    serverLogger.info('🚀 Showing Google Drive auth modal');
-    return (
-      <>
-        {mainAppContent}
+  return (
+    <>
+      {mainAppContent}
+      
+      {/* Storage Selection Modal - Priority over Google Drive auth modal */}
+      <StorageSelectionModal
+        open={showStorageSelectionModal}
+        onClose={handleDismissStorageModal}
+        onStorageConfigured={handleStorageConfigured}
+      />
+      
+      {/* Google Drive Auth Modal - Show when user needs to auth (either configured or initializing) */}
+      {envInfo.storageMode === 'cloud' && unifiedStorage.mode === 'cloud' && unifiedStorage.googleDrive.showAuthModal && (
         <GoogleDriveAuthPrompt 
           onAuthenticated={() => {
             // This callback is now handled by the OAuthCallbackPage
@@ -340,11 +435,9 @@ const AppContent: React.FC<AppContentProps> = () => {
             serverLogger.info('🔄 OAuth flow initiated - will redirect to callback page');
           }} 
         />
-      </>
-    );
-  }
-
-  return mainAppContent;
+      )}
+    </>
+  );
 };
 
 const App: React.FC = () => {

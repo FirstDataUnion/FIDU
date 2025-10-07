@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import type { GoogleDriveAuthState } from '../../types';
+import { resetStorageConfiguration } from './settingsSlice';
 
 // Async thunks
 export const initializeGoogleDriveAuth = createAsyncThunk(
@@ -148,9 +149,8 @@ const googleDriveAuthSlice = createSlice({
         state.expiresAt = action.payload.expiresAt;
         state.error = null;
         
-        // Update modal visibility based on authentication status
-        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
-        state.showAuthModal = !action.payload.isAuthenticated;
+        // Don't show auth modal - let the banner handle it instead
+        state.showAuthModal = false;
       })
       .addCase(initializeGoogleDriveAuth.rejected, (state, action) => {
         state.isLoading = false;
@@ -159,9 +159,8 @@ const googleDriveAuthSlice = createSlice({
         state.user = null;
         state.expiresAt = null;
         
-        // Show auth modal on error
-        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
-        state.showAuthModal = true;
+        // Don't show auth modal - let the banner handle it instead
+        state.showAuthModal = false;
       })
       
       // Authenticate Google Drive
@@ -178,7 +177,7 @@ const googleDriveAuthSlice = createSlice({
       .addCase(authenticateGoogleDrive.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
-        state.showAuthModal = true; // Keep modal open on error
+        state.showAuthModal = false; // Don't show modal - let banner handle it
       })
       
       // Check Google Drive Auth Status
@@ -194,10 +193,8 @@ const googleDriveAuthSlice = createSlice({
         state.expiresAt = action.payload.expiresAt;
         state.error = null;
         
-        // Update modal visibility based on authentication status
-        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
-        const shouldShowModal = !action.payload.isAuthenticated;
-        state.showAuthModal = shouldShowModal;
+        // Don't show auth modal - let the banner handle it instead
+        state.showAuthModal = false;
       })
       .addCase(checkGoogleDriveAuthStatus.rejected, (state, action) => {
         // Don't set isLoading = false for background checks
@@ -206,9 +203,8 @@ const googleDriveAuthSlice = createSlice({
         state.user = null;
         state.expiresAt = null;
         
-        // Show auth modal on error
-        // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
-        state.showAuthModal = true;
+        // Don't show auth modal - let the banner handle it instead
+        state.showAuthModal = false;
       })
       
       // Revoke Google Drive Access
@@ -221,7 +217,7 @@ const googleDriveAuthSlice = createSlice({
         state.isAuthenticated = action.payload.isAuthenticated;
         state.user = action.payload.user;
         state.expiresAt = action.payload.expiresAt;
-        state.showAuthModal = false;
+        state.showAuthModal = false; // Don't show auth modal after disconnection
         state.error = null;
       })
       .addCase(revokeGoogleDriveAccess.rejected, (state, action) => {

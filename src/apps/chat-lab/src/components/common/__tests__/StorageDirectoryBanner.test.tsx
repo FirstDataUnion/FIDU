@@ -22,6 +22,15 @@ jest.mock('@/utils/environment', () => ({
   },
   getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
   getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+  getEnvironmentInfo: () => ({
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    identityServiceUrl: 'https://identity.firstdataunion.org',
+    gatewayUrl: 'https://gateway.firstdataunion.org',
+    storageMode: 'local',
+    syncInterval: 300000,
+  }),
 }));
 
 // Mock the GoogleDriveAuth module
@@ -56,6 +65,26 @@ const createMockStore = (initialState: any = {}) => {
       },
       loading: false,
       error: null
+    },
+    unifiedStorage: {
+      mode: 'filesystem',
+      status: 'unconfigured',
+      userSelectedMode: false,
+      googleDrive: {
+        isAuthenticated: false,
+        user: null,
+        isLoading: false,
+        error: null,
+        showAuthModal: false,
+        expiresAt: null,
+      },
+      filesystem: {
+        isAccessible: false,
+        directoryName: null,
+        permissionState: 'checking',
+      },
+      isLoading: false,
+      error: null,
     }
   };
 
@@ -64,6 +93,7 @@ const createMockStore = (initialState: any = {}) => {
 
   const reducers = {
     settings: (state = mergedState.settings, _action: any) => state,
+    unifiedStorage: (state = mergedState.unifiedStorage, _action: any) => state,
   };
   
   return configureStore({
@@ -185,22 +215,26 @@ describe('StorageDirectoryBanner', () => {
   });
 
   it('should not render when directory is already selected', () => {
-    // Mock the adapter to return true for isDirectoryAccessible when directory is selected
-    (getUnifiedStorageService as jest.Mock).mockReturnValueOnce({
-      getAdapter: jest.fn(() => ({
-        isDirectoryAccessible: jest.fn(() => true),
-        hasDirectoryMetadata: jest.fn(() => true),
-      })),
-    });
-
     renderWithProviders(<StorageDirectoryBanner />, {
-      settings: {
-        settings: {
-          storageMode: 'filesystem',
-          directoryPath: '/Users/test/Documents'
+      unifiedStorage: {
+        mode: 'filesystem',
+        status: 'configured',
+        userSelectedMode: true,
+        googleDrive: {
+          isAuthenticated: false,
+          user: null,
+          isLoading: false,
+          error: null,
+          showAuthModal: false,
+          expiresAt: null,
         },
-        loading: false,
-        error: null
+        filesystem: {
+          isAccessible: true, // Directory is accessible
+          directoryName: '/Users/test/Documents',
+          permissionState: 'granted',
+        },
+        isLoading: false,
+        error: null,
       }
     });
 
@@ -209,13 +243,25 @@ describe('StorageDirectoryBanner', () => {
 
   it('should not render when not in filesystem mode', () => {
     renderWithProviders(<StorageDirectoryBanner />, {
-      settings: {
-        settings: {
-          storageMode: 'cloud',
-          directoryPath: null
+      unifiedStorage: {
+        mode: 'cloud', // Not in filesystem mode
+        status: 'configured',
+        userSelectedMode: true,
+        googleDrive: {
+          isAuthenticated: true,
+          user: { id: 'test', name: 'Test User', email: 'test@example.com' },
+          isLoading: false,
+          error: null,
+          showAuthModal: false,
+          expiresAt: 1234567890,
         },
-        loading: false,
-        error: null
+        filesystem: {
+          isAccessible: false,
+          directoryName: null,
+          permissionState: 'checking',
+        },
+        isLoading: false,
+        error: null,
       }
     });
 

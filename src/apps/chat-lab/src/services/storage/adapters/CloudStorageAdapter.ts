@@ -15,7 +15,7 @@ import { GoogleDriveService } from '../drive/GoogleDriveService';
 import { SyncService } from '../sync/SyncService';
 import { SmartAutoSyncService } from '../sync/SmartAutoSyncService';
 import { unsyncedDataManager } from '../UnsyncedDataManager';
-import { v5 as uuidv5 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 
 export class CloudStorageAdapter implements StorageAdapter {
@@ -25,7 +25,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   private driveService: GoogleDriveService | null = null;
   private syncService: SyncService | null = null;
   private smartAutoSyncService: SmartAutoSyncService | null = null;
-  private userId: string = 'current_user'; // Default fallback
+  private userId: string | null = null;
 
   constructor(_config: StorageConfig) {
     // Config not used in current implementation
@@ -125,7 +125,29 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   setUserId(userId: string): void {
+    if (!userId || userId.trim() === '') {
+      throw new Error('User ID cannot be empty or null');
+    }
     this.userId = userId;
+  }
+
+  private ensureUserId(): string {
+    if (!this.userId) {
+      // Auto-generate a user ID for cloud mode if none is set
+      // This can happen during mode switching before the hook sets the user ID
+      const STORAGE_KEY = 'fidu-cloud-user-id';
+      let userId = localStorage.getItem(STORAGE_KEY);
+      
+      // Validate that the stored ID is a valid UUID format
+      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        // Generate a new UUID for this browser/device
+        userId = uuidv4();
+        localStorage.setItem(STORAGE_KEY, userId);
+      }
+      
+      this.userId = userId;
+    }
+    return this.userId;
   }
 
   isFullyInitialized(): boolean {
@@ -208,7 +230,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     // Build query parameters
     const queryParams = {
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       profile_id: profileId,
       tags: filters?.tags ? [...PROTECTED_TAGS, ...filters.tags] : [...PROTECTED_TAGS],
       from_timestamp: filters?.dateRange?.start,
@@ -303,7 +325,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.userId);
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
       if (apiKey && apiKey.api_key) {
         console.log(`🔑 [CloudStorageAdapter] Found API key for provider: ${provider}`);
         return apiKey.api_key;
@@ -321,7 +343,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.userId);
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
       const available = apiKey !== null;
       console.log(`🔑 [CloudStorageAdapter] API key availability for ${provider}: ${available ? 'Available' : 'Not configured'}`);
       return available;
@@ -347,7 +369,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureFullyReady();
 
     const contextQueryParams = {
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       profile_id: profileId,
       tags: ['FIDU-CHAT-LAB-Context'],
       limit: limit,
@@ -447,7 +469,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     const systemPromptQueryParams = {
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       profile_id: profileId,
       tags: ['FIDU-CHAT-LAB-SystemPrompt'],
       limit: limit,
@@ -734,7 +756,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: conversation.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
@@ -935,7 +957,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: context.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -985,7 +1007,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],

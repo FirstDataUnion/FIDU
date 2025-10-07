@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 
 import { useAppSelector, useAppDispatch } from '../store';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { 
   fetchSystemPrompts, 
   createSystemPrompt, 
@@ -262,6 +263,8 @@ const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
+  const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // State for UI
@@ -541,15 +544,17 @@ const SystemPromptsPage = React.memo(() => {
             Manage system prompts that define AI behavior and personality for your conversations
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateSystemPrompt}
-          disabled={isDirectoryRequired}
-          sx={{ borderRadius: 2 }}
-        >
-          Add System Prompt
-        </Button>
+        {unifiedStorage.status === 'configured' && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateSystemPrompt}
+            disabled={isDirectoryRequired}
+            sx={{ borderRadius: 2 }}
+          >
+            Add System Prompt
+          </Button>
+        )}
       </Box>
 
       {/* Search and Filter Bar */}
@@ -625,6 +630,25 @@ const SystemPromptsPage = React.memo(() => {
             Loading system prompts...
           </Typography>
         </Box>
+      ) : unifiedStorage.status !== 'configured' && activeTab === 3 ? (
+        // Show centered error message for Custom tab when storage not configured
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          py: 8,
+          textAlign: 'center',
+          minHeight: '400px'
+        }}>
+          <CodeIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+          <Typography variant="h5" sx={{ mb: 1, opacity: 0.7 }}>
+            No storage option selected.
+          </Typography>
+          <Typography variant="body1" sx={{ opacity: 0.5 }}>
+            No Custom System Prompts Available. Please configure storage to use this feature
+          </Typography>
+        </Box>
       ) : filteredPrompts.length > 0 ? (
         <Box sx={{ height: 'calc(100vh - 400px)', minHeight: '400px' }}>
           <OptimizedSystemPromptsGrid
@@ -646,7 +670,7 @@ const SystemPromptsPage = React.memo(() => {
             {activeTab === 3 ? 'Create your first custom system prompt to define specific AI behaviors' :
              'Try adjusting your search or switching to a different tab'}
           </Typography>
-          {activeTab === 3 && (
+          {activeTab === 3 && unifiedStorage.status === 'configured' && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt} disabled={isDirectoryRequired}>
               Create System Prompt
             </Button>

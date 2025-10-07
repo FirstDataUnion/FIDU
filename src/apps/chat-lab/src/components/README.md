@@ -24,7 +24,6 @@ Components responsible for user authentication, profile management, and Google D
 **Key Components:**
 - **`AuthWrapper.tsx`** - Main authentication wrapper that handles login flow
 - **`FiduAuthLogin.tsx`** - Login/register forms for FIDU identity service
-- **`GoogleDriveAuth.tsx`** - Google Drive authentication integration
 - **`GoogleDriveAuthPrompt.tsx`** - UI prompts for Google Drive setup
 - **`GoogleDriveStatus.tsx`** - Status indicator for Google Drive connection
 - **`ProfileSelector.tsx`** - User profile selection interface

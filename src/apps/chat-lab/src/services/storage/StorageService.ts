@@ -60,8 +60,6 @@ export class StorageService {
     await this.adapter.initialize();
     
     this.initialized = true;
-    console.log(`Storage service initialized in ${this.config.mode} mode`);
-    console.log(`Storage config:`, this.config);
   }
 
   async switchMode(newMode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
@@ -78,7 +76,6 @@ export class StorageService {
     await this.adapter.initialize();
     
     this.config = newConfig;
-    console.log(`Storage service switched to ${newMode} mode`);
   }
 
   getAdapter(): StorageAdapter {

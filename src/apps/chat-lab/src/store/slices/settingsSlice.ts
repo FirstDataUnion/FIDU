@@ -20,6 +20,8 @@ const defaultSettings: UserSettings = {
   exportFormat: 'json',
   lastUsedModel: 'gpt-5.0-nano', // Default to GPT-5.0 Nano
   storageMode: getDefaultStorageMode(), // Default based on environment
+  storageConfigured: false, // Default to false for new users
+  userSelectedStorageMode: false, // Track if user has made a selection from settings
   apiKeys: {
     nlpWorkbench: '',
   },
@@ -110,6 +112,15 @@ const settingsSlice = createSlice({
     },
     updateStorageMode: (state, action) => {
       state.settings.storageMode = action.payload;
+      state.settings.userSelectedStorageMode = true; // Mark that user has made a selection
+      saveSettingsToStorage(state.settings);
+    },
+    markStorageConfigured: (state) => {
+      state.settings.storageConfigured = true;
+      saveSettingsToStorage(state.settings);
+    },
+    resetStorageConfiguration: (state) => {
+      state.settings.storageConfigured = false;
       saveSettingsToStorage(state.settings);
     },
     updateSyncDelay: (state, action) => {
@@ -160,6 +171,8 @@ export const {
   updateTheme,
   updateLastUsedModel,
   updateStorageMode,
+  markStorageConfigured,
+  resetStorageConfiguration,
   updateSyncDelay,
   clearError,
   resetToDefaults,

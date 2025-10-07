@@ -13,7 +13,6 @@ export function useStorageUserId(): void {
     if (user?.id) {
       const storageService = getUnifiedStorageService();
       storageService.setUserId(user.id);
-      console.log('Updated storage service user ID to:', user.id);
     }
   }, [user?.id]);
 }

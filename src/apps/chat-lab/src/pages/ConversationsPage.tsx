@@ -21,6 +21,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { fetchConversations, fetchConversationMessages, setFilters, clearFilters, updateConversationTags } from '../store/slices/conversationsSlice';
 import { fetchContexts, addConversationToContext, createContext } from '../store/slices/contextsSlice';
 import type { Conversation } from '../types';
@@ -52,6 +53,8 @@ const ConversationsPage: React.FC = React.memo(() => {
   const error = useAppSelector((state) => selectConversationsError(state));
   const { items: contexts } = useAppSelector((state) => state.contexts);
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
+  const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
   
   // Search and Filter State
   const [showFilters, setShowFilters] = useState(false);
@@ -372,7 +375,12 @@ const ConversationsPage: React.FC = React.memo(() => {
     // Check if this is a directory access error for filesystem storage
     const isDirectoryAccessError = error.includes('No directory access') || error.includes('Please select a directory first');
     
-    if (isDirectoryAccessError) {
+    // Check if this is a Google Drive authentication error or storage not configured
+    const isGoogleDriveAuthError = error.includes('User must authenticate with Google Drive first') || 
+                                  error.includes('Please connect your Google Drive account');
+    const isStorageNotConfigured = unifiedStorage.status !== 'configured';
+    
+    if (isDirectoryAccessError || isGoogleDriveAuthError || isStorageNotConfigured) {
       // Show the page with our banner instead of the raw error
       return (
         <Box sx={{ 
@@ -398,10 +406,16 @@ const ConversationsPage: React.FC = React.memo(() => {
           }}>
             <ChatIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
             <Typography variant="h5" sx={{ mb: 1, opacity: 0.7 }}>
-              No Conversations Available
+              {isStorageNotConfigured 
+                ? 'No storage option selected.'
+                : 'No Conversations Available'
+              }
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.5 }}>
-              Select a directory in Settings to load your conversations
+              {isStorageNotConfigured 
+                ? 'No Conversations Available. Please configure storage to use this feature'
+                : 'Select a directory in Settings to load your conversations'
+              }
             </Typography>
           </Box>
         </Box>

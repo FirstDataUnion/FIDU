@@ -29,7 +29,8 @@ import {
   Close
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { checkGoogleDriveAuthStatus, authenticateGoogleDrive, revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
+import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
+import { checkGoogleDriveAuthStatus, authenticateGoogleDrive, revokeGoogleDriveAccess } from '../../store/slices/unifiedStorageSlice';
 
 interface GoogleDriveStatusProps {
   variant?: 'compact' | 'full';
@@ -37,8 +38,13 @@ interface GoogleDriveStatusProps {
 
 export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveStatusProps) {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, user, error, isLoading } = useAppSelector((state) => state.googleDriveAuth);
   const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
+  
+  // Use unified storage state for Google Drive auth
+  const { isAuthenticated, user, error, isLoading } = unifiedStorage.googleDrive;
+  
+  const isCloudStorageMode = unifiedStorage.mode === 'cloud';
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
 
@@ -97,9 +103,6 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
     }
     return 'Not connected to Google Drive';
   };
-
-  // Check if we're in cloud storage mode (Google Drive)
-  const isCloudStorageMode = settings.storageMode === 'cloud';
 
   // Hide widget if not in cloud storage mode
   if (!isCloudStorageMode) {

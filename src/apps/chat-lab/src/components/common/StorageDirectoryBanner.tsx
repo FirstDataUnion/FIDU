@@ -11,6 +11,7 @@ import {
   Warning as WarningIcon
 } from '@mui/icons-material';
 import { useAppSelector } from '../../hooks/redux';
+import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,41 +50,24 @@ export const StorageDirectoryBanner: React.FC<StorageDirectoryBannerProps> = ({
   actionText = "Go to Settings",
   pageType = 'prompt-lab'
 }) => {
-  const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
   const navigate = useNavigate();
 
   // Check if we should show the banner
   const shouldShowBanner = React.useMemo(() => {
     // Hide banner in local mode - FIDU Vault API handles storage
-    if (settings.storageMode === 'local') {
+    if (unifiedStorage.mode === 'local') {
       return false;
     }
     
     // Only show if storage mode is filesystem
-    if (settings.storageMode !== 'filesystem') {
+    if (unifiedStorage.mode !== 'filesystem') {
       return false;
     }
 
-    try {
-      const storageService = getUnifiedStorageService();
-      const adapter = storageService.getAdapter();
-      
-      // Check if this is a filesystem adapter
-      if (!('isDirectoryAccessible' in adapter) || !('hasDirectoryMetadata' in adapter)) {
-        return false;
-      }
-
-      const isAccessible = (adapter as any).isDirectoryAccessible();
-      
-      // Show banner if:
-      // 1. No directory is accessible AND no metadata exists (never selected)
-      // 2. No directory is accessible BUT metadata exists (lost access after refresh)
-      return !isAccessible;
-    } catch (error) {
-      console.error('Error checking directory status for banner:', error);
-      return false;
-    }
-  }, [settings.storageMode]);
+    // Show banner if filesystem mode is selected but no directory is accessible
+    return !unifiedStorage.filesystem.isAccessible;
+  }, [unifiedStorage.mode, unifiedStorage.filesystem.isAccessible]);
 
   const handleAction = () => {
     if (onAction) {
@@ -103,7 +87,7 @@ export const StorageDirectoryBanner: React.FC<StorageDirectoryBannerProps> = ({
         icon: <WarningIcon />,
         title: 'Conversations Will Not Be Saved',
         message: 'You\'ve selected Local File System storage, but no directory has been selected yet.',
-        explanation: 'Due to browser security limitations, you\'ll need to re-select your chosen directory each time you reload the page. Your conversations will not be saved until you select a directory.',
+        explanation: 'Your conversations will not be saved until you select a directory.',
         actionText: actionText
       };
     } else {
@@ -112,7 +96,7 @@ export const StorageDirectoryBanner: React.FC<StorageDirectoryBannerProps> = ({
         icon: <FolderOpenIcon />,
         title: 'Local Storage Directory Required',
         message: 'You\'ve selected Local File System storage, but no directory has been selected yet.',
-        explanation: 'Due to browser security limitations, you\'ll need to re-select your chosen directory each time you reload the page. Operations on this page will fail until you select a directory.',
+        explanation: 'Operations on this page will fail until you select a directory.',
         actionText: actionText
       };
     }

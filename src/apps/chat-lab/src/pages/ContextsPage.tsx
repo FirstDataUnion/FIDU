@@ -26,6 +26,7 @@ import {
   FolderOutlined as FolderIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { fetchContexts, createContext, updateContext, deleteContext } from '../store/slices/contextsSlice';
 import { fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { ContextCard } from '../components/contexts/ContextCard';
@@ -38,6 +39,8 @@ export default function ContextsPage() {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
+  const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // State for UI
@@ -285,6 +288,53 @@ export default function ContextsPage() {
     }
   }, [dispatch, contextForm.body, currentProfile?.id]);
 
+  // Check if this is a storage-related error that should show the centered message
+  const isDirectoryAccessError = error && (error.includes('No directory access') || error.includes('Please select a directory first'));
+  const isGoogleDriveAuthError = error && (error.includes('User must authenticate with Google Drive first') || error.includes('Please connect your Google Drive account'));
+  const isStorageNotConfigured = unifiedStorage.status !== 'configured';
+
+  if (error && (isDirectoryAccessError || isGoogleDriveAuthError || isStorageNotConfigured)) {
+    // Show the page with our banner instead of the raw error
+    return (
+      <Box sx={{ 
+        overflow: 'hidden',
+        width: '100%',
+        boxSizing: 'border-box',
+        height: '100%', // Use full height of parent container
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Storage Directory Banner */}
+        <StorageDirectoryBanner pageType="contexts" />
+        
+        {/* Empty state with message */}
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          p: 3,
+          textAlign: 'center'
+        }}>
+          <FolderIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+          <Typography variant="h5" sx={{ mb: 1, opacity: 0.7 }}>
+            {isStorageNotConfigured 
+              ? 'No storage option selected.'
+              : 'No Contexts Available'
+            }
+          </Typography>
+          <Typography variant="body1" sx={{ opacity: 0.5 }}>
+            {isStorageNotConfigured 
+              ? 'No Contexts Available. Please configure storage to use this feature'
+              : 'Select a directory in Settings to load your contexts'
+            }
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ 
       height: '100%', // Use full height of parent container
@@ -303,55 +353,61 @@ export default function ContextsPage() {
         p: 3,
         minHeight: 0 // Ensure flex child can shrink properly
       }}>
-      {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-            Contexts
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage your conversation contexts, references, and knowledge bases
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateContext}
-          disabled={isDirectoryRequired}
-          sx={{ borderRadius: 2 }}
-        >
-          Add Context
-        </Button>
-      </Box>
-
-      {/* Search and Filter Bar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-            <Box sx={{ flexGrow: 1, width: { xs: '100%', md: 'auto' } }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search contexts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+      
+      {/* Only show header and search when storage is configured */}
+      {unifiedStorage.status === 'configured' && (
+        <>
+          {/* Header */}
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
+                Contexts
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Manage your conversation contexts, references, and knowledge bases
+              </Typography>
             </Box>
-          </Stack>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateContext}
+              disabled={isDirectoryRequired}
+              sx={{ borderRadius: 2 }}
+            >
+              Add Context
+            </Button>
+          </Box>
+
+          {/* Search and Filter Bar */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+                <Box sx={{ flexGrow: 1, width: { xs: '100%', md: 'auto' } }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search contexts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Stack>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1 }}>
               {/* Layout changing buttons removed - functionality not implemented */}
             </Box>
           </Box>
         </Stack>
       </Paper>
+        </>
+      )}
 
       {/* Context Grid */}
       {loading ? (
@@ -382,8 +438,8 @@ export default function ContextsPage() {
         </Box>
       )}
 
-      {/* Empty State */}
-      {filteredContexts.length === 0 && !loading && (
+      {/* Empty State - only show when storage is configured */}
+      {unifiedStorage.status === 'configured' && filteredContexts.length === 0 && !loading && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <FolderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>

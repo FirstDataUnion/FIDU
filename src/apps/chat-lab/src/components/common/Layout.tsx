@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
@@ -58,9 +59,10 @@ const drawerWidth = 240;
 
 interface LayoutProps {
   children: React.ReactNode;
+  banner?: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -68,6 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
   
   // Mobile sidebar state management
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -82,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSyncInProgress, setIsSyncInProgress] = useState(false);
   
   // Check if we're in cloud storage mode (Google Drive)
-  const isCloudStorageMode = settings.storageMode === 'cloud';
+  const isCloudStorageMode = unifiedStorage.mode === 'cloud';
   
   // Check environment mode - this determines deployment type
   const envInfo = getEnvironmentInfo();
@@ -536,6 +539,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <Toolbar sx={{ flexShrink: 0 }} />
         <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {banner}
           {children}
         </Box>
       </Box>

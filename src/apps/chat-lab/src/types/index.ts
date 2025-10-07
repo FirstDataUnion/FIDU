@@ -284,6 +284,8 @@ export interface UserSettings {
   exportFormat: 'json' | 'markdown' | 'csv';
   lastUsedModel?: string; // Store the last used model for persistence across tab switches
   storageMode: 'local' | 'cloud' | 'filesystem'; // Storage mode preference
+  storageConfigured: boolean; // Whether user has completed initial storage setup
+  userSelectedStorageMode: boolean; // Whether user has made a selection from settings page
   apiKeys: {
     nlpWorkbench?: string;
   };
@@ -375,10 +377,14 @@ export interface AnalyticsData {
 // Redux State Types
 export interface RootState {
   conversations: ConversationsState;
-  search: SearchState;
-  settings: SettingsState;
   ui: UIState;
+  settings: SettingsState;
+  contexts: ContextsState;
+  systemPrompts: SystemPromptsState;
+  promptLab: PromptLabState;
+  search: SearchState;
   auth: AuthState;
+  unifiedStorage: UnifiedStorageState;
   googleDriveAuth: GoogleDriveAuthState;
 }
 
@@ -470,6 +476,104 @@ export interface Notification {
     label: string;
     callback: () => void;
   };
+}
+
+// Additional Redux State Types
+export interface ContextsState {
+  items: Context[];
+  loading: boolean;
+  error: string | null;
+  selectedContext: Context | null;
+}
+
+export interface SystemPromptsState {
+  items: SystemPrompt[];
+  loading: boolean;
+  error: string | null;
+  selectedSystemPrompt: SystemPrompt | null;
+}
+
+export interface PromptLabState {
+  systemPrompts: SystemPrompt[];
+  promptTemplates: PromptTemplate[];
+  executions: PromptExecution[];
+  currentPrompt: string;
+  selectedSystemPrompts: string[];
+  selectedModels: string[];
+  contextSuggestions: ContextSuggestion[];
+  isExecuting: boolean;
+  loading: boolean;
+  error: string | null;
+  totalTokenCount: number;
+  estimatedCost: number;
+}
+
+export interface UnifiedStorageState {
+  // Core storage configuration
+  mode: 'local' | 'cloud' | 'filesystem';
+  status: 'unconfigured' | 'configuring' | 'configured' | 'error';
+  userSelectedMode: boolean; // Whether user has made a selection from settings page
+  
+  // Google Drive specific state
+  googleDrive: {
+    isAuthenticated: boolean;
+    user: GoogleDriveUser | null;
+    isLoading: boolean;
+    error: string | null;
+    showAuthModal: boolean;
+    expiresAt: number | null;
+  };
+  
+  // File system specific state
+  filesystem: {
+    isAccessible: boolean;
+    directoryName: string | null;
+    permissionState: 'granted' | 'denied' | 'prompt' | 'checking';
+  };
+  
+  // Error handling
+  error: string | null;
+  isLoading: boolean;
+}
+
+// Additional types for PromptLab
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  prompt: string;
+  systemPromptId: string;
+  contextIds: string[];
+  description: string;
+  tokenCount: number;
+  createdAt: string;
+}
+
+export interface ModelResponse {
+  model: string;
+  response: string;
+  tokenCount: number;
+  timeMs: number;
+  cost: number;
+  timestamp: string;
+}
+
+export interface PromptExecution {
+  id: string;
+  prompt: string;
+  systemPromptId: string;
+  contextIds: string[];
+  models: string[];
+  responses: ModelResponse[];
+  createdAt: string;
+  bestResponseModel?: string;
+}
+
+export interface ContextSuggestion {
+  contextId: string;
+  contextName: string;
+  relevanceScore: number;
+  reason: string;
+  tokenCount: number;
 }
 
 // Component Props Types

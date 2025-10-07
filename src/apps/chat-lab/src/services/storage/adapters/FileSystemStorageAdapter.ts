@@ -12,7 +12,7 @@ import type {
 import type { Conversation, Message, FilterOptions } from '../../../types';
 import { FileSystemService } from '../filesystem/FileSystemService';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
-import { v5 as uuidv5 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 
 // File names for our SQLite databases (matching Google Drive naming convention)
@@ -24,7 +24,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   private initialized = false;
   private fileSystemService: FileSystemService;
   private dbManager: BrowserSQLiteManager | null = null;
-  private userId: string = 'current_user'; // Default fallback
+  private userId: string | null = null;
 
   constructor(_config: StorageConfig) {
     this.fileSystemService = new FileSystemService();
@@ -53,7 +53,28 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   }
 
   setUserId(userId: string): void {
+    if (!userId || userId.trim() === '') {
+      throw new Error('User ID cannot be empty or null');
+    }
     this.userId = userId;
+  }
+
+  private ensureUserId(): string {
+    if (!this.userId) {
+      // Auto-generate a user ID for file system mode if none is set
+      const STORAGE_KEY = 'fidu-filesystem-user-id';
+      let userId = localStorage.getItem(STORAGE_KEY);
+      
+      // Validate that the stored ID is a valid UUID format
+      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        // Generate a new UUID for this browser/device
+        userId = uuidv4();
+        localStorage.setItem(STORAGE_KEY, userId);
+      }
+      
+      this.userId = userId;
+    }
+    return this.userId;
   }
 
   /**
@@ -273,7 +294,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     const dataPacket = this.transformConversationToDataPacketUpdate(conversation, messages, originalPrompt);
     
     // Generate request ID for idempotency
-    const requestId = this.generateRequestId(this.userId, dataPacket.id, 'update');
+    const requestId = this.generateRequestId(this.ensureUserId(), dataPacket.id, 'update');
     
     try {
       const storedPacket = await dbManager.storeDataPacket(requestId, dataPacket);
@@ -300,7 +321,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Ensure we have a valid userId for the query
-      const userId = profileId || this.userId;
+      const userId = profileId || this.ensureUserId();
       // Loading conversations with direct file operations
       
       // Read data packets directly from the conversations database file
@@ -365,7 +386,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Find the conversation with the matching ID
       const conversationPacket = allDataPackets.find((packet: any) => 
@@ -390,7 +411,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Find the conversation with the matching ID
       const conversationPacket = allDataPackets.find((packet: any) => 
@@ -437,7 +458,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
 
     const dbManager = await this.getOrCreateDbManager();
-    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.userId);
+    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.ensureUserId());
     return apiKey?.api_key || null;
   }
 
@@ -447,7 +468,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
 
     const dbManager = await this.getOrCreateDbManager();
-    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.userId);
+    const apiKey = await dbManager.getAPIKeyByProvider(provider, this.ensureUserId());
     return !!apiKey;
   }
 
@@ -459,7 +480,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Filter for context data packets (those with FIDU-CHAT-LAB-Context tag)
       const contextPackets = (allDataPackets || []).filter((packet: any) => 
@@ -508,7 +529,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Find the context with the matching ID
       const contextPacket = allDataPackets.find((packet: any) => 
@@ -623,7 +644,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Filter for system prompt data packets (those with FIDU-CHAT-LAB-SystemPrompt tag)
       const systemPromptPackets = (allDataPackets || []).filter((packet: any) => 
@@ -672,7 +693,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     try {
       // Read data packets directly from the conversations database file
-      const allDataPackets = await this.readDataPacketsFromFile(this.userId);
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
       
       // Find the system prompt with the matching ID
       const systemPromptPacket = allDataPackets.find((packet: any) => 
@@ -878,17 +899,13 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       await dbManager.initialize();
       await dbManager.importConversationsDB(new Uint8Array(dbData));
       
-      // Get data packets for the user - use this.userId as that's what we store in the data packets
-      const dataPackets = await dbManager.listDataPackets({ user_id: this.userId });
+      // Get data packets for the user - use this.ensureUserId() as that's what we store in the data packets
+      const dataPackets = await dbManager.listDataPackets({ user_id: this.ensureUserId() });
       
-      console.log(`Read ${dataPackets?.length || 0} data packets from file for user ${this.userId}`);
+      console.log(`Read ${dataPackets?.length || 0} data packets from file for user ${this.ensureUserId()}`);
       
       // Debug: Check all packets in database
-      const allPackets = await dbManager.listDataPackets({ user_id: this.userId });
-      console.log(`Total packets in database: ${allPackets?.length || 0}`);
-      if (allPackets && allPackets.length > 0) {
-        console.log('All packet user_ids:', allPackets.map(p => p.user_id));
-      }
+      const allPackets = await dbManager.listDataPackets({ user_id: this.ensureUserId() });
       
       return dataPackets || [];
     } catch (error) {
@@ -1105,9 +1122,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   // Persistence methods for directory handle
   private async persistDirectoryHandle(): Promise<void> {
     try {
-      console.log('Attempting to persist directory handle...');
       const directoryInfo = this.fileSystemService.getDirectoryInfo();
-      console.log('Directory info:', directoryInfo ? 'Found' : 'Not found');
       
       if (directoryInfo && directoryInfo.handle) {
         // Store the actual FileSystemDirectoryHandle in IndexedDB
@@ -1175,21 +1190,17 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       // Check if we have any data at all
       if (rawData && typeof rawData === 'object') {
         const data = rawData as any;
-        console.log(`Found raw data in IndexedDB, attempting to process...`);
         
         // Check if the data is recent (within 30 days)
         const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
         if (data.timestamp && data.timestamp > thirtyDaysAgo) {
-          console.log(`Directory data is recent, attempting to restore handle...`);
           
           // Try to use the handle if it exists and looks valid
           if (data.handle && typeof data.handle === 'object' && data.handle.kind === 'directory') {
-            console.log('Found valid-looking FileSystemDirectoryHandle, attempting to use it...');
             
             try {
               // Check if the handle has the requestPermission method
               if (typeof data.handle.requestPermission === 'function') {
-                console.log('Handle has requestPermission method, checking permission state...');
                 
                 // First, try to check permission state without requesting
                 // This avoids the "User activation is required" error during initialization
@@ -1198,11 +1209,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
                   const permissionState = await data.handle.queryPermission({ mode: 'readwrite' });
                   
                   if (permissionState === 'granted') {
-                    console.log('Permission already granted! Restoring directory handle...');
                     this.fileSystemService.setDirectoryHandle(data.handle, data.directoryName);
-                    console.log('Directory handle restored successfully!');
                   } else {
-                    console.log('Permission not granted, falling back to directory name display');
                     this.fileSystemService.setDirectoryName(data.directoryName);
                   }
                 } catch {
@@ -1211,24 +1219,17 @@ export class FileSystemStorageAdapter implements StorageAdapter {
                   this.fileSystemService.setDirectoryName(data.directoryName);
                 }
               } else {
-                console.log('Handle does not have requestPermission method, treating as invalid');
                 this.fileSystemService.setDirectoryName(data.directoryName);
               }
             } catch (permissionError) {
               console.error('Error checking permission for handle:', permissionError);
-              console.log('Handle is invalid, falling back to directory name display');
               this.fileSystemService.setDirectoryName(data.directoryName);
             }
           } else {
-            console.log('No valid handle found, falling back to directory name display');
             this.fileSystemService.setDirectoryName(data.directoryName);
           }
-        } else {
-          console.log('Directory selection is too old, ignoring');
-        }
-      } else {
-        console.log('No valid data found in IndexedDB');
-      }
+        } 
+      } 
     } catch (error) {
       console.error('Error restoring directory handle:', error);
     }
@@ -1298,7 +1299,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: conversation.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
@@ -1486,7 +1487,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: context.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -1502,7 +1503,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: context.id,
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: context.createdAt || new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-Context', ...(context.tags || [])],
@@ -1553,7 +1554,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id || crypto.randomUUID(),
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],
@@ -1573,7 +1574,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return {
       id: systemPrompt.id,
       profile_id: profileId,
-      user_id: this.userId,
+      user_id: this.ensureUserId(),
       create_timestamp: systemPrompt.createdAt || new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
       tags: ['FIDU-CHAT-LAB-SystemPrompt', ...(systemPrompt.categories || [])],

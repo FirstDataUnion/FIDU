@@ -19,13 +19,17 @@ import {
 import { Schedule } from '@mui/icons-material';
 import type { SelectChangeEvent } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { updateSyncDelay } from '../../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 export const SyncSettings: React.FC = () => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
-  const isCloudStorageMode = settings.storageMode === 'cloud';
+  const unifiedStorage = useUnifiedStorage();
+  
+  // Only show sync settings for Google Drive (cloud) mode
+  const isCloudStorageMode = unifiedStorage.mode === 'cloud';
 
   const handleSyncDelayChange = (event: SelectChangeEvent<number>) => {
     const newDelay = event.target.value as number;

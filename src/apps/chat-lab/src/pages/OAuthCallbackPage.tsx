@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 import { CheckCircle, CloudSync } from '@mui/icons-material';
 import { useAppDispatch } from '../hooks/redux';
-import { initializeGoogleDriveAuth } from '../store/slices/googleDriveAuthSlice';
+import { initializeGoogleDriveAuth, setShowAuthModal, markStorageConfigured } from '../store/slices/unifiedStorageSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { serverLogger } from '../utils/serverLogger';
 
@@ -32,6 +32,15 @@ const OAuthCallbackPage: React.FC = () => {
         if (result.isAuthenticated) {
           setStatus('success');
           setMessage('Authentication successful! Syncing your data...');
+          
+          // Mark storage as configured since Google Drive auth was successful
+          dispatch(markStorageConfigured());
+          
+          // Close the auth modal
+          dispatch(setShowAuthModal(false));
+          
+          // Add a small delay to ensure settings are saved before redirect
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           // Re-initialize storage service to trigger data sync
           try {

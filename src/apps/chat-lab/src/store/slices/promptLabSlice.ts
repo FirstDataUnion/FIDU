@@ -7,10 +7,12 @@ export interface SystemPrompt {
   content: string;
   description: string;
   tokenCount: number;
-  modelCompatibility: string[];
-  categories: string[];
   isDefault: boolean;
+  isBuiltIn: boolean; // true for built-in system prompts, false for user-created
+  source?: 'fabric' | 'built-in' | 'user'; // source of the system prompt
+  categories: string[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface PromptTemplate {
@@ -90,10 +92,12 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
     description: 'General technical assistance with focus on software development',
     tokenCount: 42,
-    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo', 'gemini-pro'],
-    categories: ['Technical', 'General'],
     isDefault: true,
-    createdAt: new Date('2024-01-10').toISOString()
+    isBuiltIn: true,
+    source: 'built-in',
+    categories: ['Technical', 'General'],
+    createdAt: new Date('2024-01-10').toISOString(),
+    updatedAt: new Date('2024-01-10').toISOString()
   },
   {
     id: 'sys-2',
@@ -101,10 +105,12 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
     description: 'Specialized in code review and quality assessment',
     tokenCount: 38,
-    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo'],
-    categories: ['Development', 'Code Quality'],
     isDefault: false,
-    createdAt: new Date('2024-01-12').toISOString()
+    isBuiltIn: true,
+    source: 'built-in',
+    categories: ['Development', 'Code Quality'],
+    createdAt: new Date('2024-01-12').toISOString(),
+    updatedAt: new Date('2024-01-12').toISOString()
   },
   {
     id: 'sys-3',
@@ -112,10 +118,12 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are an expert API architect. Help design RESTful APIs, GraphQL schemas, and integration patterns following industry standards and best practices.',
     description: 'Specialized in API design and architecture',
     tokenCount: 35,
-    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo', 'gemini-pro'],
-    categories: ['Architecture', 'API Design'],
     isDefault: false,
-    createdAt: new Date('2024-01-08').toISOString()
+    isBuiltIn: true,
+    source: 'built-in',
+    categories: ['Architecture', 'API Design'],
+    createdAt: new Date('2024-01-08').toISOString(),
+    updatedAt: new Date('2024-01-08').toISOString()
   },
   {
     id: 'sys-4',
@@ -123,10 +131,12 @@ const mockSystemPrompts: SystemPrompt[] = [
     content: 'You are a UI/UX expert with extensive experience in modern design patterns, accessibility, and user research. Provide insights on user experience and interface design.',
     description: 'Focused on user experience and interface design',
     tokenCount: 40,
-    modelCompatibility: ['claude-sonnet', 'claude-opus-41', 'gpt-4.0-turbo'],
-    categories: ['Design', 'UI/UX'],
     isDefault: false,
-    createdAt: new Date('2024-01-15').toISOString()
+    isBuiltIn: true,
+    source: 'built-in',
+    categories: ['Design', 'UI/UX'],
+    createdAt: new Date('2024-01-15').toISOString(),
+    updatedAt: new Date('2024-01-15').toISOString()
   }
 ];
 
