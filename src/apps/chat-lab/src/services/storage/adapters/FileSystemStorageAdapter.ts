@@ -472,6 +472,77 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     return !!apiKey;
   }
 
+  async getAllAPIKeys(): Promise<any[]> {
+    if (!this.isDirectoryAccessible()) {
+      return [];
+    }
+
+    try {
+      const dbManager = await this.getOrCreateDbManager();
+      const apiKeys = await dbManager.getAllAPIKeys(this.ensureUserId());
+      console.log(`🔑 [FileSystemStorageAdapter] Retrieved ${apiKeys.length} API keys`);
+      return apiKeys;
+    } catch (error) {
+      console.error('Error fetching all API keys:', error);
+      return [];
+    }
+  }
+
+  async saveAPIKey(provider: string, apiKey: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+
+    try {
+      const dbManager = await this.getOrCreateDbManager();
+      const userId = this.ensureUserId();
+      
+      // Check if API key already exists for this provider
+      const existingKey = await dbManager.getAPIKeyByProvider(provider, userId);
+      
+      if (existingKey) {
+        // Update existing key
+        console.log(`🔑 [FileSystemStorageAdapter] Updating existing API key for provider: ${provider}`);
+        const updated = await dbManager.updateAPIKey(existingKey.id, apiKey, userId);
+        await this.writeDatabaseToFile(dbManager);
+        return updated;
+      } else {
+        // Create new key
+        console.log(`🔑 [FileSystemStorageAdapter] Creating new API key for provider: ${provider}`);
+        const newApiKey = {
+          id: crypto.randomUUID(),
+          provider,
+          api_key: apiKey,
+          user_id: userId,
+          create_timestamp: new Date().toISOString(),
+          update_timestamp: new Date().toISOString()
+        };
+        const stored = await dbManager.storeAPIKey(newApiKey);
+        await this.writeDatabaseToFile(dbManager);
+        return stored;
+      }
+    } catch (error) {
+      console.error(`Error saving API key for provider ${provider}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteAPIKey(id: string): Promise<void> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+
+    try {
+      console.log(`🔑 [FileSystemStorageAdapter] Deleting API key with ID: ${id}`);
+      const dbManager = await this.getOrCreateDbManager();
+      await dbManager.deleteAPIKey(id);
+      await this.writeDatabaseToFile(dbManager);
+    } catch (error) {
+      console.error(`Error deleting API key with ID ${id}:`, error);
+      throw error;
+    }
+  }
+
   // Context operations - Direct file operations
   async getContexts(_queryParams?: any, _page = 1, _limit = 20, _profileId?: string): Promise<any> {
     if (!this.isDirectoryAccessible()) {

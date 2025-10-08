@@ -81,6 +81,22 @@ export class LocalStorageAdapter implements StorageAdapter {
     return await apiKeyService.isAPIKeyAvailable(provider as 'openai' | 'anthropic' | 'google');
   }
 
+  async getAllAPIKeys(): Promise<any[]> {
+    // In local mode, API keys are managed through FIDU Vault UI
+    console.warn('[LocalStorageAdapter] getAllAPIKeys not supported in local mode. Manage API keys through FIDU Vault.');
+    return [];
+  }
+
+  async saveAPIKey(_provider: string, _apiKey: string): Promise<any> {
+    // In local mode, API keys are managed through FIDU Vault UI
+    throw new Error('API key management not supported in local mode. Please use FIDU Vault to manage API keys.');
+  }
+
+  async deleteAPIKey(_id: string): Promise<void> {
+    // In local mode, API keys are managed through FIDU Vault UI
+    throw new Error('API key management not supported in local mode. Please use FIDU Vault to manage API keys.');
+  }
+
   // Context operations
   async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
     return await contextsApi.getAll(queryParams, page, limit, profileId);

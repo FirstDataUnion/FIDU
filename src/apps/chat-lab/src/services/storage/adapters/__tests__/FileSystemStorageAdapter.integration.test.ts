@@ -185,4 +185,26 @@ describe('FileSystemStorageAdapter Integration Tests', () => {
       await expect(adapter.getSystemPrompts()).rejects.toThrow('No directory access');
     });
   });
+
+  describe('API Key Management', () => {
+    it('should handle getAllAPIKeys without directory access', async () => {
+      await expect(adapter.getAllAPIKeys()).resolves.toEqual([]);
+    });
+
+    it('should require directory access for saveAPIKey', async () => {
+      await expect(adapter.saveAPIKey('openai', 'sk-test123')).rejects.toThrow('No directory access');
+    });
+
+    it('should require directory access for deleteAPIKey', async () => {
+      await expect(adapter.deleteAPIKey('test-id')).rejects.toThrow('No directory access');
+    });
+
+    it('should handle getAPIKey without directory access', async () => {
+      await expect(adapter.getAPIKey('openai')).resolves.toBeNull();
+    });
+
+    it('should handle isAPIKeyAvailable without directory access', async () => {
+      await expect(adapter.isAPIKeyAvailable('openai')).resolves.toBe(false);
+    });
+  });
 });

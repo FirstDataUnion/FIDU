@@ -92,6 +92,21 @@ export class UnifiedStorageService {
     return await adapter.isAPIKeyAvailable(provider);
   }
 
+  async getAllAPIKeys(): Promise<any[]> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getAllAPIKeys();
+  }
+
+  async saveAPIKey(provider: string, apiKey: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.saveAPIKey(provider, apiKey);
+  }
+
+  async deleteAPIKey(id: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteAPIKey(id);
+  }
+
   // Context operations
   async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
     const adapter = this.storageService.getAdapter();

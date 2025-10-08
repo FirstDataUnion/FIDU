@@ -99,26 +99,44 @@ const NLP_WORKBENCH_API_CONFIG = {
 
 
     /**
-     * Enhance request data with API key for the specified provider
+     * Enhance request data with all available API keys using the new llm_api_keys format
      * @param input The input text
-     * @param provider The provider name
-     * @returns Enhanced request data with API key if available
+     * @returns Enhanced request data with llm_api_keys object
      */
-    private async enhanceRequestWithAPIKey(input: string, provider: SupportedProvider): Promise<{ input: string; [key: string]: string }> {
-      const requestData: { input: string; [key: string]: string } = { input };
+    private async enhanceRequestWithAPIKeys(input: string): Promise<{ input: string; llm_api_keys?: Record<string, string> }> {
+      const requestData: { input: string; llm_api_keys?: Record<string, string> } = { input };
       
       try {
-        const apiKey = await apiKeyService.getAPIKeyForProvider(provider);
-        if (apiKey) {
-          const fieldName = apiKeyService.getAPIKeyFieldName(provider);
-          requestData[fieldName] = apiKey;
-          console.log(`Added ${fieldName} to request for provider: ${provider}`);
+        console.log(`🔍 [NLPWorkbench] Fetching all available API keys`);
+        
+        // Fetch all available API keys
+        const llmApiKeys: Record<string, string> = {};
+        const providers: SupportedProvider[] = ['openai', 'anthropic', 'google'];
+        
+        for (const provider of providers) {
+          const apiKey = await apiKeyService.getAPIKeyForProvider(provider);
+          if (apiKey) {
+            llmApiKeys[provider] = apiKey;
+            const keyPreview = apiKey.substring(0, 10) + '...';
+            console.log(`✅ [NLPWorkbench] Found API key for ${provider}, preview: ${keyPreview}`);
+          }
+        }
+        
+        // Only add llm_api_keys if we have at least one key
+        if (Object.keys(llmApiKeys).length > 0) {
+          requestData.llm_api_keys = llmApiKeys;
+          console.log(`✅ [NLPWorkbench] Added llm_api_keys with ${Object.keys(llmApiKeys).length} provider(s):`, Object.keys(llmApiKeys));
         } else {
-          console.warn(`No API key available for provider: ${provider}`);
+          console.warn(`⚠️ [NLPWorkbench] No API keys available for any provider`);
         }
       } catch (error) {
-        console.error(`Error fetching API key for provider ${provider}:`, error);
+        console.error(`❌ [NLPWorkbench] Error fetching API keys:`, error);
       }
+      
+      console.log(`📤 [NLPWorkbench] Request data structure:`, {
+        input: input.substring(0, 50) + '...',
+        llm_api_keys: requestData.llm_api_keys ? Object.keys(requestData.llm_api_keys) : 'none'
+      });
       
       return requestData;
     }
@@ -127,7 +145,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a Gemini Flash General chat Agent with input text
      */
     async executeGeminiFlashGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'google');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247513434443545/execute`,
         requestData
@@ -139,7 +157,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a Gemini Pro General chat Agent with input text
      */
     async executeGeminiProGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'google');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247536134017642/execute`,
         requestData
@@ -151,7 +169,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a Claude Haiku General chat Agent with input text
      */
     async executeClaudeHaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'anthropic');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247576782610310/execute`,
         requestData
@@ -163,7 +181,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a Claude Sonnet General chat Agent with input text
      */
     async executeClaudeSonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'anthropic');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247595523653178/execute`,
         requestData
@@ -175,7 +193,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a Claude Opus 4.1 General chat Agent with input text
      */
     async executeClaudeOpus41GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'anthropic');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1758124239529968489/execute`,
         requestData
@@ -187,7 +205,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 3.5 Turbo General chat Agent with input text
      */
     async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247699977175946/execute`,
         requestData
@@ -199,7 +217,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 4.0 General chat Agent with input text
      */
     async executeChatGPT40GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247730785641201/execute`,
         requestData
@@ -211,7 +229,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 4.0 Turbo General chat Agent with input text
      */
     async executeChatGPT40TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247792142471669/execute`,
         requestData
@@ -223,7 +241,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 4.0 Mini chat Agent with input text
      */
     async executeChatGPT40MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247819944085397/execute`,
         requestData
@@ -235,7 +253,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 5.0 General chat Agent with input text
      */
     async executeChatGPT50GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247842543346249/execute`,
         requestData
@@ -247,7 +265,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 5.0 Mini General chat Agent with input text
      */
     async executeChatGPT50MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247909361890725/execute`,
         requestData
@@ -259,7 +277,7 @@ const NLP_WORKBENCH_API_CONFIG = {
      * Execute a chat GPT 5.0 Nano General chat Agent with input text
      */
     async executeChatGPT50NanoGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKey(input, 'openai');
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
       const response = await this.client.post<NLPWorkbenchExecuteResponse>(
         `${this.getBaseUrl()}/api/public/agents/agent-1757247941934986576/execute`,
         requestData

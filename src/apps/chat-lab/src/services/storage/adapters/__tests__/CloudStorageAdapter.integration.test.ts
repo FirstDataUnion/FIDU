@@ -241,4 +241,26 @@ describe('CloudStorageAdapter Integration Tests', () => {
       await expect(adapter.getContexts()).rejects.toThrow('Cloud storage adapter not initialized');
     });
   });
+
+  describe('API Key Management', () => {
+    it('should handle getAllAPIKeys when not initialized', async () => {
+      await expect(adapter.getAllAPIKeys()).resolves.toEqual([]);
+    });
+
+    it('should require initialization for saveAPIKey', async () => {
+      await expect(adapter.saveAPIKey('openai', 'sk-test123')).rejects.toThrow('Cloud storage adapter not initialized');
+    });
+
+    it('should require initialization for deleteAPIKey', async () => {
+      await expect(adapter.deleteAPIKey('test-id')).rejects.toThrow('Cloud storage adapter not initialized');
+    });
+
+    it('should handle getAPIKey when not initialized', async () => {
+      await expect(adapter.getAPIKey('openai')).rejects.toThrow('Cloud storage adapter not initialized');
+    });
+
+    it('should handle isAPIKeyAvailable when not initialized', async () => {
+      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow('Cloud storage adapter not initialized');
+    });
+  });
 });

@@ -327,7 +327,8 @@ export class CloudStorageAdapter implements StorageAdapter {
     try {
       const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
       if (apiKey && apiKey.api_key) {
-        console.log(`🔑 [CloudStorageAdapter] Found API key for provider: ${provider}`);
+        const keyPreview = apiKey.api_key.substring(0, 10) + '...';
+        console.log(`🔑 [CloudStorageAdapter] Found API key for provider: ${provider}, key preview: ${keyPreview}`);
         return apiKey.api_key;
       } else {
         console.info(`ℹ️ [CloudStorageAdapter] No API key configured for provider: ${provider}`);
@@ -350,6 +351,76 @@ export class CloudStorageAdapter implements StorageAdapter {
     } catch (error) {
       console.error(`Error checking API key availability for provider ${provider}:`, error);
       return false;
+    }
+  }
+
+  async getAllAPIKeys(): Promise<any[]> {
+    this.ensureInitialized();
+
+    try {
+      const apiKeys = await this.dbManager!.getAllAPIKeys(this.ensureUserId());
+      console.log(`🔑 [CloudStorageAdapter] Retrieved ${apiKeys.length} API keys`);
+      return apiKeys;
+    } catch (error) {
+      console.error('Error fetching all API keys:', error);
+      return [];
+    }
+  }
+
+  async saveAPIKey(provider: string, apiKey: string): Promise<any> {
+    this.ensureInitialized();
+
+    try {
+      const userId = this.ensureUserId();
+      
+      // Check if API key already exists for this provider
+      const existingKey = await this.dbManager!.getAPIKeyByProvider(provider, userId);
+      
+      if (existingKey) {
+        // Update existing key
+        console.log(`🔑 [CloudStorageAdapter] Updating existing API key for provider: ${provider}`);
+        const updated = await this.dbManager!.updateAPIKey(existingKey.id, apiKey, userId);
+        
+        // Mark as unsynced since we updated local data
+        unsyncedDataManager.markAsUnsynced();
+        
+        return updated;
+      } else {
+        // Create new key
+        console.log(`🔑 [CloudStorageAdapter] Creating new API key for provider: ${provider}`);
+        const newApiKey = {
+          id: crypto.randomUUID(),
+          provider,
+          api_key: apiKey,
+          user_id: userId,
+          create_timestamp: new Date().toISOString(),
+          update_timestamp: new Date().toISOString()
+        };
+        const stored = await this.dbManager!.storeAPIKey(newApiKey);
+        
+        // Mark as unsynced since we created new local data
+        unsyncedDataManager.markAsUnsynced();
+        
+        return stored;
+      }
+    } catch (error) {
+      console.error(`Error saving API key for provider ${provider}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteAPIKey(id: string): Promise<void> {
+    this.ensureInitialized();
+
+    try {
+      console.log(`🔑 [CloudStorageAdapter] Deleting API key with ID: ${id}`);
+      await this.dbManager!.deleteAPIKey(id);
+      
+      // Mark as unsynced since we deleted local data
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error(`Error deleting API key with ID ${id}:`, error);
+      throw error;
     }
   }
 

@@ -685,7 +685,9 @@ export class BrowserSQLiteManager {
       const rawRow = stmt.get([provider, userId]);
       console.log('🔍 [BrowserSQLiteManager] getAPIKeyByProvider raw row:', rawRow);
       
-      if (!rawRow) {
+      // Check if no row was found (can be null, undefined, or empty array)
+      if (!rawRow || (Array.isArray(rawRow) && rawRow.length === 0)) {
+        console.log('🔍 [BrowserSQLiteManager] No API key found for provider:', provider);
         return null;
       }
 
@@ -735,6 +737,83 @@ export class BrowserSQLiteManager {
       }
       console.log('🔍 [BrowserSQLiteManager] getAllAPIKeys mapped rows:', rows);
       return await Promise.all(rows.map((row: any) => this.rowToAPIKey(row)));
+    } finally {
+      stmt.free();
+    }
+  }
+
+  async updateAPIKey(id: string, apiKey: string, userId: string): Promise<any> {
+    if (!this.initialized) {
+      throw new Error('Database not initialized');
+    }
+
+    // Encrypt API key if encryption is enabled
+    let encryptedApiKey: string;
+    if (this.config.enableEncryption) {
+      try {
+        const encryptedResult = await encryptionService.encryptData(apiKey, userId);
+        encryptedApiKey = JSON.stringify({
+          encrypted: true,
+          data: encryptedResult.encryptedData,
+          nonce: encryptedResult.nonce,
+          tag: encryptedResult.tag
+        });
+      } catch (error) {
+        console.error('Failed to encrypt API key:', error);
+        throw new Error('Failed to encrypt API key. Please try again.');
+      }
+    } else {
+      encryptedApiKey = apiKey;
+    }
+
+    const stmt = this.apiKeysDb.prepare(`
+      UPDATE api_keys 
+      SET api_key = ?, update_timestamp = ?, sync_status = 'pending'
+      WHERE id = ?
+    `);
+
+    try {
+      const updateTimestamp = new Date().toISOString();
+      const result = stmt.run([encryptedApiKey, updateTimestamp, id]);
+      if (result.changes === 0) {
+        throw new Error(`API key with ID ${id} not found`);
+      }
+      
+      // Return the updated API key
+      return await this.getAPIKeyById(id);
+    } finally {
+      stmt.free();
+    }
+  }
+
+  async getAPIKeyById(id: string): Promise<any | null> {
+    if (!this.initialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const stmt = this.apiKeysDb.prepare(`
+      SELECT * FROM api_keys WHERE id = ?
+    `);
+
+    try {
+      const rawRow = stmt.get([id]);
+      
+      // Check if no row was found (can be null, undefined, or empty array)
+      if (!rawRow || (Array.isArray(rawRow) && rawRow.length === 0)) {
+        return null;
+      }
+
+      // Convert array to object with proper field names
+      const rowObject = {
+        id: rawRow[0],
+        provider: rawRow[1],
+        api_key: rawRow[2],
+        user_id: rawRow[3],
+        create_timestamp: rawRow[4],
+        update_timestamp: rawRow[5]
+      };
+
+      return await this.rowToAPIKey(rowObject);
     } finally {
       stmt.free();
     }
@@ -869,6 +948,7 @@ export class BrowserSQLiteManager {
       try {
         const parsedKey = JSON.parse(api_key);
         if (parsedKey && typeof parsedKey === 'object' && parsedKey.encrypted) {
+          console.log(`🔓 [BrowserSQLiteManager] Decrypting API key for provider: ${provider}`);
           const decryptedResult = await encryptionService.decryptData(
             parsedKey.data,
             parsedKey.nonce,
@@ -876,12 +956,18 @@ export class BrowserSQLiteManager {
             user_id
           );
           decryptedApiKey = decryptedResult.decryptedData;
+          const keyPreview = decryptedApiKey.substring(0, 10) + '...';
+          console.log(`🔓 [BrowserSQLiteManager] API key decrypted successfully for ${provider}, preview: ${keyPreview}`);
+        } else {
+          console.log(`🔓 [BrowserSQLiteManager] API key for ${provider} is not encrypted, using as-is`);
         }
       } catch (error) {
-        console.error('Failed to decrypt API key:', error);
+        console.error(`❌ [BrowserSQLiteManager] Failed to decrypt API key for ${provider}:`, error);
         // Return empty string rather than throwing to prevent breaking the app
         decryptedApiKey = '';
       }
+    } else {
+      console.log(`🔓 [BrowserSQLiteManager] Encryption disabled or no key to decrypt for ${provider}`);
     }
 
     return {

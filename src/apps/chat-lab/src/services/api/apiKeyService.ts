@@ -41,21 +41,28 @@ export class APIKeyService {
       const envInfo = getEnvironmentInfo();
       const isCloudMode = envInfo.storageMode === 'cloud';
 
+      console.log(`🔑 [APIKeyService] Environment info - storageMode: ${envInfo.storageMode}, isCloudMode: ${isCloudMode}`);
+
       if (isCloudMode) {
         // Use cloud storage (UnifiedStorageService)
+        console.log(`🔑 [APIKeyService] Using cloud storage for provider: ${provider}`);
         const storage = getUnifiedStorageService();
         const apiKey = await storage.getAPIKey(provider);
         if (apiKey) {
-          console.log(`🔑 [APIKeyService] Retrieved API key from cloud storage for provider: ${provider}`);
+          const keyPreview = apiKey.substring(0, 10) + '...';
+          console.log(`🔑 [APIKeyService] Retrieved API key from cloud storage for provider: ${provider}, preview: ${keyPreview}`);
+        } else {
+          console.log(`🔑 [APIKeyService] No API key found in cloud storage for provider: ${provider}`);
         }
         return apiKey;
       } else {
         // Use FIDU Vault API (original behavior)
-        console.log(`🔑 [APIKeyService] Fetching API key from FIDU Vault API for provider: ${provider}`);
+        console.log(`🔑 [APIKeyService] Using FIDU Vault API for provider: ${provider}`);
         
         // Check cache first
         const cached = this.getCachedAPIKey(provider);
         if (cached) {
+          console.log(`🔑 [APIKeyService] Using cached API key for provider: ${provider}`);
           return cached.api_key;
         }
 
@@ -67,14 +74,17 @@ export class APIKeyService {
         if (response.data) {
           // Cache the result
           this.setCachedAPIKey(provider, response.data);
+          console.log(`🔑 [APIKeyService] Retrieved API key from FIDU Vault for provider: ${provider}`);
           return response.data.api_key;
         }
 
+        console.log(`🔑 [APIKeyService] No API key found in FIDU Vault for provider: ${provider}`);
         return null;
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         // API key not found for this provider - this is expected and normal
+        console.log(`🔑 [APIKeyService] API key not found (404) for provider: ${provider}`);
         return null;
       }
       

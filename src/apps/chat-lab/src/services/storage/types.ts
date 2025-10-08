@@ -57,6 +57,9 @@ export interface StorageAdapter {
   // API Key operations
   getAPIKey(provider: string): Promise<string | null>;
   isAPIKeyAvailable(provider: string): Promise<boolean>;
+  getAllAPIKeys(): Promise<any[]>;
+  saveAPIKey(provider: string, apiKey: string): Promise<any>;
+  deleteAPIKey(id: string): Promise<void>;
   
   // Context operations
   getContexts(queryParams?: any, page?: number, limit?: number, profileId?: string): Promise<any>;

@@ -10,5 +10,6 @@ export { default as FileSystemDirectoryManager } from './FileSystemDirectoryMana
 export { default as StorageModeSelector } from './StorageModeSelector';
 export { default as StorageMigrationWizard } from './StorageMigrationWizard';
 export { SyncSettings } from './SyncSettings';
+export { APIKeyManager } from './APIKeyManager';
 
 export type { PermissionState } from './PermissionStatusIndicator';

@@ -29,7 +29,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
-import { StorageModeSelector, SyncSettings } from '../components/settings';
+import { StorageModeSelector, SyncSettings, APIKeyManager } from '../components/settings';
 import { getEnvironmentInfo } from '../utils/environment';
 
 const SettingsPage: React.FC = () => {
@@ -234,6 +234,9 @@ const SettingsPage: React.FC = () => {
 
       {/* Sync Settings - Only show for cloud storage mode */}
       <SyncSettings />
+
+      {/* API Key Management - Only show in cloud deployment */}
+      {!isLocalDeployment && <APIKeyManager />}
 
       {/* Cloud Data Management - Hide in local deployment */}
       {!isLocalDeployment && (
