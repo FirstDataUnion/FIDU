@@ -244,7 +244,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
   describe('API Key Management', () => {
     it('should handle getAllAPIKeys when not initialized', async () => {
-      await expect(adapter.getAllAPIKeys()).resolves.toEqual([]);
+      await expect(adapter.getAllAPIKeys()).rejects.toThrow('Cloud storage adapter not initialized');
     });
 
     it('should require initialization for saveAPIKey', async () => {

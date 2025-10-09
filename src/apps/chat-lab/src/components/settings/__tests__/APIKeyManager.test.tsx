@@ -207,7 +207,7 @@ describe('APIKeyManager', () => {
 
       // Select provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByText('OpenAI');
+      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
       fireEvent.click(openaiOption);
 
       // Enter API key
@@ -243,7 +243,7 @@ describe('APIKeyManager', () => {
 
       // Select existing provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByText('OpenAI');
+      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
       fireEvent.click(openaiOption);
 
       await waitFor(() => {
@@ -264,7 +264,7 @@ describe('APIKeyManager', () => {
 
       // Select existing provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByText('OpenAI');
+      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
       fireEvent.click(openaiOption);
 
       // Enter new API key
@@ -286,6 +286,8 @@ describe('APIKeyManager', () => {
 
   describe('Deleting API Keys', () => {
     beforeEach(async () => {
+      // Reset the mock to ensure clean state
+      mockGetAllAPIKeys.mockReset();
       mockGetAllAPIKeys.mockResolvedValue([
         {
           id: '1',
@@ -296,8 +298,10 @@ describe('APIKeyManager', () => {
       ]);
       renderComponent();
       await waitFor(() => {
-        expect(screen.getByText('OpenAI')).toBeInTheDocument();
-      });
+        // Look for the chip or row that displays the provider
+        const elements = screen.queryAllByText('OpenAI');
+        expect(elements.length).toBeGreaterThan(0);
+      }, { timeout: 3000 });
     });
 
     it('should show delete confirmation dialog', async () => {

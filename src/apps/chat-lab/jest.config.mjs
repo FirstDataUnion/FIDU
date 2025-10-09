@@ -7,6 +7,8 @@ export default {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/utils/environment$': '<rootDir>/src/__mocks__/utils/environment.ts',
     '^@/utils/environment\\.ts$': '<rootDir>/src/__mocks__/utils/environment.ts',
+    '.*/database/BrowserSQLiteManager$': '<rootDir>/src/__mocks__/services/storage/database/BrowserSQLiteManager.ts',
+    '.*/metrics/MetricsService$': '<rootDir>/src/__mocks__/services/metrics/MetricsService.ts',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
       '<rootDir>/src/__mocks__/fileMock.js',

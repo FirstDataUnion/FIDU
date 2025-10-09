@@ -59,6 +59,7 @@ Object.defineProperty(global, 'import', {
         DEV: true,
         PROD: false,
         MODE: 'test',
+        BASE_URL: '/',
       },
     },
   },
