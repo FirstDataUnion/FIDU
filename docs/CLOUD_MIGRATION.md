@@ -1,11 +1,5 @@
 # FIDU Cloud Migration Design Document
 
-KEY OUTSTANDING QUESTIONS:
-
-- Does this plan follow Google Drive’s terms of service?
-- How does GDPR Work with encrypted data? If completely opaque data passes through our servers, is it still making us a data processor?
-- 
-
 ## Executive Summary
 
 This document outlines the design for migrating FIDU from a local desktop application to a cloud-hosted solution while maintaining user data privacy and providing flexibility for both local and cloud users.

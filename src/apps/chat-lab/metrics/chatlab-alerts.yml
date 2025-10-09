@@ -1,0 +1,277 @@
+# ChatLab Alert Rules for VMAlert
+# These rules monitor ChatLab service health and availability
+#
+# Deployment:
+#   sudo cp metrics/chatlab-alerts.yml /etc/vmalert/rules/
+#   sudo systemctl restart vmalert
+#
+# Verify:
+#   curl -s http://localhost:8880/api/v1/rules | jq '.data.groups[].name' | grep chatlab
+
+groups:
+  - name: chatlab-availability
+    interval: 30s
+    rules:
+      # ============================================================================
+      # CRITICAL: Service Unavailable / Unreachable
+      # ============================================================================
+      
+      # Alert when health status metric indicates unhealthy
+      - alert: ChatLabServiceUnhealthy
+        expr: chatlab_health_status{environment="prod"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab ({{ $labels.environment }}) is unhealthy"
+          description: |
+            ChatLab service reports unhealthy status for more than 1 minute.
+            Current status: {{ $value }}
+            Environment: {{ $labels.environment }}
+            
+            This usually indicates:
+            - Service crashed or stopped
+            - Dist directory missing
+            - Internal service error
+            
+            Check logs: sudo journalctl -u fidu-chat-lab-{{ $labels.environment }} -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/chatlab-unhealthy"
+
+      # Alert when health metric disappears (service completely down)
+      - alert: ChatLabServiceDown
+        expr: absent(chatlab_health_status{environment="prod"})
+        for: 2m
+        labels:
+          severity: critical
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) is not reporting metrics"
+          description: |
+            No health status metrics from ChatLab for more than 2 minutes.
+            
+            This indicates the service is completely down:
+            - Process not running
+            - Cannot connect to VictoriaMetrics
+            - Server/container down
+            
+            Check service status: sudo systemctl status fidu-chat-lab-prod
+            Check logs: sudo journalctl -u fidu-chat-lab-prod -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/chatlab-down"
+
+      # Dev environment variant (less critical)
+      - alert: ChatLabServiceUnhealthyDev
+        expr: chatlab_health_status{environment="dev"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: dev
+        annotations:
+          summary: "ChatLab (dev) is unhealthy"
+          description: |
+            ChatLab dev environment reports unhealthy status.
+            This is less critical but should be investigated.
+            
+            Check logs: sudo journalctl -u fidu-chat-lab-dev -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/chatlab-unhealthy"
+
+      # ============================================================================
+      # CRITICAL: Backend Request Failures
+      # ============================================================================
+
+      # High rate of 5xx errors indicates service issues
+      - alert: ChatLabHighServerErrorRate
+        expr: |
+          sum by (environment) (rate(chatlab_backend_requests_total{environment="prod",status=~"5.."}[5m])) 
+          / 
+          sum by (environment) (rate(chatlab_backend_requests_total{environment="prod"}[5m])) 
+          > 0.1
+        for: 3m
+        labels:
+          severity: critical
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab ({{ $labels.environment }}) has high server error rate"
+          description: |
+            More than 10% of requests are returning 5xx errors.
+            Current error rate: {{ $value | humanizePercentage }}
+            
+            This indicates:
+            - Backend service issues
+            - Database connectivity problems
+            - Internal server errors
+            
+            Check logs: sudo journalctl -u fidu-chat-lab-{{ $labels.environment }} -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/high-error-rate"
+
+      # No successful requests (potential complete failure)
+      - alert: ChatLabNoSuccessfulRequests
+        expr: |
+          sum(rate(chatlab_backend_requests_total{environment="prod",status=~"2.."}[5m])) == 0
+          and
+          sum(rate(chatlab_backend_requests_total{environment="prod"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) has no successful requests"
+          description: |
+            Receiving requests but ALL are failing.
+            This indicates a critical service issue.
+            
+            Check logs immediately: sudo journalctl -u fidu-chat-lab-prod -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/all-requests-failing"
+
+      # ============================================================================
+      # WARNING: Service Degradation
+      # ============================================================================
+
+      # Elevated error rate (not critical but concerning)
+      - alert: ChatLabElevatedErrorRate
+        expr: sum(rate(chatlab_errors_total{environment="prod"}[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) has elevated frontend error rate"
+          description: |
+            Frontend error rate is {{ $value }} errors/second.
+            
+            While service is up, users may be experiencing issues.
+            Check error types in Grafana dashboard.
+          runbook_url: "https://docs.fidu.com/runbooks/elevated-errors"
+
+      # Service restart detected
+      - alert: ChatLabServiceRestarted
+        expr: |
+          changes(chatlab_health_status{environment="prod"}[5m]) > 0
+          and
+          chatlab_health_status{environment="prod"} == 1
+        for: 0s
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab ({{ $labels.environment }}) has restarted"
+          description: |
+            ChatLab service appears to have restarted in the last 5 minutes.
+            Service is currently healthy.
+            
+            Check logs for restart reason: sudo journalctl -u fidu-chat-lab-{{ $labels.environment }} -n 100
+          runbook_url: "https://docs.fidu.com/runbooks/service-restart"
+
+      # Metrics not being forwarded to VictoriaMetrics
+      - alert: ChatLabMetricsStale
+        expr: |
+          time() - timestamp(chatlab_health_status{environment="prod"}) > 120
+        for: 2m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) metrics are stale"
+          description: |
+            Haven't received fresh metrics for over 2 minutes.
+            Last update: {{ $value | humanizeDuration }} ago
+            
+            Possible issues:
+            - Metrics forwarding broken
+            - Service running but not sending metrics
+            - Network issues to VictoriaMetrics
+            
+            Check service logs: sudo journalctl -u fidu-chat-lab-prod -n 50 | grep -i metric
+          runbook_url: "https://docs.fidu.com/runbooks/stale-metrics"
+
+  - name: chatlab-performance
+    interval: 1m
+    rules:
+      # ============================================================================
+      # WARNING: Performance Degradation
+      # ============================================================================
+
+      # Backend response time is high
+      - alert: ChatLabHighResponseTime
+        expr: |
+          histogram_quantile(0.95, rate(chatlab_backend_request_duration_seconds_bucket{environment="prod"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) has high response times"
+          description: |
+            P95 response time is {{ $value | humanizeDuration }}.
+            This may indicate service is struggling or under load.
+            
+            While not down, performance is degraded.
+          runbook_url: "https://docs.fidu.com/runbooks/high-response-time"
+
+  - name: chatlab-dependencies
+    interval: 1m
+    rules:
+      # ============================================================================
+      # CRITICAL: External Service Dependencies
+      # ============================================================================
+
+      # All AI model requests are failing
+      - alert: ChatLabAllModelsFailure
+        expr: |
+          sum(rate(chatlab_messages_sent_total{environment="prod",status="success"}[10m])) == 0
+          and
+          sum(rate(chatlab_messages_sent_total{environment="prod"}[10m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) - All AI models are failing"
+          description: |
+            ALL messages to AI models are failing.
+            Users cannot get responses.
+            
+            This indicates:
+            - NLP Workbench service is down
+            - API connectivity issues
+            - Authentication/authorization problems
+            
+            Check NLP Workbench: systemctl status nlp-workbench
+            Check ChatLab logs: sudo journalctl -u fidu-chat-lab-prod -n 100 | grep -i model
+          runbook_url: "https://docs.fidu.com/runbooks/models-down"
+
+      # Google Drive API completely failing (for users using cloud storage)
+      - alert: ChatLabGoogleDriveDown
+        expr: |
+          sum(rate(chatlab_google_api_requests_total{environment="prod",status="success"}[10m])) == 0
+          and
+          sum(rate(chatlab_google_api_requests_total{environment="prod"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
+        annotations:
+          summary: "ChatLab (prod) - Google Drive API is failing"
+          description: |
+            All Google Drive API requests are failing.
+            Users with cloud storage cannot save/load data.
+            
+            This may be:
+            - Google API outage
+            - Authentication token issues
+            - Network connectivity problems
+            
+            Check logs: sudo journalctl -u fidu-chat-lab-prod -n 100 | grep -i "google\|drive"
+          runbook_url: "https://docs.fidu.com/runbooks/google-drive-issues"
+

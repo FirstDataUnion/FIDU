@@ -70,6 +70,7 @@ import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useMobile, useResponsiveSpacing, useResponsiveSizing } from '../hooks/useMobile';
+import { MetricsService } from '../services/metrics/MetricsService';
 
 
 // Helper function to generate user-friendly error messages and debug info
@@ -121,11 +122,21 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
           userMessage: "Authentication failed. Please refresh the page and try again.",
           debugInfo: { ...debugInfo, cause: 'Authentication error' }
         };
-      case 403:
+      case 403: {
+        // Check if this is the PAID_MEMBERSHIP_REQUIRED error from the gateway
+        const errorData = error.data || {};
+        if (errorData.error_code === 'PAID_MEMBERSHIP_REQUIRED') {
+          return {
+            userMessage: "You need a paid membership or a valid API key to use our models. Please upgrade your membership here: https://identity.firstdataunion.org/ or set your own AI provider API Key in the settings page.",
+            debugInfo: { ...debugInfo, cause: 'Paid membership required', errorCode: errorData.error_code }
+          };
+        }
+        // Generic 403 for other access denied scenarios
         return {
           userMessage: "Access denied. You don't have permission to use this model. Please contact support.",
           debugInfo: { ...debugInfo, cause: 'Access denied' }
         };
+      }
       case 404:
         return {
           userMessage: "The requested service is not available. Please try a different model or contact support.",
@@ -1066,6 +1077,9 @@ export default function PromptLabPage() {
         []
       );
 
+      // Track successful message sent to model
+      MetricsService.recordMessageSent(selectedModel, 'success');
+
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
         
@@ -1090,6 +1104,9 @@ export default function PromptLabPage() {
       }
     } catch (error) {
       console.error('Error getting AI response:', error);
+      
+      // Track error message sent to model
+      MetricsService.recordMessageSent(selectedModel, 'error');
       
       // Determine user-friendly error message and debug info
       const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
@@ -2254,7 +2271,7 @@ export default function PromptLabPage() {
                       }
                     }}
                   >
-                    {selectedModel + '  ▾' || 'Select Target Model ▾'}
+                    model: {selectedModel} ▾
                   </Button>
                   
                   <Button
@@ -2330,7 +2347,7 @@ export default function PromptLabPage() {
                         }
                       }}
                     >
-                      Model: {selectedModel} ▾
+                      model: {selectedModel} ▾
                     </Button>
                     
                     <Button

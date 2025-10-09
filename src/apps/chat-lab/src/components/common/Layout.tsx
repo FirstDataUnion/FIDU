@@ -39,6 +39,7 @@ import {
   Check as CheckIcon,
   Home as HomeIcon,
   Sync as SyncIcon,
+  PrivacyTip as PrivacyIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -247,21 +248,74 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   );
 
   const drawer = (
-    <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
-          FIDU Chat Lab
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+        <Toolbar>
+          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
+            FIDU Chat Lab
+          </Typography>
+        </Toolbar>
+        <Divider />
+        
+        {renderMenuSection('', mainMenuItems)}
+        
+        <Divider sx={{ my: 1 }} />
+        {renderMenuSection('Advanced', advancedMenuItems)}
+        
+        <Divider sx={{ my: 1 }} />
+        {renderMenuSection('System', systemMenuItems)}
+      </Box>
+      
+      {/* Footer with Policy Links */}
+      <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
+        <Button
+          fullWidth
+          size="small"
+          startIcon={<PrivacyIcon fontSize="small" />}
+          onClick={() => handleNavigation('/privacy-policy')}
+          sx={{
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            color: 'inherit',
+            opacity: 0.7,
+            '&:hover': {
+              opacity: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        >
+          Privacy Policy
+        </Button>
+        <Button
+          fullWidth
+          size="small"
+          startIcon={<PrivacyIcon fontSize="small" />}
+          onClick={() => handleNavigation('/terms-of-use')}
+          sx={{
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            color: 'inherit',
+            opacity: 0.7,
+            '&:hover': {
+              opacity: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        >
+          Terms of Use
+        </Button>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            mt: 1, 
+            textAlign: 'center',
+            opacity: 0.5,
+          }}
+        >
+          v0.1.3 • FIDU
         </Typography>
-      </Toolbar>
-      <Divider />
-      
-      {renderMenuSection('', mainMenuItems)}
-      
-      <Divider sx={{ my: 1 }} />
-      {renderMenuSection('Advanced', advancedMenuItems)}
-      
-      <Divider sx={{ my: 1 }} />
-      {renderMenuSection('System', systemMenuItems)}
+      </Box>
     </Box>
   );
 

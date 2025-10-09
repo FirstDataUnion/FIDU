@@ -1418,6 +1418,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     
     return {
       id: conversation.id,
+      user_id: this.ensureUserId(), // Required for encryption
+      update_timestamp: new Date().toISOString(),
       tags: conversation.tags || [],
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),

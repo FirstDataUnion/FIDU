@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
@@ -28,6 +28,9 @@ import { StorageSelectionModal } from './components/storage/StorageSelectionModa
 import { StorageConfigurationBanner } from './components/storage/StorageConfigurationBanner';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
 import { serverLogger } from './utils/serverLogger';
+import { initializeErrorTracking } from './utils/errorTracking';
+import { MetricsService } from './services/metrics/MetricsService';
+import { CookieBanner } from './components/common/CookieBanner';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -36,6 +39,8 @@ const SystemPromptsPage = React.lazy(() => import('./pages/SystemPromptsPage'));
 const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
+const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -51,6 +56,25 @@ const PageLoadingFallback: React.FC = () => (
     <Box>Loading page...</Box>
   </Box>
 );
+
+// Route tracker component for page view metrics
+const RouteTracker: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    const basePath = '/fidu-chat-lab';
+    let cleanPath = path.startsWith(basePath) ? path.substring(basePath.length) : path;
+    cleanPath = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
+    const page = cleanPath || 'root';
+
+    // Record page view
+    MetricsService.recordPageView(page);
+    console.log(`📊 [Metrics] Page view: ${page}`);
+  }, [location]);
+
+  return null;
+};
 
 interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
 
@@ -70,6 +94,9 @@ const AppContent: React.FC<AppContentProps> = () => {
 
 
   useEffect(() => {
+    // Initialize error tracking
+    initializeErrorTracking();
+    
     logEnvironmentInfo();
     
     dispatch(fetchSettings());
@@ -393,6 +420,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router basename="/fidu-chat-lab">
+        <RouteTracker />
         <ErrorBoundary>
           <AuthWrapper>
             <Layout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
@@ -404,6 +432,8 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                  <Route path="/terms-of-use" element={<TermsOfUsePage />} />
                   <Route path="/cloud-test" element={<CloudModeTest />} />
                   <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 </Routes>
@@ -418,6 +448,9 @@ const AppContent: React.FC<AppContentProps> = () => {
   return (
     <>
       {mainAppContent}
+      
+      {/* Cookie Consent Banner */}
+      <CookieBanner />
       
       {/* Storage Selection Modal - Priority over Google Drive auth modal */}
       <StorageSelectionModal

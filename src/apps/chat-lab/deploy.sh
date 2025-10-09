@@ -184,140 +184,16 @@ cp -r dist "$LOCAL_BUILD_DIR/"
 # Copy environment file
 cp "$ENV_FILE" "$LOCAL_BUILD_DIR/.env"
 
-# Create a simple Python server to serve the static files
-cat > "$LOCAL_BUILD_DIR/server.py" << 'EOF'
-"""Simple FastAPI server to serve FIDU Chat Lab static files."""
-
-import os
-import logging
-import json
-from datetime import datetime
-from pathlib import Path
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('/tmp/fidu-chat-lab.log')
-    ]
-)
-logger = logging.getLogger(__name__)
-
-# Get port from environment or use default
-PORT = int(os.getenv("PORT", "8080"))
-BASE_PATH = "/fidu-chat-lab"
-
-app = FastAPI(title="FIDU Chat Lab")
-
-# Store client-side logs in memory (in production, you'd want to use a proper logging service)
-client_logs = []
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure this based on your needs
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Add request logging middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all incoming requests."""
-    start_time = datetime.now()
-    logger.info(f"Request: {request.method} {request.url}")
-    
-    response = await call_next(request)
-    
-    process_time = (datetime.now() - start_time).total_seconds()
-    logger.info(f"Response: {response.status_code} - {process_time:.3f}s")
-    
-    return response
-
-# Get the directory where this script is located
-SCRIPT_DIR = Path(__file__).parent
-DIST_DIR = SCRIPT_DIR / "dist"
-
-@app.post(f"{BASE_PATH}/api/log")
-async def log_client_message(request: Request):
-    """Receive client-side logs."""
-    try:
-        data = await request.json()
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "level": data.get("level", "info"),
-            "message": data.get("message", ""),
-            "data": data.get("data", {})
-        }
-        client_logs.append(log_entry)
-        logger.info(f"CLIENT: {log_entry['message']}", extra={"client_data": log_entry['data']})
-        
-        # Keep only last 100 logs
-        if len(client_logs) > 100:
-            client_logs.pop(0)
-            
-        return {"status": "logged"}
-    except Exception as e:
-        logger.error(f"Failed to log client message: {e}")
-        return {"status": "error", "message": str(e)}
-
-@app.get(f"{BASE_PATH}/api/logs")
-async def get_logs():
-    """Get recent client-side logs."""
-    return {"logs": client_logs[-50:]}  # Return last 50 logs
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "fidu-chat-lab"}
-
-@app.get(f"{BASE_PATH}")
-async def serve_chat_lab_root():
-    """Serve the FIDU Chat Lab React app root."""
-    index_file = DIST_DIR / "index.html"
-    if not index_file.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="FIDU Chat Lab frontend not found."
-        )
-    return FileResponse(index_file)
-
-@app.get(f"{BASE_PATH}/{{path:path}}")
-async def serve_chat_lab_path(path: str):
-    """Serve the FIDU Chat Lab React app for client-side routing."""
-    # Check if the path is for a static asset
-    static_file_path = DIST_DIR / path
-    if static_file_path.exists() and static_file_path.is_file():
-        return FileResponse(static_file_path)
-    
-    # For all other paths, serve the React app's index.html for client-side routing
-    index_file = DIST_DIR / "index.html"
-    if not index_file.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="FIDU Chat Lab frontend not found."
-        )
-    return FileResponse(index_file)
-
-if __name__ == "__main__":
-    print(f"Starting FIDU Chat Lab server on port {PORT}")
-    print(f"Serving from: {DIST_DIR}")
-    print(f"Health check: http://localhost:{PORT}/health")
-    print(f"App URL: http://localhost:{PORT}{BASE_PATH}")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
-EOF
+# Copy the Python server file
+echo -e "${BLUE}📄 Copying server.py...${NC}"
+cp server.py "$LOCAL_BUILD_DIR/server.py"
 
 # Create requirements.txt
 cat > "$LOCAL_BUILD_DIR/requirements.txt" << EOF
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+httpx==0.28.1
+prometheus-client==0.21.0
 EOF
 
 # Create systemd service file
@@ -335,6 +211,7 @@ ExecStart=${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/server.py
 Restart=always
 RestartSec=5
 Environment=PORT=${PORT}
+Environment=ENVIRONMENT=${ENVIRONMENT}
 
 # Security settings
 NoNewPrivileges=true

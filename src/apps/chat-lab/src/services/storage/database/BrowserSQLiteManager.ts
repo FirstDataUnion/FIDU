@@ -3,6 +3,7 @@
  * Manages SQLite databases in browser memory using sql.js
  */
 
+import initSqlJs from 'sql.js';
 import { encryptionService } from '../../encryption';
 
 export interface DatabaseConfig {
@@ -67,21 +68,14 @@ export class BrowserSQLiteManager {
         throw new Error('BrowserSQLiteManager can only be used in browser environment');
       }
 
-      // Load sql.js from CDN to avoid build issues
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js';
-      script.async = true;
+      // Initialize sql.js from local files (served from /public)
+      // Vite's BASE_URL is configured in vite.config.ts (e.g., /fidu-chat-lab/)
+      const basePath = import.meta.env.BASE_URL || '/';
       
-      await new Promise<void>((resolve, reject) => {
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load sql.js from CDN'));
-        document.head.appendChild(script);
-      });
-
-      // Initialize sql.js using the global SQL object
-      this.SQL = await (window as any).initSqlJs({
+      this.SQL = await initSqlJs({
         locateFile: (file: string) => {
-          return `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`;
+          // WASM files are served from public directory
+          return `${basePath}${file}`;
         }
       });
 

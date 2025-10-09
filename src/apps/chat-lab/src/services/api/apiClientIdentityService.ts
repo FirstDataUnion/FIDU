@@ -26,7 +26,7 @@ class IdentityServiceAPIClient {
     this.setupInterceptors();
   }
 
-  private setupInterceptors(): void {
+  private setupInterceptors(): void {    
     // Use the refresh token service's auth interceptor for consistent behavior
     const authInterceptor = refreshTokenService.createAuthInterceptor();
     

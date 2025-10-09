@@ -15,7 +15,10 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Collapse
+  Collapse,
+  Switch,
+  FormControlLabel,
+  Divider
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { 
@@ -24,10 +27,11 @@ import {
   AutoAwesome as AutoModeIcon,
   DeleteForever as DeleteForeverIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  ExpandLess as ExpandLessIcon,
+  PrivacyTip as PrivacyTipIcon
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { updateTheme } from '../store/slices/settingsSlice';
+import { updateTheme, updateShareAnalytics } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { StorageModeSelector, SyncSettings, APIKeyManager } from '../components/settings';
 import { getEnvironmentInfo } from '../utils/environment';
@@ -50,6 +54,10 @@ const SettingsPage: React.FC = () => {
   const handleThemeChange = (event: SelectChangeEvent<string>) => {
     const newTheme = event.target.value as 'light' | 'dark' | 'auto';
     dispatch(updateTheme(newTheme));
+  };
+
+  const handleShareAnalyticsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch(updateShareAnalytics(event.target.checked));
   };
 
   const handleClearCloudData = async () => {
@@ -235,6 +243,55 @@ const SettingsPage: React.FC = () => {
       {/* Sync Settings - Only show for cloud storage mode */}
       <SyncSettings />
 
+      {/* Privacy Settings */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PrivacyTipIcon />
+            Privacy & Data Collection
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Control how your usage data is collected and shared.
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={settings.privacySettings.shareAnalytics}
+                onChange={handleShareAnalyticsChange}
+                color="primary"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  Share Anonymous Usage Metrics
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Help us improve FIDU Chat Lab by sharing anonymous usage metrics, error reports, and performance data. 
+                  No personal data, conversations, or sensitive information is ever collected.
+                </Typography>
+              </Box>
+            }
+          />
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            {settings.privacySettings.shareAnalytics ? (
+              <>
+                ✅ You are currently sharing anonymous metrics to help improve the application. Thank you!
+              </>
+            ) : (
+              <>
+                🔒 Metrics collection is disabled. No usage data is being collected or sent.
+              </>
+            )}
+          </Typography>
+        </CardContent>
+      </Card>
+
       {/* API Key Management - Only show in cloud deployment */}
       {!isLocalDeployment && <APIKeyManager />}
 
@@ -248,12 +305,12 @@ const SettingsPage: React.FC = () => {
             </Typography>
             
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Manage your cloud-stored database files. Use this option to clear all database files from Google Drive for testing purposes.
+              Use this option to clear all database files from Google Drive. WARNING: This will delete all your conversations, contexts, custom system prompts and stored API keys from Google Drive.
             </Typography>
             
             <Button
               variant="contained"
-              color="warning"
+              color="error"
               startIcon={<DeleteForeverIcon />}
               onClick={handleConfirmClear}
               disabled={isClearing}

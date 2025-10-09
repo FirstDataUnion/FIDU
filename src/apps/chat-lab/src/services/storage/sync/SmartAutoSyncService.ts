@@ -45,9 +45,7 @@ export class SmartAutoSyncService {
 
     // Subscribe to unsynced data changes
     this.unsubscribeListener = unsyncedDataManager.addListener((hasUnsynced) => {
-      console.log('🔔 [SmartAutoSyncService] Unsynced data change detected:', hasUnsynced);
       if (hasUnsynced && this.isEnabled) {
-        console.log('📝 [SmartAutoSyncService] Scheduling sync due to unsynced data...');
         this.checkForPendingSync();
       }
     });
@@ -89,29 +87,22 @@ export class SmartAutoSyncService {
    * Check if there's unsynced data and schedule sync if needed
    */
   private checkForPendingSync(): void {
-    console.log('🔍 [SmartAutoSyncService] checkForPendingSync called');
     
     if (!this.isEnabled) {
-      console.log('❌ [SmartAutoSyncService] Auto-sync not enabled, skipping check');
       return;
     }
 
     const hasUnsyncedData = unsyncedDataManager.hasUnsynced();
-    console.log('🔍 [SmartAutoSyncService] Has unsynced data:', hasUnsyncedData);
     
     if (hasUnsyncedData) {
-      console.log('📝 Unsynced data detected, scheduling auto-sync...');
       this.scheduleSync();
-    } else {
-      console.log('✅ No unsynced data, skipping auto-sync');
-    }
+    } 
   }
 
   /**
    * Schedule a sync with countdown tracking
    */
   private scheduleSync(): void {
-    console.log('⏰ [SmartAutoSyncService] scheduleSync called');
     
     // Clear any existing timer
     this.clearSyncTimer();
@@ -121,60 +112,46 @@ export class SmartAutoSyncService {
     const scheduledTime = new Date(Date.now() + delayMs);
     
     this.activityState.nextSyncScheduledFor = scheduledTime;
-    console.log(`⏰ Scheduling auto-sync in ${this.config.delayMinutes} minutes (at ${scheduledTime.toLocaleTimeString()})`);
-    console.log(`⏰ [SmartAutoSyncService] Delay: ${delayMs}ms, Scheduled time: ${scheduledTime.toISOString()}`);
     
     this.syncTimer = setTimeout(async () => {
-      console.log('⏰ [SmartAutoSyncService] Timer fired! Calling performScheduledSync...');
       await this.performScheduledSync();
     }, delayMs);
     
-    console.log('⏰ [SmartAutoSyncService] Timer set with ID:', this.syncTimer);
   }
 
   /**
    * Perform the scheduled sync
    */
   private async performScheduledSync(): Promise<void> {
-    console.log('🔄 [SmartAutoSyncService] performScheduledSync called');
     
     if (!this.isEnabled) {
-      console.log('❌ [SmartAutoSyncService] Auto-sync not enabled, skipping');
       return;
     }
 
     // Double-check if we still have unsynced data
     const hasUnsyncedData = unsyncedDataManager.hasUnsynced();
-    console.log('🔍 [SmartAutoSyncService] Has unsynced data:', hasUnsyncedData);
     
     if (!hasUnsyncedData) {
-      console.log('✅ No unsynced data found during scheduled sync, skipping');
       this.activityState.nextSyncScheduledFor = null;
       return;
     }
 
-    console.log('🔄 Performing scheduled auto-sync...');
     this.activityState.lastSyncAttempt = new Date();
     this.activityState.nextSyncScheduledFor = null;
 
     try {
-      console.log('🔄 [SmartAutoSyncService] Calling syncService.syncToDrive...');
       await this.syncService.syncToDrive({ forceUpload: true });
-      console.log('✅ Auto-sync completed successfully');
       
       // Reset retry count on success
       this.activityState.retryCount = 0;
       
       // Mark as synced
       unsyncedDataManager.markAsSynced();
-      console.log('✅ [SmartAutoSyncService] Marked as synced');
       
       // Double-check that unsynced state was cleared
       setTimeout(() => {
         const stillUnsynced = unsyncedDataManager.hasUnsynced();
-        console.log('🔍 [SmartAutoSyncService] Post-sync unsynced check:', stillUnsynced);
         if (stillUnsynced) {
-          console.warn('⚠️ [SmartAutoSyncService] Data still marked as unsynced after sync, forcing clear');
           unsyncedDataManager.markAsSynced();
         }
       }, 1000);
@@ -213,11 +190,9 @@ export class SmartAutoSyncService {
    */
   updateConfig(newConfig: Partial<SmartAutoSyncConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔄 Auto-sync config updated:', this.config);
     
     // If delay changed and we have a scheduled sync, reschedule it
     if (this.syncTimer && this.activityState.nextSyncScheduledFor) {
-      console.log('🔄 Rescheduling sync with new delay');
       this.scheduleSync();
     }
   }

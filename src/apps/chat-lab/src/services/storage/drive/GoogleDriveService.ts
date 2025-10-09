@@ -4,6 +4,8 @@
  */
 
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
+import { MetricsService } from '../../metrics/MetricsService';
+import { trackStorageError } from '../../../utils/errorTracking';
 
 export interface DriveFile {
   id: string;
@@ -35,6 +37,25 @@ export class GoogleDriveService {
   }
 
   /**
+   * Track a Google API request with metrics
+   */
+  private trackGoogleApiRequest<T>(
+    operation: string,
+    apiCall: () => Promise<T>
+  ): Promise<T> {
+    return apiCall()
+      .then((result) => {
+        MetricsService.recordGoogleApiRequest('drive', operation, 'success');
+        return result;
+      })
+      .catch((error) => {
+        MetricsService.recordGoogleApiRequest('drive', operation, 'error');
+        trackStorageError('google_drive', operation, error.message || 'Unknown error');
+        throw error;
+      });
+  }
+
+  /**
    * Initialize the service
    */
   async initialize(): Promise<void> {
@@ -47,33 +68,35 @@ export class GoogleDriveService {
    * List files in the app data folder
    */
   async listFiles(): Promise<DriveFile[]> {
-    const accessToken = await this.authService.getAccessToken();
-    
-    try {
-      const apiQuery = `parents in 'appDataFolder'`;
-      const andr = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=appDataFolder`;
-
-      const response = await fetch(
-        andr,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to list files - Status: ${response.status} ${response.statusText}`);
-      }
-
-      const data: DriveFileList = await response.json();
-      return data.files;
+    return this.trackGoogleApiRequest('listFiles', async () => {
+      const accessToken = await this.authService.getAccessToken();
       
-    } catch (error) {
-      console.error('Failed to list files:', error);
-      return this.fallbackAccessMode();
-    }
+      try {
+        const apiQuery = `parents in 'appDataFolder'`;
+        const andr = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=appDataFolder`;
+
+        const response = await fetch(
+          andr,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to list files - Status: ${response.status} ${response.statusText}`);
+        }
+
+        const data: DriveFileList = await response.json();
+        return data.files;
+        
+      } catch (error) {
+        console.error('Failed to list files:', error);
+        return this.fallbackAccessMode();
+      }
+    });
   }
 
   /** Fallback listed when appDataFolder access needed re-authentication */

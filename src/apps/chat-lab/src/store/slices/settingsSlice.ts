@@ -26,7 +26,7 @@ const defaultSettings: UserSettings = {
     nlpWorkbench: '',
   },
   privacySettings: {
-    shareAnalytics: false,
+    shareAnalytics: true, // Default to opted-in for anonymous metrics
     autoBackup: false, // Disabled since local storage is removed
     dataRetentionDays: 365,
   },
@@ -127,6 +127,10 @@ const settingsSlice = createSlice({
       state.settings.syncSettings.autoSyncDelayMinutes = action.payload;
       saveSettingsToStorage(state.settings);
     },
+    updateShareAnalytics: (state, action) => {
+      state.settings.privacySettings.shareAnalytics = action.payload;
+      saveSettingsToStorage(state.settings);
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -174,6 +178,7 @@ export const {
   markStorageConfigured,
   resetStorageConfiguration,
   updateSyncDelay,
+  updateShareAnalytics,
   clearError,
   resetToDefaults,
 } = settingsSlice.actions;

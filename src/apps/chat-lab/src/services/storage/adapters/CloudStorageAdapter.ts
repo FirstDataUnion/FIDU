@@ -92,12 +92,6 @@ export class CloudStorageAdapter implements StorageAdapter {
     const settings = this.loadSettingsFromStorage();
     const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 5;
     
-    console.log('🔍 [CloudStorageAdapter] Loading sync settings:', {
-      settings,
-      delayMinutes,
-      syncSettings: settings?.syncSettings
-    });
-    
     this.smartAutoSyncService = new SmartAutoSyncService(this.syncService, {
       delayMinutes,               // Use setting from localStorage or default to 5 minutes
       maxRetries: 3,            // Max 3 retry attempts
@@ -875,6 +869,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     
     return {
       id: conversation.id,
+      user_id: this.ensureUserId(), // Required for encryption
       update_timestamp: new Date().toISOString(),
       tags: conversation.tags || [],
       data: {
