@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Provider } from 'react-redux';
@@ -94,8 +94,8 @@ const createMockStore = (initialState: any = {}) => {
   const mergedState = { ...defaultState, ...initialState };
 
   const reducers = {
-    unifiedStorage: (state = mergedState.unifiedStorage, action: any) => state,
-    settings: (state = mergedState.settings, action: any) => state,
+    unifiedStorage: (state = mergedState.unifiedStorage, _action: any) => state,
+    settings: (state = mergedState.settings, _action: any) => state,
   };
   
   return configureStore({

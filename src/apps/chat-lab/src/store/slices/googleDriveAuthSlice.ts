@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import type { GoogleDriveAuthState } from '../../types';
-import { resetStorageConfiguration } from './settingsSlice';
 
 // Async thunks
 export const initializeGoogleDriveAuth = createAsyncThunk(

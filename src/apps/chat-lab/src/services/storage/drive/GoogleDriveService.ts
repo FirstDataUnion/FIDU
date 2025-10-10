@@ -62,7 +62,7 @@ export class GoogleDriveService {
       const has403Code = errorString.includes('"code": 403') || errorString.includes('"code":403');
       
       return (hasInsufficientScopes || hasInsufficientPermissions) && (hasPermissionDenied || has403Code);
-    } catch (e) {
+    } catch {
       return false;
     }
   }

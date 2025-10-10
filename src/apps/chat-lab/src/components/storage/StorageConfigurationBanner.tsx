@@ -4,8 +4,6 @@ import {
   Button,
   Box,
   Typography,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import {
   Warning,
@@ -19,9 +17,6 @@ interface StorageConfigurationBannerProps {
 export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProps> = ({
   compact = false,
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
   const handleGoToSettings = () => {
     // Use window.location instead of useNavigate to avoid Router context issues
     window.location.href = '/fidu-chat-lab/settings';

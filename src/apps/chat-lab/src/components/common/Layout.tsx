@@ -74,7 +74,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
-  const { settings } = useAppSelector((state) => state.settings);
   const unifiedStorage = useUnifiedStorage();
   
   // Mobile sidebar state management

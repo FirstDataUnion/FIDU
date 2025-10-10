@@ -31,15 +31,12 @@ import {
   Storage as StorageIcon,
   Sync as SyncIcon
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { useAppDispatch } from '../../hooks/redux';
 import { 
   updateStorageMode, 
   markStorageConfigured, 
   resetStorageConfiguration,
   setShowAuthModal,
-  initializeGoogleDriveAuth,
-  checkGoogleDriveAuthStatus,
-  revokeGoogleDriveAccess,
   updateFilesystemStatus
 } from '../../store/slices/unifiedStorageSlice';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
@@ -60,7 +57,6 @@ interface StorageModeInfo {
 export const StorageModeSelector: React.FC = () => {
   const dispatch = useAppDispatch();
   const unifiedStorage = useUnifiedStorage(); // Use the enhanced hook with environment restrictions
-  const { settings } = useAppSelector((state) => state.settings); // Keep for non-storage settings
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);

@@ -25,12 +25,11 @@ import {
   Person,
   CheckCircle,
   Error,
-  Google,
   Close
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { useAppDispatch } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
-import { checkGoogleDriveAuthStatus, authenticateGoogleDrive, revokeGoogleDriveAccess } from '../../store/slices/unifiedStorageSlice';
+import { checkGoogleDriveAuthStatus, revokeGoogleDriveAccess } from '../../store/slices/unifiedStorageSlice';
 import GoogleDriveAuthPrompt from './GoogleDriveAuthPrompt';
 
 interface GoogleDriveStatusProps {
@@ -39,7 +38,6 @@ interface GoogleDriveStatusProps {
 
 export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveStatusProps) {
   const dispatch = useAppDispatch();
-  const { settings } = useAppSelector((state) => state.settings);
   const unifiedStorage = useUnifiedStorage();
   
   // Use unified storage state for Google Drive auth
@@ -47,17 +45,6 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
   
   const isCloudStorageMode = unifiedStorage.mode === 'cloud';
   const [showAuthDialog, setShowAuthDialog] = useState(false);
-
-
-  const handleAuthenticate = async () => {
-    try {
-      await dispatch(authenticateGoogleDrive()).unwrap();
-      // Authentication will redirect the page, so we won't reach here
-    } catch (error: any) {
-      console.error('Auth failed:', error);
-      // Error is already handled by Redux state
-    }
-  };
 
   const handleDeauthenticate = async () => {
     try {

@@ -10,9 +10,7 @@ import {
   Settings as SettingsIcon,
   Warning as WarningIcon
 } from '@mui/icons-material';
-import { useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
-import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { useNavigate } from 'react-router-dom';
 
 interface StorageDirectoryBannerProps {

@@ -14,7 +14,7 @@ export const useMobile = () => {
   
   return {
     isMobile,
-    isTablet,
+    isTablet, // Returned for use by other hooks/components
     isDesktop,
     isSmallMobile,
     // Convenience methods
@@ -27,7 +27,7 @@ export const useMobile = () => {
  * Hook for responsive spacing values
  */
 export const useResponsiveSpacing = () => {
-  const { isMobile, isTablet } = useMobile();
+  const { isMobile } = useMobile();
   
   return {
     // Padding values

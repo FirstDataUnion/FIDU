@@ -344,7 +344,7 @@ const unifiedStorageSlice = createSlice({
       })
       
       // Check Google Drive Auth Status
-      .addCase(checkGoogleDriveAuthStatus.pending, (state) => {
+      .addCase(checkGoogleDriveAuthStatus.pending, () => {
         // Don't set isLoading for background checks
       })
       .addCase(checkGoogleDriveAuthStatus.fulfilled, (state, action) => {

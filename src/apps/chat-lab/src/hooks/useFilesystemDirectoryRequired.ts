@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useUnifiedStorage } from './useStorageCompatibility';
-import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 
 /**
  * Custom hook to detect if filesystem storage is selected but no directory is accessible

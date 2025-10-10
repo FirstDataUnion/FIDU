@@ -17,14 +17,11 @@ import {
 } from '@mui/material';
 import { 
   PlayArrow, 
-  Stop, 
   Refresh, 
   Schedule,
-  Person,
   CloudSync
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
-import { unsyncedDataManager } from '../services/storage/UnsyncedDataManager';
 
 const CloudModeTest: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<any>(null);

@@ -975,9 +975,6 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       
       console.log(`Read ${dataPackets?.length || 0} data packets from file for user ${this.ensureUserId()}`);
       
-      // Debug: Check all packets in database
-      const allPackets = await dbManager.listDataPackets({ user_id: this.ensureUserId() });
-      
       return dataPackets || [];
     } catch (error) {
       console.error('Error reading data packets from file:', error);

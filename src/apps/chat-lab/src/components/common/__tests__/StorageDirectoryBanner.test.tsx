@@ -7,7 +7,6 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { MemoryRouter } from 'react-router-dom';
 import { StorageDirectoryBanner } from '../StorageDirectoryBanner';
-import { getUnifiedStorageService } from '../../../services/storage/UnifiedStorageService';
 
 // Mock the environment module
 jest.mock('@/utils/environment', () => ({

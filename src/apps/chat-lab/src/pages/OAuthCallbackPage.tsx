@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 import { CheckCircle, CloudSync } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { useAppDispatch } from '../hooks/redux';
 import { setShowAuthModal, markStorageConfigured, authenticateGoogleDrive } from '../store/slices/unifiedStorageSlice';
 import { revokeGoogleDriveAccess, setInsufficientPermissions } from '../store/slices/googleDriveAuthSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
@@ -21,7 +21,6 @@ const OAuthCallbackPage: React.FC = () => {
   const [callbackProcessed, setCallbackProcessed] = useState(false);
   const processingRef = useRef(false);
   const dispatch = useAppDispatch();
-  const googleDriveAuth = useAppSelector(state => state.googleDriveAuth);
 
   useEffect(() => {
     const handleOAuthCallback = async () => {

@@ -71,7 +71,7 @@ const CodeBlock: React.FC<{
   className?: string;
   children: React.ReactNode;
   showCopyButton?: boolean;
-}> = ({ node, inline, className, children, showCopyButton = true }) => {
+}> = ({ inline, className, children, showCopyButton = true }) => {
   const [copied, setCopied] = useState(false);
   const theme = useTheme();
 
@@ -100,8 +100,6 @@ const CodeBlock: React.FC<{
       </code>
     );
   }
-
-  const language = className?.replace('language-', '') || '';
 
   return (
     <Box
@@ -228,24 +226,24 @@ const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 /**
- * Enhanced List Component
+ * Enhanced List Component (currently unused, kept for potential future use)
  */
-const EnhancedList: React.FC<{ children: React.ReactNode; ordered?: boolean }> = ({ children, ordered = false }) => {
-  const Component = ordered ? 'ol' : 'ul';
-  
-  return (
-    <Box
-      component={Component}
-      sx={{
-        marginTop: '8px',
-        marginBottom: '16px',
-        paddingLeft: '20px',
-      }}
-    >
-      {children}
-    </Box>
-  );
-};
+// const EnhancedList: React.FC<{ children: React.ReactNode; ordered?: boolean }> = ({ children, ordered = false }) => {
+//   const Component = ordered ? 'ol' : 'ul';
+//   
+//   return (
+//     <Box
+//       component={Component}
+//       sx={{
+//         marginTop: '8px',
+//         marginBottom: '16px',
+//         paddingLeft: '20px',
+//       }}
+//     >
+//       {children}
+//     </Box>
+//   );
+// };
 
 /**
  * Task List Item Component
@@ -310,10 +308,6 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
   
   // Preprocess the content if enabled
   const processedContent = preprocess ? preprocessMarkdown(decodedContent) : decodedContent;
-  
-  // Check if content has paragraph breaks that need special handling
-  const hasParagraphBreaks = processedContent.includes('\n\n');
-  
   
   return (
     <Box

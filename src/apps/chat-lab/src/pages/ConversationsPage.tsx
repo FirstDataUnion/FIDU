@@ -53,7 +53,6 @@ const ConversationsPage: React.FC = React.memo(() => {
   const error = useAppSelector((state) => selectConversationsError(state));
   const { items: contexts } = useAppSelector((state) => state.contexts);
   const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
-  const { settings } = useAppSelector((state) => state.settings);
   const unifiedStorage = useUnifiedStorage();
   
   // Search and Filter State

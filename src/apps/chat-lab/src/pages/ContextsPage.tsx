@@ -42,7 +42,6 @@ export default function ContextsPage() {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
-  const { settings } = useAppSelector((state) => state.settings);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
   

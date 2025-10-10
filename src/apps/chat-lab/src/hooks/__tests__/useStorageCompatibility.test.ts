@@ -77,8 +77,8 @@ const createMockStore = (initialState: any = {}) => {
   const mergedState = { ...defaultState, ...initialState };
 
   const reducers = {
-    unifiedStorage: (state = mergedState.unifiedStorage, action: any) => state,
-    settings: (state = mergedState.settings, action: any) => state,
+    unifiedStorage: (state = mergedState.unifiedStorage, _action: any) => state,
+    settings: (state = mergedState.settings, _action: any) => state,
   };
 
   return configureStore({

@@ -31,7 +31,7 @@ function isUserOptedOut(): boolean {
 /**
  * Generate a unique request ID for timing tracking
  */
-function generateRequestId(config: InternalAxiosRequestConfig): string {
+function generateRequestId(_config: InternalAxiosRequestConfig): string {
   return `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 }
 
@@ -66,7 +66,7 @@ function getEndpointFromUrl(url?: string): string {
       .join('/');
     
     return simplifiedPath || '/';
-  } catch (e) {
+  } catch {
     return url;
   }
 }

@@ -3,7 +3,7 @@
  * Shows when user needs to authenticate with Google Drive for cloud mode
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Box, 
   Button, 
@@ -21,9 +21,6 @@ import {
 } from '@mui/material';
 import { CloudUpload, Google, Close } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
-import { serverLogger } from '../../utils/serverLogger';
-import { useAppDispatch } from '../../hooks/redux';
-import { checkGoogleDriveAuthStatus } from '../../store/slices/unifiedStorageSlice';
 // Import the image from the public directory
 const DataPermissionGuide = './DataPermissionGuide.png';
 
@@ -33,11 +30,10 @@ interface GoogleDriveAuthPromptProps {
   onAuthenticated?: () => void;
 }
 
-export default function GoogleDriveAuthPrompt({ open = true, onClose, onAuthenticated }: GoogleDriveAuthPromptProps) {
+export default function GoogleDriveAuthPrompt({ open = true, onClose }: GoogleDriveAuthPromptProps) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
-  const dispatch = useAppDispatch();
 
   // Note: OAuth callback handling is now done in the dedicated OAuthCallbackPage
 

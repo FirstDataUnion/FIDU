@@ -268,7 +268,6 @@ const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
-  const { settings } = useAppSelector((state) => state.settings);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
   

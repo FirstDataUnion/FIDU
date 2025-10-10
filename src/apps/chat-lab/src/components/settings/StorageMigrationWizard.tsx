@@ -32,7 +32,6 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
   onClose,
   fromMode,
   toMode,
-  onMigrationComplete
 }) => {
   const handleClose = () => {
     onClose();

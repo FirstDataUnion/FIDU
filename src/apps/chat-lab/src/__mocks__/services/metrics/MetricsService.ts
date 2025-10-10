@@ -25,19 +25,19 @@ export class MetricsService {
     this.enabled = enabled;
   }
 
-  async recordMetric(metric: MetricData): Promise<void> {
+  async recordMetric(_metric: MetricData): Promise<void> {
     // Mock implementation - do nothing
   }
 
-  async recordPageView(path: string): Promise<void> {
+  async recordPageView(_path: string): Promise<void> {
     // Mock implementation - do nothing
   }
 
-  async recordError(error: Error, context?: Record<string, any>): Promise<void> {
+  async recordError(_error: Error, _context?: Record<string, any>): Promise<void> {
     // Mock implementation - do nothing
   }
 
-  async recordTiming(name: string, duration: number): Promise<void> {
+  async recordTiming(_name: string, _duration: number): Promise<void> {
     // Mock implementation - do nothing
   }
 

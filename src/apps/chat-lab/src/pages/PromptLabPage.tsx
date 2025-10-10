@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import EnhancedMarkdown from '../components/common/EnhancedMarkdown';
 import {
   Box,
@@ -29,13 +29,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  useTheme,
-  useMediaQuery,
   Collapse,
-  Fab,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
   Link,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
@@ -49,15 +43,10 @@ import {
   ChatBubbleOutline as ChatBubbleIcon,
   Refresh as RefreshIcon,
   ExpandMore,
-  ArrowBackIos as ArrowBackIosIcon,
   RestartAlt as RestartAltIcon,
   Replay as ReplayIcon,
   Send as SendIcon,
-  Settings as SettingsIcon,
-  ViewKanban as ContextIcon,
-  Psychology as PersonaIcon,
   ExpandLess as ExpandLessIcon,
-  MoreVert as MoreVertIcon,
   HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
@@ -65,7 +54,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
-import { saveConversation as saveConversationAction, updateConversationWithMessages } from '../store/slices/conversationsSlice';
+import { updateConversationWithMessages } from '../store/slices/conversationsSlice';
 import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
@@ -73,7 +62,7 @@ import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
-import { useMobile, useResponsiveSpacing, useResponsiveSizing } from '../hooks/useMobile';
+import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { MetricsService } from '../services/metrics/MetricsService';
 
 
@@ -757,9 +746,8 @@ export default function PromptLabPage() {
   const location = useLocation();
   
   // Mobile responsiveness
-  const { isMobile, isTablet } = useMobile();
+  const { isMobile } = useMobile();
   const spacing = useResponsiveSpacing();
-  const sizing = useResponsiveSizing();
   
   // Redux state
   const { currentProfile } = useAppSelector((state) => state.auth);
@@ -767,13 +755,13 @@ export default function PromptLabPage() {
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { settings } = useAppSelector((state) => state.settings);
 
-  // Persistence keys for sessionStorage
-  const STORAGE_KEYS = {
+  // Persistence keys for sessionStorage (memoized to prevent recreation)
+  const STORAGE_KEYS = useMemo(() => ({
     messages: 'promptlab_messages',
     conversation: 'promptlab_conversation',
     context: 'promptlab_context',
     systemPrompts: 'promptlab_system_prompts'
-  };
+  }), []);
 
   // Helper functions for persistence
   const saveToSession = useCallback((key: string, data: any) => {
@@ -796,7 +784,7 @@ export default function PromptLabPage() {
 
   const clearSession = useCallback(() => {
     try {
-      Object.values(STORAGE_KEYS).forEach(key => sessionStorage.removeItem(key));
+      (Object.values(STORAGE_KEYS) as string[]).forEach((key) => sessionStorage.removeItem(key));
     } catch (error) {
       console.warn('Failed to clear sessionStorage:', error);
     }
@@ -813,8 +801,6 @@ export default function PromptLabPage() {
 
   // Mobile-specific state
   const [showMobileControls, setShowMobileControls] = useState(false);
-  const [showSystemPromptDrawer, setShowSystemPromptDrawer] = useState(false);
-  const [showContextDrawer, setShowContextDrawer] = useState(false);
 
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
@@ -1165,7 +1151,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts]);
+  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, dispatch]);
 
   // Handle sending a message
   const handleSendMessage = async () => {

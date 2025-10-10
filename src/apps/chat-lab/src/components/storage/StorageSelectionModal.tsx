@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, Button, Typography,
   Box, Collapse, IconButton, Alert, Card, CardContent, CardActions,
-  useTheme, useMediaQuery, CircularProgress
+  CircularProgress
 } from '@mui/material';
 import {
   CloudUpload as CloudIcon, FolderOpen as FileSystemIcon,
@@ -22,10 +22,7 @@ interface StorageSelectionModalProps {
 export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
   open, onClose, onStorageConfigured
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useAppDispatch();
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
   const { settings } = useAppSelector((state) => state.settings);
   
   // Determine if we're in dark mode

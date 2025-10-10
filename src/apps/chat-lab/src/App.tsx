@@ -13,7 +13,6 @@ import {
   checkGoogleDriveAuthStatus,
   markStorageConfigured,
   resetStorageConfiguration,
-  setShowAuthModal,
   updateFilesystemStatus
 } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';

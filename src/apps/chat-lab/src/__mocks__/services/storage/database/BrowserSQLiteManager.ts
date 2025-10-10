@@ -32,7 +32,7 @@ export class BrowserSQLiteManager {
   private mockConversations: DataPacketRow[] = [];
   private mockAPIKeys: APIKeyRow[] = [];
 
-  constructor(config: DatabaseConfig) {
+  constructor(_config: DatabaseConfig) {
     // Mock constructor
   }
 
@@ -107,11 +107,11 @@ export class BrowserSQLiteManager {
   }
 
   // Import methods
-  async importConversationsDatabase(data: ArrayBuffer): Promise<void> {
+  async importConversationsDatabase(_data: ArrayBuffer): Promise<void> {
     // Mock implementation
   }
 
-  async importAPIKeysDatabase(data: ArrayBuffer): Promise<void> {
+  async importAPIKeysDatabase(_data: ArrayBuffer): Promise<void> {
     // Mock implementation
   }
 
