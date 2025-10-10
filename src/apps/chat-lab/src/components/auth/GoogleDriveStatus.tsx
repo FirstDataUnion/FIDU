@@ -31,6 +31,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { checkGoogleDriveAuthStatus, authenticateGoogleDrive, revokeGoogleDriveAccess } from '../../store/slices/unifiedStorageSlice';
+import GoogleDriveAuthPrompt from './GoogleDriveAuthPrompt';
 
 interface GoogleDriveStatusProps {
   variant?: 'compact' | 'full';
@@ -158,74 +159,54 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
         </Box>
       )}
 
-      {/* Authentication Dialog */}
-      <Dialog 
-        open={showAuthDialog} 
-        onClose={() => setShowAuthDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {isAuthenticated ? <CloudDone /> : <CloudUpload />}
-            {isAuthenticated ? 'Google Drive Connected' : 'Connect Google Drive'}
-          </Box>
-          <IconButton onClick={() => setShowAuthDialog(false)} size="small">
-            <Close />
-          </IconButton>
-        </DialogTitle>
-        
-        <DialogContent>
-          <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
-            {isAuthenticated ? (
-              <>
-                <Typography variant="body1" color="text.secondary" paragraph>
-                  You're connected to Google Drive. Your data is being synchronized with your personal Google Drive storage.
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Connected as: <strong>{user?.name || user?.email || 'Google user'}</strong>
-                </Typography>
-              </>
-            ) : (
-              <>
-                <Typography variant="body1" color="text.secondary" paragraph>
-                  Connect your Google Drive to enable cloud storage for your conversations and data.
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Your data will be stored securely in your personal Google Drive in a private folder.
-                </Typography>
-              </>
-            )}
-          </Paper>
+      {/* Enhanced Authentication Dialog with Screenshot Guidance */}
+      {!isAuthenticated && (
+        <GoogleDriveAuthPrompt
+          open={showAuthDialog}
+          onClose={() => setShowAuthDialog(false)}
+          onAuthenticated={() => {
+            setShowAuthDialog(false);
+            // The OAuth flow will handle the rest
+          }}
+        />
+      )}
 
-          {error && (
-            <Paper sx={{ p: 2, mb: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-              <Typography variant="body2">
-                <strong>Error:</strong> {error}
-              </Typography>
-            </Paper>
-          )}
-
-          {!isAuthenticated && (
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h6" gutterBottom>
-                Ready to connect?
+      {/* Connected Status Dialog */}
+      {isAuthenticated && (
+        <Dialog 
+          open={showAuthDialog} 
+          onClose={() => setShowAuthDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CloudDone />
+              Google Drive Connected
+            </Box>
+            <IconButton onClick={() => setShowAuthDialog(false)} size="small">
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          
+          <DialogContent>
+            <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                You're connected to Google Drive. Your data is being synchronized with your personal Google Drive storage.
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
-                Click the button below to authenticate with Google Drive
+                Connected as: <strong>{user?.name || user?.email || 'Google user'}</strong>
               </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        
-        <DialogActions sx={{ p: 2 }}>
-          <Button 
-            onClick={() => setShowAuthDialog(false)}
-            variant="outlined"
-          >
-            Cancel
-          </Button>
-          {isAuthenticated ? (
+            </Paper>
+          </DialogContent>
+          
+          <DialogActions sx={{ p: 2 }}>
+            <Button 
+              onClick={() => setShowAuthDialog(false)}
+              variant="outlined"
+            >
+              Close
+            </Button>
             <Button
               onClick={handleDeauthenticate}
               variant="outlined"
@@ -236,19 +217,9 @@ export default function GoogleDriveStatus({ variant = 'compact' }: GoogleDriveSt
             >
               {isLoading ? 'Disconnecting...' : 'Disconnect Google Drive'}
             </Button>
-          ) : (
-            <Button
-              onClick={handleAuthenticate}
-              variant="contained"
-              startIcon={isLoading ? <CircularProgress size={20} /> : <Google />}
-              disabled={isLoading}
-              sx={{ minWidth: 160 }}
-            >
-              {isLoading ? 'Connecting...' : 'Connect Google Drive'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 }

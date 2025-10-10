@@ -7,6 +7,17 @@ import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { MetricsService } from '../../metrics/MetricsService';
 import { trackStorageError } from '../../../utils/errorTracking';
 
+// Custom error for insufficient permissions
+export class InsufficientPermissionsError extends Error {
+  public readonly originalError: any;
+  
+  constructor(message: string, originalError: any) {
+    super(message);
+    this.name = 'InsufficientPermissionsError';
+    this.originalError = originalError;
+  }
+}
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -37,6 +48,26 @@ export class GoogleDriveService {
   }
 
   /**
+   * Check if an error is a 403 insufficient permissions error
+   */
+  private isInsufficientPermissionsError(error: any): boolean {
+    try {
+      // Check if error message contains the 403 permission denied pattern
+      const errorString = typeof error === 'string' ? error : error?.message || JSON.stringify(error);
+      
+      // Look for the specific error patterns from Google Drive API
+      const hasInsufficientScopes = errorString.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT');
+      const hasInsufficientPermissions = errorString.includes('insufficientPermissions');
+      const hasPermissionDenied = errorString.includes('PERMISSION_DENIED');
+      const has403Code = errorString.includes('"code": 403') || errorString.includes('"code":403');
+      
+      return (hasInsufficientScopes || hasInsufficientPermissions) && (hasPermissionDenied || has403Code);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
    * Track a Google API request with metrics
    */
   private trackGoogleApiRequest<T>(
@@ -51,6 +82,15 @@ export class GoogleDriveService {
       .catch((error) => {
         MetricsService.recordGoogleApiRequest('drive', operation, 'error');
         trackStorageError('google_drive', operation, error.message || 'Unknown error');
+        
+        // Check if this is an insufficient permissions error
+        if (this.isInsufficientPermissionsError(error)) {
+          throw new InsufficientPermissionsError(
+            'Insufficient permissions to access Google Drive. You may need to re-authorize the app with the correct permissions.',
+            error
+          );
+        }
+        
         throw error;
       });
   }
@@ -108,15 +148,16 @@ export class GoogleDriveService {
    * Upload a file to the app data folder, replacing if it exists
    */
   async uploadFile(fileName: string, data: Uint8Array, mimeType: string = 'application/octet-stream'): Promise<string> {
-    const accessToken = await this.authService.getAccessToken();
-    
-    // Check if file already exists
-    const existingFile = await this.findFileByName(fileName);
-    
-    if (existingFile) {
-      await this.updateFile(existingFile.id, data, mimeType);
-      return existingFile.id;
-    }
+    return this.trackGoogleApiRequest('uploadFile', async () => {
+      const accessToken = await this.authService.getAccessToken();
+      
+      // Check if file already exists
+      const existingFile = await this.findFileByName(fileName);
+      
+      if (existingFile) {
+        await this.updateFile(existingFile.id, data, mimeType);
+        return existingFile.id;
+      }
 
     // Create file metadata for new file
     const metadata = {
@@ -162,22 +203,23 @@ export class GoogleDriveService {
     // Copy close delimiter  
     fullBody.set(closeDelimiterBytes, offset);
 
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary="${boundary}"`,
-      },
-      body: fullBody as any, // TypeScript workaround for file upload 
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary="${boundary}"`,
+        },
+        body: fullBody as any, // TypeScript workaround for file upload 
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to upload file: ${error}`);
+      }
+
+      const result = await response.json();
+      return result.id;
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to upload file: ${error}`);
-    }
-
-    const result = await response.json();
-    return result.id;
   }
 
   /**

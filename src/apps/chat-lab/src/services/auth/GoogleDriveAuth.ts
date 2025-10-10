@@ -3,6 +3,19 @@
  * Handles OAuth 2.0 flow for Google Drive access
  */
 
+// Custom error for insufficient OAuth scopes
+export class InsufficientScopesError extends Error {
+  public grantedScopes: string[];
+  public requiredScopes: string[];
+  
+  constructor(message: string, grantedScopes: string[], requiredScopes: string[]) {
+    super(message);
+    this.name = 'InsufficientScopesError';
+    this.grantedScopes = grantedScopes;
+    this.requiredScopes = requiredScopes;
+  }
+}
+
 export interface GoogleDriveAuthConfig {
   clientId: string;
   redirectUri: string;
@@ -28,6 +41,7 @@ export class GoogleDriveAuthService {
   private tokens: GoogleDriveTokens | null = null;
   private user: GoogleDriveUser | null = null;
   private refreshPromise: Promise<string> | null = null;
+  private isAuthenticating: boolean = false;
 
   constructor(config: GoogleDriveAuthConfig) {
     this.config = config;
@@ -38,7 +52,14 @@ export class GoogleDriveAuthService {
    * Initialize the authentication service
    */
   async initialize(): Promise<void> {
-    // Check if we're returning from OAuth callback
+    // Check if we're on the OAuth callback page - if so, skip initialization
+    // The OAuth callback page will handle the callback processing directly
+    if (window.location.pathname.includes('/oauth-callback')) {
+      console.log('🔄 On OAuth callback page, skipping initialization to avoid conflicts');
+      return;
+    }
+
+    // Check if we're returning from OAuth callback (but not on callback page)
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const error = urlParams.get('error');
@@ -124,8 +145,44 @@ export class GoogleDriveAuthService {
    * Start OAuth flow
    */
   async authenticate(): Promise<void> {
-    const authUrl = this.buildAuthUrl();
-    window.location.href = authUrl;
+    // Prevent multiple simultaneous OAuth flows
+    if (this.isAuthenticating) {
+      console.log('🔄 OAuth flow already in progress, skipping...');
+      return;
+    }
+    
+    this.isAuthenticating = true;
+    try {
+      const authUrl = this.buildAuthUrl();
+      console.log('🔄 Starting OAuth flow, redirecting to:', authUrl);
+      window.location.href = authUrl;
+    } catch (error) {
+      this.isAuthenticating = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Process OAuth callback specifically for the callback page
+   */
+  async processOAuthCallback(): Promise<void> {
+    console.log('🔄 Processing OAuth callback for callback page...');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const error = urlParams.get('error');
+
+    if (error) {
+      throw new Error(`OAuth error: ${error}`);
+    }
+
+    if (!code) {
+      throw new Error('No authorization code found in callback URL');
+    }
+
+    await this.handleOAuthCallback(code);
+    // Clean up URL
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   /**
@@ -187,30 +244,68 @@ export class GoogleDriveAuthService {
   }
 
   private generateState(): string {
+    // Check if we already have a state parameter stored
+    const existingState = sessionStorage.getItem('google_oauth_state');
+    if (existingState) {
+      console.log('🔄 Reusing existing OAuth state:', existingState);
+      return existingState;
+    }
+    
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
+    console.log('🔄 Generated new OAuth state:', state);
     return state;
   }
 
   private async handleOAuthCallback(code: string): Promise<void> {
-    // Verify state parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const state = urlParams.get('state');
-    const storedState = sessionStorage.getItem('google_oauth_state');
+    console.log('🔄 Starting OAuth callback handling...');
     
-    if (state !== storedState) {
-      throw new Error('Invalid state parameter');
+    try {
+      // Verify state parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const state = urlParams.get('state');
+      const storedState = sessionStorage.getItem('google_oauth_state');
+      
+      console.log('🔍 State validation:', { 
+        receivedState: state, 
+        storedState: storedState,
+        statesMatch: state === storedState 
+      });
+      
+      if (!state || !storedState) {
+        console.error('❌ Missing state parameter or stored state');
+        throw new Error('Invalid state parameter - missing state');
+      }
+      
+      if (state !== storedState) {
+        console.error('❌ State parameter mismatch');
+        throw new Error('Invalid state parameter - mismatch');
+      }
+      
+      // Only clear state after successful validation
+      sessionStorage.removeItem('google_oauth_state');
+      console.log('✅ State parameter validated successfully');
+
+      // Exchange code for tokens
+      console.log('🔄 Exchanging code for tokens...');
+      const tokens = await this.exchangeCodeForTokens(code);
+      console.log('✅ Token exchange successful');
+      
+      this.tokens = tokens;
+      this.storeTokens(tokens);
+
+      // Fetch user info
+      console.log('🔄 Fetching user info...');
+      await this.fetchUserInfo();
+      console.log('✅ OAuth callback completed successfully');
+      
+    } catch (error) {
+      console.error('❌ OAuth callback failed:', error);
+      throw error;
+    } finally {
+      // Always reset authentication flag
+      this.isAuthenticating = false;
     }
-    
-    sessionStorage.removeItem('google_oauth_state');
-
-    // Exchange code for tokens
-    const tokens = await this.exchangeCodeForTokens(code);
-    this.tokens = tokens;
-    this.storeTokens(tokens);
-
-    // Fetch user info
-    await this.fetchUserInfo();
   }
 
   private async exchangeCodeForTokens(code: string): Promise<GoogleDriveTokens> {
@@ -235,12 +330,49 @@ export class GoogleDriveAuthService {
 
     const data = await response.json();
     
-    return {
+    const tokens = {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       expiresAt: Date.now() + (data.expires_in * 1000),
       scope: data.scope
     };
+    
+    // Validate that we received the required scopes
+    this.validateScopes(tokens.scope);
+    
+    return tokens;
+  }
+  
+  /**
+   * Validate that all required scopes were granted
+   */
+  private validateScopes(grantedScopeString: string): void {
+    console.log('🔍 Validating granted scopes...');
+    console.log('Granted scopes string:', grantedScopeString);
+    
+    const grantedScopes = grantedScopeString.split(' ');
+    const requiredScopes = this.config.scopes;
+    
+    console.log('Granted scopes array:', grantedScopes);
+    console.log('Required scopes array:', requiredScopes);
+    
+    const missingScopes = requiredScopes.filter(
+      required => !grantedScopes.includes(required)
+    );
+    
+    if (missingScopes.length > 0) {
+      console.error('❌ Missing required scopes:', missingScopes);
+      console.error('Granted scopes:', grantedScopes);
+      console.error('Required scopes:', requiredScopes);
+      
+      throw new InsufficientScopesError(
+        'User did not grant all required permissions. Please check all permission checkboxes when authorizing the app.',
+        grantedScopes,
+        requiredScopes
+      );
+    }
+    
+    console.log('✅ All required scopes are present');
   }
 
   private async refreshAccessToken(): Promise<string> {

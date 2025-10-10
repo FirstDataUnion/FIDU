@@ -4,7 +4,7 @@
  */
 
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
-import { GoogleDriveService } from '../drive/GoogleDriveService';
+import { GoogleDriveService, InsufficientPermissionsError } from '../drive/GoogleDriveService';
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 
 export interface SyncStatus {
@@ -118,6 +118,22 @@ export class SyncService {
       }
     } catch (error) {
       console.error('Failed to sync from Drive:', error);
+      
+      // Re-throw InsufficientPermissionsError so it can be handled by the UI
+      if (error instanceof InsufficientPermissionsError) {
+        throw error;
+      }
+      
+      // Check if error message suggests insufficient permissions
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || 
+          errorMessage.includes('insufficientPermissions')) {
+        throw new InsufficientPermissionsError(
+          'Insufficient permissions to access Google Drive. Please re-authorize the app.',
+          error
+        );
+      }
+      
       throw error;
     }
   }
@@ -182,6 +198,22 @@ export class SyncService {
       console.log(`Successfully synced ${pendingDataPackets.length} data packets and ${pendingAPIKeys.length} API keys`);
     } catch (error) {
       console.error('Failed to sync to Drive:', error);
+      
+      // Re-throw InsufficientPermissionsError so it can be handled by the UI
+      if (error instanceof InsufficientPermissionsError) {
+        throw error;
+      }
+      
+      // Check if error message suggests insufficient permissions
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || 
+          errorMessage.includes('insufficientPermissions')) {
+        throw new InsufficientPermissionsError(
+          'Insufficient permissions to sync with Google Drive. Please re-authorize the app.',
+          error
+        );
+      }
+      
       throw error;
     }
   }

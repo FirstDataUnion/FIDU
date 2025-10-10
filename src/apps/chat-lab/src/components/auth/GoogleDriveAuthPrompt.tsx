@@ -24,12 +24,16 @@ import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageS
 import { serverLogger } from '../../utils/serverLogger';
 import { useAppDispatch } from '../../hooks/redux';
 import { checkGoogleDriveAuthStatus } from '../../store/slices/unifiedStorageSlice';
+// Import the image from the public directory
+const DataPermissionGuide = './DataPermissionGuide.png';
 
 interface GoogleDriveAuthPromptProps {
+  open?: boolean;
+  onClose?: () => void;
   onAuthenticated?: () => void;
 }
 
-export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAuthPromptProps) {
+export default function GoogleDriveAuthPrompt({ open = true, onClose, onAuthenticated }: GoogleDriveAuthPromptProps) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
@@ -64,7 +68,8 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
 
   return (
     <Dialog
-      open={true}
+      open={open}
+      onClose={onClose}
       maxWidth="sm"
       fullWidth
       disableEscapeKeyDown={isAuthenticating}
@@ -98,7 +103,7 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
         </Typography>
         <IconButton
           aria-label="close"
-          onClick={() => window.location.reload()}
+          onClick={onClose}
           disabled={isAuthenticating}
           sx={{
             position: 'absolute',
@@ -121,6 +126,45 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
           <Typography variant="body2" color="text.secondary" paragraph>
             Your data will be stored in a private folder that only you can access.
           </Typography>
+
+          {/* Permission guide */}
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 2, 
+              mb: 3,
+              bgcolor: theme.palette.mode === 'dark' ? 'warning.dark' : 'warning.light', 
+              borderRadius: 2,
+              border: `2px solid ${theme.palette.warning.main}`,
+              boxShadow: `0 0 0 1px ${theme.palette.warning.main}20`
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+              📋 Important: Check the Google Drive permission box
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              When Google asks for permissions, make sure to check the box for Google Drive access:
+            </Typography>
+            
+            <Box sx={{ textAlign: 'center' }}>
+              <Box
+                component="img"
+                src={DataPermissionGuide}
+                alt="Google Drive permission checkbox guide"
+                sx={{
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  boxShadow: 1
+                }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Look for this Google Drive permission and make sure to check the box before clicking "Continue"
+              </Typography>
+            </Box>
+          </Paper>
 
           {error && (
             <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
@@ -174,7 +218,7 @@ export default function GoogleDriveAuthPrompt({ onAuthenticated }: GoogleDriveAu
                 Sign in to your Google account
               </Typography>
               <Typography variant="body2" color="text.secondary" component="li" sx={{ mb: 1 }}>
-                Grant permission for FIDU Chat Lab to access your Drive
+                <strong>Check the Google Drive permission box</strong> (see guide above)
               </Typography>
               <Typography variant="body2" color="text.secondary" component="li">
                 Your conversations will sync automatically

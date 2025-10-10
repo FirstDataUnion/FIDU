@@ -55,6 +55,10 @@ import { AutoSyncCountdown } from './AutoSyncCountdown';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
+import { InsufficientPermissionsError } from '../../services/storage/drive/GoogleDriveService';
+import { setInsufficientPermissions, revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
+import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
+import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 
 const drawerWidth = 240;
 
@@ -84,6 +88,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [isSyncInProgress, setIsSyncInProgress] = useState(false);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   
   // Check if we're in cloud storage mode (Google Drive)
   const isCloudStorageMode = unifiedStorage.mode === 'cloud';
@@ -153,10 +158,45 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       console.log('Manual sync completed successfully');
     } catch (error) {
       console.error('Manual sync failed:', error);
+      
+      // Check if this is an insufficient permissions error
+      if (error instanceof InsufficientPermissionsError) {
+        console.warn('⚠️ Insufficient permissions detected during sync');
+        dispatch(setInsufficientPermissions(true));
+        setShowPermissionsModal(true);
+      }
     } finally {
       setIsSyncInProgress(false);
     }
-  }, [currentProfile]);
+  }, [currentProfile, dispatch]);
+
+  const handleReconnect = useCallback(async () => {
+    try {
+      console.log('🔄 Reconnecting with correct permissions...');
+      
+      // Close modal first
+      setShowPermissionsModal(false);
+      
+      // Revoke current access to clear tokens
+      await dispatch(revokeGoogleDriveAccess()).unwrap();
+      
+      // Small delay to ensure state is cleared
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Directly initiate OAuth flow with fresh permissions
+      await dispatch(authenticateGoogleDrive()).unwrap();
+      
+      // The authenticateGoogleDrive will redirect to Google OAuth, so we won't reach here
+    } catch (error) {
+      console.error('❌ Failed to reconnect:', error);
+      // If OAuth fails, navigate to settings as fallback
+      navigate('/settings');
+    }
+  }, [dispatch, navigate]);
+
+  const handleCancelPermissionsModal = useCallback(() => {
+    setShowPermissionsModal(false);
+  }, []);
 
   const mainMenuItems = [
     { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
@@ -597,6 +637,13 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           {children}
         </Box>
       </Box>
+      
+      {/* Insufficient Permissions Modal */}
+      <InsufficientPermissionsModal
+        open={showPermissionsModal}
+        onReconnect={handleReconnect}
+        onCancel={handleCancelPermissionsModal}
+      />
     </Box>
   );
 };

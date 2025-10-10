@@ -109,6 +109,7 @@ const initialState: GoogleDriveAuthState = {
   error: null,
   showAuthModal: false,
   expiresAt: null,
+  hasInsufficientPermissions: false,
 };
 
 const googleDriveAuthSlice = createSlice({
@@ -134,6 +135,18 @@ const googleDriveAuthSlice = createSlice({
         state.showAuthModal = true;
       }
     },
+    
+    // Action to handle insufficient permissions error
+    setInsufficientPermissions: (state, action: PayloadAction<boolean>) => {
+      state.hasInsufficientPermissions = action.payload;
+      if (action.payload) {
+        // When insufficient permissions detected, clear authentication
+        state.isAuthenticated = false;
+        state.user = null;
+        state.expiresAt = null;
+        state.error = 'Insufficient permissions. Please re-authorize with all required permissions.';
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -154,10 +167,19 @@ const googleDriveAuthSlice = createSlice({
       })
       .addCase(initializeGoogleDriveAuth.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const errorMessage = action.payload as string;
+        state.error = errorMessage;
         state.isAuthenticated = false;
         state.user = null;
         state.expiresAt = null;
+        
+        // Check if this is an insufficient permissions error
+        if (errorMessage && (
+          errorMessage.includes('did not grant all required permissions') ||
+          errorMessage.includes('InsufficientScopesError')
+        )) {
+          state.hasInsufficientPermissions = true;
+        }
         
         // Don't show auth modal - let the banner handle it instead
         state.showAuthModal = false;
@@ -219,6 +241,7 @@ const googleDriveAuthSlice = createSlice({
         state.expiresAt = action.payload.expiresAt;
         state.showAuthModal = false; // Don't show auth modal after disconnection
         state.error = null;
+        state.hasInsufficientPermissions = false; // Clear flag on disconnect
       })
       .addCase(revokeGoogleDriveAccess.rejected, (state, action) => {
         state.isLoading = false;
@@ -231,7 +254,8 @@ export const {
   setShowAuthModal, 
   clearError, 
   setLoading, 
-  showAuthModalIfNeeded 
+  showAuthModalIfNeeded,
+  setInsufficientPermissions
 } = googleDriveAuthSlice.actions;
 
 export default googleDriveAuthSlice.reducer;

@@ -414,6 +414,7 @@ export interface GoogleDriveAuthState {
   error: string | null;
   showAuthModal: boolean;
   expiresAt: number | null;
+  hasInsufficientPermissions: boolean;
 }
 
 export interface ConversationsState {
