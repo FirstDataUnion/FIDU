@@ -36,6 +36,7 @@ import {
   SpeedDial,
   SpeedDialAction,
   SpeedDialIcon,
+  Link,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -57,6 +58,7 @@ import {
   Psychology as PersonaIcon,
   ExpandLess as ExpandLessIcon,
   MoreVert as MoreVertIcon,
+  HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -69,6 +71,8 @@ import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import ContextHelpModal from '../components/help/ContextHelpModal';
+import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { useMobile, useResponsiveSpacing, useResponsiveSizing } from '../hooks/useMobile';
 import { MetricsService } from '../services/metrics/MetricsService';
 
@@ -314,6 +318,7 @@ interface ContextSelectionModalProps {
 function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent-desc' | 'recent-asc' | 'alpha-asc' | 'alpha-desc'>('recent-desc');
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
 
   const filteredAndSortedContexts = contexts
     .filter(context => 
@@ -335,7 +340,31 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select Context</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" component="span">
+            Select Context
+          </Typography>
+          <Link
+            component="button"
+            variant="body2"
+            onClick={() => setHelpModalOpen(true)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              textDecoration: 'none',
+              color: 'primary.main',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+          >
+            <HelpOutlineIcon fontSize="small" />
+            What are "Contexts"?
+          </Link>
+        </Box>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
@@ -463,6 +492,12 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
         </Button>
         <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
       </DialogActions>
+
+      {/* Help Modal */}
+      <ContextHelpModal
+        open={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
     </Dialog>
   );
 }
@@ -481,6 +516,7 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
   const { isMobile } = useMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
 
   const filteredSystemPrompts = systemPrompts.filter(sp => {
     // Text search filter
@@ -504,7 +540,29 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
       fullScreen={isMobile}
     >
       <DialogTitle sx={{ fontSize: isMobile ? '1.25rem' : '1.5rem' }}>
-        {title}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" component="span">
+            {title}
+          </Typography>
+          <Link
+            component="button"
+            variant="body2"
+            onClick={() => setHelpModalOpen(true)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              textDecoration: 'none',
+              color: 'primary.main',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+          >
+            <HelpOutlineIcon fontSize="small" />
+            What are "System Prompts"?
+          </Link>
+        </Box>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -623,6 +681,12 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
           Cancel
         </Button>
       </DialogActions>
+
+      {/* Help Modal */}
+      <SystemPromptHelpModal
+        open={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
     </Dialog>
   );
 }
@@ -703,12 +767,47 @@ export default function PromptLabPage() {
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { settings } = useAppSelector((state) => state.settings);
 
-  // State for the chat interface
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Persistence keys for sessionStorage
+  const STORAGE_KEYS = {
+    messages: 'promptlab_messages',
+    conversation: 'promptlab_conversation',
+    context: 'promptlab_context',
+    systemPrompts: 'promptlab_system_prompts'
+  };
+
+  // Helper functions for persistence
+  const saveToSession = useCallback((key: string, data: any) => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to save to sessionStorage:', error);
+    }
+  }, []);
+
+  const loadFromSession = useCallback((key: string) => {
+    try {
+      const data = sessionStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.warn('Failed to load from sessionStorage:', error);
+      return null;
+    }
+  }, []);
+
+  const clearSession = useCallback(() => {
+    try {
+      Object.values(STORAGE_KEYS).forEach(key => sessionStorage.removeItem(key));
+    } catch (error) {
+      console.warn('Failed to clear sessionStorage:', error);
+    }
+  }, [STORAGE_KEYS]);
+
+  // State for the chat interface - initialize from sessionStorage
+  const [messages, setMessages] = useState<Message[]>(() => loadFromSession(STORAGE_KEYS.messages) || []);
   const [currentMessage, setCurrentMessage] = useState('');
   const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'gpt-5.0-nano');
-  const [selectedContext, setSelectedContext] = useState<Context | null>(null);
-  const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>([]);
+  const [selectedContext, setSelectedContext] = useState<Context | null>(() => loadFromSession(STORAGE_KEYS.context) || null);
+  const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -832,8 +931,8 @@ export default function PromptLabPage() {
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
 
-  // Conversation state
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  // Conversation state - initialize from sessionStorage
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(() => loadFromSession(STORAGE_KEYS.conversation) || null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
 
   // Modal states
@@ -909,6 +1008,31 @@ export default function PromptLabPage() {
     loadRecentConversations();
   }, [loadRecentConversations]);
 
+  // Persist conversation state to sessionStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveToSession(STORAGE_KEYS.messages, messages);
+    }
+  }, [messages, saveToSession, STORAGE_KEYS.messages]);
+
+  useEffect(() => {
+    if (currentConversation) {
+      saveToSession(STORAGE_KEYS.conversation, currentConversation);
+    }
+  }, [currentConversation, saveToSession, STORAGE_KEYS.conversation]);
+
+  useEffect(() => {
+    if (selectedContext) {
+      saveToSession(STORAGE_KEYS.context, selectedContext);
+    }
+  }, [selectedContext, saveToSession, STORAGE_KEYS.context]);
+
+  useEffect(() => {
+    if (selectedSystemPrompts.length > 0) {
+      saveToSession(STORAGE_KEYS.systemPrompts, selectedSystemPrompts);
+    }
+  }, [selectedSystemPrompts, saveToSession, STORAGE_KEYS.systemPrompts]);
+
   // Handle conversation loading when navigating from conversations page
   useEffect(() => {
     if (location.state?.loadConversation && location.state?.conversationId) {
@@ -969,7 +1093,9 @@ export default function PromptLabPage() {
 
     setIsSavingConversation(true);
     try {
-      if (currentConversation) {
+      // Only update if we have a conversation with a valid ID
+      // Otherwise, create a new one (handles the case where conversation was restored from session but not yet saved)
+      if (currentConversation && currentConversation.id) {
         // Update existing conversation using Redux action
         const updatedConversation = await dispatch(updateConversationWithMessages({
           conversation: currentConversation,
@@ -1171,6 +1297,8 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
+    // Clear persisted conversation state
+    clearSession();
     // Reset to default system prompt
     if (systemPrompts.length > 0) {
       const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
@@ -1179,7 +1307,7 @@ export default function PromptLabPage() {
       }
     }
     // Note: Embellishments removed
-  }, [systemPrompts]);
+  }, [systemPrompts, clearSession]);
 
   // Handle create context submit
   const handleCreateContextSubmit = useCallback(async () => {
@@ -1599,8 +1727,8 @@ export default function PromptLabPage() {
                       )}
                       
                   <Box sx={{ 
-                    '& p': { margin: 0, marginBottom: isMobile ? 0.5 : 1 },
-                    '& p:last-child': { marginBottom: 0 },
+                    // Let EnhancedMarkdown handle paragraph styling
+                    // Remove conflicting paragraph styles that override markdown rendering
                     '& pre': { 
                       backgroundColor: 'rgba(0,0,0,0.1)', 
                       padding: isMobile ? 0.75 : 1, 
@@ -2619,49 +2747,51 @@ export default function PromptLabPage() {
 
       {/* Chat History Tab - Desktop Only */}
       {!isMobile && (
-      <Box
-        onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
-        sx={{
-          position: 'fixed',
-          right: conversationsDrawerOpen ? 300 : 0,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 1000,
-          cursor: 'pointer',
-          transition: 'right 0.3s ease'
-        }}
-      >
-        <Paper
-          elevation={3}
+      <Tooltip title="Recent Conversations" placement="left">
+        <Box
+          onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            px: 1.5,
-            py: 1.5,
-            borderRadius: '8px 0 0 8px',
-            backgroundColor: 'primary.main',
-            color: 'primary.contrastText',
-            boxShadow: 2,
-            '&:hover': {
-              backgroundColor: 'primary.dark',
-              boxShadow: 4
-            }
+            position: 'fixed',
+            right: conversationsDrawerOpen ? 300 : 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+            cursor: 'pointer',
+            transition: 'right 0.3s ease'
           }}
         >
-          <ChevronLeftIcon 
-            sx={{ 
-              fontSize: 18,
-              transform: conversationsDrawerOpen ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.3s ease'
-            }} 
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ChatBubbleIcon sx={{ fontSize: 20 }} />
-            <RefreshIcon sx={{ fontSize: 16, opacity: 0.8 }} />
-          </Box>
-        </Paper>
-      </Box>
+          <Paper
+            elevation={3}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 1.5,
+              borderRadius: '8px 0 0 8px',
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              boxShadow: 2,
+              '&:hover': {
+                backgroundColor: 'primary.dark',
+                boxShadow: 4
+              }
+            }}
+          >
+            <ChevronLeftIcon 
+              sx={{ 
+                fontSize: 18,
+                transform: conversationsDrawerOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.3s ease'
+              }} 
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ChatBubbleIcon sx={{ fontSize: 20 }} />
+              <RefreshIcon sx={{ fontSize: 16, opacity: 0.8 }} />
+            </Box>
+          </Paper>
+        </Box>
+      </Tooltip>
       )}
 
       {/* Modals */}

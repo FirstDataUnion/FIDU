@@ -16,14 +16,16 @@ import {
   ListItemText,
   Alert,
   CircularProgress,
-  Button
+  Button,
+  Link
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FolderOutlined as FolderIcon
+  FolderOutlined as FolderIcon,
+  HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -33,6 +35,7 @@ import { ContextCard } from '../components/contexts/ContextCard';
 import { ConversationSelectionList } from '../components/contexts/ConversationSelectionList';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
+import ContextHelpModal from '../components/help/ContextHelpModal';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 
 export default function ContextsPage() {
@@ -53,6 +56,7 @@ export default function ContextsPage() {
   const [conversationSelectionDialogOpen, setConversationSelectionDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [createConversationSelectionDialogOpen, setCreateConversationSelectionDialogOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   
   // Form states
   const [contextForm, setContextForm] = useState<ContextFormData>({
@@ -360,9 +364,29 @@ export default function ContextsPage() {
           {/* Header */}
           <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
-              <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-                Contexts
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 600 }}>
+                  Contexts
+                </Typography>
+                <Link
+                  component="button"
+                  variant="body2"
+                  onClick={() => setHelpModalOpen(true)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    textDecoration: 'none',
+                    color: 'primary.main',
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  <HelpOutlineIcon fontSize="small" />
+                  What are "Contexts"?
+                </Link>
+              </Box>
               <Typography variant="body1" color="text.secondary">
                 Manage your conversation contexts, references, and knowledge bases
               </Typography>
@@ -690,6 +714,12 @@ export default function ContextsPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Help Modal */}
+      <ContextHelpModal
+        open={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
     </Box>
   );
 } 

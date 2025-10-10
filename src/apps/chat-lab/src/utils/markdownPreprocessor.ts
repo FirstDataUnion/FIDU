@@ -80,10 +80,36 @@ export function preprocessMarkdown(
   
   let processed = content;
   
+  
+  
+  
   // Normalize line breaks first
   if (rules.normalizeLineBreaks) {
-    // Replace multiple consecutive newlines with double newlines
-    processed = processed.replace(/\n{3,}/g, '\n\n');
+    // First, protect code blocks from any modifications
+    const codeBlockRegex = /```[\s\S]*?```/g;
+    const codeBlocks: string[] = [];
+    let tempProcessed = processed.replace(codeBlockRegex, (match) => {
+      codeBlocks.push(match);
+      return `___CODEBLOCK_${codeBlocks.length - 1}___`;
+    });
+    
+    // Handle different types of line breaks:
+    // 1. Replace 3+ consecutive newlines with exactly 2 newlines (paragraph breaks)
+    tempProcessed = tempProcessed.replace(/\n{3,}/g, '\n\n');
+    
+    // 2. Convert single newlines to markdown hard breaks (two spaces + newline)
+    // This preserves intentional line breaks within paragraphs
+    tempProcessed = tempProcessed.replace(/([^\n])\n([^\n])/g, '$1  \n$2');
+    
+    // 3. Ensure blank lines (double newlines) remain as paragraph breaks
+    // This is already handled by the above regex patterns
+    
+    // Restore code blocks
+    tempProcessed = tempProcessed.replace(/___CODEBLOCK_(\d+)___/g, (_match, index) => {
+      return codeBlocks[parseInt(index)];
+    });
+    
+    processed = tempProcessed;
   }
   
   // Smart list processing - only fix obvious issues
@@ -101,10 +127,10 @@ export function preprocessMarkdown(
   
   // Fix spacing issues - be more conservative
   if (rules.fixSpacingIssues) {
-    // Only fix obvious spacing issues
+    // Only remove spaces and tabs, NOT newlines - preserve paragraph breaks
     processed = processed
-      .replace(/\n\s+/g, '\n') // Remove leading spaces on new lines
-      .replace(/\s+\n/g, '\n'); // Remove trailing spaces before newlines
+      .replace(/\n[ \t]+/g, '\n') // Remove leading spaces/tabs on new lines, but preserve newlines
+      .replace(/[ \t]+\n/g, '\n'); // Remove trailing spaces/tabs before newlines, but preserve newlines
   }
   
   return processed;

@@ -319,6 +319,11 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
   // Preprocess the content if enabled
   const processedContent = preprocess ? preprocessMarkdown(decodedContent) : decodedContent;
   
+  // Check if content has paragraph breaks that need special handling
+  const hasParagraphBreaks = processedContent.includes('\n\n');
+  
+  
+  
   return (
     <Box
       className={className}
@@ -347,7 +352,7 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
           fontSize: '1rem',
         },
         '& p': {
-          marginBottom: '16px',
+          marginBottom: '8px',
           lineHeight: 1.6,
         },
         '& hr': {
@@ -369,6 +374,127 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
     >
       {(() => {
         try {
+          // If we have paragraph breaks, try a simpler approach with white-space preservation
+          if (hasParagraphBreaks) {
+            // First try: Use white-space: pre-wrap to preserve line breaks
+            return (
+              <Box
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.6,
+                  '& p': { marginBottom: '8px' },
+                  '& p:last-child': { marginBottom: 0 },
+                }}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex, rehypeRaw]}
+                  components={{
+                    // Code blocks with syntax highlighting
+                    code: ({ node, inline, className, children, ...props }: any) => (
+                      <CodeBlock
+                        node={node}
+                        inline={inline}
+                        className={className}
+                        showCopyButton={showCopyButtons && !inline}
+                        {...props}
+                      >
+                        {children}
+                      </CodeBlock>
+                    ),
+                    
+                    // Enhanced tables
+                    table: ({ children, ...props }) => (
+                      <EnhancedTable {...props}>
+                        {children}
+                      </EnhancedTable>
+                    ),
+                    thead: ({ children, ...props }) => (
+                      <TableHead {...props}>
+                        {children}
+                      </TableHead>
+                    ),
+                    tbody: ({ children, ...props }) => (
+                      <TableBody {...props}>
+                        {children}
+                      </TableBody>
+                    ),
+                    tr: ({ children, ...props }) => (
+                      <TableRow {...props}>
+                        {children}
+                      </TableRow>
+                    ),
+                    th: ({ children, ...props }) => (
+                      <TableCell {...props} component="th" sx={{ fontWeight: 600 }} align="left">
+                        {children}
+                      </TableCell>
+                    ),
+                    td: ({ children, ...props }) => (
+                      <TableCell {...props} align="left">
+                        {children}
+                      </TableCell>
+                    ),
+                    
+                    // Enhanced links
+                    a: ({ href, children, ...props }) => (
+                      <EnhancedLink href={href} {...props}>
+                        {children}
+                      </EnhancedLink>
+                    ),
+                    
+                    // Enhanced blockquotes
+                    blockquote: ({ children, ...props }) => (
+                      <EnhancedBlockquote {...props}>
+                        {children}
+                      </EnhancedBlockquote>
+                    ),
+                    
+                    // Enhanced lists
+                    ul: ({ children, ...props }) => (
+                      <EnhancedList {...props}>
+                        {children}
+                      </EnhancedList>
+                    ),
+                    ol: ({ children, ...props }) => (
+                      <EnhancedList ordered {...props}>
+                        {children}
+                      </EnhancedList>
+                    ),
+                    
+                    // Task list items
+                    li: ({ children, ...props }: any) => {
+                      // Check if this is a task list item
+                      const text = String(children);
+                      if (text.includes('[x]') || text.includes('[ ]')) {
+                        const checked = text.includes('[x]');
+                        const cleanText = text.replace(/^\s*\[[x ]\]\s*/, '');
+                        return (
+                          <TaskListItem checked={checked}>
+                            {cleanText}
+                          </TaskListItem>
+                        );
+                      }
+                      return <li {...props}>{children}</li>;
+                    },
+                    
+                    // Strikethrough
+                    del: ({ children, ...props }) => (
+                      <Strikethrough {...props}>
+                        {children}
+                      </Strikethrough>
+                    ),
+                    
+                    // Horizontal rules
+                    hr: ({ ...props }) => <Divider {...props} />,
+                  }}
+                >
+                  {processedContent}
+                </ReactMarkdown>
+              </Box>
+            );
+          }
+          
+          // Default ReactMarkdown rendering for content without paragraph breaks
           return (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
@@ -466,6 +592,22 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
                   <Strikethrough {...props}>
                     {children}
                   </Strikethrough>
+                ),
+                
+                // Enhanced paragraph component to ensure proper spacing
+                p: ({ children, ...props }) => (
+                  <Box
+                    component="p"
+                    sx={{
+                      marginBottom: '16px',
+                      lineHeight: 1.6,
+                      display: 'block',
+                      '&:last-child': { marginBottom: 0 },
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
                 ),
                 
                 // Horizontal rules

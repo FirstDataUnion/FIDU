@@ -23,7 +23,10 @@ import {
   DialogContentText,
   Tabs,
   Tab,
-  CircularProgress
+  CircularProgress,
+  Link,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -34,7 +37,8 @@ import {
   ContentCopy as CopyIcon,
   Settings as SettingsIcon,
   Code as CodeIcon,
-  Extension as ExtensionIcon
+  Extension as ExtensionIcon,
+  HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
 
 import { useAppSelector, useAppDispatch } from '../store';
@@ -47,6 +51,7 @@ import {
 } from '../store/slices/systemPromptsSlice';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
+import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{ 
@@ -267,6 +272,20 @@ const SystemPromptsPage = React.memo(() => {
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
   
+  // Helper function to normalize category tags - capitalize first letter, lowercase the rest, and deduplicate
+  const normalizeCategories = (categoriesString: string): string[] => {
+    if (!categoriesString.trim()) return [];
+    
+    const normalized = categoriesString
+      .split(',')
+      .map(cat => cat.trim())
+      .filter(cat => cat)
+      .map(cat => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
+    
+    // Remove duplicates using Set
+    return Array.from(new Set(normalized));
+  };
+  
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -275,10 +294,17 @@ const SystemPromptsPage = React.memo(() => {
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<any>(null);
   const [contextMenuAnchor, setContextMenuAnchor] = useState<null | HTMLElement>(null);
+  
+  // Error notification state
+  const [errorSnackbar, setErrorSnackbar] = useState<{open: boolean; message: string}>({
+    open: false,
+    message: ''
+  });
   
   // View/Edit form state
   const [viewEditForm, setViewEditForm] = useState({
@@ -399,7 +425,7 @@ const SystemPromptsPage = React.memo(() => {
           name: systemPromptForm.name.trim(),
           description: systemPromptForm.description.trim() || undefined,
           content: systemPromptForm.content.trim(),
-          categories: systemPromptForm.categories.trim() ? systemPromptForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : [],
+          categories: normalizeCategories(systemPromptForm.categories),
           isBuiltIn: false,
           isDefault: false,
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
@@ -413,6 +439,10 @@ const SystemPromptsPage = React.memo(() => {
       setSystemPromptForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error creating system prompt:', error);
+      setErrorSnackbar({
+        open: true,
+        message: 'Failed to create system prompt. Please try again.'
+      });
     } finally {
       setIsCreating(false);
     }
@@ -429,7 +459,7 @@ const SystemPromptsPage = React.memo(() => {
           name: systemPromptForm.name.trim(),
           description: systemPromptForm.description.trim() || undefined,
           content: systemPromptForm.content.trim(),
-          categories: systemPromptForm.categories.trim() ? systemPromptForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : [],
+          categories: normalizeCategories(systemPromptForm.categories),
           tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
           updatedAt: new Date().toISOString()
         }, 
@@ -441,6 +471,10 @@ const SystemPromptsPage = React.memo(() => {
       setSystemPromptForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error updating system prompt:', error);
+      setErrorSnackbar({
+        open: true,
+        message: 'Failed to update system prompt. Please try again.'
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -481,7 +515,7 @@ const SystemPromptsPage = React.memo(() => {
           name: viewEditForm.name.trim(),
           description: viewEditForm.description.trim() || undefined,
           content: viewEditForm.content.trim(),
-          categories: viewEditForm.categories.trim() ? viewEditForm.categories.trim().split(',').map(cat => cat.trim()).filter(cat => cat) : []
+          categories: normalizeCategories(viewEditForm.categories)
         },
         profileId: currentProfile.id 
       })).unwrap();
@@ -491,6 +525,10 @@ const SystemPromptsPage = React.memo(() => {
       setViewEditForm({ name: '', description: '', content: '', categories: '' });
     } catch (error) {
       console.error('Error updating system prompt:', error);
+      setErrorSnackbar({
+        open: true,
+        message: 'Failed to update system prompt. Please try again.'
+      });
     } finally {
       setIsUpdating(false); // Changed from isViewEditing to isUpdating
     }
@@ -537,9 +575,29 @@ const SystemPromptsPage = React.memo(() => {
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-            System Prompts
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600 }}>
+              System Prompts
+            </Typography>
+            <Link
+              component="button"
+              variant="body2"
+              onClick={() => setHelpModalOpen(true)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                textDecoration: 'none',
+                color: 'primary.main',
+                '&:hover': {
+                  textDecoration: 'underline'
+                }
+              }}
+            >
+              <HelpOutlineIcon fontSize="small" />
+              What are "System Prompts"?
+            </Link>
+          </Box>
           <Typography variant="body1" color="text.secondary">
             Manage system prompts that define AI behavior and personality for your conversations
           </Typography>
@@ -902,6 +960,29 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Help Modal */}
+      <SystemPromptHelpModal
+        open={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
+
+      {/* Error Notification Snackbar */}
+      <Snackbar
+        open={errorSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setErrorSnackbar({ open: false, message: '' })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setErrorSnackbar({ open: false, message: '' })}
+          severity="error"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {errorSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 });
