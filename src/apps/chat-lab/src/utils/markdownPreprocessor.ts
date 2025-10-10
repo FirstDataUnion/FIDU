@@ -95,13 +95,16 @@ export function preprocessMarkdown(
     
     // Handle different types of line breaks:
     // 1. Replace 3+ consecutive newlines with exactly 2 newlines (paragraph breaks)
+    // BUT avoid creating paragraph breaks before lists
     tempProcessed = tempProcessed.replace(/\n{3,}/g, '\n\n');
     
-    // 2. Convert single newlines to markdown hard breaks (two spaces + newline)
-    // This preserves intentional line breaks within paragraphs
-    tempProcessed = tempProcessed.replace(/([^\n])\n([^\n])/g, '$1  \n$2');
+    // 2. Fix paragraph breaks before lists - convert \n\n before lists to single \n
+    tempProcessed = tempProcessed.replace(/\n\n(?=\s*[-*+]\s|\s*\d+\.\s)/g, '\n');
     
-    // 3. Ensure blank lines (double newlines) remain as paragraph breaks
+    // 3. Skip adding hard breaks to single newlines - let ReactMarkdown handle them naturally
+    // This prevents excessive spacing in lists and other contexts
+    
+    // 4. Ensure blank lines (double newlines) remain as paragraph breaks
     // This is already handled by the above regex patterns
     
     // Restore code blocks
@@ -118,11 +121,11 @@ export function preprocessMarkdown(
     // Look for patterns like "text- item" (hyphen without space) and fix them
     processed = processed.replace(/([a-zA-Z0-9])-\s+([A-Za-z])/g, '$1\n- $2');
     
-    // Handle numbered lists that might be missing proper spacing
-    processed = processed.replace(/(\d+\.\s)/g, '\n$1');
+    // Skip adding newlines before numbered lists - this causes spacing issues
+    // processed = processed.replace(/(\d+\.\s)/g, '\n$1');
     
-    // Ensure proper spacing after headers
-    processed = processed.replace(/(#{1,6}\s.*?)(\n|$)/g, '$1\n\n');
+    // Skip adding double newlines after headers - this causes spacing issues  
+    // processed = processed.replace(/(#{1,6}\s.*?)(\n|$)/g, '$1\n\n');
   }
   
   // Fix spacing issues - be more conservative
@@ -132,6 +135,8 @@ export function preprocessMarkdown(
       .replace(/\n[ \t]+/g, '\n') // Remove leading spaces/tabs on new lines, but preserve newlines
       .replace(/[ \t]+\n/g, '\n'); // Remove trailing spaces/tabs before newlines, but preserve newlines
   }
+  
+  
   
   return processed;
 }

@@ -4,8 +4,6 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
   Box,
   IconButton,
@@ -33,23 +31,19 @@ import { preprocessMarkdown } from '../../utils/markdownPreprocessor';
 import 'katex/dist/katex.min.css';
 
 /**
- * Decode HTML entities in text
- */
-function decodeHtmlEntities(text: string): string {
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = text;
-  return textarea.value;
-}
-
-/**
- * Enhanced Markdown Renderer Component
+ * Enhanced Markdown Component with advanced features
  * 
- * Provides intelligent markdown rendering with:
- * - Smart preprocessing to fix common AI-generated formatting issues
+ * Features:
  * - Syntax highlighting for code blocks
- * - Copy-to-clipboard functionality
- * - Responsive design
- * - Accessibility features
+ * - Copy buttons for code blocks
+ * - Enhanced tables with better styling
+ * - Enhanced links with external link indicators
+ * - Enhanced blockquotes with better visual design
+ * - Enhanced lists with better spacing
+ * - Task lists with checkboxes
+ * - Strikethrough text support
+ * - Math rendering with KaTeX
+ * - GitHub Flavored Markdown (GFM) support
  * - Task lists, strikethrough, math, and more
  */
 
@@ -58,124 +52,125 @@ export interface EnhancedMarkdownProps {
   content: string;
   /** Whether to enable syntax highlighting */
   enableSyntaxHighlighting?: boolean;
-  /** Whether to show copy buttons for code blocks */
+  /** Whether to show copy buttons on code blocks */
   showCopyButtons?: boolean;
-  /** Custom CSS classes */
+  /** Additional CSS classes */
   className?: string;
-  /** Additional styling */
+  /** Additional sx styles */
   sx?: any;
   /** Whether to preprocess the content */
   preprocess?: boolean;
 }
 
 /**
- * Copy button component for code blocks
- */
-const CopyButton: React.FC<{ 
-  content: string; 
-  size?: 'small' | 'medium';
-}> = ({ content, size = 'small' }) => {
-  const [copied, setCopied] = useState(false);
-  
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text:', err);
-    }
-  }, [content]);
-  
-  return (
-    <Tooltip title={copied ? 'Copied!' : 'Copy code'}>
-      <IconButton
-        size={size}
-        onClick={handleCopy}
-        sx={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          backgroundColor: 'rgba(0, 0, 0, 0.1)',
-          '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
-          },
-        }}
-      >
-        {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
-      </IconButton>
-    </Tooltip>
-  );
-};
-
-/**
- * Enhanced code block component with syntax highlighting and copy functionality
+ * Enhanced Code Block Component with copy functionality
  */
 const CodeBlock: React.FC<{
   node?: any;
   inline?: boolean;
   className?: string;
-  children?: React.ReactNode;
+  children: React.ReactNode;
   showCopyButton?: boolean;
-}> = ({ node: _node, inline, className, children, showCopyButton = true }) => {
+}> = ({ node, inline, className, children, showCopyButton = true }) => {
+  const [copied, setCopied] = useState(false);
   const theme = useTheme();
-  const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : '';
-  const codeContent = String(children).replace(/\n$/, '');
-  
-  if (!inline && match) {
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(String(children));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+    }
+  }, [children]);
+
+  if (inline) {
     return (
-      <Box sx={{ position: 'relative', margin: '16px 0' }}>
-        {showCopyButton && <CopyButton content={codeContent} />}
-        <SyntaxHighlighter
-          style={theme.palette.mode === 'dark' ? oneDark : oneLight}
-          language={language}
-          PreTag="div"
-          customStyle={{
-            margin: 0,
-            borderRadius: '8px',
-            fontSize: '0.875rem',
-            lineHeight: 1.5,
-          }}
-        >
-          {codeContent}
-        </SyntaxHighlighter>
-      </Box>
+      <code
+        style={{
+          backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          padding: '2px 4px',
+          borderRadius: '4px',
+          fontSize: '0.9em',
+          fontFamily: 'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        }}
+      >
+        {children}
+      </code>
     );
   }
-  
+
+  const language = className?.replace('language-', '') || '';
+
   return (
-    <code
-      className={className}
-      style={{
-        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-        padding: '2px 4px',
-        borderRadius: '4px',
-        fontSize: '0.875em',
-        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+    <Box
+      sx={{
+        position: 'relative',
+        backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        margin: '16px 0',
       }}
     >
-      {children}
-    </code>
+      {showCopyButton && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 1,
+          }}
+        >
+          <Tooltip title={copied ? 'Copied!' : 'Copy code'}>
+            <IconButton
+              size="small"
+              onClick={handleCopy}
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                },
+              }}
+            >
+              {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+      <pre
+        style={{
+          margin: 0,
+          padding: '16px',
+          overflow: 'auto',
+          fontSize: '14px',
+          lineHeight: 1.5,
+          fontFamily: 'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        }}
+      >
+        <code className={className}>{children}</code>
+      </pre>
+    </Box>
   );
 };
 
 /**
- * Enhanced table component with better styling
+ * Enhanced Table Component
  */
 const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const theme = useTheme();
   
   return (
-    <Paper 
-      elevation={1} 
-      sx={{ 
-        margin: '16px 0', 
+    <Paper
+      elevation={1}
+      sx={{
         overflow: 'hidden',
+        margin: '16px 0',
         border: `1px solid ${theme.palette.divider}`,
       }}
     >
-      <Table size="small">
+      <Table sx={{ minWidth: 650 }}>
         {children}
       </Table>
     </Paper>
@@ -183,12 +178,9 @@ const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 };
 
 /**
- * Enhanced link component with external link indicators
+ * Enhanced Link Component
  */
-const EnhancedLink: React.FC<{
-  href?: string;
-  children: React.ReactNode;
-}> = ({ href, children }) => {
+const EnhancedLink: React.FC<{ href?: string; children: React.ReactNode }> = ({ href, children }) => {
   const isExternal = href?.startsWith('http');
   
   return (
@@ -213,7 +205,7 @@ const EnhancedLink: React.FC<{
 };
 
 /**
- * Enhanced blockquote component
+ * Enhanced Blockquote Component
  */
 const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const theme = useTheme();
@@ -224,10 +216,8 @@ const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children 
         borderLeft: `4px solid ${theme.palette.primary.main}`,
         paddingLeft: 2,
         margin: '16px 0',
-        backgroundColor: theme.palette.mode === 'dark' 
-          ? 'rgba(255, 255, 255, 0.05)' 
-          : 'rgba(0, 0, 0, 0.05)',
-        padding: 2,
+        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        padding: '12px 16px',
         borderRadius: '0 8px 8px 0',
         fontStyle: 'italic',
       }}
@@ -238,24 +228,18 @@ const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 /**
- * Enhanced list components with task list support
+ * Enhanced List Component
  */
-const EnhancedList: React.FC<{ 
-  children: React.ReactNode;
-  ordered?: boolean;
-}> = ({ children, ordered = false }) => {
+const EnhancedList: React.FC<{ children: React.ReactNode; ordered?: boolean }> = ({ children, ordered = false }) => {
   const Component = ordered ? 'ol' : 'ul';
   
   return (
     <Box
       component={Component}
       sx={{
-        margin: '16px 0',
-        paddingLeft: 3,
-        '& li': {
-          marginBottom: '8px',
-          lineHeight: 1.6,
-        },
+        marginTop: '8px',
+        marginBottom: '16px',
+        paddingLeft: '20px',
       }}
     >
       {children}
@@ -264,25 +248,24 @@ const EnhancedList: React.FC<{
 };
 
 /**
- * Task list item component
+ * Task List Item Component
  */
-const TaskListItem: React.FC<{
-  checked?: boolean;
-  children: React.ReactNode;
-}> = ({ checked = false, children }) => {
+const TaskListItem: React.FC<{ children: React.ReactNode; checked: boolean }> = ({ children, checked }) => {
   return (
-    <ListItem sx={{ paddingLeft: 0, paddingRight: 0 }}>
-      <Checkbox 
-        checked={checked} 
-        disabled 
+    <ListItem sx={{ padding: 0, alignItems: 'flex-start' }}>
+      <Checkbox
+        checked={checked}
+        disabled
         size="small"
-        sx={{ marginRight: 1, padding: 0 }}
+        sx={{ marginRight: 1, marginTop: 0.5 }}
       />
-      <ListItemText 
+      <ListItemText
         primary={children}
         sx={{ 
-          textDecoration: checked ? 'line-through' : 'none',
-          opacity: checked ? 0.7 : 1,
+          '& .MuiListItemText-primary': {
+            textDecoration: checked ? 'line-through' : 'none',
+            opacity: checked ? 0.7 : 1,
+          }
         }}
       />
     </ListItem>
@@ -290,7 +273,7 @@ const TaskListItem: React.FC<{
 };
 
 /**
- * Strikethrough text component
+ * Strikethrough Component
  */
 const Strikethrough: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -299,6 +282,15 @@ const Strikethrough: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     </span>
   );
 };
+
+/**
+ * Decode HTML entities
+ */
+function decodeHtmlEntities(text: string): string {
+  const textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+}
 
 /**
  * Main Enhanced Markdown Component
@@ -323,14 +315,13 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
   const hasParagraphBreaks = processedContent.includes('\n\n');
   
   
-  
   return (
     <Box
       className={className}
       sx={{
         '& h1, & h2, & h3, & h4, & h5, & h6': {
-          marginTop: '24px',
-          marginBottom: '16px',
+          marginTop: '16px',
+          marginBottom: '8px',
           fontWeight: 600,
           lineHeight: 1.25,
         },
@@ -352,18 +343,31 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
           fontSize: '1rem',
         },
         '& p': {
-          marginBottom: '8px',
-          lineHeight: 1.6,
+          marginBottom: '6px',
+          lineHeight: 1.5,
         },
         '& hr': {
-          margin: '24px 0',
+          margin: '12px 0',
           border: 'none',
           borderTop: `1px solid ${theme.palette.divider}`,
         },
         '& pre': {
-          margin: '16px 0',
+          margin: '8px 0',
           borderRadius: '8px',
           overflow: 'auto',
+        },
+        // List styling to reduce spacing
+        '& ul, & ol': {
+          marginTop: '4px',
+          marginBottom: '8px',
+          paddingLeft: '20px',
+        },
+        '& li': {
+          marginBottom: '2px',
+          lineHeight: 1.4,
+        },
+        '& li:last-child': {
+          marginBottom: 0,
         },
         // Math styling
         '& .katex': {
@@ -374,22 +378,12 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
     >
       {(() => {
         try {
-          // If we have paragraph breaks, try a simpler approach with white-space preservation
-          if (hasParagraphBreaks) {
-            // First try: Use white-space: pre-wrap to preserve line breaks
-            return (
-              <Box
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: 1.6,
-                  '& p': { marginBottom: '8px' },
-                  '& p:last-child': { marginBottom: 0 },
-                }}
-              >
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex, rehypeRaw]}
-                  components={{
+          // Use default ReactMarkdown rendering for all content
+          return (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex, rehypeRaw]}
+              components={{
                     // Code blocks with syntax highlighting
                     code: ({ node, inline, className, children, ...props }: any) => (
                       <CodeBlock
@@ -449,16 +443,16 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
                       </EnhancedBlockquote>
                     ),
                     
-                    // Enhanced lists
+                    // Enhanced lists with tighter spacing
                     ul: ({ children, ...props }) => (
-                      <EnhancedList {...props}>
+                      <Box component="ul" sx={{ margin: 0, paddingLeft: '20px', '& li': { marginBottom: '1px' } }} {...props}>
                         {children}
-                      </EnhancedList>
+                      </Box>
                     ),
                     ol: ({ children, ...props }) => (
-                      <EnhancedList ordered {...props}>
+                      <Box component="ol" sx={{ margin: 0, paddingLeft: '20px', '& li': { marginBottom: '1px' } }} {...props}>
                         {children}
-                      </EnhancedList>
+                      </Box>
                     ),
                     
                     // Task list items
@@ -490,133 +484,7 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
                 >
                   {processedContent}
                 </ReactMarkdown>
-              </Box>
-            );
-          }
-          
-          // Default ReactMarkdown rendering for content without paragraph breaks
-          return (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex, rehypeRaw]}
-              components={{
-                // Code blocks with syntax highlighting
-                code: ({ node, inline, className, children, ...props }: any) => (
-                  <CodeBlock
-                    node={node}
-                    inline={inline}
-                    className={className}
-                    showCopyButton={showCopyButtons && !inline}
-                    {...props}
-                  >
-                    {children}
-                  </CodeBlock>
-                ),
-                
-                // Enhanced tables
-                table: ({ children, ...props }) => (
-                  <EnhancedTable {...props}>
-                    {children}
-                  </EnhancedTable>
-                ),
-                thead: ({ children, ...props }) => (
-                  <TableHead {...props}>
-                    {children}
-                  </TableHead>
-                ),
-                tbody: ({ children, ...props }) => (
-                  <TableBody {...props}>
-                    {children}
-                  </TableBody>
-                ),
-                tr: ({ children, ...props }) => (
-                  <TableRow {...props}>
-                    {children}
-                  </TableRow>
-                ),
-                th: ({ children, ...props }) => (
-                  <TableCell {...props} component="th" sx={{ fontWeight: 600 }} align="left">
-                    {children}
-                  </TableCell>
-                ),
-                td: ({ children, ...props }) => (
-                  <TableCell {...props} align="left">
-                    {children}
-                  </TableCell>
-                ),
-                
-                // Enhanced links
-                a: ({ href, children, ...props }) => (
-                  <EnhancedLink href={href} {...props}>
-                    {children}
-                  </EnhancedLink>
-                ),
-                
-                // Enhanced blockquotes
-                blockquote: ({ children, ...props }) => (
-                  <EnhancedBlockquote {...props}>
-                    {children}
-                  </EnhancedBlockquote>
-                ),
-                
-                // Enhanced lists
-                ul: ({ children, ...props }) => (
-                  <EnhancedList {...props}>
-                    {children}
-                  </EnhancedList>
-                ),
-                ol: ({ children, ...props }) => (
-                  <EnhancedList ordered {...props}>
-                    {children}
-                  </EnhancedList>
-                ),
-                
-                // Task list items
-                li: ({ children, ...props }: any) => {
-                  // Check if this is a task list item
-                  const text = String(children);
-                  if (text.includes('[x]') || text.includes('[ ]')) {
-                    const checked = text.includes('[x]');
-                    const cleanText = text.replace(/^\s*\[[x ]\]\s*/, '');
-                    return (
-                      <TaskListItem checked={checked}>
-                        {cleanText}
-                      </TaskListItem>
-                    );
-                  }
-                  return <li {...props}>{children}</li>;
-                },
-                
-                // Strikethrough
-                del: ({ children, ...props }) => (
-                  <Strikethrough {...props}>
-                    {children}
-                  </Strikethrough>
-                ),
-                
-                // Enhanced paragraph component to ensure proper spacing
-                p: ({ children, ...props }) => (
-                  <Box
-                    component="p"
-                    sx={{
-                      marginBottom: '16px',
-                      lineHeight: 1.6,
-                      display: 'block',
-                      '&:last-child': { marginBottom: 0 },
-                    }}
-                    {...props}
-                  >
-                    {children}
-                  </Box>
-                ),
-                
-                // Horizontal rules
-                hr: ({ ...props }) => <Divider {...props} />,
-              }}
-            >
-              {processedContent}
-            </ReactMarkdown>
-          );
+              );
         } catch (error) {
           console.error('Error rendering markdown:', error);
           return (
