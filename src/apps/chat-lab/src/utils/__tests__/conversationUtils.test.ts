@@ -182,10 +182,10 @@ describe('conversationUtils', () => {
       expect(formatMessageContent(undefined as any)).toBe('');
     });
 
-    it('should replace multiple consecutive newlines with single newlines', () => {
+    it('should replace multiple consecutive newlines with double newlines (paragraph breaks)', () => {
       const content = 'Line 1\n\n\n\nLine 2';
       const result = formatMessageContent(content);
-      expect(result).toBe('Line 1\nLine 2');
+      expect(result).toBe('Line 1\n\nLine 2');
     });
 
     it('should preserve markdown formatting', () => {
@@ -200,10 +200,10 @@ describe('conversationUtils', () => {
       expect(result).toBe('```javascript\nconst x = 1;\n```');
     });
 
-    it('should add proper spacing for numbered lists', () => {
+    it('should not add leading newlines for numbered lists', () => {
       const content = '1. First item\n2. Second item';
       const result = formatMessageContent(content);
-      expect(result).toBe('\n1. First item\n2. Second item');
+      expect(result).toBe('1. First item\n2. Second item');
     });
 
     it('should add proper spacing for bullet points', () => {

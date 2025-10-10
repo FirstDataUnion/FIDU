@@ -42,6 +42,7 @@ export const useGoogleDriveAuthCompatibility = (): GoogleDriveAuthState => {
     error: unifiedStorage.googleDrive.error,
     showAuthModal: unifiedStorage.googleDrive.showAuthModal,
     expiresAt: unifiedStorage.googleDrive.expiresAt,
+    hasInsufficientPermissions: false, // TODO: Add to unified storage state when needed
   };
 };
 

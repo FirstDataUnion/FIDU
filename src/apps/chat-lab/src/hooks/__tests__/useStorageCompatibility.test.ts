@@ -157,6 +157,7 @@ describe('useStorageCompatibility', () => {
         error: null,
         showAuthModal: false,
         expiresAt: 1234567890,
+        hasInsufficientPermissions: false,
       });
     });
 
@@ -194,6 +195,7 @@ describe('useStorageCompatibility', () => {
         error: null,
         showAuthModal: false,
         expiresAt: null,
+        hasInsufficientPermissions: false,
       });
     });
   });
