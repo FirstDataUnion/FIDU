@@ -20,7 +20,7 @@ export const initializeGoogleDriveAuth = createAsyncThunk(
         };
       }
 
-      const authService = getGoogleDriveAuthService();
+      const authService = await getGoogleDriveAuthService();
       await authService.initialize();
       
       const status = authService.getAuthStatus();
@@ -40,7 +40,7 @@ export const authenticateGoogleDrive = createAsyncThunk(
   'googleDriveAuth/authenticate',
   async (_, { rejectWithValue }) => {
     try {
-      const authService = getGoogleDriveAuthService();
+      const authService = await getGoogleDriveAuthService();
       await authService.authenticate();
       // The page will redirect, so we won't reach here
       return { isAuthenticated: true };
@@ -66,7 +66,7 @@ export const checkGoogleDriveAuthStatus = createAsyncThunk(
         };
       }
 
-      const authService = getGoogleDriveAuthService();
+      const authService = await getGoogleDriveAuthService();
       // Ensure auth service is initialized before checking status
       await authService.initialize();
       const status = authService.getAuthStatus();
@@ -87,7 +87,7 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
   'googleDriveAuth/revokeAccess',
   async (_, { rejectWithValue }) => {
     try {
-      const authService = getGoogleDriveAuthService();
+      const authService = await getGoogleDriveAuthService();
       await authService.revokeAccess();
       
       return {

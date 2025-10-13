@@ -57,7 +57,7 @@ const OAuthCallbackPage: React.FC = () => {
         
         // Process OAuth callback directly
         serverLogger.info('🔍 Processing OAuth callback directly...');
-        const authService = getGoogleDriveAuthService();
+        const authService = await getGoogleDriveAuthService();
         
         // Process the callback using the dedicated callback method
         await Promise.race([

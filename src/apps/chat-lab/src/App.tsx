@@ -40,6 +40,7 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
+const WhatsNewPage = React.lazy(() => import('./pages/WhatsNewPage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -433,6 +434,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                   <Route path="/terms-of-use" element={<TermsOfUsePage />} />
+                  <Route path="/whats-new" element={<WhatsNewPage />} />
                   <Route path="/cloud-test" element={<CloudModeTest />} />
                   <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 </Routes>

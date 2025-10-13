@@ -4,7 +4,7 @@
 
 ## 1. Introduction
 
-FIDU Chat Lab is a privacy-first conversational AI interface developed by First International Data Union (FIDU). This privacy policy explains how we collect, use, store, and protect your data when you use the Chat Lab application.
+FIDU Chat Lab is a data-control-first conversational AI interface developed by First International Data Union (FIDU). This privacy policy explains how we collect, use, store, and protect your data when you use the Chat Lab application.
 
 **Core Principles:**
 - **Data Sovereignty:** You control where your data is stored

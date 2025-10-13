@@ -47,7 +47,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       // Initialize Google Drive authentication
-      this.authService = getGoogleDriveAuthService();
+      this.authService = await getGoogleDriveAuthService();
       await this.authService.initialize();
 
       if (!this.authService.isAuthenticated()) {

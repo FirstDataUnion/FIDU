@@ -7,3 +7,4 @@ jinja2==3.1.6
 httpx==0.28.1
 prometheus-client==0.21.0
 PyYAML==6.0.2
+hvac==2.3.0

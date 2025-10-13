@@ -309,6 +309,119 @@ export class GoogleDriveAuthService {
   }
 
   private async exchangeCodeForTokens(code: string): Promise<GoogleDriveTokens> {
+    // Try to use backend endpoint for secure token exchange (production)
+    // Falls back to direct Google OAuth for local development
+    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
+      ? '/fidu-chat-lab' 
+      : '';
+    
+    try {
+      const response = await fetch(`${basePath}/api/oauth/exchange-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code,
+          redirect_uri: this.config.redirectUri,
+        }),
+        // Short timeout to quickly detect if backend is unavailable
+        signal: this.createTimeoutSignal(5000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        const tokens = {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresAt: Date.now() + (data.expires_in * 1000),
+          scope: data.scope
+        };
+        
+        // Validate that we received the required scopes
+        this.validateScopes(tokens.scope);
+        
+        console.log('✅ Token exchange via backend (secure)');
+        return tokens;
+      }
+      
+      // Backend returned error (400/500) - don't fall back, this is a backend issue
+      if (response.status >= 400) {
+        const errorText = await response.text();
+        throw new Error(`Backend OAuth error (${response.status}): ${errorText}`);
+      }
+    } catch (error: any) {
+      // Only fall back on network/timeout errors
+      // Backend errors should be thrown, not trigger fallback
+      if (error.name === 'AbortError' || error.name === 'TypeError' || 
+          error.message?.includes('fetch') || error.message?.includes('network')) {
+        console.warn('⚠️ Backend not available (timeout/network), falling back to direct OAuth');
+        return this.exchangeCodeForTokensDirect(code);
+      }
+      
+      // Propagate backend errors
+      throw error;
+    }
+
+    // Shouldn't reach here
+    throw new Error('Unexpected state in token exchange');
+  }
+
+  /**
+   * Create a timeout signal for fetch requests
+   * Provides fallback for browsers without AbortSignal.timeout support
+   */
+  private createTimeoutSignal(ms: number): AbortSignal {
+    // Use native timeout if available (Chrome/Edge/Firefox 103+, Safari 16+)
+    if (typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(ms);
+    }
+    
+    // Fallback for older browsers
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), ms);
+    return controller.signal;
+  }
+
+  /**
+   * Direct token exchange with Google (fallback for local development)
+   * Only used when backend is not available
+   * 
+   * SECURITY WARNING: This method exposes client secret in the browser.
+   * Only use for local development. Never deploy with VITE_GOOGLE_CLIENT_SECRET
+   * set in production environment variables.
+   */
+  private async exchangeCodeForTokensDirect(code: string): Promise<GoogleDriveTokens> {
+    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+    
+    if (!clientSecret) {
+      throw new Error(
+        'Backend unavailable and VITE_GOOGLE_CLIENT_SECRET not set. ' +
+        'Either start the backend server or set VITE_GOOGLE_CLIENT_SECRET for local development.'
+      );
+    }
+
+    // CRITICAL: Warn if using direct OAuth in production build
+    if (import.meta.env.PROD) {
+      console.error(
+        '🚨 SECURITY WARNING: Using direct OAuth in production build!\n' +
+        'This means VITE_GOOGLE_CLIENT_SECRET is set in production environment.\n' +
+        'Client secret should NEVER be in production builds.\n' +
+        'Backend should handle OAuth in production for security.'
+      );
+      
+      // Optional: Fail fast if strict mode enabled
+      if (import.meta.env.VITE_DISABLE_INSECURE_FALLBACK === 'true') {
+        throw new Error(
+          'Insecure OAuth fallback is disabled in production. ' +
+          'Backend must be available for secure token exchange.'
+        );
+      }
+    }
+
+    console.log('🔧 Using direct OAuth exchange (development mode)');
+    
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -316,7 +429,7 @@ export class GoogleDriveAuthService {
       },
       body: new URLSearchParams({
         client_id: this.config.clientId,
-        client_secret: this.getClientSecret(),
+        client_secret: clientSecret,
         code: code,
         grant_type: 'authorization_code',
         redirect_uri: this.config.redirectUri,
@@ -325,7 +438,7 @@ export class GoogleDriveAuthService {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Token exchange failed: ${error}`);
+      throw new Error(`Direct token exchange failed: ${error}`);
     }
 
     const data = await response.json();
@@ -402,6 +515,86 @@ export class GoogleDriveAuthService {
   }
 
   private async performTokenRefresh(): Promise<string> {
+    // Try to use backend endpoint for secure token refresh (production)
+    // Falls back to direct Google OAuth for local development
+    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
+      ? '/fidu-chat-lab' 
+      : '';
+    
+    try {
+      const response = await fetch(`${basePath}/api/oauth/refresh-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refresh_token: this.tokens!.refreshToken!,
+        }),
+        // Short timeout to quickly detect if backend is unavailable
+        signal: this.createTimeoutSignal(5000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update tokens
+        this.tokens!.accessToken = data.access_token;
+        this.tokens!.expiresAt = Date.now() + (data.expires_in * 1000);
+        
+        // Store updated tokens
+        this.storeTokens(this.tokens!);
+
+        console.log('✅ Token refresh via backend (secure)');
+        return data.access_token;
+      }
+      
+      // Backend returned error (400/500) - don't fall back
+      if (response.status >= 400) {
+        const errorText = await response.text();
+        throw new Error(`Backend token refresh error (${response.status}): ${errorText}`);
+      }
+    } catch (error: any) {
+      // Only fall back on network/timeout errors
+      if (error.name === 'AbortError' || error.name === 'TypeError' ||
+          error.message?.includes('fetch') || error.message?.includes('network')) {
+        console.warn('⚠️ Backend not available (timeout/network), falling back to direct OAuth');
+        return this.refreshTokenDirect();
+      }
+      
+      // Propagate backend errors
+      throw error;
+    }
+
+    // Shouldn't reach here
+    throw new Error('Unexpected state in token refresh');
+  }
+
+  /**
+   * Direct token refresh with Google (fallback for local development)
+   * Only used when backend is not available
+   * 
+   * SECURITY WARNING: This method exposes client secret in the browser.
+   * Only use for local development.
+   */
+  private async refreshTokenDirect(): Promise<string> {
+    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+    
+    if (!clientSecret) {
+      throw new Error(
+        'Backend unavailable and VITE_GOOGLE_CLIENT_SECRET not set. ' +
+        'Either start the backend server or set VITE_GOOGLE_CLIENT_SECRET for local development.'
+      );
+    }
+
+    // Warn if using direct OAuth in production
+    if (import.meta.env.PROD) {
+      console.error(
+        '🚨 SECURITY WARNING: Using direct token refresh in production build!'
+      );
+    }
+
+    console.log('🔧 Using direct token refresh (development mode)');
+    
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -409,7 +602,7 @@ export class GoogleDriveAuthService {
       },
       body: new URLSearchParams({
         client_id: this.config.clientId,
-        client_secret: this.getClientSecret(),
+        client_secret: clientSecret,
         refresh_token: this.tokens!.refreshToken!,
         grant_type: 'refresh_token',
       }),
@@ -417,7 +610,7 @@ export class GoogleDriveAuthService {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Token refresh failed: ${error}`);
+      throw new Error(`Direct token refresh failed: ${error}`);
     }
 
     const data = await response.json();
@@ -462,16 +655,6 @@ export class GoogleDriveAuthService {
     if (!response.ok) {
       throw new Error('Failed to revoke token');
     }
-  }
-
-  private getClientSecret(): string {
-    // In a real app, you'd get this from environment variables
-    // Add to config
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-    if (!clientSecret) {
-      throw new Error('Google Client Secret not configured');
-    }
-    return clientSecret;
   }
 
   private loadStoredTokens(): void {
@@ -529,20 +712,52 @@ export class GoogleDriveAuthService {
 // Singleton instance
 let authServiceInstance: GoogleDriveAuthService | null = null;
 
-export function getGoogleDriveAuthService(): GoogleDriveAuthService {
+/**
+ * Fetch Google Client ID from backend configuration
+ */
+async function fetchGoogleClientId(): Promise<string> {
+  try {
+    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
+      ? '/fidu-chat-lab' 
+      : '';
+    const response = await fetch(`${basePath}/api/config`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.googleClientId) {
+      throw new Error('Google Client ID not in config response');
+    }
+
+    console.log('✅ Google Client ID fetched from backend');
+    return data.googleClientId;
+  } catch (error) {
+    console.warn('Failed to fetch Google Client ID from backend, falling back to env:', error);
+    
+    // Fall back to environment variable
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new Error('Google Client ID not configured in backend or environment variables');
+    }
+    return clientId;
+  }
+}
+
+export async function getGoogleDriveAuthService(): Promise<GoogleDriveAuthService> {
   if (!authServiceInstance) {
+    // Fetch client ID from backend (which may come from OpenBao)
+    const clientId = await fetchGoogleClientId();
+
     const config: GoogleDriveAuthConfig = {
-      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+      clientId,
       redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
       scopes: [
         'https://www.googleapis.com/auth/drive.appdata',
         'https://www.googleapis.com/auth/userinfo.email'
       ]
     };
-
-    if (!config.clientId) {
-      throw new Error('Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID environment variable.');
-    }
 
     authServiceInstance = new GoogleDriveAuthService(config);
   }

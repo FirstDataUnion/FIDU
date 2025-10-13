@@ -184,16 +184,17 @@ cp -r dist "$LOCAL_BUILD_DIR/"
 # Copy environment file
 cp "$ENV_FILE" "$LOCAL_BUILD_DIR/.env"
 
-# Copy the Python server file
-echo -e "${BLUE}📄 Copying server.py...${NC}"
-cp server.py "$LOCAL_BUILD_DIR/server.py"
+# Copy the Python backend directory
+echo -e "${BLUE}📄 Copying backend...${NC}"
+cp -r backend "$LOCAL_BUILD_DIR/"
 
-# Create requirements.txt
+# Create requirements.txt with OpenBao support
 cat > "$LOCAL_BUILD_DIR/requirements.txt" << EOF
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+fastapi==0.116.1
+uvicorn[standard]==0.24.0
 httpx==0.28.1
 prometheus-client==0.21.0
+hvac==2.3.0
 EOF
 
 # Create systemd service file
@@ -207,11 +208,12 @@ Type=simple
 User=fidu-chat-lab-${ENVIRONMENT}
 Group=fidu-chat-lab-${ENVIRONMENT}
 WorkingDirectory=${DEPLOY_PATH}
-ExecStart=${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/server.py
+ExecStart=${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/backend/server.py
 Restart=always
 RestartSec=5
 Environment=PORT=${PORT}
 Environment=ENVIRONMENT=${ENVIRONMENT}
+EnvironmentFile=${DEPLOY_PATH}/.env
 
 # Security settings
 NoNewPrivileges=true
@@ -259,7 +261,7 @@ pip install -r requirements.txt
 
 # Set permissions
 chown -R fidu-chat-lab-${ENVIRONMENT}:fidu-chat-lab-${ENVIRONMENT} ${DEPLOY_PATH}
-chmod +x ${DEPLOY_PATH}/server.py
+chmod +x ${DEPLOY_PATH}/backend/server.py
 
 # Install systemd service
 if [ -f ${DEPLOY_PATH}/${SERVICE_NAME}.service ]; then
@@ -328,20 +330,42 @@ If you prefer not to use the installation script:
 
 3. Run the server:
    \`\`\`bash
-   python server.py
+   python backend/server.py
    \`\`\`
+
+## Directory Structure
+
+\`\`\`
+${DEPLOY_PATH}/
+├── dist/                   # Built React frontend
+├── backend/                # Python backend
+│   ├── server.py          # FastAPI server
+│   └── openbao_client.py  # OpenBao integration
+├── venv/                   # Python virtual environment
+├── requirements.txt        # Python dependencies
+└── .env                    # Runtime configuration
+\`\`\`
 
 ## Environment Variables
 
-The following environment variables are baked into the build:
+### Build-time variables (baked into frontend)
+These are set at build time from ${ENV_FILE}:
 - VITE_IDENTITY_SERVICE_URL
 - VITE_GATEWAY_URL
 - VITE_STORAGE_MODE
 - VITE_SYNC_INTERVAL
 - VITE_GOOGLE_CLIENT_ID
-- VITE_GOOGLE_CLIENT_SECRET
 
-These are set at build time from ${ENV_FILE}.
+### Runtime variables (backend uses at startup)
+These are read from server environment or .env file:
+- OPENBAO_ENABLED - Enable OpenBao integration
+- OPENBAO_ADDRESS - OpenBao server URL
+- OPENBAO_TOKEN - OpenBao access token
+- OPENBAO_SECRET_PATH - Path to secrets in OpenBao
+- GOOGLE_CLIENT_ID - Fallback client ID
+- GOOGLE_CLIENT_SECRET - Fallback client secret
+- PORT - Server port (default: ${PORT})
+- ENVIRONMENT - Environment name (${ENVIRONMENT})
 
 ## Systemd Service
 
