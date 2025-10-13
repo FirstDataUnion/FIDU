@@ -236,6 +236,11 @@ Note: Opting out of metrics does not affect your ability to use Chat Lab.
 
 ### 7.2. Third-Party Services We Use
 
+**Natrual Language Processing Ltd.**
+- **Purpose:** Passthrough AI Provider gateway used to orchestrate the execution of user prompts
+- **Data Access:** Anonymised chat bot conversation data. Never stored beyond short lived encrypted caching. 
+- **Privacy Policy:** [NLP Ltd. Policy](https://nlp-processing.com/privacy-policy)
+
 **Google Drive API** 
 - **Purpose:** Store your encrypted conversation data in your Google Drive
 - **Data Access:** Only files created by FIDU Chat Lab

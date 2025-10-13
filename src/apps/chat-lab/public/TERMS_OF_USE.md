@@ -12,7 +12,7 @@ These Terms constitute a legally binding agreement between you and First Interna
 ## 2. Description of Service
 
 FIDU Chat Lab is an **open source**, web-based application that provides:
-- A privacy-focused interface for interacting with AI language models
+- A data-control-focused interface for interacting with AI language models
 - Storage for conversations, contexts, and system prompts
 - Integration with third-party AI services
 - Optional cloud storage via Google Drive
@@ -25,6 +25,10 @@ The Service is designed to give you control over your data while providing a pow
 - You may also download and self-host the open source code
 - These Terms apply only to the hosted service we provide
 - Self-hosted instances are your responsibility
+
+## 2.1 Self Hosted Instances
+
+While the Chat Lab and FIDU Vault are open source and can be self hosted, these services are dependant on the FIDU Identity Service for account and auth management, and our api gateway service for connection to our partners NLP. For security reasons, these services are not part of the open source offering. Hence a self hosted instance will either need to contiue using a FIDU account to access our online offerings, or sufficient modification to remove the dependancy on our identity and gateway servers. Such modifications are acceptable as part of our open source model. 
 
 ## 3. User Accounts
 
@@ -113,19 +117,26 @@ When using AI models through the Service:
 
 ## 7. Third-Party Services
 
-### 7.1. AI Service Providers
+### 7.1. Natural Language Processing (NLP)
+- We partner with Natrual Language Processing (NLP) Ltd. to provide access to a range of AI providers via their agentic workbech
+- Requests from the Chat Lab to AI models are sent to NLP's passthrough service for a level of pre-processing before being sent to the model provider's API 
+- NLP will typically store no information of the passed requests, with the exception of encrypted caching short lived in the case of expensive operations
+- NLP's full privacy policy can be found here: https://nlp-processing.com/privacy-policy
+
+
+### 7.2. AI Service Providers
 - The Service integrates with third-party AI providers (OpenAI, Anthropic, Google, etc.)
 - These providers have their own terms of service and privacy policies
 - We are not responsible for the actions, content, or policies of these providers
 - Your use of these services is governed by their respective terms
 
-### 7.2. Google Drive Integration
+### 7.3. Google Drive Integration
 - If you choose to use Google Drive storage, you grant the Service limited access to your Google Drive
 - We can only access files created by FIDU Chat Lab in your AppData folder
 - Your use of Google Drive is governed by Google's Terms of Service
 - We are not responsible for Google Drive availability, security, or data integrity
 
-### 7.3. No Endorsement
+### 7.4. No Endorsement
 - We do not endorse any third-party services
 - References to third-party services do not constitute endorsement
 - Third-party services may change their terms without notice to us
