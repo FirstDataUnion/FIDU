@@ -5,11 +5,10 @@ Handles secret retrieval from OpenBao with fallback to environment variables.
 
 import os
 import logging
-import time
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-import hvac
-from hvac.exceptions import VaultError, InvalidPath
+import hvac  # type: ignore[import-untyped] # pylint: disable=import-error
+from hvac.exceptions import VaultError, InvalidPath  # type: ignore[import-untyped] # pylint: disable=import-error
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OpenBaoConfig:
     """Configuration for OpenBao connection."""
+
     address: str
     token: str
     mount_path: str = "secret"
@@ -28,6 +28,7 @@ class OpenBaoConfig:
 @dataclass
 class ChatLabSecrets:
     """Secrets required by ChatLab service."""
+
     google_client_id: str
     google_client_secret: str
 
@@ -46,14 +47,14 @@ class OpenBaoClient:
             self.client = hvac.Client(
                 url=self.config.address,
                 token=self.config.token,
-                timeout=self.config.timeout
+                timeout=self.config.timeout,
             )
             logger.info("OpenBao client initialized successfully")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to initialize OpenBao client: %s", e)
             self.client = None
 
-    def test_connection(self) -> bool:
+    def test_connection(self) -> bool:  # pylint: disable=too-many-return-statements
         """Test the connection to OpenBao."""
         if not self.client:
             logger.error("OpenBao client not initialized")
@@ -62,51 +63,57 @@ class OpenBaoClient:
         try:
             # Check if the client is authenticated
             if not self.client.is_authenticated():
-                logger.error("OpenBao authentication failed - check OPENBAO_TOKEN and OPENBAO_ADDRESS")
+                logger.error(
+                    "OpenBao authentication failed - check OPENBAO_TOKEN and OPENBAO_ADDRESS"
+                )
                 return False
 
             # Authentication successful - connection is working
             logger.info("✅ OpenBao connection successful (authenticated)")
-            
+
             # Optionally try to get health status for additional info
             # Note: Some hvac versions return empty/unparseable health responses
             try:
                 health_response = self.client.sys.read_health_status()
-                if hasattr(health_response, 'json'):
+                if hasattr(health_response, "json"):
                     health = health_response.json()
                 elif isinstance(health_response, dict):
                     health = health_response
                 else:
                     # Can't parse health, but connection is working
                     return True
-                
+
                 if health.get("sealed", True):
                     logger.error("OpenBao is sealed")
                     return False
-                
+
                 logger.info("OpenBao version: %s", health.get("version", "unknown"))
             except (ValueError, AttributeError):
                 # Health endpoint response couldn't be parsed, but connection is OK
-                logger.debug("Health endpoint returned unparseable response (this is harmless)")
-            except Exception as e:
+                logger.debug(
+                    "Health endpoint returned unparseable response (this is harmless)"
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 # Health check failed, but authentication worked, so connection is OK
                 logger.debug("Health check failed: %s (connection is still OK)", e)
-            
+
             return True
 
         except VaultError as e:
             logger.error("OpenBao connection test failed (VaultError): %s", e)
             logger.error("Check that OpenBao is running at: %s", self.config.address)
             return False
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Unexpected error testing OpenBao connection: %s", e)
             logger.error("OpenBao address: %s", self.config.address)
             return False
 
-    def get_secrets(self) -> Optional[Dict[str, Any]]:
+    def get_secrets(  # pylint: disable=too-many-return-statements
+        self,
+    ) -> Optional[Dict[str, Any]]:
         """
         Retrieve secrets from OpenBao.
-        
+
         Returns:
             Dictionary of secrets or None if retrieval fails
         """
@@ -117,7 +124,7 @@ class OpenBaoClient:
         try:
             # For KV v2, the path format is: mount_path/data/secret_path
             full_path = f"{self.config.mount_path}/data/{self.config.secret_path}"
-            
+
             response = self.client.read(full_path)
 
             if not response or "data" not in response:
@@ -126,7 +133,7 @@ class OpenBaoClient:
 
             # KV v2 wraps the actual secrets in a "data" field
             secrets_data = response["data"].get("data", {})
-            
+
             if not secrets_data:
                 logger.error("No secrets data found in response")
                 return None
@@ -139,14 +146,14 @@ class OpenBaoClient:
         except VaultError as e:
             logger.error("Failed to read secrets from OpenBao: %s", e)
             return None
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Unexpected error retrieving secrets: %s", e)
             return None
 
     def get_chatlab_secrets(self) -> Optional[ChatLabSecrets]:
         """
         Get ChatLab-specific secrets from OpenBao.
-        
+
         Returns:
             ChatLabSecrets object or None if retrieval fails
         """
@@ -157,9 +164,9 @@ class OpenBaoClient:
         try:
             return ChatLabSecrets(
                 google_client_id=secrets_data.get("google_client_id", ""),
-                google_client_secret=secrets_data.get("google_client_secret", "")
+                google_client_secret=secrets_data.get("google_client_secret", ""),
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to parse ChatLab secrets: %s", e)
             return None
 
@@ -167,17 +174,17 @@ class OpenBaoClient:
 def load_chatlab_secrets_from_openbao() -> ChatLabSecrets:
     """
     Load ChatLab secrets from OpenBao with fallback to environment variables.
-    
+
     This function implements the fallback pattern from the Go implementation:
     1. Try to load from OpenBao if enabled
     2. Fall back to environment variables if OpenBao fails or is disabled
-    
+
     Returns:
         ChatLabSecrets object with secrets from OpenBao or environment variables
     """
     # Check if OpenBao is enabled
     openbao_enabled = os.getenv("OPENBAO_ENABLED", "false").lower() == "true"
-    
+
     if not openbao_enabled:
         logger.info("OpenBao integration disabled, using environment variables")
         return _load_secrets_from_env()
@@ -188,7 +195,7 @@ def load_chatlab_secrets_from_openbao() -> ChatLabSecrets:
         token=os.getenv("OPENBAO_TOKEN", ""),
         mount_path=os.getenv("OPENBAO_MOUNT_PATH", "secret"),
         secret_path=os.getenv("OPENBAO_SECRET_PATH", "fidu/chatlab"),
-        enabled=True
+        enabled=True,
     )
 
     if not config.token:
@@ -198,21 +205,25 @@ def load_chatlab_secrets_from_openbao() -> ChatLabSecrets:
     # Try to load from OpenBao
     try:
         client = OpenBaoClient(config)
-        
+
         # Test connection
         if not client.test_connection():
-            logger.warning("OpenBao connection test failed, falling back to environment variables")
+            logger.warning(
+                "OpenBao connection test failed, falling back to environment variables"
+            )
             return _load_secrets_from_env()
 
         # Get secrets
         secrets = client.get_chatlab_secrets()
         if secrets and secrets.google_client_id and secrets.google_client_secret:
             return secrets
-        else:
-            logger.warning("OpenBao secrets incomplete, falling back to environment variables")
-            return _load_secrets_from_env()
 
-    except Exception as e:
+        logger.warning(
+            "OpenBao secrets incomplete, falling back to environment variables"
+        )
+        return _load_secrets_from_env()
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to load secrets from OpenBao: %s", e)
         logger.info("Falling back to environment variables")
         return _load_secrets_from_env()
@@ -221,12 +232,11 @@ def load_chatlab_secrets_from_openbao() -> ChatLabSecrets:
 def _load_secrets_from_env() -> ChatLabSecrets:
     """
     Load secrets from environment variables (fallback).
-    
+
     Returns:
         ChatLabSecrets object with secrets from environment variables
     """
     return ChatLabSecrets(
         google_client_id=os.getenv("GOOGLE_CLIENT_ID", ""),
-        google_client_secret=os.getenv("GOOGLE_CLIENT_SECRET", "")
+        google_client_secret=os.getenv("GOOGLE_CLIENT_SECRET", ""),
     )
-

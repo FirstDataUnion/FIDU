@@ -5,6 +5,17 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - UNRELEASED
+
+### Added
+- "What is the Chat-Lab?" information dropdown on the storage selection modal for first-time visitors to help them understand the app's purpose and features
+- Proactive token validation on app initialization to detect expired or revoked tokens early
+- Better error handling for refresh token expiration with clear user-facing error messages
+
+### Changed
+- **Google Drive Authentication**: Changed OAuth prompt from `consent` to `select_account` to avoid forcing users to re-authorize on every login. Users will now only need to re-authenticate when they explicitly revoke access or after 6 months of inactivity
+- Improved token refresh logic to handle refresh token expiration gracefully and clear stored tokens when they become invalid
+
 ## [0.1.3] - 2025-10-13
 
 ### Added

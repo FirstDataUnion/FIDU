@@ -31,6 +31,7 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isSelectingDirectory, setIsSelectingDirectory] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
+  const [showAboutChatLab, setShowAboutChatLab] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleDriveAuth = async () => {
@@ -136,6 +137,43 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
       </DialogTitle>
       
       <DialogContent sx={{ backgroundColor: isDarkMode ? '#1E1E1E' : '#F8F9FA', color: isDarkMode ? '#FFFFFF' : '#212121' }}>
+        {/* What is the Chat-Lab? Dropdown */}
+        <Box sx={{ mb: 3, border: 1, borderColor: isDarkMode ? '#404040' : '#E0E0E0', borderRadius: 1, overflow: 'hidden' }}>
+          <Box
+            onClick={() => setShowAboutChatLab(!showAboutChatLab)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              cursor: 'pointer',
+              backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
+              '&:hover': {
+                backgroundColor: isDarkMode ? '#333333' : '#F5F5F5'
+              },
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: isDarkMode ? '#FFFFFF' : '#212121' }}>
+              What is the Chat-Lab?
+            </Typography>
+            {showAboutChatLab ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </Box>
+          <Collapse in={showAboutChatLab}>
+            <Box sx={{ p: 2, pt: 1, backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
+                The Chat Lab is our first foray into an application that could benefit from the personal data store FIDU aims to enable. It is an LLM interface web-app, allowing conversations with a range of leading chatbot models from major providers. It does so with a focus on data control, demonstrating our goal for FIDU backed apps.
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
+                The core concept is that all your conversation data is saved and can be used to assist in different conversations and tasks across all LLM providers. Create contexts for conversations you can re-use for frequently asked topics, system prompts to control the model output can be created and saved, or browse a curated list of open source prompts from other projects.
+              </Typography>
+              <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575' }}>
+                The app is still in early phases, so changes will be happening very frequently, and new features are being added constantly. For up to date info, check out the What's New page on the Chat-Lab itself.
+              </Typography>
+            </Box>
+          </Collapse>
+        </Box>
+
         <Typography variant="body1" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', mb: 3 }}>
           Before you get started, you need to tell us where you'd like to store your chat data:
         </Typography>

@@ -46,6 +46,7 @@ export class GoogleDriveAuthService {
   constructor(config: GoogleDriveAuthConfig) {
     this.config = config;
     this.loadStoredTokens();
+    this.loadUserInfo();
   }
 
   /**
@@ -75,28 +76,50 @@ export class GoogleDriveAuthService {
       return;
     }
 
-    // If we have tokens, try to refresh them if they're close to expiring
+    // If we have tokens, validate and refresh them proactively
     if (this.tokens && this.tokens.refreshToken) {
       const now = Date.now();
       const fiveMinutesFromNow = now + (5 * 60 * 1000);
       
+      // Proactively refresh tokens that are close to expiring
       if (this.tokens.expiresAt <= fiveMinutesFromNow) {
         try {
           console.log('Token expires soon, refreshing automatically');
           await this.refreshAccessToken();
         } catch (error) {
           console.warn('Failed to refresh token during initialization:', error);
+          // Check if this is a refresh token expiration issue
+          if (error instanceof Error && error.message.includes('invalid_grant')) {
+            console.error('Refresh token has expired or been revoked. User needs to re-authenticate.');
+            this.clearStoredTokens();
+            this.tokens = null;
+            this.user = null;
+          }
           // Let the app handle the unauthenticated state
         }
-      }
-      
-      // Load user info if we have valid tokens but no user data
-      if (this.isAuthenticated() && !this.user) {
+      } else {
+        // Even if token is valid, verify it's still working by checking user info
         try {
-          await this.getUser();
+          await this.validateToken();
+          // If validation succeeds, ensure user info is loaded
+          if (!this.user) {
+            await this.getUser();
+          }
         } catch (error) {
-          console.warn('Failed to load user info during initialization:', error);
-          // Let the app handle the missing user info
+          console.warn('Token validation failed, attempting refresh:', error);
+          try {
+            await this.refreshAccessToken();
+            // After successful refresh, load user info
+            if (!this.user) {
+              await this.getUser();
+            }
+          } catch (refreshError) {
+            console.error('Failed to refresh after validation failure:', refreshError);
+            // Clear tokens if refresh fails
+            this.clearStoredTokens();
+            this.tokens = null;
+            this.user = null;
+          }
         }
       }
     }
@@ -186,6 +209,28 @@ export class GoogleDriveAuthService {
   }
 
   /**
+   * Validate that the current access token is still valid
+   * by making a lightweight API call
+   */
+  private async validateToken(): Promise<void> {
+    const accessToken = this.tokens?.accessToken;
+    if (!accessToken) {
+      throw new Error('No access token available for validation');
+    }
+
+    // Make a lightweight call to verify token is still valid
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Token validation failed: ${response.status}`);
+    }
+  }
+
+  /**
    * Get user information
    */
   async getUser(): Promise<GoogleDriveUser> {
@@ -236,7 +281,9 @@ export class GoogleDriveAuthService {
       response_type: 'code',
       scope: this.config.scopes.join(' '),
       access_type: 'offline',
-      prompt: 'consent',
+      // Use 'select_account' instead of 'consent' to avoid forcing re-auth every time
+      // This allows users to stay logged in unless they explicitly revoke access
+      prompt: 'select_account',
       state: this.generateState()
     });
 
@@ -551,6 +598,16 @@ export class GoogleDriveAuthService {
       // Backend returned error (400/500) - don't fall back
       if (response.status >= 400) {
         const errorText = await response.text();
+        
+        // Check if this is a refresh token expiration/revocation error
+        if (errorText.includes('invalid_grant') || errorText.includes('invalid refresh_token')) {
+          console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
+          this.clearStoredTokens();
+          this.tokens = null;
+          this.user = null;
+          throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
+        }
+        
         throw new Error(`Backend token refresh error (${response.status}): ${errorText}`);
       }
     } catch (error: any) {
@@ -610,6 +667,16 @@ export class GoogleDriveAuthService {
 
     if (!response.ok) {
       const error = await response.text();
+      
+      // Check if this is a refresh token expiration/revocation error
+      if (error.includes('invalid_grant') || error.includes('invalid refresh_token')) {
+        console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
+        this.clearStoredTokens();
+        this.tokens = null;
+        this.user = null;
+        throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
+      }
+      
       throw new Error(`Direct token refresh failed: ${error}`);
     }
 
@@ -645,6 +712,31 @@ export class GoogleDriveAuthService {
       name: userData.name,
       picture: userData.picture
     };
+    
+    // Persist user info to localStorage
+    this.storeUserInfo(this.user);
+  }
+  
+  private storeUserInfo(user: GoogleDriveUser): void {
+    try {
+      localStorage.setItem('google_drive_user', JSON.stringify(user));
+      console.log('Stored Google Drive user info to localStorage');
+    } catch (error) {
+      console.warn('Failed to store user info:', error);
+    }
+  }
+  
+  private loadUserInfo(): void {
+    try {
+      const stored = localStorage.getItem('google_drive_user');
+      if (stored) {
+        this.user = JSON.parse(stored);
+        console.log('Loaded Google Drive user info from localStorage');
+      }
+    } catch (error) {
+      console.warn('Failed to load user info:', error);
+      this.user = null;
+    }
   }
 
   private async revokeToken(token: string): Promise<void> {
@@ -706,6 +798,7 @@ export class GoogleDriveAuthService {
 
   private clearStoredTokens(): void {
     localStorage.removeItem('google_drive_tokens');
+    localStorage.removeItem('google_drive_user');
   }
 }
 

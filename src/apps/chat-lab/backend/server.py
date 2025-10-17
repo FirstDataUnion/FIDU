@@ -9,6 +9,8 @@ import time
 import asyncio
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +23,10 @@ from prometheus_client import (
     generate_latest,
     CONTENT_TYPE_LATEST,
 )
-from typing import Optional
-from openbao_client import load_chatlab_secrets_from_openbao, ChatLabSecrets
+from openbao_client import (  # type: ignore[import-not-found] # pylint: disable=import-error
+    load_chatlab_secrets_from_openbao,
+    ChatLabSecrets,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -203,7 +207,7 @@ async def startup_event():
     logger.info("🚀 Starting FIDU Chat Lab (%s) metrics service", ENVIRONMENT)
     logger.info("📊 Environment: %s", ENVIRONMENT)
     logger.info("📍 VictoriaMetrics URL: %s", VM_URL)
-    
+
     # Load secrets from OpenBao with fallback to environment variables
     try:
         logger.info("Loading secrets from OpenBao...")
@@ -215,7 +219,7 @@ async def startup_event():
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("❌ Failed to load secrets: %s", e)
         chatlab_secrets = None
-    
+
     asyncio.create_task(send_metrics_to_victoria())
 
 
@@ -347,25 +351,22 @@ async def get_logs():
 async def get_config():
     """
     Get client configuration.
-    
+
     This endpoint provides the Google OAuth client ID to the frontend.
     The client secret is NEVER exposed - it stays server-side only.
     """
     if not chatlab_secrets:
         raise HTTPException(
             status_code=503,
-            detail="Secrets not available - server may still be initializing"
+            detail="Secrets not available - server may still be initializing",
         )
-    
+
     if not chatlab_secrets.google_client_id:
-        raise HTTPException(
-            status_code=503,
-            detail="Google Client ID not configured"
-        )
-    
+        raise HTTPException(status_code=503, detail="Google Client ID not configured")
+
     return {
         "googleClientId": chatlab_secrets.google_client_id,
-        "environment": ENVIRONMENT
+        "environment": ENVIRONMENT,
     }
 
 
@@ -373,15 +374,15 @@ async def get_config():
 async def exchange_oauth_code(request: Request):
     """
     Exchange OAuth authorization code for tokens (server-side only).
-    
+
     This keeps the client secret secure on the server and never exposes it
     to the frontend. The frontend sends the authorization code, and this
     endpoint handles the secure exchange with Google.
-    
+
     Request body:
         - code: OAuth authorization code from Google
         - redirect_uri: The redirect URI used in the OAuth flow
-    
+
     Returns:
         - access_token: Google access token
         - refresh_token: Google refresh token (if granted)
@@ -392,55 +393,54 @@ async def exchange_oauth_code(request: Request):
         data = await request.json()
         code = data.get("code")
         redirect_uri = data.get("redirect_uri")
-        
+
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code")
-        
+
         if not redirect_uri:
             raise HTTPException(status_code=400, detail="Missing redirect_uri")
-        
+
         if not chatlab_secrets or not chatlab_secrets.google_client_secret:
             raise HTTPException(
-                status_code=503, 
-                detail="OAuth not configured on server"
+                status_code=503, detail="OAuth not configured on server"
             )
-        
+
         logger.info("Exchanging OAuth code for tokens...")
-        
+
         # Exchange code for tokens using client secret (server-side only)
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                'https://oauth2.googleapis.com/token',
+                "https://oauth2.googleapis.com/token",
                 data={
-                    'client_id': chatlab_secrets.google_client_id,
-                    'client_secret': chatlab_secrets.google_client_secret,
-                    'code': code,
-                    'grant_type': 'authorization_code',
-                    'redirect_uri': redirect_uri,
+                    "client_id": chatlab_secrets.google_client_id,
+                    "client_secret": chatlab_secrets.google_client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": redirect_uri,
                 },
                 timeout=30.0,
             )
-            
+
             if not response.is_success:
                 error_text = response.text
                 logger.error("Token exchange failed: %s", error_text)
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"Token exchange failed: {error_text}"
+                    detail=f"Token exchange failed: {error_text}",
                 )
-            
+
             token_data = response.json()
-            
+
             logger.info("✅ OAuth token exchange successful")
-            
+
             # Return tokens to frontend (client secret never exposed)
             return {
                 "access_token": token_data["access_token"],
                 "refresh_token": token_data.get("refresh_token"),
                 "expires_in": token_data["expires_in"],
-                "scope": token_data["scope"]
+                "scope": token_data["scope"],
             }
-    
+
     except HTTPException:
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -452,13 +452,13 @@ async def exchange_oauth_code(request: Request):
 async def refresh_oauth_token(request: Request):
     """
     Refresh an OAuth access token (server-side only).
-    
+
     This keeps the client secret secure on the server. The frontend sends
     the refresh token, and this endpoint handles the secure refresh with Google.
-    
+
     Request body:
         - refresh_token: Google refresh token
-    
+
     Returns:
         - access_token: New Google access token
         - expires_in: Token expiration time in seconds
@@ -466,48 +466,47 @@ async def refresh_oauth_token(request: Request):
     try:
         data = await request.json()
         refresh_token = data.get("refresh_token")
-        
+
         if not refresh_token:
             raise HTTPException(status_code=400, detail="Missing refresh_token")
-        
+
         if not chatlab_secrets or not chatlab_secrets.google_client_secret:
             raise HTTPException(
-                status_code=503,
-                detail="OAuth not configured on server"
+                status_code=503, detail="OAuth not configured on server"
             )
-        
+
         logger.info("Refreshing OAuth access token...")
-        
+
         # Refresh token using client secret (server-side only)
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                'https://oauth2.googleapis.com/token',
+                "https://oauth2.googleapis.com/token",
                 data={
-                    'client_id': chatlab_secrets.google_client_id,
-                    'client_secret': chatlab_secrets.google_client_secret,
-                    'refresh_token': refresh_token,
-                    'grant_type': 'refresh_token',
+                    "client_id": chatlab_secrets.google_client_id,
+                    "client_secret": chatlab_secrets.google_client_secret,
+                    "refresh_token": refresh_token,
+                    "grant_type": "refresh_token",
                 },
                 timeout=30.0,
             )
-            
+
             if not response.is_success:
                 error_text = response.text
                 logger.error("Token refresh failed: %s", error_text)
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"Token refresh failed: {error_text}"
+                    detail=f"Token refresh failed: {error_text}",
                 )
-            
+
             token_data = response.json()
-            
+
             logger.info("✅ OAuth token refresh successful")
-            
+
             return {
                 "access_token": token_data["access_token"],
-                "expires_in": token_data["expires_in"]
+                "expires_in": token_data["expires_in"],
             }
-    
+
     except HTTPException:
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
