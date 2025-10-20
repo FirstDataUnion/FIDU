@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -78,12 +78,7 @@ export const APIKeyManager: React.FC = () => {
   const isLocalStorageMode = storageMode === 'local';
   const shouldHideComponent = isLocalDeployment && isLocalStorageMode;
 
-  // Load API keys on mount and when storage mode changes
-  useEffect(() => {
-    loadAPIKeys();
-  }, [isInitialized, storageMode]);
-
-  const loadAPIKeys = async () => {
+  const loadAPIKeys = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -104,7 +99,12 @@ export const APIKeyManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isInitialized]);
+
+  // Load API keys on mount and when storage mode changes
+  useEffect(() => {
+    loadAPIKeys();
+  }, [isInitialized, storageMode, loadAPIKeys]);
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
     const provider = event.target.value;

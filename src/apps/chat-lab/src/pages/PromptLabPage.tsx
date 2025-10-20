@@ -10,7 +10,6 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  ListItemIcon,
   Chip,
   Paper,
   Avatar,
@@ -64,7 +63,6 @@ import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { MetricsService } from '../services/metrics/MetricsService';
-import { getAllModels, type ModelConfig } from '../data/models';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 
 

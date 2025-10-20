@@ -764,6 +764,11 @@ export class CloudStorageAdapter implements StorageAdapter {
     if (!this.isInitialized()) {
       throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
     }
+    
+    // For API key operations, we need the dbManager to be available
+    if (!this.dbManager) {
+      throw new Error('Cloud storage adapter not fully initialized. Please authenticate with Google Drive first.');
+    }
   }
 
   private async ensureFullyReady(): Promise<void> {

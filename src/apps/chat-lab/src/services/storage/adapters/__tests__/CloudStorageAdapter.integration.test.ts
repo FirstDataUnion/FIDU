@@ -115,14 +115,18 @@ describe('CloudStorageAdapter Integration Tests', () => {
       await adapter.initialize();
     });
 
-    it('should handle API key operations gracefully', async () => {
-      await expect(adapter.getAPIKey('openai')).resolves.toBeDefined();
-      await expect(adapter.isAPIKeyAvailable('openai')).resolves.toBeDefined();
+    it('should require authentication for API key operations', async () => {
+      // CloudStorageAdapter requires authentication for API key operations
+      await expect(adapter.getAPIKey('openai')).rejects.toThrow('Cloud storage adapter not fully initialized');
+      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow('Cloud storage adapter not fully initialized');
     });
 
-    it('should return consistent results for API key availability', async () => {
-      const isAvailable = await adapter.isAPIKeyAvailable('openai');
-      expect(typeof isAvailable).toBe('boolean');
+    it('should return consistent error messages for API key operations', async () => {
+      try {
+        await adapter.getAPIKey('openai');
+      } catch (error) {
+        expect((error as Error).message).toContain('Cloud storage adapter not fully initialized');
+      }
     });
   });
 
@@ -151,17 +155,17 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for context operations', async () => {
       // CloudStorageAdapter requires authentication
-      await expect(adapter.getContexts()).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.createContext(mockContext, 'test-profile')).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.updateContext(mockContext, 'test-profile')).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.deleteContext('test-context')).rejects.toThrow('authenticate with Google Drive');
+      await expect(adapter.getContexts()).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.createContext(mockContext, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.updateContext(mockContext, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.deleteContext('test-context')).rejects.toThrow('User must authenticate with Google Drive first');
     });
 
     it('should return consistent error messages', async () => {
       try {
         await adapter.getContexts();
       } catch (error) {
-        expect((error as Error).message).toContain('authenticate with Google Drive');
+        expect((error as Error).message).toContain('User must authenticate with Google Drive first');
       }
     });
   });
@@ -187,17 +191,17 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for system prompt operations', async () => {
       // CloudStorageAdapter requires authentication
-      await expect(adapter.getSystemPrompts()).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.createSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.updateSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.deleteSystemPrompt('test-prompt')).rejects.toThrow('authenticate with Google Drive');
+      await expect(adapter.getSystemPrompts()).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.createSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.updateSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.deleteSystemPrompt('test-prompt')).rejects.toThrow('User must authenticate with Google Drive first');
     });
 
     it('should return consistent error messages for system prompts', async () => {
       try {
         await adapter.getSystemPrompts();
       } catch (error) {
-        expect((error as Error).message).toContain('authenticate with Google Drive');
+        expect((error as Error).message).toContain('User must authenticate with Google Drive first');
       }
     });
   });
@@ -209,7 +213,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for sync operations', async () => {
       // CloudStorageAdapter requires authentication for sync
-      await expect(adapter.sync()).rejects.toThrow('authenticate with Google Drive');
+      await expect(adapter.sync()).rejects.toThrow('User must authenticate with Google Drive first');
     });
   });
 
@@ -220,9 +224,9 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should handle invalid inputs gracefully', async () => {
       // Test with invalid inputs - these should still require authentication
-      await expect(adapter.getAPIKey('')).resolves.toBeDefined();
-      await expect(adapter.getContexts(undefined, -1, -1)).rejects.toThrow('authenticate with Google Drive');
-      await expect(adapter.getSystemPrompts(undefined, -1, -1)).rejects.toThrow('authenticate with Google Drive');
+      await expect(adapter.getAPIKey('')).rejects.toThrow('Cloud storage adapter not fully initialized');
+      await expect(adapter.getContexts(undefined, -1, -1)).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.getSystemPrompts(undefined, -1, -1)).rejects.toThrow('User must authenticate with Google Drive first');
     });
 
     it('should handle missing data gracefully', async () => {

@@ -34,11 +34,42 @@ describe('APIKeyManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup default mock implementation
+    // Setup default mock implementation with all required methods
     (getUnifiedStorageService as jest.Mock).mockReturnValue({
+      // API Key methods
       getAllAPIKeys: mockGetAllAPIKeys,
       saveAPIKey: mockSaveAPIKey,
       deleteAPIKey: mockDeleteAPIKey,
+      getAPIKey: jest.fn().mockResolvedValue(null),
+      isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
+      
+      // Conversation methods (required by useStorage hook)
+      createConversation: jest.fn().mockResolvedValue({}),
+      updateConversation: jest.fn().mockResolvedValue({}),
+      getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+      getConversationById: jest.fn().mockResolvedValue({}),
+      getMessages: jest.fn().mockResolvedValue([]),
+      
+      // Context methods
+      getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+      createContext: jest.fn().mockResolvedValue({}),
+      updateContext: jest.fn().mockResolvedValue({}),
+      deleteContext: jest.fn().mockResolvedValue(''),
+      
+      // System Prompt methods
+      getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+      createSystemPrompt: jest.fn().mockResolvedValue({}),
+      updateSystemPrompt: jest.fn().mockResolvedValue({}),
+      deleteSystemPrompt: jest.fn().mockResolvedValue(''),
+      
+      // Sync method
+      sync: jest.fn().mockResolvedValue(undefined),
+      
+      // Service state methods
+      initialize: jest.fn().mockResolvedValue(undefined),
+      isInitialized: jest.fn().mockReturnValue(true),
+      getCurrentMode: jest.fn().mockReturnValue('cloud'),
+      isOnline: jest.fn().mockReturnValue(true),
     });
   });
 
@@ -62,20 +93,185 @@ describe('APIKeyManager', () => {
     });
 
     it('should not render in local deployment mode', () => {
-      (getEnvironmentInfo as jest.Mock).mockReturnValueOnce({
+      // Store the original mock implementation
+      const originalMock = (getEnvironmentInfo as jest.Mock).getMockImplementation();
+      
+      (getEnvironmentInfo as jest.Mock).mockReturnValue({
+        mode: 'local',
+        isDevelopment: true,
+        isProduction: false,
+        identityServiceUrl: 'http://localhost:8000',
+        gatewayUrl: 'http://localhost:8000',
         storageMode: 'local',
+        syncInterval: 300000,
+      });
+
+      // Mock useStorage to return local storage mode for this test
+      (getUnifiedStorageService as jest.Mock).mockReturnValue({
+        // API Key methods
+        getAllAPIKeys: mockGetAllAPIKeys,
+        saveAPIKey: mockSaveAPIKey,
+        deleteAPIKey: mockDeleteAPIKey,
+        getAPIKey: jest.fn().mockResolvedValue(null),
+        isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
+
+        // Conversation methods (required by useStorage hook)
+        createConversation: jest.fn().mockResolvedValue({}),
+        updateConversation: jest.fn().mockResolvedValue({}),
+        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversationById: jest.fn().mockResolvedValue({}),
+        getMessages: jest.fn().mockResolvedValue([]),
+
+        // Context methods
+        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        createContext: jest.fn().mockResolvedValue({}),
+        updateContext: jest.fn().mockResolvedValue({}),
+        deleteContext: jest.fn().mockResolvedValue(''),
+
+        // System Prompt methods
+        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        createSystemPrompt: jest.fn().mockResolvedValue({}),
+        updateSystemPrompt: jest.fn().mockResolvedValue({}),
+        deleteSystemPrompt: jest.fn().mockResolvedValue(''),
+
+        // Sync method
+        sync: jest.fn().mockResolvedValue(undefined),
+
+        // Service state methods
+        initialize: jest.fn().mockResolvedValue(undefined),
+        isInitialized: jest.fn().mockReturnValue(true),
+        getCurrentMode: jest.fn().mockReturnValue('local'), // This should be 'local' for the test
+        isOnline: jest.fn().mockReturnValue(true),
       });
 
       const { container } = renderComponent();
       expect(container.firstChild).toBeNull();
+      
+      // Restore the original mocks
+      (getEnvironmentInfo as jest.Mock).mockImplementation(originalMock);
+      (getUnifiedStorageService as jest.Mock).mockReturnValue({
+        // API Key methods
+        getAllAPIKeys: mockGetAllAPIKeys,
+        saveAPIKey: mockSaveAPIKey,
+        deleteAPIKey: mockDeleteAPIKey,
+        getAPIKey: jest.fn().mockResolvedValue(null),
+        isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
+
+        // Conversation methods (required by useStorage hook)
+        createConversation: jest.fn().mockResolvedValue({}),
+        updateConversation: jest.fn().mockResolvedValue({}),
+        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversationById: jest.fn().mockResolvedValue({}),
+        getMessages: jest.fn().mockResolvedValue([]),
+
+        // Context methods
+        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        createContext: jest.fn().mockResolvedValue({}),
+        updateContext: jest.fn().mockResolvedValue({}),
+        deleteContext: jest.fn().mockResolvedValue(''),
+
+        // System Prompt methods
+        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        createSystemPrompt: jest.fn().mockResolvedValue({}),
+        updateSystemPrompt: jest.fn().mockResolvedValue({}),
+        deleteSystemPrompt: jest.fn().mockResolvedValue(''),
+
+        // Sync method
+        sync: jest.fn().mockResolvedValue(undefined),
+
+        // Service state methods
+        initialize: jest.fn().mockResolvedValue(undefined),
+        isInitialized: jest.fn().mockReturnValue(true),
+        getCurrentMode: jest.fn().mockReturnValue('cloud'),
+        isOnline: jest.fn().mockReturnValue(true),
+      });
     });
 
-    it('should display loading state initially', () => {
+    it('should display loading state initially', async () => {
       mockGetAllAPIKeys.mockImplementation(() => new Promise(() => {})); // Never resolves
+
+      // Mock useStorage to return initialized state but with hanging API key load
+      (getUnifiedStorageService as jest.Mock).mockReturnValue({
+        // API Key methods
+        getAllAPIKeys: mockGetAllAPIKeys,
+        saveAPIKey: mockSaveAPIKey,
+        deleteAPIKey: mockDeleteAPIKey,
+        getAPIKey: jest.fn().mockResolvedValue(null),
+        isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
+
+        // Conversation methods (required by useStorage hook)
+        createConversation: jest.fn().mockResolvedValue({}),
+        updateConversation: jest.fn().mockResolvedValue({}),
+        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversationById: jest.fn().mockResolvedValue({}),
+        getMessages: jest.fn().mockResolvedValue([]),
+
+        // Context methods
+        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        createContext: jest.fn().mockResolvedValue({}),
+        updateContext: jest.fn().mockResolvedValue({}),
+        deleteContext: jest.fn().mockResolvedValue(''),
+
+        // System Prompt methods
+        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        createSystemPrompt: jest.fn().mockResolvedValue({}),
+        updateSystemPrompt: jest.fn().mockResolvedValue({}),
+        deleteSystemPrompt: jest.fn().mockResolvedValue(''),
+
+        // Sync method
+        sync: jest.fn().mockResolvedValue(undefined),
+
+        // Service state methods - make initialize resolve immediately and return initialized state
+        initialize: jest.fn().mockResolvedValue(undefined),
+        isInitialized: jest.fn().mockReturnValue(true), // This should be true so it tries to load API keys
+        getCurrentMode: jest.fn().mockReturnValue('cloud'),
+        isOnline: jest.fn().mockReturnValue(true),
+      });
 
       renderComponent();
 
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      // Wait for the component to finish loading and show the loading spinner
+      await waitFor(() => {
+        expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      });
+      
+      // Restore the original mock
+      (getUnifiedStorageService as jest.Mock).mockReturnValue({
+        // API Key methods
+        getAllAPIKeys: mockGetAllAPIKeys,
+        saveAPIKey: mockSaveAPIKey,
+        deleteAPIKey: mockDeleteAPIKey,
+        getAPIKey: jest.fn().mockResolvedValue(null),
+        isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
+
+        // Conversation methods (required by useStorage hook)
+        createConversation: jest.fn().mockResolvedValue({}),
+        updateConversation: jest.fn().mockResolvedValue({}),
+        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversationById: jest.fn().mockResolvedValue({}),
+        getMessages: jest.fn().mockResolvedValue([]),
+
+        // Context methods
+        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        createContext: jest.fn().mockResolvedValue({}),
+        updateContext: jest.fn().mockResolvedValue({}),
+        deleteContext: jest.fn().mockResolvedValue(''),
+
+        // System Prompt methods
+        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        createSystemPrompt: jest.fn().mockResolvedValue({}),
+        updateSystemPrompt: jest.fn().mockResolvedValue({}),
+        deleteSystemPrompt: jest.fn().mockResolvedValue(''),
+
+        // Sync method
+        sync: jest.fn().mockResolvedValue(undefined),
+
+        // Service state methods
+        initialize: jest.fn().mockResolvedValue(undefined),
+        isInitialized: jest.fn().mockReturnValue(true),
+        getCurrentMode: jest.fn().mockReturnValue('cloud'),
+        isOnline: jest.fn().mockReturnValue(true),
+      });
     });
   });
 

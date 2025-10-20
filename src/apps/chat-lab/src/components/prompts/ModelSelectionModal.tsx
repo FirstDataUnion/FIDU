@@ -37,7 +37,7 @@ import {
   Sort as SortIcon,
   FilterList as FilterIcon
 } from '@mui/icons-material';
-import { getAllModels, getModelsByProvider, getModelsForMode, type ModelConfig, type ProviderKey } from '../../data/models';
+import { getAllModels, getModelsForMode, type ModelConfig, type ProviderKey } from '../../data/models';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 interface ModelSelectionModalProps {
@@ -82,7 +82,9 @@ export default function ModelSelectionModal({
   React.useEffect(() => {
     try {
       localStorage.setItem('chatlab_byok_enabled', useBYOK ? 'true' : 'false');
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [useBYOK]);
 
   // Load user's available providers when BYOK is toggled on
@@ -116,7 +118,7 @@ export default function ModelSelectionModal({
       ? getModelsForMode({ useBYOK: true, userProviders: userProviders || undefined })
       : otherModels.filter(m => m.executionPath === 'openrouter');
 
-    let filtered = baseList.filter(model => {
+    const filtered = baseList.filter(model => {
       // Search filter
       const matchesSearch = model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         model.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -153,9 +155,10 @@ export default function ModelSelectionModal({
           return a.name.localeCompare(b.name);
         case 'provider':
           return a.provider.localeCompare(b.provider);
-        case 'speed':
+        case 'speed': {
           const speedOrder = { fast: 0, medium: 1, slow: 2 };
           return speedOrder[a.speed] - speedOrder[b.speed];
+        }
         case 'category':
           return a.category.localeCompare(b.category);
         default:

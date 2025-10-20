@@ -138,7 +138,9 @@ const AppContent: React.FC<AppContentProps> = () => {
     try {
       const stored = localStorage.getItem('chatlab_auto_gdrive_auth');
       if (stored === 'false') autoEnable = false;
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
 
     if (!autoEnable) return;
 
@@ -148,7 +150,7 @@ const AppContent: React.FC<AppContentProps> = () => {
       dispatch(authenticateGoogleDrive());
     }, 150);
     return () => clearTimeout(t);
-  }, [dispatch, unifiedStorage.mode, unifiedStorage.googleDrive.showAuthModal, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading, autoAuthAttempted]);
+  }, [dispatch, unifiedStorage.mode, unifiedStorage.googleDrive.showAuthModal, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading, unifiedStorage.userSelectedMode, autoAuthAttempted]);
 
   // Handle Google Drive authentication status changes
   useEffect(() => {
