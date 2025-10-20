@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced Model Selection**: Added rich model information including capabilities, categories, speed ratings, cost tiers, and detailed descriptions
 - **Auto Router Model**: Added intelligent model routing that automatically selects the best model for each task
 - **Helpers for BYOK Filtering**: Added `isBYOKSupported` and `getModelsForMode` helpers to power UI filtering based on user-provided keys
-- **OpenRouter BYOK Support**: Added OpenRouter as a provider option in API Key Manager; users can now use their own OpenRouter key to access all OpenRouter models in BYOK mode
+- **OpenRouter BYOK Support**: Added OpenRouter as a provider option in API Key Manager. users can now use their own OpenRouter key to access all OpenRouter models in BYOK mode
 
 ### Fixed
 
