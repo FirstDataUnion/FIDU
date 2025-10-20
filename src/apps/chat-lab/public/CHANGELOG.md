@@ -24,14 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Default Model Selection**: Changed the default selected model from GPT-5.0 Nano to Auto Router for new users, providing intelligent automatic model routing out of the box
-- **Model Architecture**: Completely refactored model management from hardcoded individual methods to a centralized, scalable configuration system
-- **API Client**: Updated NLP Workbench API client to use dynamic model execution with automatic URL resolution and legacy model ID support
-- **UI Components**: Enhanced model selection modals with rich metadata display, provider color coding, performance indicators, and improved tooltip functionality
 - **Model Selection UX**: Redesigned model selection interface with better visual hierarchy, Auto Router prominence, and comprehensive filtering options
-- **Backward Compatibility**: Maintained support for existing model IDs while adding new comprehensive model definitions
 - **Google Drive Authentication**: Changed OAuth prompt from `consent` to `select_account` to avoid forcing users to re-authorize on every login. Users will now only need to re-authenticate when they explicitly revoke access or after 6 months of inactivity
-- Improved token refresh logic to handle refresh token expiration gracefully and clear stored tokens when they become invalid
- - **Storage Persistence & Auto-Reconnect**: If users previously selected Google Drive, the app now auto-initiates OAuth on return and marks storage configured once authenticated, minimizing manual steps. A new local override `chatlab_auto_gdrive_auth=false` can disable auto-start.
 
 ## [0.1.3] - 2025-10-13
 
