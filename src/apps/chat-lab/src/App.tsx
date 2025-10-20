@@ -399,7 +399,7 @@ const AppContent: React.FC<AppContentProps> = () => {
           <Box color="text.secondary" textAlign="center" maxWidth="400px" fontSize="0.9em">
             <Box>Setting up Google Drive connection</Box>
             <Box fontSize="0.8em" mt={0.5}>
-              This may take a few moments the first time...
+              This may take a few moments...
             </Box>
           </Box>
         )}
