@@ -7,8 +7,8 @@ import os
 import logging
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-import hvac  # type: ignore[import-untyped] # pylint: disable=import-error
-from hvac.exceptions import VaultError, InvalidPath  # type: ignore[import-untyped] # pylint: disable=import-error
+import hvac  # pylint: disable=import-error
+from hvac.exceptions import VaultError, InvalidPath  # pylint: disable=import-error
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +127,23 @@ class OpenBaoClient:
 
             response = self.client.read(full_path)
 
-            if not response or "data" not in response:
+            # Handle both dict and Response types from hvac
+            if isinstance(response, dict):
+                response_data = response
+            elif response is not None and hasattr(response, 'json'):
+                # If it's a Response object, get the JSON data
+                response_data = response.json()
+            else:
+                # Handle None or other unexpected types
+                logger.error("Invalid response type from hvac client")
+                return None
+
+            if not response_data or "data" not in response_data:
                 logger.error("No data found at path: %s", self.config.secret_path)
                 return None
 
             # KV v2 wraps the actual secrets in a "data" field
-            secrets_data = response["data"].get("data", {})
+            secrets_data = response_data["data"].get("data", {})
 
             if not secrets_data:
                 logger.error("No secrets data found in response")

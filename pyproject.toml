@@ -27,6 +27,7 @@ dev = [
     "pylint>=3.0.3",
     "black>=24.1.1",
     "mypy>=1.16.0",
+    "types-hvac>=2.3.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.24.0",
@@ -80,6 +81,13 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = false
 strict_equality = false
+show_error_codes = true
+show_column_numbers = true
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "hvac.*"
+ignore_missing_imports = false
 
 [tool.black]
 line-length = 88

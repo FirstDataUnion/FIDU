@@ -22,7 +22,7 @@ IDENTITY_SERVICE_DEFAULT_URL = "https://identity.firstdataunion.org"
 class AuthTokenManager:
     """Manages authentication tokens including refresh token logic."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.access_token: Optional[str] = None
         self.refresh_token: Optional[str] = None
         self.token_expires_at: Optional[int] = None
@@ -30,7 +30,7 @@ class AuthTokenManager:
             "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
         )
 
-    def set_tokens(self, access_token: str, refresh_token: str, expires_in: int):
+    def set_tokens(self, access_token: str, refresh_token: str, expires_in: int) -> None:
         """Set the access and refresh tokens with expiration."""
         self.access_token = access_token
         self.refresh_token = refresh_token
