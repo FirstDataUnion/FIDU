@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import { getAllModels } from '../../data/models';
 
 export interface SystemPrompt {
   id: string;
@@ -163,21 +164,7 @@ const mockPromptTemplates: PromptTemplate[] = [
   }
 ];
 
-const availableModels = [
-  'gemini-flash',
-  'gemini-pro',
-  'claude-haiku',
-  'claude-sonnet',
-  'claude-opus-41',
-  'gpt-3.5-turbo',
-  'gpt-4.0',
-  'gpt-4.0-turbo',
-  'gpt-4.0-mini',
-  'gpt-5.0',
-  'gpt-5.0-mini',
-  'gpt-5.0-nano',
-  'gemini-pro'
-];
+const availableModels = getAllModels().map(model => model.id);
 
 // Async actions
 export const fetchPromptLabData = createAsyncThunk(

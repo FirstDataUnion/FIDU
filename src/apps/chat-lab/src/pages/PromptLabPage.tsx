@@ -64,6 +64,8 @@ import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { MetricsService } from '../services/metrics/MetricsService';
+import { getAllModels, type ModelConfig } from '../data/models';
+import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 
 
 // Helper function to generate user-friendly error messages and debug info
@@ -229,71 +231,6 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
 };
 
 // Modal Components
-interface ModelSelectionModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSelectModel: (model: string) => void;
-  selectedModel: string;
-}
-
-function ModelSelectionModal({ open, onClose, onSelectModel, selectedModel }: ModelSelectionModalProps) {
-  const models = [
-    // Gemini Models
-    { id: 'gemini-flash', name: 'Gemini Flash', provider: 'Google' },
-    { id: 'gemini-pro', name: 'Gemini Pro', provider: 'Google' },
-    // Claude Models
-    { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic' },
-    { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic' },
-    { id: 'claude-opus-41', name: 'Claude Opus', provider: 'Anthropic' },
-    // ChatGPT Models
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
-    { id: 'gpt-4.0', name: 'GPT-4.0', provider: 'OpenAI' },
-    { id: 'gpt-4.0-turbo', name: 'GPT-4.0 Turbo', provider: 'OpenAI' },
-    { id: 'gpt-4.0-mini', name: 'GPT-4.0 Mini', provider: 'OpenAI' },
-    { id: 'gpt-5.0', name: 'GPT-5.0', provider: 'OpenAI' },
-    { id: 'gpt-5.0-mini', name: 'GPT-5.0 Mini', provider: 'OpenAI' },
-    { id: 'gpt-5.0-nano', name: 'GPT-5.0 Nano', provider: 'OpenAI' },
-  ];
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Select Target Model</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          {models.map((model) => (
-            <ListItemButton
-              key={model.id}
-              onClick={() => onSelectModel(model.id)}
-              selected={selectedModel === model.id}
-              sx={{
-                borderRadius: 1,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon>
-                <ModelIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary={model.name}
-                secondary={model.provider}
-              />
-            </ListItemButton>
-          ))}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 interface ContextSelectionModalProps {
   open: boolean;
   onClose: () => void;
@@ -2788,6 +2725,11 @@ export default function PromptLabPage() {
           setSelectedModel(model);
           dispatch(updateLastUsedModel(model));
           setModelModalOpen(false);
+        }}
+        onAutoModeToggle={(model) => {
+          setSelectedModel(model);
+          dispatch(updateLastUsedModel(model));
+          // Don't close the modal for auto mode toggles
         }}
         selectedModel={selectedModel}
       />

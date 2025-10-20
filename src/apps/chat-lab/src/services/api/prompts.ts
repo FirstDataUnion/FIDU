@@ -127,49 +127,9 @@ export const createPromptsApi = () => {
       );
 
       let agentCallback = null;
-      switch (selectedModel) {
-        // Gemini Models
-        case "gemini-flash":
-          agentCallback = nlpWorkbenchAPIClient.executeGeminiFlashGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gemini-pro":
-          agentCallback = nlpWorkbenchAPIClient.executeGeminiProGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        // Claude Models
-        case "claude-haiku":
-          agentCallback = nlpWorkbenchAPIClient.executeClaudeHaikuGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "claude-sonnet":
-          agentCallback = nlpWorkbenchAPIClient.executeClaudeSonnetGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "claude-opus-41":
-          agentCallback = nlpWorkbenchAPIClient.executeClaudeOpus41GeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        // ChatGPT Models
-        case "gpt-3.5-turbo":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT35TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-4.0":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40GeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-4.0-turbo":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40TurboGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-4.0-mini":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT40MiniGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-5.0":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50GeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-5.0-mini":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50MiniGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        case "gpt-5.0-nano":
-          agentCallback = nlpWorkbenchAPIClient.executeChatGPT50NanoGeneralAgent.bind(nlpWorkbenchAPIClient);
-          break;
-        default:
-          throw new Error(`Unsupported model: ${selectedModel}`);
-      }
+      
+      // Use the new centralized model execution method
+      agentCallback = (input: string) => nlpWorkbenchAPIClient.executeModelAgent(selectedModel, input);
 
       const response = await nlpWorkbenchAPIClient.executeAgentAndWait(
         agentPrompt, 

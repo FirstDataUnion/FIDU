@@ -4,6 +4,7 @@ import { ApiError, type ErrorResponse } from './apiClients';
 import { getGatewayUrl } from '../../utils/environment';
 import { refreshTokenService } from './refreshTokenService';
 import { apiKeyService, type SupportedProvider } from './apiKeyService';
+import { getModelConfig, getModelAgentUrl, convertLegacyModelId, MODEL_CONFIGS, type ModelConfig } from '../../data/models';
 
 // NLP Workbench API Configuration
 const NLP_WORKBENCH_API_CONFIG = {
@@ -142,147 +143,122 @@ const NLP_WORKBENCH_API_CONFIG = {
     }
 
     /**
-     * Execute a Gemini Flash General chat Agent with input text
+     * Execute any model agent with input text using the centralized model configuration
+     * @param modelId The model ID to execute (supports both new and legacy model IDs)
+     * @param input The input text to process
+     * @returns Promise<NLPWorkbenchExecuteResponse>
+     */
+    async executeModelAgent(modelId: string, input: string): Promise<NLPWorkbenchExecuteResponse> {
+      // Convert legacy model ID to new model ID if needed
+      const actualModelId = convertLegacyModelId(modelId);
+      
+      // Get model configuration
+      const modelConfig = getModelConfig(actualModelId);
+      if (!modelConfig) {
+        throw new ApiError(
+          400,
+          `Model '${modelId}' not found. Available models: ${Object.keys(MODEL_CONFIGS).join(', ')}`,
+          { modelId, actualModelId }
+        );
+      }
+
+      // Get the agent URL for this model
+      const agentUrl = getModelAgentUrl(actualModelId);
+      
+      console.log(`🚀 [NLPWorkbench] Executing model: ${modelConfig.name} (${actualModelId})`);
+      console.log(`🔗 [NLPWorkbench] Agent URL: ${agentUrl}`);
+      
+      const requestData = await this.enhanceRequestWithAPIKeys(input);
+      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
+        agentUrl,
+        requestData
+      );
+      return response.data;
+    }
+
+    // Legacy method wrappers for backward compatibility
+    /**
+     * @deprecated Use executeModelAgent('gemini-2.0-flash', input) instead
      */
     async executeGeminiFlashGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247513434443545/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gemini-flash', input);
     }
 
     /**
-     * Execute a Gemini Pro General chat Agent with input text
+     * @deprecated Use executeModelAgent('gemini-2.5-pro', input) instead
      */
     async executeGeminiProGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247536134017642/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gemini-pro', input);
     }
 
     /**
-     * Execute a Claude Haiku General chat Agent with input text
+     * @deprecated Use executeModelAgent('claude-haiku-3', input) instead
      */
     async executeClaudeHaikuGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247576782610310/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('claude-haiku', input);
     }
 
     /**
-     * Execute a Claude Sonnet General chat Agent with input text
+     * @deprecated Use executeModelAgent('claude-sonnet-4', input) instead
      */
     async executeClaudeSonnetGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247595523653178/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('claude-sonnet', input);
     }
 
     /**
-     * Execute a Claude Opus 4.1 General chat Agent with input text
+     * @deprecated Use executeModelAgent('claude-opus-4.1', input) instead
      */
     async executeClaudeOpus41GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1758124239529968489/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('claude-opus-41', input);
     }
 
     /**
-     * Execute a chat GPT 3.5 Turbo General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-3.5-turbo', input) instead
      */
     async executeChatGPT35TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247699977175946/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-3.5-turbo', input);
     }
 
     /**
-     * Execute a chat GPT 4.0 General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-4', input) instead
      */
     async executeChatGPT40GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247730785641201/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-4.0', input);
     }
 
     /**
-     * Execute a chat GPT 4.0 Turbo General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-4-turbo', input) instead
      */
     async executeChatGPT40TurboGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247792142471669/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-4.0-turbo', input);
     }
 
     /**
-     * Execute a chat GPT 4.0 Mini chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-4o-mini', input) instead
      */
     async executeChatGPT40MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247819944085397/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-4.0-mini', input);
     }
 
     /**
-     * Execute a chat GPT 5.0 General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-5', input) instead
      */
     async executeChatGPT50GeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247842543346249/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-5.0', input);
     }
 
     /**
-     * Execute a chat GPT 5.0 Mini General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-5-mini', input) instead
      */
     async executeChatGPT50MiniGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247909361890725/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-5.0-mini', input);
     }
 
     /**
-     * Execute a chat GPT 5.0 Nano General chat Agent with input text
+     * @deprecated Use executeModelAgent('gpt-5-nano', input) instead
      */
     async executeChatGPT50NanoGeneralAgent(input: string): Promise<NLPWorkbenchExecuteResponse> {
-      const requestData = await this.enhanceRequestWithAPIKeys(input);
-      const response = await this.client.post<NLPWorkbenchExecuteResponse>(
-        `${this.getBaseUrl()}/api/public/agents/agent-1757247941934986576/execute`,
-        requestData
-      );
-      return response.data;
+      return this.executeModelAgent('gpt-5.0-nano', input);
     }
     
     /**
