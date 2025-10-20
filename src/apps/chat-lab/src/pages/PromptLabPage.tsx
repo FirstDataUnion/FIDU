@@ -816,15 +816,89 @@ export default function PromptLabPage() {
   // Get model-specific colors and display names
   const getModelInfo = (modelId: string) => {
     const modelMap: Record<string, { name: string; color: string; provider: string }> = {
-      // Gemini Models
+      // Auto Router
+      'auto-router': { name: 'Auto Router', color: '#6366f1', provider: 'NLP Workbench' },
+      
+      // OpenAI Models
+      'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-3.5-turbo-instruct': { name: 'GPT-3.5 Turbo Instruct', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4': { name: 'GPT-4', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4-turbo': { name: 'GPT-4 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o': { name: 'GPT-4o', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o-search-preview': { name: 'GPT-4o Search Preview', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o-mini': { name: 'GPT-4o Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o-mini-search-preview': { name: 'GPT-4o Mini Search Preview', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5': { name: 'GPT-5', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-mini': { name: 'GPT-5 Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-nano': { name: 'GPT-5 Nano', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-pro': { name: 'GPT-5 Pro', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-oss-120b': { name: 'GPT-OSS 120B', color: '#10a37f', provider: 'OpenAI' },
+      
+      // Anthropic Claude Models
+      'claude-haiku-3': { name: 'Claude Haiku 3', color: '#C46902', provider: 'Anthropic' },
+      'claude-haiku-3.5': { name: 'Claude Haiku 3.5', color: '#C46902', provider: 'Anthropic' },
+      'claude-opus-4': { name: 'Claude Opus 4', color: '#C46902', provider: 'Anthropic' },
+      'claude-opus-4.1': { name: 'Claude Opus 4.1', color: '#C46902', provider: 'Anthropic' },
+      'claude-sonnet-3.7': { name: 'Claude Sonnet 3.7', color: '#C46902', provider: 'Anthropic' },
+      'claude-sonnet-4': { name: 'Claude Sonnet 4', color: '#C46902', provider: 'Anthropic' },
+      'claude-sonnet-4.5': { name: 'Claude Sonnet 4.5', color: '#C46902', provider: 'Anthropic' },
+      
+      // Google Gemini Models
+      'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', color: '#4285F4', provider: 'Google' },
+      'gemini-2.0-flash-lite': { name: 'Gemini 2.0 Flash-Lite', color: '#4285F4', provider: 'Google' },
+      'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', color: '#4285F4', provider: 'Google' },
+      'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash-Lite', color: '#4285F4', provider: 'Google' },
+      'gemini-2.5-pro': { name: 'Gemini 2.5 Pro', color: '#4285F4', provider: 'Google' },
+      
+      // Meta Llama Models
+      'llama-4-maverick': { name: 'Llama 4 Maverick', color: '#1877f2', provider: 'Meta' },
+      'llama-4-scout': { name: 'Llama 4 Scout', color: '#1877f2', provider: 'Meta' },
+      
+      // Mistral Models
+      'mistral-medium-3.1': { name: 'Mistral Medium 3.1', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-codestral-2508': { name: 'Mistral Codestral 2508', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-ministral-3b': { name: 'Mistral Ministral 3B', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-ministral-8b': { name: 'Mistral Ministral 8B', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-small': { name: 'Mistral Small', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-tiny': { name: 'Mistral Tiny', color: '#ff6b35', provider: 'Mistral' },
+      'mistral-large': { name: 'Mistral Large', color: '#ff6b35', provider: 'Mistral' },
+      
+      // Microsoft Phi Models
+      'microsoft-phi-4': { name: 'Microsoft Phi 4', color: '#00bcf2', provider: 'Microsoft' },
+      'microsoft-phi-4-multimodal': { name: 'Microsoft Phi 4 Multimodal', color: '#00bcf2', provider: 'Microsoft' },
+      'microsoft-phi-4-reasoning-plus': { name: 'Microsoft Phi 4 Reasoning Plus', color: '#00bcf2', provider: 'Microsoft' },
+      
+      // xAI Grok Models
+      'grok-3': { name: 'Grok 3', color: '#ff6b00', provider: 'xAI' },
+      'grok-3-mini': { name: 'Grok 3 Mini', color: '#ff6b00', provider: 'xAI' },
+      'grok-4': { name: 'Grok 4', color: '#ff6b00', provider: 'xAI' },
+      'grok-4-fast': { name: 'Grok 4 Fast', color: '#ff6b00', provider: 'xAI' },
+      
+      // Direct Models (Google)
+      'gemini-2.5-flash-lite-direct': { name: 'Gemini 2.5 Flash Lite', color: '#4285F4', provider: 'Google' },
+      'gemini-2.0-flash-direct': { name: 'Gemini 2.0 Flash', color: '#4285F4', provider: 'Google' },
+      
+      // Direct Models (Anthropic)
+      'claude-opus-4.1-direct': { name: 'Claude Opus 4.1', color: '#C46902', provider: 'Anthropic' },
+      'claude-haiku-3-direct': { name: 'Claude Haiku 3', color: '#C46902', provider: 'Anthropic' },
+      'claude-sonnet-3.7-direct': { name: 'Claude Sonnet 3.7', color: '#C46902', provider: 'Anthropic' },
+      
+      // Direct Models (OpenAI)
+      'gpt-5-nano-direct': { name: 'GPT 5.0 Nano', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-mini-direct': { name: 'GPT 5.0 Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-direct': { name: 'GPT 5.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o-mini-direct': { name: 'GPT 4.0 Mini', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4-direct': { name: 'GPT 4.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4-turbo-direct': { name: 'GPT 4.0 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-3.5-turbo-direct': { name: 'GPT 3.5 Turbo', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o-search-preview-direct': { name: 'GPT 4o Search', color: '#10a37f', provider: 'OpenAI' },
+      
+      // Legacy mappings for backward compatibility
       'gemini-flash': { name: 'Gemini Flash', color: '#4285F4', provider: 'Google' },
       'gemini-pro': { name: 'Gemini Pro', color: '#4285F4', provider: 'Google' },
-      // Claude Models
       'claude-haiku': { name: 'Claude Haiku', color: '#C46902', provider: 'Anthropic' },
       'claude-sonnet': { name: 'Claude Sonnet', color: '#C46902', provider: 'Anthropic' },
       'claude-opus-41': { name: 'Claude Opus', color: '#C46902', provider: 'Anthropic' },
-      // ChatGPT Models
-      'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', color: '#10a37f', provider: 'OpenAI' },
       'gpt-4.0': { name: 'GPT-4.0', color: '#10a37f', provider: 'OpenAI' },
       'gpt-4.0-turbo': { name: 'GPT-4.0 Turbo', color: '#10a37f', provider: 'OpenAI' },
       'gpt-4.0-mini': { name: 'GPT-4.0 Mini', color: '#10a37f', provider: 'OpenAI' },

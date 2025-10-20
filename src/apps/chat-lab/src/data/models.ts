@@ -216,6 +216,20 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'openai'
   },
+  'gpt-oss-120b': {
+    id: 'gpt-oss-120b',
+    name: 'GPT-OSS 120B',
+    provider: 'OpenAI',
+    agentId: 'agent-1760960117597658953',
+    maxTokens: 128000,
+    description: 'Open Source GPT-120B model with maximum capabilities and performance',
+    capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
+  },
 
   // Anthropic Claude Models
   'claude-haiku-3': {

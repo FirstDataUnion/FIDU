@@ -650,8 +650,13 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         }}
       >
         <Toolbar sx={{ flexShrink: 0 }} />
+        {/* Fixed banner outside scrollable area */}
+        {banner && (
+          <Box sx={{ flexShrink: 0 }}>
+            {banner}
+          </Box>
+        )}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {banner}
           {children}
         </Box>
       </Box>

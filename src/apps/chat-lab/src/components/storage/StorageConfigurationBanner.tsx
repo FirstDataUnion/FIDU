@@ -28,7 +28,6 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
         severity="error"
         icon={<Warning />}
         sx={{ 
-          mb: 2,
           backgroundColor: 'error.main',
           color: 'error.contrastText',
           border: 'none !important',
@@ -82,7 +81,6 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
       severity="error"
       icon={<Warning />}
       sx={{ 
-        mb: 2,
         backgroundColor: 'error.main',
         color: 'error.contrastText',
         border: 'none !important',
