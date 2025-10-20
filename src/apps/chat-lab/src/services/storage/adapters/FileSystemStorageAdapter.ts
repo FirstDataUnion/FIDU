@@ -1690,4 +1690,11 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       updatedAt: packet.update_timestamp
     };
   }
+
+  // Helper methods
+  private ensureInitialized(): void {
+    if (!this.isInitialized()) {
+      throw new Error('File system storage adapter not initialized. Please configure your storage options in Settings first.');
+    }
+  }
 }

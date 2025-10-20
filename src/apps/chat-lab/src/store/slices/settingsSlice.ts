@@ -18,7 +18,7 @@ const defaultSettings: UserSettings = {
   notificationsEnabled: false, // Disabled since notifications are removed
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
-  lastUsedModel: 'gpt-5.0-nano', // Default to GPT-5.0 Nano
+  lastUsedModel: 'auto-router', // Default to Auto Router
   storageMode: getDefaultStorageMode(), // Default based on environment
   storageConfigured: false, // Default to false for new users
   userSelectedStorageMode: false, // Track if user has made a selection from settings

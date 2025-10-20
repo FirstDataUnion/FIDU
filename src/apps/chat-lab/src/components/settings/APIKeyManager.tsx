@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
+import { useStorage } from '../../hooks/useStorage';
 
 interface APIKey {
   id: string;
@@ -51,7 +52,8 @@ interface APIKey {
 const SUPPORTED_PROVIDERS = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic (Claude)' },
-  { value: 'google', label: 'Google (Gemini)' }
+  { value: 'google', label: 'Google (Gemini)' },
+  { value: 'openrouter', label: 'OpenRouter' }
 ];
 
 export const APIKeyManager: React.FC = () => {
@@ -68,17 +70,31 @@ export const APIKeyManager: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const envInfo = getEnvironmentInfo();
+  const { isInitialized, storageMode } = useStorage();
+  
+  // Only hide the component if we're in local deployment mode AND using local storage mode
+  // This allows API key management when using filesystem storage in local deployment
   const isLocalDeployment = envInfo.storageMode === 'local';
+  const isLocalStorageMode = storageMode === 'local';
+  const shouldHideComponent = isLocalDeployment && isLocalStorageMode;
 
-  // Load API keys on mount
+  // Load API keys on mount and when storage mode changes
   useEffect(() => {
     loadAPIKeys();
-  }, []);
+  }, [isInitialized, storageMode]);
 
   const loadAPIKeys = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Check if storage is initialized
+      if (!isInitialized) {
+        setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
+        setLoading(false);
+        return;
+      }
+      
       const storage = getUnifiedStorageService();
       const keys = await storage.getAllAPIKeys();
       setApiKeys(keys);
@@ -104,6 +120,12 @@ export const APIKeyManager: React.FC = () => {
   const handleSaveAPIKey = async () => {
     if (!selectedProvider || !apiKeyValue.trim()) {
       setError('Please select a provider and enter an API key');
+      return;
+    }
+
+    // Check if storage is initialized
+    if (!isInitialized) {
+      setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
       return;
     }
 
@@ -141,6 +163,13 @@ export const APIKeyManager: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!keyToDelete) return;
 
+    // Check if storage is initialized
+    if (!isInitialized) {
+      setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
+      setDeleteDialogOpen(false);
+      return;
+    }
+
     try {
       setError(null);
       const storage = getUnifiedStorageService();
@@ -177,8 +206,8 @@ export const APIKeyManager: React.FC = () => {
     return providerInfo?.label || provider;
   };
 
-  // Don't show this component in local deployment mode
-  if (isLocalDeployment) {
+  // Don't show this component in local deployment mode when using local storage mode
+  if (shouldHideComponent) {
     return null;
   }
 
@@ -207,6 +236,16 @@ export const APIKeyManager: React.FC = () => {
           </Alert>
         )}
 
+        {/* Storage Setup Warning */}
+        {!isInitialized && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              <strong>Storage not configured:</strong> You need to set up your storage options before you can manage API keys. 
+              Please go to the Storage Settings section above to configure your preferred storage method (Cloud Storage or File System).
+            </Typography>
+          </Alert>
+        )}
+
         {/* Add/Update API Key Form */}
         <Box 
           component="form"
@@ -214,7 +253,16 @@ export const APIKeyManager: React.FC = () => {
             e.preventDefault();
             handleSaveAPIKey();
           }}
-          sx={{ mb: 4, p: 2, backgroundColor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}
+          sx={{ 
+            mb: 4, 
+            p: 2, 
+            backgroundColor: 'background.paper', 
+            borderRadius: 1, 
+            border: 1, 
+            borderColor: 'divider',
+            opacity: !isInitialized ? 0.6 : 1,
+            pointerEvents: !isInitialized ? 'none' : 'auto'
+          }}
         >
           <Typography variant="subtitle1" gutterBottom>
             {isEditing ? 'Update API Key' : 'Add New API Key'}

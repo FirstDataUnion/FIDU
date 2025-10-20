@@ -730,7 +730,7 @@ export default function PromptLabPage() {
   // State for the chat interface - initialize from sessionStorage
   const [messages, setMessages] = useState<Message[]>(() => loadFromSession(STORAGE_KEYS.messages) || []);
   const [currentMessage, setCurrentMessage] = useState('');
-  const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'gpt-5.0-nano');
+  const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'auto-router');
   const [selectedContext, setSelectedContext] = useState<Context | null>(() => loadFromSession(STORAGE_KEYS.context) || null);
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);

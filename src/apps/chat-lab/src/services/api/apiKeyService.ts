@@ -18,6 +18,7 @@ export const PROVIDER_API_KEY_FIELDS = {
   'openai': 'openai_api_key',
   'anthropic': 'anthropic_api_key',
   'google': 'google_api_key',
+  'openrouter': 'openrouter_api_key',
 } as const;
 
 export type SupportedProvider = keyof typeof PROVIDER_API_KEY_FIELDS;

@@ -112,7 +112,7 @@ const NLP_WORKBENCH_API_CONFIG = {
         
         // Fetch all available API keys
         const llmApiKeys: Record<string, string> = {};
-        const providers: SupportedProvider[] = ['openai', 'anthropic', 'google'];
+        const providers = ['openai', 'anthropic', 'google', 'openrouter'] as SupportedProvider[];
         
         for (const provider of providers) {
           const apiKey = await apiKeyService.getAPIKeyForProvider(provider);

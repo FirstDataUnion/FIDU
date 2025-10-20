@@ -83,26 +83,31 @@ export class UnifiedStorageService {
 
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
+    this.ensureStorageInitialized();
     const adapter = this.storageService.getAdapter();
     return await adapter.getAPIKey(provider);
   }
 
   async isAPIKeyAvailable(provider: string): Promise<boolean> {
+    this.ensureStorageInitialized();
     const adapter = this.storageService.getAdapter();
     return await adapter.isAPIKeyAvailable(provider);
   }
 
   async getAllAPIKeys(): Promise<any[]> {
+    this.ensureStorageInitialized();
     const adapter = this.storageService.getAdapter();
     return await adapter.getAllAPIKeys();
   }
 
   async saveAPIKey(provider: string, apiKey: string): Promise<any> {
+    this.ensureStorageInitialized();
     const adapter = this.storageService.getAdapter();
     return await adapter.saveAPIKey(provider, apiKey);
   }
 
   async deleteAPIKey(id: string): Promise<void> {
+    this.ensureStorageInitialized();
     const adapter = this.storageService.getAdapter();
     return await adapter.deleteAPIKey(id);
   }
@@ -181,6 +186,18 @@ export class UnifiedStorageService {
   isOnline(): boolean {
     const adapter = this.storageService.getAdapter();
     return adapter.isOnline();
+  }
+
+  /**
+   * Ensures that the storage service is properly initialized before performing operations
+   * @throws Error with user-friendly message if storage is not initialized
+   */
+  private ensureStorageInitialized(): void {
+    if (!this.storageService.isInitialized()) {
+      throw new Error(
+        'Storage is not set up yet. Please configure your storage options in Settings before managing API keys.'
+      );
+    }
   }
 }
 

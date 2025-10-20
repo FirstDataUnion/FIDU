@@ -67,6 +67,9 @@ export class StorageService {
       return;
     }
 
+    // Reset initialization state to allow proper re-initialization
+    this.initialized = false;
+
     const newConfig: StorageConfig = {
       mode: newMode,
       baseURL: newMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
@@ -76,6 +79,7 @@ export class StorageService {
     await this.adapter.initialize();
     
     this.config = newConfig;
+    this.initialized = true;
   }
 
   getAdapter(): StorageAdapter {

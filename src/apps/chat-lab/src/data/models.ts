@@ -14,7 +14,21 @@ export interface ModelConfig {
   category: 'general' | 'coding' | 'reasoning' | 'multimodal' | 'search';
   costTier: 'low' | 'medium' | 'high' | 'premium';
   speed: 'fast' | 'medium' | 'slow';
+  // New metadata to support BYOK and routing visibility
+  executionPath: ExecutionPath;
+  providerKey?: ProviderKey;
 }
+
+export type ExecutionPath = 'openrouter' | 'direct';
+export type ProviderKey =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'meta'
+  | 'mistral'
+  | 'microsoft'
+  | 'xai'
+  | 'openrouter';
 
 // Model configurations mapped by model ID
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
@@ -29,7 +43,8 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['routing', 'optimization', 'task-analysis'],
     category: 'general',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter'
   },
 
   // OpenAI Models
@@ -43,7 +58,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['text-generation', 'conversation', 'summarization'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-3.5-turbo-instruct': {
     id: 'gpt-3.5-turbo-instruct',
@@ -55,7 +72,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['instruction-following', 'task-completion', 'structured-output'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4': {
     id: 'gpt-4',
@@ -67,7 +86,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4-turbo': {
     id: 'gpt-4-turbo',
@@ -79,7 +100,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['reasoning', 'analysis', 'fast-processing'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4o': {
     id: 'gpt-4o',
@@ -91,7 +114,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['multimodal', 'vision', 'reasoning', 'analysis'],
     category: 'multimodal',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4o-search-preview': {
     id: 'gpt-4o-search-preview',
@@ -103,7 +128,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
     category: 'search',
     costTier: 'premium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4o-mini': {
     id: 'gpt-4o-mini',
@@ -115,7 +142,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['multimodal', 'reasoning', 'cost-effective'],
     category: 'multimodal',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-4o-mini-search-preview': {
     id: 'gpt-4o-mini-search-preview',
@@ -127,7 +156,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'cost-effective'],
     category: 'search',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-5': {
     id: 'gpt-5',
@@ -139,7 +170,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
     category: 'reasoning',
     costTier: 'premium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-5-mini': {
     id: 'gpt-5-mini',
@@ -151,7 +184,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-5-nano': {
     id: 'gpt-5-nano',
@@ -163,7 +198,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['ultra-fast', 'efficient', 'lightweight'],
     category: 'general',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
   'gpt-5-pro': {
     id: 'gpt-5-pro',
@@ -175,7 +212,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['maximum-capabilities', 'professional-grade', 'advanced-reasoning'],
     category: 'reasoning',
     costTier: 'premium',
-    speed: 'slow'
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
   },
 
   // Anthropic Claude Models
@@ -189,7 +228,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['fast-responses', 'simple-tasks', 'conversation'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-haiku-3.5': {
     id: 'claude-haiku-3.5',
@@ -201,7 +242,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['fast-responses', 'improved-performance', 'conversation'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-opus-4': {
     id: 'claude-opus-4',
@@ -213,7 +256,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'complex-analysis', 'creative-writing'],
     category: 'reasoning',
     costTier: 'premium',
-    speed: 'slow'
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-opus-4.1': {
     id: 'claude-opus-4.1',
@@ -225,7 +270,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
     category: 'reasoning',
     costTier: 'premium',
-    speed: 'slow'
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-sonnet-3.7': {
     id: 'claude-sonnet-3.7',
@@ -237,7 +284,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['balanced-performance', 'general-use', 'conversation'],
     category: 'general',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-sonnet-4': {
     id: 'claude-sonnet-4',
@@ -249,7 +298,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['improved-capabilities', 'balanced-performance', 'general-use'],
     category: 'general',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
   'claude-sonnet-4.5': {
     id: 'claude-sonnet-4.5',
@@ -261,7 +312,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['latest-features', 'enhanced-performance', 'general-use'],
     category: 'general',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'anthropic'
   },
 
   // Google Gemini Models
@@ -275,7 +328,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'google'
   },
   'gemini-2.0-flash-lite': {
     id: 'gemini-2.0-flash-lite',
@@ -287,7 +342,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['ultra-fast', 'lightweight', 'efficient'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'google'
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
@@ -299,7 +356,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['improved-performance', 'fast-responses', 'multimodal'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'google'
   },
   'gemini-2.5-flash-lite': {
     id: 'gemini-2.5-flash-lite',
@@ -311,7 +370,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['ultra-fast', 'enhanced-performance', 'lightweight'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'google'
   },
   'gemini-2.5-pro': {
     id: 'gemini-2.5-pro',
@@ -323,7 +384,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'complex-tasks', 'multimodal'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'google'
   },
 
   // Meta Llama Models
@@ -337,7 +400,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-capabilities', 'enhanced-performance', 'reasoning'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'meta'
   },
   'llama-4-scout': {
     id: 'llama-4-scout',
@@ -349,7 +414,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['efficient-processing', 'cost-effective', 'fast-responses'],
     category: 'general',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'meta'
   },
 
   // Mistral Models
@@ -363,7 +430,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['balanced-performance', 'general-tasks', 'reasoning'],
     category: 'general',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-codestral-2508': {
     id: 'mistral-codestral-2508',
@@ -375,7 +444,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['coding', 'programming', 'code-generation', 'debugging'],
     category: 'coding',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-ministral-3b': {
     id: 'mistral-ministral-3b',
@@ -387,7 +458,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['fast-processing', 'efficient', 'lightweight'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-ministral-8b': {
     id: 'mistral-ministral-8b',
@@ -399,7 +472,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['balanced-performance', 'efficient', 'general-use'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-small': {
     id: 'mistral-small',
@@ -411,7 +486,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['cost-effective', 'general-purpose', 'efficient'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-tiny': {
     id: 'mistral-tiny',
@@ -423,7 +500,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['ultra-fast', 'maximum-efficiency', 'lightweight'],
     category: 'general',
     costTier: 'low',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
   'mistral-large': {
     id: 'mistral-large',
@@ -435,7 +514,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-capabilities', 'complex-tasks', 'reasoning'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'mistral'
   },
 
   // Microsoft Phi Models
@@ -449,7 +530,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['reasoning', 'mathematics', 'analysis'],
     category: 'reasoning',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'microsoft'
   },
   'microsoft-phi-4-multimodal': {
     id: 'microsoft-phi-4-multimodal',
@@ -461,7 +544,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['multimodal', 'vision', 'reasoning', 'mathematics'],
     category: 'multimodal',
     costTier: 'medium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'microsoft'
   },
   'microsoft-phi-4-reasoning-plus': {
     id: 'microsoft-phi-4-reasoning-plus',
@@ -473,7 +558,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'problem-solving', 'mathematics', 'analysis'],
     category: 'reasoning',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'microsoft'
   },
 
   // xAI Grok Models
@@ -487,7 +574,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['real-time-info', 'conversation', 'reasoning'],
     category: 'search',
     costTier: 'high',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'xai'
   },
   'grok-3-mini': {
     id: 'grok-3-mini',
@@ -499,7 +588,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['real-time-info', 'efficient-processing', 'conversation'],
     category: 'search',
     costTier: 'medium',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'xai'
   },
   'grok-4': {
     id: 'grok-4',
@@ -511,7 +602,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'real-time-info', 'conversation'],
     category: 'search',
     costTier: 'premium',
-    speed: 'medium'
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'xai'
   },
   'grok-4-fast': {
     id: 'grok-4-fast',
@@ -523,7 +616,199 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     capabilities: ['advanced-reasoning', 'real-time-info', 'fast-processing'],
     category: 'search',
     costTier: 'high',
-    speed: 'fast'
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'xai'
+  }
+  ,
+
+  // ===== Direct (non-OpenRouter) Models =====
+  // Google Gemini (Direct)
+  'gemini-2.5-flash-lite-direct': {
+    id: 'gemini-2.5-flash-lite-direct',
+    name: 'Gemini 2.5 Flash Lite',
+    provider: 'Google',
+    agentId: 'agent-1757247536134017642',
+    maxTokens: 32768,
+    description: 'Ultra-lightweight Gemini model for maximum speed and efficiency',
+    capabilities: ['ultra-fast', 'lightweight', 'efficient'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'google'
+  },
+  'gemini-2.0-flash-direct': {
+    id: 'gemini-2.0-flash-direct',
+    name: 'Gemini 2.0 Flash',
+    provider: 'Google',
+    agentId: 'agent-1757247513434443545',
+    maxTokens: 32768,
+    description: 'Fast and efficient Gemini model for quick responses and general tasks',
+    capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'google'
+  },
+
+  // Anthropic Claude (Direct)
+  'claude-opus-4.1-direct': {
+    id: 'claude-opus-4.1-direct',
+    name: 'Claude Opus 4.1',
+    provider: 'Anthropic',
+    agentId: 'agent-1758124239529968489',
+    maxTokens: 200000,
+    description: 'Enhanced Claude Opus with improved reasoning and updated knowledge',
+    capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
+    executionPath: 'direct',
+    providerKey: 'anthropic'
+  },
+  'claude-haiku-3-direct': {
+    id: 'claude-haiku-3-direct',
+    name: 'Claude Haiku 3',
+    provider: 'Anthropic',
+    agentId: 'agent-1757247576782610310',
+    maxTokens: 200000,
+    description: 'Fastest Claude model for quick responses and simple tasks',
+    capabilities: ['fast-responses', 'simple-tasks', 'conversation'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'anthropic'
+  },
+  'claude-sonnet-3.7-direct': {
+    id: 'claude-sonnet-3.7-direct',
+    name: 'Claude Sonnet 3.7',
+    provider: 'Anthropic',
+    agentId: 'agent-1757247595523653178',
+    maxTokens: 200000,
+    description: 'Balanced Claude model for general use with good performance',
+    capabilities: ['balanced-performance', 'general-use', 'conversation'],
+    category: 'general',
+    costTier: 'medium',
+    speed: 'medium',
+    executionPath: 'direct',
+    providerKey: 'anthropic'
+  },
+
+  // OpenAI GPT (Direct)
+  'gpt-5-nano-direct': {
+    id: 'gpt-5-nano-direct',
+    name: 'GPT 5.0 Nano',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247941934986576',
+    maxTokens: 128000,
+    description: 'Ultra-compact GPT-5 model for maximum efficiency and speed',
+    capabilities: ['ultra-fast', 'efficient', 'lightweight'],
+    category: 'general',
+    costTier: 'medium',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-5-mini-direct': {
+    id: 'gpt-5-mini-direct',
+    name: 'GPT 5.0 Mini',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247909361890725',
+    maxTokens: 128000,
+    description: 'Compact GPT-5 model for efficient processing with advanced capabilities',
+    capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
+    category: 'reasoning',
+    costTier: 'high',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-5-direct': {
+    id: 'gpt-5-direct',
+    name: 'GPT 5.0',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247842543346249',
+    maxTokens: 128000,
+    description: 'Latest GPT-5 model with advanced capabilities and improved reasoning',
+    capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'medium',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-4o-mini-direct': {
+    id: 'gpt-4o-mini-direct',
+    name: 'GPT 4.0 Mini',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247819944085397',
+    maxTokens: 128000,
+    description: 'Compact GPT-4o model for cost-effective usage with good performance',
+    capabilities: ['multimodal', 'reasoning', 'cost-effective'],
+    category: 'multimodal',
+    costTier: 'medium',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-4-direct': {
+    id: 'gpt-4-direct',
+    name: 'GPT 4.0',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247792142471669',
+    maxTokens: 128000,
+    description: 'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
+    capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'high',
+    speed: 'medium',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-4-turbo-direct': {
+    id: 'gpt-4-turbo-direct',
+    name: 'GPT 4.0 Turbo',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247699977175946',
+    maxTokens: 128000,
+    description: 'Fast and efficient GPT-4 model optimized for most use cases',
+    capabilities: ['reasoning', 'analysis', 'fast-processing'],
+    category: 'reasoning',
+    costTier: 'high',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-3.5-turbo-direct': {
+    id: 'gpt-3.5-turbo-direct',
+    name: 'GPT 3.5 Turbo',
+    provider: 'OpenAI',
+    agentId: 'agent-1757247699977175946',
+    maxTokens: 16385,
+    description: 'Fast and cost-effective model for simple tasks and quick responses',
+    capabilities: ['text-generation', 'conversation', 'summarization'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'direct',
+    providerKey: 'openai'
+  },
+  'gpt-4o-search-preview-direct': {
+    id: 'gpt-4o-search-preview-direct',
+    name: 'GPT 4o Search',
+    provider: 'OpenAI',
+    agentId: 'agent-1760959407832164620',
+    maxTokens: 128000,
+    description: 'GPT-4o with real-time web search capabilities for current information',
+    capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
+    category: 'search',
+    costTier: 'premium',
+    speed: 'medium',
+    executionPath: 'direct',
+    providerKey: 'openai'
   }
 };
 
@@ -550,6 +835,29 @@ export const getModelsByCostTier = (costTier: ModelConfig['costTier']): ModelCon
 
 export const getModelsBySpeed = (speed: ModelConfig['speed']): ModelConfig[] => {
   return Object.values(MODEL_CONFIGS).filter(model => model.speed === speed);
+};
+
+// BYOK helpers
+export const isBYOKSupported = (model: ModelConfig): boolean => {
+  return model.executionPath === 'direct' && !!model.providerKey;
+};
+
+export const getModelsForMode = (options: { useBYOK: boolean; userProviders?: ProviderKey[] }): ModelConfig[] => {
+  const { useBYOK, userProviders } = options;
+  const models = getAllModels();
+  if (!useBYOK) return models;
+  const allowedProviders = new Set<ProviderKey>(userProviders || []);
+  // BYOK enabled: if no provider keys are configured, show nothing
+  if (allowedProviders.size === 0) return [];
+  
+  return models.filter(m => {
+    // Show OpenRouter models if user has OpenRouter key
+    if (m.executionPath === 'openrouter' && allowedProviders.has('openrouter')) {
+      return true;
+    }
+    // Show direct models if user has the corresponding provider key
+    return isBYOKSupported(m) && !!m.providerKey && allowedProviders.has(m.providerKey);
+  });
 };
 
 // Get model agent URL

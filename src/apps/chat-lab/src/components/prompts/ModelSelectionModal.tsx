@@ -37,7 +37,8 @@ import {
   Sort as SortIcon,
   FilterList as FilterIcon
 } from '@mui/icons-material';
-import { getAllModels, getModelsByProvider, type ModelConfig } from '../../data/models';
+import { getAllModels, getModelsByProvider, getModelsForMode, type ModelConfig, type ProviderKey } from '../../data/models';
+import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 interface ModelSelectionModalProps {
   open: boolean;
@@ -61,15 +62,61 @@ export default function ModelSelectionModal({
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [providerFilter, setProviderFilter] = useState<string>('all');
+  const [useBYOK, setUseBYOK] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chatlab_byok_enabled');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [userProviders, setUserProviders] = useState<ProviderKey[] | null>(null);
 
   // Get all available models from the centralized configuration
   const availableModels = getAllModels();
   const autoRouterModel = availableModels.find(model => model.id === 'auto-router');
   const otherModels = availableModels.filter(model => model.id !== 'auto-router');
 
-  // Filter models based on search and filters
+
+  // Persist BYOK toggle to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('chatlab_byok_enabled', useBYOK ? 'true' : 'false');
+    } catch {}
+  }, [useBYOK]);
+
+  // Load user's available providers when BYOK is toggled on
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadProviders = async () => {
+      if (!useBYOK) {
+        setUserProviders(null);
+        return;
+      }
+      try {
+        const storage = getUnifiedStorageService();
+        const keys = await storage.getAllAPIKeys();
+        if (cancelled) return;
+        const providers = (keys || [])
+          .map((k: any) => (k.provider as string)?.toLowerCase())
+          .filter(Boolean)
+          .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) as ProviderKey[];
+        setUserProviders(providers);
+      } catch {
+        setUserProviders([]);
+      }
+    };
+    loadProviders();
+    return () => { cancelled = true; };
+  }, [useBYOK]);
+
+  // Filter models based on BYOK mode, search and filters
   const filteredModels = useMemo(() => {
-    let filtered = otherModels.filter(model => {
+    const baseList = useBYOK
+      ? getModelsForMode({ useBYOK: true, userProviders: userProviders || undefined })
+      : otherModels.filter(m => m.executionPath === 'openrouter');
+
+    let filtered = baseList.filter(model => {
       // Search filter
       const matchesSearch = model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         model.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,7 +164,7 @@ export default function ModelSelectionModal({
     });
 
     return filtered;
-  }, [otherModels, searchQuery, sortBy, filterBy, providerFilter]);
+  }, [otherModels, useBYOK, userProviders, searchQuery, sortBy, filterBy, providerFilter]);
 
   const handleModelSelect = (modelId: string) => {
     onSelectModel(modelId);
@@ -253,6 +300,28 @@ export default function ModelSelectionModal({
         {/* Search and Filters */}
         <Box sx={{ p: 2, pb: 1 }}>
           <Stack spacing={2}>
+            {/* BYOK Toggle */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useBYOK}
+                    onChange={(e) => setUseBYOK(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Use my own API keys"
+              />
+              {useBYOK && (userProviders?.length === 0) && (
+                <Tooltip
+                  title="No compatible models found. Add your provider API keys in Settings to enable BYOK."
+                  placement="left"
+                >
+                  <Chip label="No providers configured" color="warning" size="small" />
+                </Tooltip>
+              )}
+            </Box>
+
             {/* Search */}
             <TextField
               fullWidth
@@ -386,7 +455,7 @@ export default function ModelSelectionModal({
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                             {model.description}
                           </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                             <Chip
                               label={model.provider}
                               size="small"
@@ -425,7 +494,9 @@ export default function ModelSelectionModal({
         {filteredModels.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              No models match your search and filters
+              {useBYOK
+                ? 'No models available. Add your provider API keys in Settings to enable BYOK.'
+                : 'No models match your search and filters'}
             </Typography>
           </Box>
         )}

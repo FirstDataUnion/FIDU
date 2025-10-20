@@ -15,6 +15,7 @@ import {
   resetStorageConfiguration,
   updateFilesystemStatus
 } from './store/slices/unifiedStorageSlice';
+import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
 import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo, getEnvironmentInfo } from './utils/environment';
@@ -86,6 +87,7 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [storageInitialized, setStorageInitialized] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [showStorageSelectionModal, setShowStorageSelectionModal] = useState(false);
+  const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -117,6 +119,36 @@ const AppContent: React.FC<AppContentProps> = () => {
       setShowStorageSelectionModal(true);
     }
   }, [authInitialized, unifiedStorage.mode, unifiedStorage.status, unifiedStorage.userSelectedMode]);
+
+  // Auto-start Google Drive OAuth for returning users who chose cloud mode previously
+  useEffect(() => {
+    const envInfo = getEnvironmentInfo();
+    const shouldAutoStart = envInfo.storageMode === 'cloud'
+      && unifiedStorage.mode === 'cloud'
+      && unifiedStorage.googleDrive.showAuthModal
+      && !unifiedStorage.googleDrive.isAuthenticated
+      && !unifiedStorage.googleDrive.isLoading
+      && unifiedStorage.userSelectedMode
+      && !autoAuthAttempted; // avoid loops
+
+    if (!shouldAutoStart) return;
+
+    // Optional user override via localStorage; default to true
+    let autoEnable = true;
+    try {
+      const stored = localStorage.getItem('chatlab_auto_gdrive_auth');
+      if (stored === 'false') autoEnable = false;
+    } catch {}
+
+    if (!autoEnable) return;
+
+    setAutoAuthAttempted(true);
+    // Defer slightly to let modal render/logging, then initiate OAuth redirect
+    const t = setTimeout(() => {
+      dispatch(authenticateGoogleDrive());
+    }, 150);
+    return () => clearTimeout(t);
+  }, [dispatch, unifiedStorage.mode, unifiedStorage.googleDrive.showAuthModal, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading, autoAuthAttempted]);
 
   // Handle Google Drive authentication status changes
   useEffect(() => {

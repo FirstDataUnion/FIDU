@@ -124,7 +124,7 @@ const response = await fiduVaultAPIClient.post<DataType>('/endpoint', data);
 
 **Supported Providers:**
 ```typescript
-type SupportedProvider = 'openai' | 'anthropic' | 'google';
+type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openrouter';
 ```
 
 **Usage:**

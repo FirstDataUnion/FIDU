@@ -53,7 +53,10 @@ export function useStorage(): UseStorageReturn {
         const service = getUnifiedStorageService();
         await service.initialize();
         setIsInitialized(true);
-        setStorageMode(localStorage.getItem('storage_mode') || 'local');
+        
+        // Get storage mode from the service's current mode
+        const currentMode = service.getCurrentMode();
+        setStorageMode(currentMode);
         setIsOnline(service.isOnline());
       } catch (error) {
         console.error('Failed to initialize storage service:', error);

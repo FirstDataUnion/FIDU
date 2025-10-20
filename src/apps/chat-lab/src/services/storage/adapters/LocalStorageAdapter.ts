@@ -150,4 +150,11 @@ export class LocalStorageAdapter implements StorageAdapter {
   isOnline(): boolean {
     return true; // Web app always online
   }
+
+  // Helper methods
+  private ensureInitialized(): void {
+    if (!this.isInitialized()) {
+      throw new Error('Local storage adapter not initialized. Please configure your storage options in Settings first.');
+    }
+  }
 }
