@@ -130,7 +130,7 @@ class OpenBaoClient:
             # Handle both dict and Response types from hvac
             if isinstance(response, dict):
                 response_data = response
-            elif response is not None and hasattr(response, 'json'):
+            elif response is not None and hasattr(response, "json"):
                 # If it's a Response object, get the JSON data
                 response_data = response.json()
             else:

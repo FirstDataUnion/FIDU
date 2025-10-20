@@ -30,7 +30,9 @@ class AuthTokenManager:
             "FIDU_IDENTITY_SERVICE_URL", IDENTITY_SERVICE_DEFAULT_URL
         )
 
-    def set_tokens(self, access_token: str, refresh_token: str, expires_in: int) -> None:
+    def set_tokens(
+        self, access_token: str, refresh_token: str, expires_in: int
+    ) -> None:
         """Set the access and refresh tokens with expiration."""
         self.access_token = access_token
         self.refresh_token = refresh_token
