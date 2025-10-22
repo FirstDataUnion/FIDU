@@ -277,8 +277,10 @@ const NLP_WORKBENCH_API_CONFIG = {
     async executeAgentAndWait(
       input: string, 
       agentCallback: (input: string) => Promise<NLPWorkbenchExecuteResponse>,
-      maxWaitTime: number = 90000, // 90 seconds default
-      pollInterval: number = 2000  // 2 seconds default
+      maxWaitTime: number = 660000, // 11 minutes default
+      initialPollInterval: number = 2000,  // 2 seconds initial polling interval
+      maxPollInterval: number = 3000, // 3 seconds maximum polling interval
+      backoffThreshold: number = 240000 // 4 minutes - when to reach max backoff
     ): Promise<NLPWorkbenchExecutionStatus> {
       // Start the execution
       const executeResponse = await agentCallback(input);
@@ -292,7 +294,9 @@ const NLP_WORKBENCH_API_CONFIG = {
       console.log('Starting NLP Workbench execution polling:', {
         executionId,
         maxWaitTime,
-        pollInterval,
+        initialPollInterval,
+        maxPollInterval,
+        backoffThreshold,
         startTime: new Date(startTime).toISOString()
       });
       
@@ -326,8 +330,26 @@ const NLP_WORKBENCH_API_CONFIG = {
                 return executionStatus;
             }
             
-            // Wait before next poll
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            // Calculate exponential backoff polling interval
+            const elapsedTime = Date.now() - startTime;
+            let currentPollInterval = initialPollInterval;
+            
+            if (elapsedTime >= backoffThreshold) {
+              // After 4 minutes, use maximum polling interval
+              currentPollInterval = maxPollInterval;
+            } else {
+              // Exponential backoff: increase interval as time progresses
+              // Scale from initialPollInterval to maxPollInterval over backoffThreshold time
+              const progress = elapsedTime / backoffThreshold;
+              const exponentialFactor = Math.pow(2, progress * 3); // Exponential growth
+              currentPollInterval = Math.min(
+                initialPollInterval * exponentialFactor,
+                maxPollInterval
+              );
+            }
+            
+            // Wait before next poll with calculated interval
+            await new Promise(resolve => setTimeout(resolve, currentPollInterval));
         } catch (error) {
             pollCount++;
             pollingErrors.push({
@@ -344,8 +366,23 @@ const NLP_WORKBENCH_API_CONFIG = {
               error: error
             });
             
+            // Calculate backoff for error case too
+            const elapsedTime = Date.now() - startTime;
+            let currentPollInterval = initialPollInterval;
+            
+            if (elapsedTime >= backoffThreshold) {
+              currentPollInterval = maxPollInterval;
+            } else {
+              const progress = elapsedTime / backoffThreshold;
+              const exponentialFactor = Math.pow(2, progress * 3);
+              currentPollInterval = Math.min(
+                initialPollInterval * exponentialFactor,
+                maxPollInterval
+              );
+            }
+            
             // Continue polling even if there's an error
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            await new Promise(resolve => setTimeout(resolve, currentPollInterval));
         }
       }
       
@@ -355,7 +392,9 @@ const NLP_WORKBENCH_API_CONFIG = {
         executionId,
         maxWaitTime,
         actualWaitTime: totalTime,
-        pollInterval,
+        initialPollInterval,
+        maxPollInterval,
+        backoffThreshold,
         totalPolls: pollCount,
         lastKnownStatus,
         pollingErrors: pollingErrors,

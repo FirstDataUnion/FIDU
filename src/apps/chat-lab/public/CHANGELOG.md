@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Prompt Wizard**: Interactive wizard to help craft better prompts through guided questions, accessed by a button in the main chat window
 - **System Prompt Suggestor Wizard**: Interactive librarian wizard to help users find suitable system prompts for their tasks, available via button in the system prompt drawer
+- **Request Cancellation**: Users can now cancel long-running requests and continue with other tasks
+- **Use This Prompt Button**: Added "Use This Prompt" button to system prompt cards that navigates to the prompt lab page, opens the system prompt drawer, and automatically applies the selected prompt
+- **System Prompt Librarian Access**: Added "Find System Prompt" button to the system prompts page header that navigates to the prompt lab and automatically opens the librarian wizard
+
+### Changed
+
+- **Request Timeout**: Extended default timeout from 90 seconds to 10 minutes to accommodate longer model processing times
+- **User Experience**: Enhanced UX for long-running requests with clear feedback, progress indication, and cancellation options
 
 
 ## [0.1.4] - 2025-10-20

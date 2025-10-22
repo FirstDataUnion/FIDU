@@ -38,10 +38,14 @@ import {
   Settings as SettingsIcon,
   Code as CodeIcon,
   Extension as ExtensionIcon,
-  HelpOutline as HelpOutlineIcon
+  HelpOutline as HelpOutlineIcon,
+  PlayArrow as PlayArrowIcon,
+  AutoFixHigh as WizardIcon,
+  MenuBook as MenuBookIcon
 } from '@mui/icons-material';
 
 import { useAppSelector, useAppDispatch } from '../store';
+import { useNavigate } from 'react-router-dom';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { 
   fetchSystemPrompts, 
@@ -57,10 +61,15 @@ import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 const SystemPromptCard = React.memo<{ 
   systemPrompt: any; 
   onViewEdit: (systemPrompt: any) => void;
-}>(({ systemPrompt, onViewEdit }) => {
+  onTryPrompt: (systemPrompt: any) => void;
+}>(({ systemPrompt, onViewEdit, onTryPrompt }) => {
   const handleViewEdit = useCallback(() => {
     onViewEdit(systemPrompt);
   }, [systemPrompt, onViewEdit]);
+
+  const handleTryPrompt = useCallback(() => {
+    onTryPrompt(systemPrompt);
+  }, [systemPrompt, onTryPrompt]);
 
   return (
     <Card 
@@ -150,11 +159,28 @@ const SystemPromptCard = React.memo<{
         </Box>
       </CardContent>
 
-      <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
-        <Typography variant="caption" color="text.secondary">
+      <CardActions sx={{ pt: 0, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 'fit-content' }}>
           {!systemPrompt.isBuiltIn && `Updated ${new Date(systemPrompt.updatedAt).toLocaleDateString()}`}
         </Typography>
-        <Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button 
+            size="small" 
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={handleTryPrompt}
+            sx={{ 
+              backgroundColor: 'success.main',
+              '&:hover': {
+                backgroundColor: 'success.dark',
+              },
+              fontSize: '0.75rem',
+              px: 1.5,
+              py: 0.5
+            }}
+          >
+            Use This Prompt
+          </Button>
           <Button 
             size="small" 
             variant="outlined"
@@ -175,7 +201,8 @@ SystemPromptCard.displayName = 'SystemPromptCard';
 const OptimizedSystemPromptsGrid = React.memo<{
   prompts: any[];
   onViewEdit: (systemPrompt: any) => void;
-}>(({ prompts, onViewEdit }) => {
+  onTryPrompt: (systemPrompt: any) => void;
+}>(({ prompts, onViewEdit, onTryPrompt }) => {
   const [visibleCount, setVisibleCount] = useState(20); // Start with 20 prompts
   const [isLoading, setIsLoading] = useState(false);
   
@@ -234,6 +261,7 @@ const OptimizedSystemPromptsGrid = React.memo<{
             <SystemPromptCard 
               systemPrompt={systemPrompt} 
               onViewEdit={onViewEdit}
+              onTryPrompt={onTryPrompt}
             />
           </Box>
         ))}
@@ -266,6 +294,7 @@ OptimizedSystemPromptsGrid.displayName = 'OptimizedSystemPromptsGrid';
 
 const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
   const unifiedStorage = useUnifiedStorage();
@@ -296,6 +325,8 @@ const SystemPromptsPage = React.memo(() => {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showTryPromptDialog, setShowTryPromptDialog] = useState(false);
+  const [promptToTry, setPromptToTry] = useState<any>(null);
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<any>(null);
   const [contextMenuAnchor, setContextMenuAnchor] = useState<null | HTMLElement>(null);
   
@@ -503,6 +534,72 @@ const SystemPromptsPage = React.memo(() => {
     setViewEditDialogOpen(true);
   }, []);
 
+  const handleTryPrompt = useCallback((systemPrompt: any) => {
+    // Check if there's existing state in the prompt lab
+    const existingMessages = sessionStorage.getItem('promptlab_messages');
+    const existingContext = sessionStorage.getItem('promptlab_context');
+    const existingSystemPrompts = sessionStorage.getItem('promptlab_system_prompts');
+    
+    // Check if there's any existing conversation state
+    const hasExistingState = existingMessages || existingContext || existingSystemPrompts;
+    
+    if (hasExistingState) {
+      // Show confirmation dialog
+      setPromptToTry(systemPrompt);
+      setShowTryPromptDialog(true);
+    } else {
+      // No existing state, navigate directly
+      navigate('/prompt-lab', {
+        state: {
+          openSystemPromptDrawer: true,
+          applySystemPrompt: systemPrompt
+        }
+      });
+    }
+  }, [navigate]);
+
+  const handleAddToCurrentConversation = useCallback(() => {
+    if (promptToTry) {
+      navigate('/prompt-lab', {
+        state: {
+          openSystemPromptDrawer: true,
+          applySystemPrompt: promptToTry,
+          addToCurrent: true
+        }
+      });
+    }
+    setShowTryPromptDialog(false);
+    setPromptToTry(null);
+  }, [navigate, promptToTry]);
+
+  const handleStartNewConversation = useCallback(() => {
+    if (promptToTry) {
+      navigate('/prompt-lab', {
+        state: {
+          openSystemPromptDrawer: true,
+          applySystemPrompt: promptToTry,
+          startNew: true
+        }
+      });
+    }
+    setShowTryPromptDialog(false);
+    setPromptToTry(null);
+  }, [navigate, promptToTry]);
+
+  const handleCancelTryPrompt = useCallback(() => {
+    setShowTryPromptDialog(false);
+    setPromptToTry(null);
+  }, []);
+
+  const handleOpenLibrarianWizard = useCallback(() => {
+    // Navigate to prompt lab page with state to auto-open the librarian wizard
+    navigate('/prompt-lab', {
+      state: {
+        openSystemPromptSuggestor: true
+      }
+    });
+  }, [navigate]);
+
   const handleViewEditSubmit = useCallback(async () => {
     if (!currentProfile?.id || !selectedSystemPrompt || !viewEditForm.name.trim() || !viewEditForm.content.trim()) return;
     
@@ -602,15 +699,25 @@ const SystemPromptsPage = React.memo(() => {
           </Typography>
         </Box>
         {unifiedStorage.status === 'configured' && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateSystemPrompt}
-            disabled={isDirectoryRequired}
-            sx={{ borderRadius: 2 }}
-          >
-            Add System Prompt
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<MenuBookIcon />}
+              onClick={handleOpenLibrarianWizard}
+              sx={{ borderRadius: 2 }}
+            >
+              Find System Prompt
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateSystemPrompt}
+              disabled={isDirectoryRequired}
+              sx={{ borderRadius: 2 }}
+            >
+              Add System Prompt
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -711,6 +818,7 @@ const SystemPromptsPage = React.memo(() => {
           <OptimizedSystemPromptsGrid
             prompts={filteredPrompts}
             onViewEdit={handleViewEditSystemPrompt}
+            onTryPrompt={handleTryPrompt}
           />
         </Box>
       ) : (
@@ -956,6 +1064,54 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
           <Button onClick={handleDeleteSystemPrompt} color="error" variant="contained">
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Try Prompt Confirmation Dialog */}
+      <Dialog open={showTryPromptDialog} onClose={handleCancelTryPrompt} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PlayArrowIcon color="primary" />
+          Try This Prompt
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            You have an existing conversation in the Prompt Lab. How would you like to use the system prompt "{promptToTry?.name}"?
+          </DialogContentText>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, color: 'primary.dark'  }}>
+            <Button
+              variant="outlined"
+              onClick={handleAddToCurrentConversation}
+              sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1.5 }}
+            >
+              <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Add to Current Conversation
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Keep your existing messages and add this system prompt to your current selection
+                </Typography>
+              </Box>
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={handleStartNewConversation}
+              sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1.5 }}
+            >
+              <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Start New Conversation
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Clear your current conversation and start fresh with this system prompt
+                </Typography>
+              </Box>
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelTryPrompt}>
+            Cancel
           </Button>
         </DialogActions>
       </Dialog>

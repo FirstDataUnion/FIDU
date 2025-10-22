@@ -96,8 +96,10 @@ export const buildCompletePrompt = (
   return agentPrompt;
 };
 
-const DEFAULT_WAIT_TIME_MS = 90000; // 90 seconds to match server timeout
-const DEFAULT_POLL_INTERVAL_MS = 2000; // 2 seconds polling interval
+const DEFAULT_WAIT_TIME_MS = 660000; // 11 minutes to match server timeout
+const DEFAULT_POLL_INTERVAL_MS = 2000; // 2 seconds initial polling interval
+const MAX_POLL_INTERVAL_MS = 3000; // 3 seconds maximum polling interval
+const BACKOFF_THRESHOLD_MS = 240000; // 4 minutes - when to reach max backoff
 
 // Factory function to create prompts API
 export const createPromptsApi = () => {
@@ -135,7 +137,9 @@ export const createPromptsApi = () => {
         agentPrompt, 
         agentCallback, 
         DEFAULT_WAIT_TIME_MS,
-        DEFAULT_POLL_INTERVAL_MS
+        DEFAULT_POLL_INTERVAL_MS,
+        MAX_POLL_INTERVAL_MS,
+        BACKOFF_THRESHOLD_MS
       )
       
       const chatResponse = response.outputs.results[0]?.output?.result;

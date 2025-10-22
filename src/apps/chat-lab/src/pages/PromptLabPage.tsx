@@ -68,6 +68,8 @@ import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { MetricsService } from '../services/metrics/MetricsService';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
+import LongRequestWarning from '../components/common/LongRequestWarning';
+import { analyzeRequestDuration, type LongRequestAnalysis } from '../utils/longRequestDetection';
 
 
 // Helper function to generate user-friendly error messages and debug info
@@ -972,6 +974,12 @@ export default function PromptLabPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Long request detection state
+  const [longRequestAnalysis, setLongRequestAnalysis] = useState<LongRequestAnalysis | null>(null);
+  const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
+  const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
+  const [isRequestCancelled, setIsRequestCancelled] = useState(false);
+
   // Show toast message
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -1102,6 +1110,76 @@ export default function PromptLabPage() {
     }
   }, [location.state, navigate, restoreConversationSettings]);
 
+  // Handle system prompt application from navigation
+  useEffect(() => {
+    if (location.state?.openSystemPromptDrawer && location.state?.applySystemPrompt) {
+      const systemPrompt = location.state.applySystemPrompt;
+      
+      // Handle different scenarios based on navigation state
+      if (location.state.startNew) {
+        // Start new conversation - clear existing state
+        setMessages([]);
+        setCurrentMessage('');
+        setSelectedContext(null);
+        setSelectedSystemPrompts([systemPrompt]);
+        setCurrentConversation(null);
+        clearSession();
+      } else if (location.state.addToCurrent) {
+        // Add to current conversation - add to existing selection
+        setSelectedSystemPrompts(prev => {
+          // Check if the prompt is already in the selection
+          if (prev.find(sp => sp.id === systemPrompt.id)) {
+            return prev; // Don't add if already present
+          }
+          return [...prev, systemPrompt];
+        });
+      } else {
+        // Default behavior - replace default if it's the only one selected
+        setSelectedSystemPrompts(prev => {
+          if (prev.length === 1 && prev[0].isDefault) {
+            return [systemPrompt];
+          } else {
+            // Add to existing selection if not already present
+            if (!prev.find(sp => sp.id === systemPrompt.id)) {
+              return [...prev, systemPrompt];
+            }
+            return prev;
+          }
+        });
+      }
+      
+      // Open the system prompt drawer
+      setSystemPromptDrawerOpen(true);
+      
+      // Clear the navigation state to prevent reloading on subsequent renders
+      navigate('/prompt-lab', { replace: true });
+    }
+  }, [location.state, navigate, clearSession]);
+
+  // Handle librarian wizard opening from navigation
+  useEffect(() => {
+    if (location.state?.openSystemPromptSuggestor) {
+      // Open the system prompt suggestor wizard
+      setSystemPromptSuggestorOpen(true);
+      setSystemPromptSuggestorMinimized(false);
+      setSystemPromptSuggestorMessages([]);
+      setSystemPromptSuggestorError(null);
+      
+      // Add the librarian's greeting as the first assistant message
+      const librarianGreeting: WizardMessage = {
+        id: `system-prompt-suggestor-${Date.now()}-librarian-greeting`,
+        role: 'assistant',
+        content: 'Hello! I\'m the FIDU Librarian, your friendly system prompt assistant. I can help you find the perfect system prompt in our collection for your specific task or goal. What would you like to accomplish with AI today?',
+        timestamp: new Date().toISOString()
+      };
+      
+      setSystemPromptSuggestorMessages([librarianGreeting]);
+      
+      // Clear the navigation state to prevent reloading on subsequent renders
+      navigate('/prompt-lab', { replace: true });
+    }
+  }, [location.state, navigate]);
+
   // Save or update conversation
   const saveConversation = useCallback(async (messages: Message[]) => {
     if (!currentProfile || messages.length === 0) return;
@@ -1205,6 +1283,25 @@ export default function PromptLabPage() {
     setCurrentMessage('');
     setIsLoading(true);
     setError(null);
+    setIsRequestCancelled(false);
+
+    // Analyze request for potential long duration
+    const contextLength = selectedContext ? JSON.stringify(selectedContext).length : 0;
+    const conversationLength = messages.reduce((total, msg) => total + msg.content.length, 0);
+    const analysis = analyzeRequestDuration(
+      currentMessage,
+      selectedModel,
+      contextLength,
+      conversationLength
+    );
+    
+    setLongRequestAnalysis(analysis);
+    setRequestStartTime(Date.now());
+    
+    // Show warning if request is likely to be long-running
+    if (analysis.isLikelyLongRunning) {
+      setShowLongRequestWarning(true);
+    }
 
     try {
       // Call the actual API to get AI response
@@ -1217,6 +1314,11 @@ export default function PromptLabPage() {
         selectedSystemPrompts, // Pass the full array of selected system prompts
         []
       );
+
+      // Check if request was cancelled
+      if (isRequestCancelled) {
+        return;
+      }
 
       // Track successful message sent to model
       MetricsService.recordMessageSent(selectedModel, 'success');
@@ -1279,8 +1381,34 @@ export default function PromptLabPage() {
       }, 100);
     } finally {
       setIsLoading(false);
+      setShowLongRequestWarning(false);
+      setLongRequestAnalysis(null);
+      setRequestStartTime(null);
     }
   };
+
+  // Handle cancelling a long request
+  const handleCancelRequest = useCallback(() => {
+    setIsRequestCancelled(true);
+    setIsLoading(false);
+    setShowLongRequestWarning(false);
+    setLongRequestAnalysis(null);
+    setRequestStartTime(null);
+    
+    // Add a cancellation message to the chat
+    const cancelMessage: Message = {
+      id: `msg-${Date.now()}-cancel`,
+      conversationId: 'current',
+      content: 'Request cancelled by user.',
+      role: 'assistant',
+      timestamp: new Date().toISOString(),
+      platform: selectedModel,
+      isEdited: false
+    };
+    setMessages(prev => [...prev, cancelMessage]);
+    
+    showToast('Request cancelled');
+  }, [selectedModel, showToast]);
 
   // Wizard handlers
   const handleOpenWizard = () => {
@@ -1436,11 +1564,9 @@ export default function PromptLabPage() {
   };
 
   const handleCloseSystemPromptSuggestor = () => {
+    // Instead of closing completely, minimize to preserve the tab
+    setSystemPromptSuggestorMinimized(true);
     setSystemPromptSuggestorOpen(false);
-    setSystemPromptSuggestorMinimized(false);
-    setSystemPromptSuggestorMessages([]);
-    setSystemPromptSuggestorError(null);
-    setSystemPromptSuggestorInitialMessage('');
   };
 
   const handleMinimizeSystemPromptSuggestor = () => {
@@ -2274,6 +2400,15 @@ export default function PromptLabPage() {
               </Box>
                 );
               })}
+              
+              {/* Long request warning */}
+              {longRequestAnalysis && (
+                <LongRequestWarning
+                  analysis={longRequestAnalysis}
+                  isVisible={showLongRequestWarning}
+                  onCancel={handleCancelRequest}
+                />
+              )}
               
               {/* Loading indicator */}
               {isLoading && (
