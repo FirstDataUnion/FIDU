@@ -47,6 +47,8 @@ import {
   Send as SendIcon,
   ExpandLess as ExpandLessIcon,
   HelpOutline as HelpOutlineIcon,
+  AutoFixHigh as WizardIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -57,6 +59,8 @@ import { updateConversationWithMessages } from '../store/slices/conversationsSli
 import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
+import type { WizardMessage } from '../types/wizard';
+import { WizardWindow } from '../components/wizards/WizardWindow';
 import { ApiError } from '../services/api/apiClients';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import ContextHelpModal from '../components/help/ContextHelpModal';
@@ -737,6 +741,22 @@ export default function PromptLabPage() {
   // Mobile-specific state
   const [showMobileControls, setShowMobileControls] = useState(false);
 
+  // Wizard state
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardMinimized, setWizardMinimized] = useState(false);
+  const [wizardMessages, setWizardMessages] = useState<WizardMessage[]>([]);
+  const [wizardLoading, setWizardLoading] = useState(false);
+  const [wizardError, setWizardError] = useState<string | null>(null);
+  const [wizardInitialMessage, setWizardInitialMessage] = useState<string>('');
+
+  // System Prompt Suggestor Wizard state
+  const [systemPromptSuggestorOpen, setSystemPromptSuggestorOpen] = useState(false);
+  const [systemPromptSuggestorMinimized, setSystemPromptSuggestorMinimized] = useState(false);
+  const [systemPromptSuggestorMessages, setSystemPromptSuggestorMessages] = useState<WizardMessage[]>([]);
+  const [systemPromptSuggestorLoading, setSystemPromptSuggestorLoading] = useState(false);
+  const [systemPromptSuggestorError, setSystemPromptSuggestorError] = useState<string | null>(null);
+  const [systemPromptSuggestorInitialMessage, setSystemPromptSuggestorInitialMessage] = useState<string>('');
+
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
     if (settings.lastUsedModel && settings.lastUsedModel !== selectedModel) {
@@ -1259,6 +1279,330 @@ export default function PromptLabPage() {
       }, 100);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Wizard handlers
+  const handleOpenWizard = () => {
+    setWizardOpen(true);
+    setWizardMinimized(false);
+    setWizardError(null);
+    
+    // Only copy current message and initialize greeting for fresh wizard conversations
+    if (wizardMessages.length === 0) {
+      // Copy current message to wizard initial message for new conversations
+      setWizardInitialMessage(currentMessage);
+      
+      // Initialize wizard with greeting
+      const greetingMessage: WizardMessage = {
+        id: `wizard-${Date.now()}-greeting`,
+        role: 'assistant',
+        content: "Hello! I'm the FIDU-Prompt-Wizard, your friendly prompt enhancement bot. My goal is to help you transform your initial idea into a powerful, precise instruction for an AI. Please share the prompt you'd like me to help you improve.",
+        timestamp: new Date().toISOString()
+      };
+      setWizardMessages([greetingMessage]);
+      
+      // Clear the initial message after it's been set to prevent reuse
+      setTimeout(() => setWizardInitialMessage(''), 100);
+    }
+  };
+
+  const handleCloseWizard = () => {
+    setWizardOpen(false);
+    setWizardMinimized(false);
+    setWizardMessages([]); // Clear conversation when explicitly closed
+    setWizardError(null);
+    setWizardInitialMessage(''); // Clear initial message
+  };
+
+  const handleMinimizeWizard = () => {
+    setWizardMinimized(true);
+    setWizardOpen(false);
+  };
+
+  const handleMaximizeWizard = () => {
+    setWizardMinimized(false);
+    setWizardOpen(true);
+  };
+
+  const handleWizardSendMessage = async (message: string) => {
+    if (!message.trim() || !currentProfile) return;
+
+    const userMessage: WizardMessage = {
+      id: `wizard-${Date.now()}-user`,
+      role: 'user',
+      content: message,
+      timestamp: new Date().toISOString()
+    };
+
+    setWizardMessages(prev => [...prev, userMessage]);
+    setWizardLoading(true);
+    setWizardError(null);
+
+    try {
+      // Find the Prompt Wizard system prompt
+      const promptWizardSystemPrompt = systemPrompts.find(sp => sp.id === 'sys-2');
+      if (!promptWizardSystemPrompt) {
+        throw new Error('Prompt Wizard system prompt not found');
+      }
+
+      // Convert wizard messages to regular messages for API call
+      const apiMessages: Message[] = wizardMessages.map(wm => ({
+        id: wm.id,
+        conversationId: 'wizard',
+        content: wm.content,
+        role: wm.role,
+        timestamp: wm.timestamp,
+        platform: 'gpt-oss-120b',
+        isEdited: false
+      }));
+
+      // Add the new user message
+      const apiUserMessage: Message = {
+        id: userMessage.id,
+        conversationId: 'wizard',
+        content: userMessage.content,
+        role: 'user',
+        timestamp: userMessage.timestamp,
+        platform: 'gpt-oss-120b',
+        isEdited: false
+      };
+
+      // Add user message to API messages
+      apiMessages.push(apiUserMessage);
+
+      // Call the API with wizard-specific parameters
+      const response = await promptsApi.executePrompt(
+        apiMessages,
+        null, // No context for wizard
+        message,
+        'gpt-oss-120b', // Fixed model for wizard
+        currentProfile.id,
+        [promptWizardSystemPrompt], // Use Prompt Wizard system prompt
+        []
+      );
+
+      if (response.status === 'completed' && response.responses?.content) {
+        const content = response.responses.content;
+        
+        const aiMessage: WizardMessage = {
+          id: `wizard-${Date.now()}-ai`,
+          role: 'assistant',
+          content: content,
+          timestamp: new Date().toISOString()
+        };
+        setWizardMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error('The wizard failed to complete the call, please try again shortly');
+      }
+    } catch (error) {
+      console.error('Error getting wizard response:', error);
+      setWizardError('Failed to get wizard response. Please try again.');
+    } finally {
+      setWizardLoading(false);
+    }
+  };
+
+  const handleCopyWizardResult = (content: string) => {
+    setCurrentMessage(content);
+    showToast('Prompt copied to chat input!');
+    setWizardMinimized(true);
+  };
+
+  const handleClearWizardConversation = () => {
+    setWizardMessages([]);
+    setWizardError(null);
+    setWizardInitialMessage(''); // Clear initial message
+    showToast('Wizard conversation cleared');
+  };
+
+  // System Prompt Suggestor Wizard handlers
+  const handleOpenSystemPromptSuggestor = () => {
+    setSystemPromptSuggestorOpen(true);
+    setSystemPromptSuggestorMinimized(false);
+    setSystemPromptSuggestorMessages([]);
+    setSystemPromptSuggestorError(null);
+    setSystemPromptSuggestorInitialMessage(''); // Clear initial message
+    
+    // Add the librarian's greeting as the first assistant message
+    const librarianGreeting: WizardMessage = {
+      id: `system-prompt-suggestor-${Date.now()}-librarian-greeting`,
+      role: 'assistant',
+      content: 'Hello! I\'m the FIDU Librarian, your friendly system prompt assistant. I can help you find the perfect system prompt in our collection for your specific task or goal. What would you like to accomplish with AI today?',
+      timestamp: new Date().toISOString()
+    };
+    
+    setSystemPromptSuggestorMessages([librarianGreeting]);
+  };
+
+  const handleCloseSystemPromptSuggestor = () => {
+    setSystemPromptSuggestorOpen(false);
+    setSystemPromptSuggestorMinimized(false);
+    setSystemPromptSuggestorMessages([]);
+    setSystemPromptSuggestorError(null);
+    setSystemPromptSuggestorInitialMessage('');
+  };
+
+  const handleMinimizeSystemPromptSuggestor = () => {
+    setSystemPromptSuggestorMinimized(true);
+    setSystemPromptSuggestorOpen(false);
+  };
+
+  const handleMaximizeSystemPromptSuggestor = () => {
+    setSystemPromptSuggestorMinimized(false);
+    setSystemPromptSuggestorOpen(true);
+  };
+
+  const handleSystemPromptSuggestorSendMessage = async (message: string) => {
+    if (!message.trim() || !currentProfile) return;
+
+    const userMessage: WizardMessage = {
+      id: `system-prompt-suggestor-${Date.now()}-user`,
+      role: 'user',
+      content: message,
+      timestamp: new Date().toISOString()
+    };
+
+    setSystemPromptSuggestorMessages(prev => [...prev, userMessage]);
+    setSystemPromptSuggestorLoading(true);
+    setSystemPromptSuggestorError(null);
+
+    try {
+      // Find the System Prompt Suggestor system prompt
+      const systemPromptSuggestorSystemPrompt = systemPrompts.find(sp => sp.id === 'sys-3');
+      if (!systemPromptSuggestorSystemPrompt) {
+        throw new Error('System Prompt Suggestor system prompt not found');
+      }
+
+      // Convert wizard messages to regular messages for API call
+      // This includes the librarian's greeting message to maintain conversation context
+      const apiMessages: Message[] = systemPromptSuggestorMessages.map(wm => ({
+        id: wm.id,
+        conversationId: 'system-prompt-suggestor',
+        content: wm.content,
+        role: wm.role,
+        timestamp: wm.timestamp,
+        platform: 'gpt-oss-120b',
+        isEdited: false
+      }));
+
+      // Add the new user message
+      const apiUserMessage: Message = {
+        id: userMessage.id,
+        conversationId: 'system-prompt-suggestor',
+        content: userMessage.content,
+        role: 'user',
+        timestamp: userMessage.timestamp,
+        platform: 'gpt-oss-120b',
+        isEdited: false
+      };
+
+      // Add user message to API messages
+      apiMessages.push(apiUserMessage);
+
+      // Call the API with wizard-specific parameters
+      const response = await promptsApi.executePrompt(
+        apiMessages,
+        null, // No context for wizard
+        message,
+        'gpt-oss-120b', // Fixed model for wizard
+        currentProfile.id,
+        [systemPromptSuggestorSystemPrompt], // Use System Prompt Suggestor system prompt
+        []
+      );
+
+      if (response.status === 'completed' && response.responses?.content) {
+        const content = response.responses.content;
+        
+        const aiMessage: WizardMessage = {
+          id: `system-prompt-suggestor-${Date.now()}-ai`,
+          role: 'assistant',
+          content: content,
+          timestamp: new Date().toISOString()
+        };
+        setSystemPromptSuggestorMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error('The System Prompt Suggestor failed to complete the call, please try again shortly');
+      }
+    } catch (error) {
+      console.error('Error getting System Prompt Suggestor response:', error);
+      setSystemPromptSuggestorError('Failed to get System Prompt Suggestor response. Please try again.');
+    } finally {
+      setSystemPromptSuggestorLoading(false);
+    }
+  };
+
+  const handleCopySystemPromptSuggestorResult = (content: string) => {
+    // For System Prompt Suggestor, we want to add the suggested system prompt to the selected system prompts
+    // First, we need to find the system prompt by name from the content
+    const suggestedPromptName = extractSystemPromptNameFromContent(content);
+    if (suggestedPromptName) {
+      const suggestedPrompt = systemPrompts.find(sp => sp.name === suggestedPromptName);
+      if (suggestedPrompt && !selectedSystemPrompts.find(sp => sp.id === suggestedPrompt.id)) {
+        setSelectedSystemPrompts(prev => [...prev, suggestedPrompt]);
+        showToast(`System prompt "${suggestedPromptName}" added to selected prompts!`);
+      } else if (suggestedPrompt) {
+        showToast(`System prompt "${suggestedPromptName}" is already selected!`);
+      } else {
+        showToast('Could not find the suggested system prompt. Please add it manually.');
+      }
+    } else {
+      showToast('Could not extract system prompt name from suggestion. Please add manually.');
+    }
+    setSystemPromptSuggestorMinimized(true);
+  };
+
+  const handleClearSystemPromptSuggestorConversation = () => {
+    setSystemPromptSuggestorMessages([]);
+    setSystemPromptSuggestorError(null);
+    setSystemPromptSuggestorInitialMessage('');
+    
+    // Add the librarian's greeting back as the first assistant message
+    const librarianGreeting: WizardMessage = {
+      id: `system-prompt-suggestor-${Date.now()}-librarian-greeting`,
+      role: 'assistant',
+      content: 'Hello! I\'m the FIDU Librarian, your friendly system prompt assistant. I can help you find the perfect system prompt in our collection for your specific task or goal. What would you like to accomplish with AI today?',
+      timestamp: new Date().toISOString()
+    };
+    
+    setSystemPromptSuggestorMessages([librarianGreeting]);
+    showToast('System Prompt Suggestor conversation cleared');
+  };
+
+  // Helper function to extract system prompt name from the librarian's response
+  const extractSystemPromptNameFromContent = (content: string): string | null => {
+    // Look for patterns like "I recommend the [Name] system prompt" or "The [Name] prompt would be perfect"
+    const patterns = [
+      /(?:recommend|suggest|perfect|ideal).*?["']([^"']+)["']/i,
+      /(?:recommend|suggest|perfect|ideal).*?the\s+([A-Za-z\s]+?)\s+(?:system\s+)?prompt/i,
+      /(?:system\s+)?prompt.*?["']([^"']+)["']/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    
+    return null;
+  };
+
+  // Helper function to get system prompt by ID
+  const getSystemPromptById = (id: string): SystemPrompt | null => {
+    return systemPrompts.find(sp => sp.id === id) || null;
+  };
+
+  // Handler for adding system prompts from wizard suggestions
+  const handleAddSystemPromptFromWizard = (promptId: string) => {
+    const systemPrompt = getSystemPromptById(promptId);
+    if (systemPrompt && !selectedSystemPrompts.find(sp => sp.id === promptId)) {
+      setSelectedSystemPrompts(prev => [...prev, systemPrompt]);
+      showToast(`System prompt "${systemPrompt.name}" added to selected prompts!`);
+    } else if (systemPrompt) {
+      showToast(`System prompt "${systemPrompt.name}" is already selected!`);
+    } else {
+      showToast('Could not find the suggested system prompt. Please add it manually.');
     }
   };
 
@@ -2139,6 +2483,46 @@ export default function PromptLabPage() {
                     </Typography>
                   </Box>
 
+                  {/* System Prompt Suggestor Wizard Button */}
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1, 
+                      p: 2, 
+                      borderRadius: 2, 
+                      backgroundColor: 'rgba(147, 112, 219, 0.1)',
+                      border: '1px solid rgba(147, 112, 219, 0.3)',
+                      mb: 2
+                    }}>
+                      <HelpOutlineIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
+                      <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+                        Not sure what system prompt to use? Ask our librarian wizard:
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<WizardIcon />}
+                        onClick={handleOpenSystemPromptSuggestor}
+                        sx={{
+                          backgroundColor: 'secondary.main',
+                          color: 'secondary.contrastText',
+                          borderRadius: 2,
+                          px: 2,
+                          py: 0.5,
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          '&:hover': {
+                            backgroundColor: 'secondary.dark'
+                          }
+                        }}
+                      >
+                        Ask Librarian
+                      </Button>
+                    </Box>
+                  </Box>
+
                   {/* Selected System Prompts List */}
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
@@ -2312,7 +2696,7 @@ export default function PromptLabPage() {
                       borderRadius: isMobile ? 2 : 2,
                       backgroundColor: 'background.paper',
                       boxShadow: isMobile ? 1 : 1,
-                      pr: isMobile ? 10 : 8, // Add right padding to make room for send button
+                      pr: isMobile ? 18 : 16, // Add right padding to make room for wizard and send buttons
                       fontSize: isMobile ? '1rem' : '0.875rem',
                       minHeight: isMobile ? 48 : 'auto',
                       border: isMobile ? '1px solid rgba(0,0,0,0.12)' : 'none',
@@ -2330,6 +2714,33 @@ export default function PromptLabPage() {
                     )
                   }}
                 />
+
+                {/* Wizard Button - Inside text box */}
+                <Tooltip title="Open Prompt Wizard">
+                  <IconButton
+                    onClick={handleOpenWizard}
+                    sx={{
+                      position: 'absolute',
+                      right: isMobile ? 60 : 48,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? 40 : 32,
+                      height: isMobile ? 40 : 32,
+                      borderRadius: '50%',
+                      backgroundColor: 'secondary.main',
+                      color: 'secondary.contrastText',
+                      '&:hover': {
+                        backgroundColor: 'secondary.dark'
+                      },
+                      '&:active': isMobile ? {
+                        transform: 'translateY(-50%) scale(0.95)',
+                      } : {},
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <WizardIcon sx={{ fontSize: isMobile ? 20 : 16 }} />
+                  </IconButton>
+                </Tooltip>
 
                 {/* Send Button - Inside text box */}
                 <IconButton
@@ -2789,6 +3200,102 @@ export default function PromptLabPage() {
       </Tooltip>
       )}
 
+      {/* Wizard Tab - Desktop Only */}
+      {!isMobile && wizardMessages.length > 0 && (
+      <Tooltip title="Prompt Wizard" placement="left">
+        <Box
+          onClick={wizardOpen ? handleMinimizeWizard : handleMaximizeWizard}
+          sx={{
+            position: 'fixed',
+            right: wizardOpen && !wizardMinimized ? 600 : 0,
+            top: conversationsDrawerOpen ? 'calc(50% + 80px)' : 'calc(50% + 50px)', // Position below conversations tab with more gap
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+            cursor: 'pointer',
+            transition: 'right 0.3s ease'
+          }}
+        >
+          <Paper
+            elevation={3}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 1.5,
+              borderRadius: '8px 0 0 8px',
+              backgroundColor: 'secondary.main',
+              color: 'secondary.contrastText',
+              boxShadow: 2,
+              '&:hover': {
+                backgroundColor: 'secondary.dark',
+                boxShadow: 4
+              }
+            }}
+          >
+            <ChevronLeftIcon 
+              sx={{ 
+                fontSize: 18,
+                transform: wizardOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.3s ease'
+              }} 
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <WizardIcon sx={{ fontSize: 20 }} />
+            </Box>
+          </Paper>
+        </Box>
+      </Tooltip>
+      )}
+
+      {/* System Prompt Suggestor Tab - Desktop Only */}
+      {!isMobile && systemPromptSuggestorMessages.length > 0 && (
+      <Tooltip title="System Prompt Librarian" placement="left">
+        <Box
+          onClick={systemPromptSuggestorOpen ? handleMinimizeSystemPromptSuggestor : handleMaximizeSystemPromptSuggestor}
+          sx={{
+            position: 'fixed',
+            right: systemPromptSuggestorOpen && !systemPromptSuggestorMinimized ? 600 : 0,
+            top: conversationsDrawerOpen ? 'calc(50% + 140px)' : 'calc(50% + 110px)', // Position below wizard tab
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+            cursor: 'pointer',
+            transition: 'right 0.3s ease'
+          }}
+        >
+          <Paper
+            elevation={3}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 1.5,
+              borderRadius: '8px 0 0 8px',
+              backgroundColor: 'secondary.main',
+              color: 'secondary.contrastText',
+              boxShadow: 2,
+              '&:hover': {
+                backgroundColor: 'secondary.dark',
+                boxShadow: 4
+              }
+            }}
+          >
+            <ChevronLeftIcon 
+              sx={{ 
+                fontSize: 18,
+                transform: systemPromptSuggestorOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.3s ease'
+              }} 
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <MenuBookIcon sx={{ fontSize: 20 }} />
+            </Box>
+          </Paper>
+        </Box>
+      </Tooltip>
+      )}
+
       {/* Modals */}
       <ModelSelectionModal
         open={modelModalOpen}
@@ -2892,6 +3399,42 @@ export default function PromptLabPage() {
         open={fullPromptModalOpen}
         onClose={() => setFullPromptModalOpen(false)}
         fullPrompt={constructFullPrompt()}
+      />
+
+      {/* Wizard Window */}
+      <WizardWindow
+        open={wizardOpen}
+        onClose={handleCloseWizard}
+        onMinimize={handleMinimizeWizard}
+        title="Prompt Wizard"
+        messages={wizardMessages}
+        isLoading={wizardLoading}
+        error={wizardError}
+        onSendMessage={handleWizardSendMessage}
+        onCopyResult={handleCopyWizardResult}
+        onClearConversation={handleClearWizardConversation}
+        initialMessage={wizardInitialMessage}
+        modelName="GPT-OSS 120B"
+      />
+
+      {/* System Prompt Suggestor Wizard Window */}
+      <WizardWindow
+        open={systemPromptSuggestorOpen}
+        onClose={handleCloseSystemPromptSuggestor}
+        onMinimize={handleMinimizeSystemPromptSuggestor}
+        title="System Prompt Librarian"
+        messages={systemPromptSuggestorMessages}
+        isLoading={systemPromptSuggestorLoading}
+        error={systemPromptSuggestorError}
+        onSendMessage={handleSystemPromptSuggestorSendMessage}
+        onCopyResult={handleCopySystemPromptSuggestorResult}
+        onClearConversation={handleClearSystemPromptSuggestorConversation}
+        initialMessage={systemPromptSuggestorInitialMessage}
+        modelName="GPT-OSS 120B"
+        onAddSystemPrompt={handleAddSystemPromptFromWizard}
+        systemPrompts={systemPrompts}
+        showCopyButton={false}
+        icon={<MenuBookIcon color="secondary" />}
       />
 
       {/* Toast Notification */}
