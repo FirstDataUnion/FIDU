@@ -60,6 +60,10 @@ Object.defineProperty(global, 'import', {
         PROD: false,
         MODE: 'test',
         BASE_URL: '/',
+        VITE_GOOGLE_CLIENT_ID: 'test_client_id',
+        VITE_GOOGLE_CLIENT_SECRET: 'test_client_secret',
+        VITE_GOOGLE_REDIRECT_URI: 'http://localhost:3000/callback',
+        VITE_DISABLE_INSECURE_FALLBACK: 'false',
       },
     },
   },
@@ -105,7 +109,8 @@ beforeAll(() => {
   console.warn = (...args: any[]) => {
     if (
       typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+       args[0].includes('urllib3 v2 only supports OpenSSL'))
     ) {
       return;
     }
@@ -115,7 +120,8 @@ beforeAll(() => {
   console.error = (...args: any[]) => {
     if (
       typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+       args[0].includes('urllib3 v2 only supports OpenSSL'))
     ) {
       return;
     }

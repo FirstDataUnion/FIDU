@@ -46,6 +46,7 @@ addopts = [
     "--strict-config",
     "--tb=short",
     "--asyncio-mode=auto",
+    "--disable-warnings",
 ]
 norecursedirs = [
     ".git",

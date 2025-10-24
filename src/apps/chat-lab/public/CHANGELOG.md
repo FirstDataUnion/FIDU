@@ -5,7 +5,7 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] - UNRELEASED
+## [0.1.5] - 2025-10-23
 
 ### Added
 
@@ -14,11 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Request Cancellation**: Users can now cancel long-running requests and continue with other tasks
 - **Use This Prompt Button**: Added "Use This Prompt" button to system prompt cards that navigates to the prompt lab page, opens the system prompt drawer, and automatically applies the selected prompt
 - **System Prompt Librarian Access**: Added "Find System Prompt" button to the system prompts page header that navigates to the prompt lab and automatically opens the librarian wizard
+- **Mobile System Prompt Selection Improvements**: Enhanced mobile system prompt drawer with selected prompts pinned at the top, clear visual indication of active prompts, and easy access to the System Prompt Librarian
+- **Mobile-Optimized Conversations Page**: Complete redesign of the conversations page for mobile devices with full-screen list and detail views, improved navigation, and compact conversation cards
+- **Wharton Prompts Tab**: Added dedicated tab for Wharton Generative AI Labs system prompts in the System Prompts page, providing easy access to educational and instructional prompts
 
 ### Changed
 
+- **More stable GDrive connection on Mobile**: Shifted some storage to http cookie based rather than local storage, making it more resilient to aggressive mobile storage cleaning, along with encryption for added security of Google API refresh tokens. 
 - **Request Timeout**: Extended default timeout from 90 seconds to 10 minutes to accommodate longer model processing times
 - **User Experience**: Enhanced UX for long-running requests with clear feedback, progress indication, and cancellation options
+- **Smart System Prompt Replacement**: When only the default system prompt is selected, choosing a new prompt now replaces it instead of adding to it, eliminating the need to manually remove the default
+- **Wizard System Prompts Separation**: Moved Prompt Wizard and System Prompt Suggestor into a dedicated wizard system prompts resource, removing them from the main system prompts list to reduce clutter
 
 
 ## [0.1.4] - 2025-10-20

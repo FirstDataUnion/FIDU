@@ -60,7 +60,7 @@ export interface SystemPrompt {
   tokenCount: number;
   isDefault: boolean;
   isBuiltIn: boolean; // true for built-in system prompts, false for user-created
-  source?: 'fabric' | 'built-in' | 'user'; // source of the system prompt
+  source?: 'fabric' | 'built-in' | 'user' | 'wharton' | 'wizard'; // source of the system prompt
   categories: string[];
   createdAt: string;
   updatedAt: string;

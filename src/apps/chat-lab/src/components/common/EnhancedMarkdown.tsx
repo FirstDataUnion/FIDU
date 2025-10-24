@@ -154,7 +154,7 @@ const CodeBlock: React.FC<{
 };
 
 /**
- * Enhanced Table Component
+ * Enhanced Table Component with horizontal scrolling
  */
 const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const theme = useTheme();
@@ -168,9 +168,11 @@ const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         border: `1px solid ${theme.palette.divider}`,
       }}
     >
-      <Table sx={{ minWidth: 650 }}>
-        {children}
-      </Table>
+      <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+        <Table sx={{ minWidth: 650 }}>
+          {children}
+        </Table>
+      </Box>
     </Paper>
   );
 };

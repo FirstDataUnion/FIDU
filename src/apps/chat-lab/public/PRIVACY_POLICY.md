@@ -71,7 +71,8 @@ FIDU Chat Lab uses cookies and browser storage mechanisms that are essential for
 - **Type:** Session and persistent cookies
 - **Names:** `auth_token`, `refresh_token`, `fiduRefreshToken`
 - **Duration:** Access tokens expire after 1 hour; refresh tokens remain valid until you log out
-- **Storage:** HTTP-only cookies (where supported) and localStorage
+- **Storage:** HTTP-only encrypted cookies (primary), localStorage (fallback for development)
+- **Security:** Refresh tokens are encrypted using user-specific keys before storage
 
 #### Local Storage
 - **Purpose:** Store authentication state, application settings, and conversation data
@@ -96,9 +97,10 @@ FIDU Chat Lab uses cookies and browser storage mechanisms that are essential for
 
 #### Google Drive Tokens (Google Drive Mode Only)
 - **Purpose:** Authenticate with Google Drive for cloud storage
-- **Storage:** localStorage
+- **Storage:** HTTP-only encrypted cookies (primary), localStorage (fallback for development)
 - **Data:** `googleDriveAccessToken`, `googleDriveRefreshToken`, expiration times
 - **Duration:** Persists until you disconnect Google Drive or log out
+- **Security:** Refresh tokens are encrypted using user-specific keys before storage
 
 ### 3.2. Cookies & Storage We Do NOT Use
 
@@ -185,6 +187,11 @@ Note: Opting out of metrics does not affect your ability to use Chat Lab.
   - Server-stored data (account information) is encrypted at rest
   - API keys are encrypted in your browser before being stored locally
   - Google Drive backups are encrypted before upload (when using Google Drive mode)
+- **Authentication Tokens:**
+  - Refresh tokens are encrypted using user-specific encryption keys before storage
+  - Each user has a unique encryption key stored securely on our Identity Service
+  - HTTP-only cookies prevent JavaScript access to sensitive tokens
+  - Tokens are encrypted using AES-256-GCM encryption standard
 
 ### 5.2. Access Controls
 
@@ -367,6 +374,7 @@ We may update this Privacy Policy to reflect:
 - You can always review the current policy at `/fidu-chat-lab/privacy-policy`
 
 **Version History:**
+- v1.1 - [Current Date]: Enhanced authentication security with HTTP-only encrypted cookies
 - v1.0 - 9 October 2025: Initial Chat Lab-specific privacy policy
 
 ## 14. Contact 
@@ -383,9 +391,9 @@ CO7 9DP, United Kingdom
 
 ---
 
-**Last Updated:** 9 October 2025  
-**Effective Date:** 9 October 2025  
-**Version:** 1.0
+**Last Updated:** [Current Date]  
+**Effective Date:** [Current Date]  
+**Version:** 1.1
 
 For the full FIDU organizational privacy policy, visit: [https://firstdataunion.org/privacy-policy](https://firstdataunion.org/privacy-policy)
 

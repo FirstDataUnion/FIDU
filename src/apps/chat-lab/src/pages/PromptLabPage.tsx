@@ -49,6 +49,7 @@ import {
   HelpOutline as HelpOutlineIcon,
   AutoFixHigh as WizardIcon,
   MenuBook as MenuBookIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -58,6 +59,7 @@ import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { updateConversationWithMessages } from '../store/slices/conversationsSlice';
 import { conversationsService } from '../services/conversationsService';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
+import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
 import { WizardWindow } from '../components/wizards/WizardWindow';
@@ -437,12 +439,26 @@ interface SystemPromptSelectionModalProps {
   onClose: () => void; 
   onSelectSystemPrompt: (systemPrompt: SystemPrompt) => void;
   systemPrompts: SystemPrompt[];
+  selectedSystemPrompts: SystemPrompt[];
+  onRemoveSystemPrompt: (promptId: string) => void;
+  onOpenLibrarianWizard: () => void;
   loading: boolean;
   error: string | null;
   title?: string;
 }
 
-function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, systemPrompts, loading, error, title = 'Add System Prompt' }: SystemPromptSelectionModalProps) {
+function SystemPromptSelectionModal({ 
+  open, 
+  onClose, 
+  onSelectSystemPrompt, 
+  systemPrompts, 
+  selectedSystemPrompts,
+  onRemoveSystemPrompt,
+  onOpenLibrarianWizard,
+  loading, 
+  error, 
+  title = 'Add System Prompt' 
+}: SystemPromptSelectionModalProps) {
   const { isMobile } = useMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -496,6 +512,116 @@ function SystemPromptSelectionModal({ open, onClose, onSelectSystemPrompt, syste
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {/* Librarian Button - Only show on mobile */}
+          {isMobile && (
+            <Button
+              variant="outlined"
+              startIcon={<MenuBookIcon />}
+              onClick={onOpenLibrarianWizard}
+              sx={{
+                borderRadius: 2,
+                py: 1.5,
+                fontSize: '0.875rem',
+                backgroundColor: 'background.paper',
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                '&:hover': {
+                  backgroundColor: 'primary.light',
+                  color: 'primary.contrastText'
+                }
+              }}
+            >
+              Ask the System Prompt Librarian
+            </Button>
+          )}
+
+          {/* Currently Selected System Prompts */}
+          {selectedSystemPrompts.length > 0 && (
+            <Box sx={{ 
+              backgroundColor: 'primary.light', 
+              borderRadius: 2, 
+              p: 2,
+              border: '1px solid',
+              borderColor: 'primary.main'
+            }}>
+              <Typography variant="subtitle2" sx={{ 
+                fontWeight: 600, 
+                mb: 1.5,
+                color: 'primary.dark',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <CheckCircleIcon fontSize="small" />
+                Currently Selected ({selectedSystemPrompts.length})
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {selectedSystemPrompts.map((prompt) => (
+                  <Box
+                    key={prompt.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: 'background.paper',
+                      borderRadius: 1,
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'primary.main'
+                    }}
+                  >
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                        {prompt.name}
+                      </Typography>
+                      {prompt.description && (
+                        <Typography variant="caption" color="text.secondary" sx={{ 
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {prompt.description}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                        {prompt.categories && prompt.categories.length > 0 && (
+                          <Chip 
+                            label={prompt.categories.join(', ')} 
+                            size="small" 
+                            variant="outlined"
+                            color="secondary"
+                            sx={{ fontSize: '0.7rem', height: 20 }}
+                          />
+                        )}
+                        <Chip 
+                          label={`${prompt.tokenCount} tokens`} 
+                          size="small" 
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', height: 20 }}
+                        />
+                      </Box>
+                    </Box>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => onRemoveSystemPrompt(prompt.id)}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 1,
+                        py: 0.5,
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+
           <TextField
             fullWidth
             placeholder="Search system prompts..."
@@ -977,8 +1103,8 @@ export default function PromptLabPage() {
   // Long request detection state
   const [longRequestAnalysis, setLongRequestAnalysis] = useState<LongRequestAnalysis | null>(null);
   const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
-  const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
   const [isRequestCancelled, setIsRequestCancelled] = useState(false);
+  const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
 
   // Show toast message
   const showToast = useCallback((message: string) => {
@@ -1469,7 +1595,7 @@ export default function PromptLabPage() {
 
     try {
       // Find the Prompt Wizard system prompt
-      const promptWizardSystemPrompt = systemPrompts.find(sp => sp.id === 'sys-2');
+      const promptWizardSystemPrompt = wizardSystemPrompts.find(sp => sp.id === 'sys-2');
       if (!promptWizardSystemPrompt) {
         throw new Error('Prompt Wizard system prompt not found');
       }
@@ -1595,7 +1721,7 @@ export default function PromptLabPage() {
 
     try {
       // Find the System Prompt Suggestor system prompt
-      const systemPromptSuggestorSystemPrompt = systemPrompts.find(sp => sp.id === 'sys-3');
+      const systemPromptSuggestorSystemPrompt = wizardSystemPrompts.find(sp => sp.id === 'sys-3');
       if (!systemPromptSuggestorSystemPrompt) {
         throw new Error('System Prompt Suggestor system prompt not found');
       }
@@ -1723,8 +1849,27 @@ export default function PromptLabPage() {
   const handleAddSystemPromptFromWizard = (promptId: string) => {
     const systemPrompt = getSystemPromptById(promptId);
     if (systemPrompt && !selectedSystemPrompts.find(sp => sp.id === promptId)) {
-      setSelectedSystemPrompts(prev => [...prev, systemPrompt]);
-      showToast(`System prompt "${systemPrompt.name}" added to selected prompts!`);
+      // Smart replacement: if only default is selected, replace it; otherwise add
+      setSelectedSystemPrompts(prev => {
+        // Check if only one prompt is selected and it's the default
+        const isOnlyDefaultSelected = prev.length === 1 && prev[0].isDefault;
+        
+        if (isOnlyDefaultSelected) {
+          // Replace the default with the new prompt
+          return [systemPrompt];
+        } else {
+          // Add to existing selection
+          return [...prev, systemPrompt];
+        }
+      });
+      
+      // Show appropriate toast message
+      const isOnlyDefaultSelected = selectedSystemPrompts.length === 1 && selectedSystemPrompts[0].isDefault;
+      if (isOnlyDefaultSelected) {
+        showToast(`System prompt "${systemPrompt.name}" replaced the default prompt!`);
+      } else {
+        showToast(`System prompt "${systemPrompt.name}" added to selected prompts!`);
+      }
     } else if (systemPrompt) {
       showToast(`System prompt "${systemPrompt.name}" is already selected!`);
     } else {
@@ -3513,17 +3658,39 @@ export default function PromptLabPage() {
               setChangingSystemPrompt(null);
               showToast(`System prompt "${changingSystemPrompt.name}" replaced with "${systemPrompt.name}"`);
             } else {
-              // Add to existing selection instead of replacing
-              setSelectedSystemPrompts(prev => 
-                prev.some(sp => sp.id === systemPrompt.id) 
-                  ? prev 
-                  : [...prev, systemPrompt]
-              );
-              showToast(`System prompt "${systemPrompt.name}" added`);
+              // Smart replacement: if only default is selected, replace it; otherwise add
+              setSelectedSystemPrompts(prev => {
+                // Check if only one prompt is selected and it's the default
+                const isOnlyDefaultSelected = prev.length === 1 && prev[0].isDefault;
+                
+                if (isOnlyDefaultSelected) {
+                  // Replace the default with the new prompt
+                  return [systemPrompt];
+                } else {
+                  // Add to existing selection (avoid duplicates)
+                  return prev.some(sp => sp.id === systemPrompt.id) 
+                    ? prev 
+                    : [...prev, systemPrompt];
+                }
+              });
+              
+              // Show appropriate toast message
+              const isOnlyDefaultSelected = selectedSystemPrompts.length === 1 && selectedSystemPrompts[0].isDefault;
+              if (isOnlyDefaultSelected) {
+                showToast(`System prompt "${systemPrompt.name}" replaced the default prompt`);
+              } else {
+                showToast(`System prompt "${systemPrompt.name}" added`);
+              }
             }
             setSystemPromptModalOpen(false);
           }}
           systemPrompts={systemPrompts}
+          selectedSystemPrompts={selectedSystemPrompts}
+          onRemoveSystemPrompt={handleRemoveSystemPrompt}
+          onOpenLibrarianWizard={() => {
+            setSystemPromptModalOpen(false);
+            handleOpenSystemPromptSuggestor();
+          }}
           loading={systemPromptsLoading}
           error={systemPromptsError}
           title={changingSystemPrompt ? `Change System Prompt: ${changingSystemPrompt.name}` : 'Add System Prompt'}

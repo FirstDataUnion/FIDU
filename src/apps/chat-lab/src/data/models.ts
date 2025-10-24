@@ -202,17 +202,33 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'openai'
   },
-  'gpt-5-pro': {
-    id: 'gpt-5-pro',
-    name: 'GPT-5 Pro',
+  // GPT-5-Pro is very expensive and slow, often causing requests to timeout. 
+  // Going to leave it out for now, but it's an option. 
+  // 'gpt-5-pro': {
+  //   id: 'gpt-5-pro',
+  //   name: 'GPT-5 Pro',
+  //   provider: 'OpenAI',
+  //   agentId: 'agent-1760705821375280640',
+  //   maxTokens: 128000,
+  //   description: 'Professional-grade GPT-5 model with maximum capabilities and performance',
+  //   capabilities: ['maximum-capabilities', 'professional-grade', 'advanced-reasoning'],
+  //   category: 'reasoning',
+  //   costTier: 'premium',
+  //   speed: 'slow',
+  //   executionPath: 'openrouter',
+  //   providerKey: 'openai'
+  // },
+  'gpt-oss-20b': {
+    id: 'gpt-oss-20b',
+    name: 'GPT-OSS 20B',
     provider: 'OpenAI',
-    agentId: 'agent-1760705821375280640',
+    agentId: 'agent-1761212031501504422',
     maxTokens: 128000,
-    description: 'Professional-grade GPT-5 model with maximum capabilities and performance',
-    capabilities: ['maximum-capabilities', 'professional-grade', 'advanced-reasoning'],
-    category: 'reasoning',
-    costTier: 'premium',
-    speed: 'slow',
+    description: 'Open Source GPT-20B model with fantastic performance and good capabilities',
+    capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'fast',
     executionPath: 'openrouter',
     providerKey: 'openai'
   },

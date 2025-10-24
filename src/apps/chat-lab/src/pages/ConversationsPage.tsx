@@ -11,6 +11,8 @@ import {
   Paper,
   IconButton,
   Badge,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { 
   Chat as ChatIcon,
@@ -19,6 +21,7 @@ import {
   FilterList as FilterIcon,
   Add as AddIcon,
   Close as CloseIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -45,7 +48,9 @@ import {
 } from '../store/selectors/conversationsSelectors';
 
 const ConversationsPage: React.FC = React.memo(() => {
-
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const dispatch = useAppDispatch();
   
   // Use memoized selectors for better performance
@@ -80,6 +85,9 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [showTagDialog, setShowTagDialog] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [editedTags, setEditedTags] = useState<string[]>([]);
+
+  // Mobile View State
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
 
   // Memoized search handler to prevent infinite loops
   const handleSearch = useCallback((query: string) => {
@@ -185,11 +193,20 @@ const ConversationsPage: React.FC = React.memo(() => {
     try {
       dispatch(fetchConversationMessages(conversation.id));
       setSelectedConversation(conversation);
+      if (isMobile) {
+        setMobileView('detail');
+      }
     } catch (error) {
       console.error('Error selecting conversation:', error);
       // Add user-friendly error handling here
     }
-  }, [dispatch]);
+  }, [dispatch, isMobile]);
+
+  // Handle back navigation on mobile
+  const handleMobileBack = useCallback(() => {
+    setMobileView('list');
+    setSelectedConversation(null);
+  }, []);
 
   const buildContextPreview = useCallback(() => {
     try {
@@ -434,12 +451,226 @@ const ConversationsPage: React.FC = React.memo(() => {
     );
   }
 
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <Box sx={{ 
+        overflow: 'hidden',
+        width: '100%',
+        boxSizing: 'border-box',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Storage Directory Banner */}
+        <StorageDirectoryBanner pageType="conversations" />
+        
+        {mobileView === 'list' ? (
+          // Mobile Conversations List View
+          <>
+            {/* Header with Search */}
+            <Box sx={{ p: 2, flexShrink: 0 }} component="header">
+              <Typography variant="h5" component="h1" sx={{ mb: 2, fontWeight: 'bold' }}>
+                Conversations
+              </Typography>
+              
+              <TextField
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  try {
+                    const sanitizedValue = validateSearchQuery(value);
+                    updateSearchQuery(sanitizedValue);
+                  } catch (error) {
+                    console.error('Search validation failed:', error);
+                    const fallbackValue = value.replace(/[<>'"]/g, '');
+                    updateSearchQuery(fallbackValue);
+                  }
+                }}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        onClick={() => setShowFilters(!showFilters)}
+                        aria-label="Toggle filters"
+                      >
+                        <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
+                          <FilterIcon />
+                        </Badge>
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+              
+              {/* Filters Panel */}
+              <ConversationFilters
+                showFilters={showFilters}
+                selectedPlatforms={selectedPlatforms}
+                selectedTags={selectedTags}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                allPlatforms={allPlatforms}
+                allTags={allTags}
+                onPlatformsChange={handlePlatformsChange}
+                onTagsChange={handleTagsChange}
+                onSortByChange={handleSortByChange}
+                onSortOrderChange={handleSortOrderChange}
+              />
+            </Box>
+
+            {/* Conversations List */}
+            <Box sx={{ flex: 1, overflow: 'auto', px: 2, pb: 2 }}>
+              {sortedConversations.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
+                      ? 'No conversations match your filters' 
+                      : 'No conversations found'
+                    }
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
+                      ? 'Try adjusting your search terms or filters'
+                      : 'Your AI conversations will appear here once you have some data.'
+                    }
+                  </Typography>
+                  {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
+                    <Button 
+                      variant="outlined" 
+                      onClick={() => {
+                        clearSearch();
+                        handlePlatformsChange([]);
+                        handleTagsChange([]);
+                        handleSortByChange('updatedAt');
+                        handleSortOrderChange('desc');
+                        dispatch(clearFilters());
+                      }}
+                      aria-label="Clear all filters"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {sortedConversations.map((conversation: Conversation) => (
+                    <ConversationCard 
+                      key={conversation.id} 
+                      conversation={conversation}
+                      isSelectedForContext={selectedForContext.includes(conversation.id)}
+                      isCurrentlyViewing={selectedConversation?.id === conversation.id}
+                      onSelect={handleConversationSelect}
+                      onTagManagement={handleTagManagement}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </>
+        ) : (
+          // Mobile Conversation Detail View
+          <>
+            {/* Header with Back Button and Add to Context */}
+            <Box sx={{ 
+              p: 2, 
+              borderBottom: 1, 
+              borderColor: 'divider', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              flexShrink: 0
+            }}>
+              <IconButton onClick={handleMobileBack} aria-label="Back to conversations">
+                <ArrowBackIcon />
+              </IconButton>
+              {selectedConversation && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleAddToContext(selectedConversation)}
+                  startIcon={<AddIcon />}
+                  aria-label="Add this conversation to a context"
+                >
+                  Add to Context
+                </Button>
+              )}
+            </Box>
+            
+            {/* Conversation Content */}
+            {selectedConversation && (
+              <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                <ConversationViewer conversation={selectedConversation} />
+              </Box>
+            )}
+          </>
+        )}
+
+        {/* Dialogs */}
+        <ContextBuilder
+          open={showContextBuilder}
+          onClose={() => {
+            setShowContextBuilder(false);
+            setContextPreview('');
+            setEstimatedTokens(0);
+          }}
+          contextPreview={contextPreview}
+          estimatedTokens={estimatedTokens}
+          selectedCount={selectedForContext.length}
+          onExport={exportContext}
+          onContextPreviewChange={setContextPreview}
+        />
+
+        <AddToContextDialog
+          open={showAddToContextDialog}
+          onClose={() => {
+            setShowAddToContextDialog(false);
+            setSelectedConversationForContext(null);
+            setSelectedContextId('');
+            setNewContextTitle('');
+            setIsAddingToContext(false);
+          }}
+          selectedConversation={selectedConversationForContext}
+          selectedContextId={selectedContextId}
+          newContextTitle={newContextTitle}
+          contexts={contexts}
+          isAdding={isAddingToContext}
+          onContextIdChange={setSelectedContextId}
+          onNewContextTitleChange={setNewContextTitle}
+          onSubmit={handleAddToContextSubmit}
+        />
+
+        <TagManager
+          open={showTagDialog}
+          onClose={() => {
+            setShowTagDialog(false);
+            setSelectedConversation(null);
+            setEditedTags([]);
+          }}
+          editedTags={editedTags}
+          allTags={allTags}
+          onTagsChange={setEditedTags}
+          onSave={handleSaveTags}
+        />
+      </Box>
+    );
+  }
+
+  // Desktop Layout (original)
   return (
     <Box sx={{ 
       overflow: 'hidden',
       width: '100%',
       boxSizing: 'border-box',
-      height: '100%', // Use full height of parent container
+      height: '100%',
       display: 'flex',
       flexDirection: 'column'
     }}>
@@ -463,19 +694,17 @@ const ConversationsPage: React.FC = React.memo(() => {
             flex: 1,
             minWidth: 0
           }}>
-            {/* Search Bar - Moved inline */}
+            {/* Search Bar */}
             <TextField
               placeholder="Search conversations, content, or tags..."
               value={searchQuery}
               onChange={(e) => {
                 const value = e.target.value;
-                // Sanitize input to prevent XSS
                 try {
                   const sanitizedValue = validateSearchQuery(value);
                   updateSearchQuery(sanitizedValue);
                 } catch (error) {
                   console.error('Search validation failed:', error);
-                  // Fallback to basic sanitization
                   const fallbackValue = value.replace(/[<>'"]/g, '');
                   updateSearchQuery(fallbackValue);
                 }
@@ -483,7 +712,6 @@ const ConversationsPage: React.FC = React.memo(() => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  // Trigger search or focus next element
                 }
                 if (e.key === 'Escape') {
                   clearSearch();
@@ -549,7 +777,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                 aria-label={`Build context with ${selectedForContext.length} selected conversations`}
               >
                 Build Context ({selectedForContext.length})
-            </Button>
+              </Button>
             )}
           </Stack>
         </Box>
@@ -596,11 +824,11 @@ const ConversationsPage: React.FC = React.memo(() => {
       <Box sx={{ 
         display: 'flex', 
         gap: 2, 
-        flex: 1, // Take remaining space in flex container
-        minHeight: 0, // Allow flex child to shrink below content size
-        maxWidth: '100%', // Ensure we don't exceed viewport width
-        overflow: 'hidden', // Prevent horizontal scrolling
-        flexDirection: { xs: 'column', md: 'row' } // Stack vertically on small screens
+        flex: 1,
+        minHeight: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        flexDirection: { xs: 'column', md: 'row' }
       }} component="main">
         {/* Left Panel - Conversations List */}
         <Paper sx={{ 
@@ -608,11 +836,11 @@ const ConversationsPage: React.FC = React.memo(() => {
           display: 'flex', 
           flexDirection: 'column',
           overflow: 'hidden',
-          minWidth: selectedConversation ? '300px' : 'auto', // Minimum width for readability
-          maxWidth: selectedConversation ? '500px' : '600px', // Maximum width to prevent expansion
-          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' }, // Responsive height
-          minHeight: 0, // Ensure flex child can shrink properly
-          maxHeight: '100%' // Prevent exceeding parent height
+          minWidth: selectedConversation ? '300px' : 'auto',
+          maxWidth: selectedConversation ? '500px' : '600px',
+          height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' },
+          minHeight: 0,
+          maxHeight: '100%'
         }} component="section" aria-label="Conversations list">
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6" component="h2">
@@ -678,7 +906,6 @@ const ConversationsPage: React.FC = React.memo(() => {
                 flexDirection: 'column',
                 gap: 2 
               }}>
-                {/* Use virtual scrolling for better performance with large lists */}
                 {sortedConversations.length > 50 ? (
                   <VirtualList
                     items={sortedConversations}
@@ -697,7 +924,6 @@ const ConversationsPage: React.FC = React.memo(() => {
                     overscan={3}
                   />
                 ) : (
-                  // Regular rendering for smaller lists
                   sortedConversations.map((conversation: Conversation) => (
                     <ConversationCard 
                       key={conversation.id} 
@@ -721,8 +947,8 @@ const ConversationsPage: React.FC = React.memo(() => {
             display: 'flex', 
             flexDirection: 'column',
             overflow: 'hidden',
-            minWidth: 0, // Allow flex item to shrink below content size
-            height: { xs: '60%', md: 'auto' } // Responsive height
+            minWidth: 0,
+            height: { xs: '60%', md: 'auto' }
           }} component="section" aria-label="Conversation viewer">
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" component="h3">
@@ -751,7 +977,6 @@ const ConversationsPage: React.FC = React.memo(() => {
                 <IconButton 
                   onClick={() => {
                     setSelectedConversation(null);
-                    // Clear any related state when closing conversation view
                   }}
                   title="Close conversation view"
                   aria-label="Close conversation view"
@@ -775,7 +1000,7 @@ const ConversationsPage: React.FC = React.memo(() => {
             alignItems: 'center', 
             justifyContent: 'center',
             bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
-            minWidth: 0 // Allow flex item to shrink below content size
+            minWidth: 0
           }} component="section" aria-label="No conversation selected">
             <Box sx={{ textAlign: 'center', p: 4 }}>
               <ChatIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
@@ -790,22 +1015,21 @@ const ConversationsPage: React.FC = React.memo(() => {
         )}
       </Box>
 
-      {/* Context Builder Dialog */}
-              <ContextBuilder
-          open={showContextBuilder}
-          onClose={() => {
-            setShowContextBuilder(false);
-            setContextPreview('');
-            setEstimatedTokens(0);
-          }}
-          contextPreview={contextPreview}
-          estimatedTokens={estimatedTokens}
-          selectedCount={selectedForContext.length}
-          onExport={exportContext}
-          onContextPreviewChange={setContextPreview}
-        />
+      {/* Dialogs */}
+      <ContextBuilder
+        open={showContextBuilder}
+        onClose={() => {
+          setShowContextBuilder(false);
+          setContextPreview('');
+          setEstimatedTokens(0);
+        }}
+        contextPreview={contextPreview}
+        estimatedTokens={estimatedTokens}
+        selectedCount={selectedForContext.length}
+        onExport={exportContext}
+        onContextPreviewChange={setContextPreview}
+      />
 
-      {/* Add to Context Dialog */}
       <AddToContextDialog
         open={showAddToContextDialog}
         onClose={() => {
@@ -825,7 +1049,6 @@ const ConversationsPage: React.FC = React.memo(() => {
         onSubmit={handleAddToContextSubmit}
       />
 
-      {/* Tag Management Dialog */}
       <TagManager
         open={showTagDialog}
         onClose={() => {
@@ -838,8 +1061,6 @@ const ConversationsPage: React.FC = React.memo(() => {
         onTagsChange={setEditedTags}
         onSave={handleSaveTags}
       />
-
-
     </Box>
   );
 });

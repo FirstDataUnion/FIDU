@@ -3,6 +3,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { fabricSystemPrompts } from '../../data/prompts/fabricSystemPrompts';
 import { builtInSystemPrompts } from '../../data/prompts/builtInSystemPrompts';
+import { whartonGenAILabsPrompts } from '../../data/prompts/whartonGenAILabsPrompts';
 
 export interface SystemPrompt {
   id: string;
@@ -12,7 +13,7 @@ export interface SystemPrompt {
   tokenCount: number;
   isDefault: boolean;
   isBuiltIn: boolean; // true for built-in system prompts, false for user-created
-  source?: 'fabric' | 'built-in' | 'user'; // source of the system prompt
+  source?: 'fabric' | 'built-in' | 'user' | 'wharton' | 'wizard'; // source of the system prompt
   categories: string[];
   createdAt: string;
   updatedAt: string;
@@ -119,14 +120,14 @@ const systemPromptsSlice = createSlice({
       })
       .addCase(fetchSystemPrompts.fulfilled, (state, action) => {
         state.loading = false;
-        // Combine built-in system prompts, Fabric patterns, and user-created ones
-        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts, ...action.payload.systemPrompts] as SystemPrompt[];
+        // Combine built-in system prompts, Fabric patterns, Wharton Gen AI Labs prompts, and user-created ones
+        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts, ...whartonGenAILabsPrompts, ...action.payload.systemPrompts] as SystemPrompt[];
       })
       .addCase(fetchSystemPrompts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch system prompts';
-        // Even if API fails, we still have built-in prompts and Fabric patterns
-        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts] as SystemPrompt[];
+        // Even if API fails, we still have built-in prompts, Fabric patterns, and Wharton Gen AI Labs prompts
+        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts, ...whartonGenAILabsPrompts] as SystemPrompt[];
       })
       .addCase(createSystemPrompt.fulfilled, (state, action) => {
         state.items.push(action.payload);

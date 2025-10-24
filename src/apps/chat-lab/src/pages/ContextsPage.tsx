@@ -17,7 +17,10 @@ import {
   Alert,
   CircularProgress,
   Button,
-  Link
+  Link,
+  Fab,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +42,9 @@ import ContextHelpModal from '../components/help/ContextHelpModal';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 
 export default function ContextsPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
@@ -364,7 +370,7 @@ export default function ContextsPage() {
           <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
+                <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 600 }}>
                   Contexts
                 </Typography>
                 <Link
@@ -390,15 +396,18 @@ export default function ContextsPage() {
                 Manage your conversation contexts, references, and knowledge bases
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateContext}
-              disabled={isDirectoryRequired}
-              sx={{ borderRadius: 2 }}
-            >
-              Add Context
-            </Button>
+            {/* Only show Add Context button on desktop */}
+            {!isMobile && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateContext}
+                disabled={isDirectoryRequired}
+                sx={{ borderRadius: 2 }}
+              >
+                Add Context
+              </Button>
+            )}
           </Box>
 
           {/* Search and Filter Bar */}
@@ -719,6 +728,32 @@ export default function ContextsPage() {
         open={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
       />
+
+      {/* Mobile Floating Action Button */}
+      {isMobile && unifiedStorage.status === 'configured' && (
+        <Fab
+          color="primary"
+          aria-label="Add Context"
+          onClick={handleCreateContext}
+          disabled={isDirectoryRequired}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 1000,
+            backgroundColor: 'primary.main',
+            '&:hover': {
+              backgroundColor: 'primary.dark',
+            },
+            '&:disabled': {
+              backgroundColor: 'action.disabled',
+              color: 'action.disabled',
+            }
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
     </Box>
   );
 } 

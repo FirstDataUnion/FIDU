@@ -368,6 +368,7 @@ export class GoogleDriveAuthService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include HTTP-only cookies
         body: JSON.stringify({
           code: code,
           redirect_uri: this.config.redirectUri,
@@ -381,7 +382,7 @@ export class GoogleDriveAuthService {
         
         const tokens = {
           accessToken: data.access_token,
-          refreshToken: data.refresh_token,
+          refreshToken: 'stored-in-cookie', // Refresh token is now in HTTP-only cookie
           expiresAt: Date.now() + (data.expires_in * 1000),
           scope: data.scope
         };
@@ -574,9 +575,7 @@ export class GoogleDriveAuthService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          refresh_token: this.tokens!.refreshToken!,
-        }),
+        credentials: 'include', // Include HTTP-only cookies
         // Short timeout to quickly detect if backend is unavailable
         signal: this.createTimeoutSignal(5000),
       });
@@ -597,10 +596,10 @@ export class GoogleDriveAuthService {
       
       // Backend returned error (400/500) - don't fall back
       if (response.status >= 400) {
-        const errorText = await response.text();
+        const errorData = await response.json().catch(() => ({}));
         
         // Check if this is a refresh token expiration/revocation error
-        if (errorText.includes('invalid_grant') || errorText.includes('invalid refresh_token')) {
+        if (response.status === 401 && errorData.error?.includes('expired')) {
           console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
           this.clearStoredTokens();
           this.tokens = null;
@@ -608,7 +607,7 @@ export class GoogleDriveAuthService {
           throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
         }
         
-        throw new Error(`Backend token refresh error (${response.status}): ${errorText}`);
+        throw new Error(`Backend token refresh error (${response.status}): ${errorData.error || 'Unknown error'}`);
       }
     } catch (error: any) {
       // Only fall back on network/timeout errors
@@ -751,6 +750,7 @@ export class GoogleDriveAuthService {
 
   private loadStoredTokens(): void {
     try {
+      // Try localStorage first (for development/fallback)
       const stored = localStorage.getItem('google_drive_tokens');
       if (stored) {
         const parsedTokens = JSON.parse(stored);
@@ -764,6 +764,8 @@ export class GoogleDriveAuthService {
           // Check if token is not already expired
           if (parsedTokens.expiresAt > Date.now()) {
             this.tokens = parsedTokens;
+            console.log('✅ Loaded Google Drive tokens from localStorage');
+            return;
           } else {
             console.log('Stored Google Drive tokens are expired, clearing');
             this.clearStoredTokens();
@@ -773,6 +775,11 @@ export class GoogleDriveAuthService {
           this.clearStoredTokens();
         }
       }
+      
+      // If no localStorage tokens, check if we have HTTP-only cookies
+      // by attempting a token refresh (this will work if refresh token is in cookie)
+      console.log('No localStorage tokens found, checking for HTTP-only cookie...');
+      
     } catch (error) {
       console.warn('Failed to load stored tokens:', error);
       this.clearStoredTokens();
@@ -799,6 +806,41 @@ export class GoogleDriveAuthService {
   private clearStoredTokens(): void {
     localStorage.removeItem('google_drive_tokens');
     localStorage.removeItem('google_drive_user');
+  }
+
+  /**
+   * Logout from Google Drive by clearing tokens and HTTP-only cookies
+   */
+  async logout(): Promise<void> {
+    try {
+      console.log('🔄 Logging out from Google Drive...');
+      
+      // Clear local tokens
+      this.clearStoredTokens();
+      this.tokens = null;
+      this.user = null;
+      
+      // Clear HTTP-only cookie via backend
+      const basePath = window.location.pathname.includes('/fidu-chat-lab') 
+        ? '/fidu-chat-lab' 
+        : '';
+      
+      try {
+        await fetch(`${basePath}/api/oauth/logout`, {
+          method: 'POST',
+          credentials: 'include', // Include HTTP-only cookies
+        });
+        console.log('✅ HTTP-only cookie cleared via backend');
+      } catch (error) {
+        console.warn('Failed to clear HTTP-only cookie via backend:', error);
+        // Continue with logout even if backend call fails
+      }
+      
+      console.log('✅ Google Drive logout completed');
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      throw error;
+    }
   }
 }
 

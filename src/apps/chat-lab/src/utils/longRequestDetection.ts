@@ -3,7 +3,7 @@
  * and providing appropriate user feedback
  */
 
-import { MODEL_CONFIGS, type ModelConfig } from '../data/models';
+import { MODEL_CONFIGS } from '../data/models';
 
 export interface LongRequestAnalysis {
   isLikelyLongRunning: boolean;
@@ -25,7 +25,6 @@ export function analyzeRequestDuration(
 ): LongRequestAnalysis {
   const modelConfig = MODEL_CONFIGS[modelId];
   const promptLength = prompt.length;
-  const totalInputLength = promptLength + contextLength + conversationLength;
   
   const reasons: string[] = [];
   let estimatedDuration: 'short' | 'medium' | 'long' = 'short';

@@ -19,7 +19,6 @@ import {
 import {
   Schedule,
   Cancel,
-  Info,
   ExpandMore,
   ExpandLess,
   Speed,

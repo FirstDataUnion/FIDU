@@ -259,14 +259,18 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
       matches.push(match[1]);
     }
     
+    // Remove duplicates by converting to Set and back to array
+    const uniqueMatches = [...new Set(matches)];
+    
     // Debug logging to see what we're detecting
     console.log('=== PROMPT_ID Detection Debug ===');
     console.log('Message content length:', content.length);
     console.log('Looking for PROMPT_ID tags in:', content.substring(0, 200) + '...');
     console.log('Found matches:', matches);
+    console.log('Unique matches:', uniqueMatches);
     console.log('Regex pattern:', promptIdRegex);
     
-    return matches;
+    return uniqueMatches;
   };
 
   // Helper function to get system prompt by ID
@@ -277,6 +281,7 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
   // Helper function to clean message content by removing PROMPT_ID tags
   const cleanMessageContent = (content: string): string => {
     // Remove [PROMPT_ID:...] tags from the content for display
+    // Use a more specific regex that only matches the exact tag format
     const cleaned = content.replace(/\[PROMPT_ID:[a-zA-Z0-9_-]+\]/g, '');
     
     // Debug logging for cleaning
