@@ -149,17 +149,22 @@ const ConversationsPage: React.FC = React.memo(() => {
     
     const fetchData = async () => {
       if (isMounted) {
-        await dispatch(fetchConversations({ 
-          filters: {
-            sortBy: 'updatedAt',
-            sortOrder: 'desc'
-          },
-          page: 1,
-          limit: 20
-        }));
-        
-        if (currentProfile?.id && isMounted) {
-          await dispatch(fetchContexts(currentProfile.id));
+        try {
+          await dispatch(fetchConversations({ 
+            filters: {
+              sortBy: 'updatedAt',
+              sortOrder: 'desc'
+            },
+            page: 1,
+            limit: 20
+          }));
+          
+          if (currentProfile?.id && isMounted) {
+            await dispatch(fetchContexts(currentProfile.id));
+          }
+        } catch {
+          // If fetch fails due to auth not ready, the error will be handled by the slice
+          console.log('Initial fetch failed, will retry when auth completes');
         }
       }
     };
@@ -169,7 +174,7 @@ const ConversationsPage: React.FC = React.memo(() => {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, isAuthenticated, currentProfile]);
+  }, [dispatch, isAuthenticated, currentProfile, unifiedStorage.googleDrive.isAuthenticated]);
 
   // Memoized event handlers
   const handleRefresh = useCallback(() => {

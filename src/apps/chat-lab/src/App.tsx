@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, useState } from 'react';
+import React, { useEffect, Suspense, useRef, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -9,11 +9,10 @@ import { useAppDispatch, useAppSelector } from './hooks/redux';
 import { fetchSettings } from './store/slices/settingsSlice';
 import { initializeAuth } from './store/slices/authSlice';
 import { 
-  initializeGoogleDriveAuth, 
-  checkGoogleDriveAuthStatus,
   markStorageConfigured,
   resetStorageConfiguration,
-  updateFilesystemStatus
+  updateFilesystemStatus,
+  checkGoogleDriveAuthStatus
 } from './store/slices/unifiedStorageSlice';
 import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
@@ -31,6 +30,10 @@ import { serverLogger } from './utils/serverLogger';
 import { initializeErrorTracking } from './utils/errorTracking';
 import { MetricsService } from './services/metrics/MetricsService';
 import { CookieBanner } from './components/common/CookieBanner';
+import { getGoogleDriveAuthService } from './services/auth/GoogleDriveAuth';
+import { getAuthManager } from './services/auth/AuthManager';
+import LoadingProgress from './components/common/LoadingProgress';
+import type { LoadingStep } from './components/common/LoadingProgress';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -82,30 +85,166 @@ interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-
 const AppContent: React.FC<AppContentProps> = () => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
-  const { isInitialized: authInitialized, isLoading: authLoading } = useAppSelector((state) => state.auth);
+  const { isInitialized: authInitialized, isLoading: authLoading, isAuthenticated: hasFIDUAuth } = useAppSelector((state) => state.auth);
   const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
   const [storageInitialized, setStorageInitialized] = useState(false);
-  const [storageError, setStorageError] = useState<string | null>(null);
+  const [_, setStorageError] = useState<string | null>(null);
   const [showStorageSelectionModal, setShowStorageSelectionModal] = useState(false);
   const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
+  const [cloudAdapterFullyInitialized, setCloudAdapterFullyInitialized] = useState(false);
+  const skipStorageInitRef = useRef(false);
+  const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
+  const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
 
   const [storageModeInfo, setStorageModeInfo] = useState<{mode: string, loadingMessage: string}>({mode: 'local', loadingMessage: 'Initializing storage service...'});
+  
+  // Loading progress steps for unified loading screen
+  const [loadingSteps, setLoadingSteps] = useState<LoadingStep[]>([
+    { id: 'settings', label: 'Loading settings', status: 'pending' },
+    { id: 'auth', label: 'Checking authentication', status: 'pending' },
+    { id: 'storage', label: 'Initializing storage', status: 'pending' },
+    { id: 'google-drive', label: 'Connecting to Google Drive', status: 'pending' },
+    { id: 'data-sync', label: 'Syncing your data', status: 'pending' },
+  ]);
 
+  // Helper to update a step's status
+  const updateLoadingStep = (stepId: string, status: LoadingStep['status'], errorMessage?: string) => {
+    setLoadingSteps(prev => prev.map(step => 
+      step.id === stepId ? { ...step, status, errorMessage } : step
+    ));
+  };
+
+
+  // Early check: Detect if there are no FIDU tokens BEFORE starting full initialization
+  useEffect(() => {
+    const checkForFiduTokensEarly = async () => {
+      const envInfo = getEnvironmentInfo();
+      
+      // Only do early check in cloud mode
+      if (envInfo.storageMode !== 'cloud') {
+        setEarlyAuthCheckComplete(true);
+        return;
+      }
+      
+      try {
+        // Quick check for FIDU tokens before starting full initialization
+        const { getFiduAuthCookieService } = await import('./services/auth/FiduAuthCookieService');
+        const fiduAuthService = getFiduAuthCookieService();
+        const tokens = await fiduAuthService.getTokens();
+        
+        if (!tokens?.access_token && !tokens?.refresh_token) {
+          console.log('⚡ [Early Check] No FIDU tokens found - skipping loading screen');
+          setEarlyNoAuthDetected(true);
+          setStorageInitialized(true);
+          setCloudAdapterFullyInitialized(true);
+          skipStorageInitRef.current = true;
+          
+          // Mark all loading steps as completed immediately
+          updateLoadingStep('settings', 'completed');
+          updateLoadingStep('auth', 'completed');
+          updateLoadingStep('storage', 'completed');
+          updateLoadingStep('google-drive', 'completed');
+          updateLoadingStep('data-sync', 'completed');
+        }
+      } catch (error) {
+        console.warn('Early auth check failed:', error);
+      } finally {
+        setEarlyAuthCheckComplete(true);
+      }
+    };
+    
+    checkForFiduTokensEarly();
+  }, []);
 
   useEffect(() => {
+    // Wait for early auth check to complete
+    if (!earlyAuthCheckComplete) {
+      return;
+    }
+    
+    // If early check detected no auth in cloud mode, skip full initialization
+    if (earlyNoAuthDetected) {
+      console.log('⚡ [Optimization] Skipping full initialization - no FIDU auth detected early');
+      // Still need to initialize settings and auth for proper app state
+      dispatch(fetchSettings());
+      dispatch(initializeAuth());
+      return;
+    }
+    
     // Initialize error tracking
     initializeErrorTracking();
     
     logEnvironmentInfo();
     
-    dispatch(fetchSettings());
-    dispatch(initializeAuth());
-    // Only initialize Google Drive auth if we're in cloud mode
-    // This will be handled in the settings effect below
-  }, [dispatch]);
+    // Initialize settings and auth
+    const initializeApp = async () => {
+      try {
+        // Parallelize independent operations and gracefully handle failures
+        // Settings require auth tokens, but we attempt both in parallel
+        // If auth fails, settings will also fail gracefully and use defaults
+        console.log('🔄 Initializing app with parallel cookie-based settings and auth...');
+        
+        // Update loading steps
+        updateLoadingStep('settings', 'in_progress');
+        updateLoadingStep('auth', 'in_progress');
+        
+        const [settingsResult, authResult] = await Promise.allSettled([
+          dispatch(fetchSettings()).unwrap(),
+          dispatch(initializeAuth()).unwrap()
+        ]);
+        
+        // Update settings step status
+        if (settingsResult.status === 'fulfilled') {
+          updateLoadingStep('settings', 'completed');
+        } else {
+          // Settings failure is expected when no auth exists
+          if (authResult.status === 'rejected' || authResult.value === null) {
+            console.log('ℹ️  [Optimization] No authentication - using default settings');
+            updateLoadingStep('settings', 'completed'); // Still count as completed (using defaults)
+          } else {
+            console.warn('⚠️  Settings failed to load despite authentication:', settingsResult.reason);
+            updateLoadingStep('settings', 'error', 'Failed to load settings');
+          }
+        }
+        
+        // Update auth step status
+        if (authResult.status === 'fulfilled') {
+          updateLoadingStep('auth', 'completed');
+          
+          // Early exit for cloud mode without FIDU auth - skip loading screen
+          // Check if auth returned null (no auth available)
+          if (authResult.value === null) {
+            const envInfo = getEnvironmentInfo();
+            if (envInfo.storageMode === 'cloud') {
+              console.log('⚡ [Optimization] No FIDU auth in cloud mode - showing login screen immediately');
+              // Mark all remaining steps as completed to show the app
+              updateLoadingStep('storage', 'completed');
+              updateLoadingStep('google-drive', 'completed');
+              updateLoadingStep('data-sync', 'completed');
+              setStorageInitialized(true);
+              setCloudAdapterFullyInitialized(true);
+              // Persistently skip any storage initialization thereafter
+              skipStorageInitRef.current = true;
+            }
+          }
+        } else {
+          updateLoadingStep('auth', 'completed'); // No auth is also a valid state
+        }
+      } catch (error) {
+        console.warn('Failed to initialize app:', error);
+        updateLoadingStep('settings', 'error', 'Initialization failed');
+        updateLoadingStep('auth', 'error', 'Initialization failed');
+        // Fallback to default initialization
+        dispatch(fetchSettings());
+        dispatch(initializeAuth());
+      }
+    };
+    
+    initializeApp();
+  }, [dispatch, earlyAuthCheckComplete, earlyNoAuthDetected]);
 
   // Check if storage configuration is needed
   useEffect(() => {
@@ -166,103 +305,183 @@ const AppContent: React.FC<AppContentProps> = () => {
       dispatch(markStorageConfigured());
     }
     
-    // If we're in cloud mode and Google Drive auth is lost, reset storage configuration
+    // Only reset storage configuration if Google Drive auth is truly lost (not just temporarily unavailable)
+    // Don't reset during initial storage initialization
     if (envInfo.storageMode === 'cloud' && 
         unifiedStorage.mode === 'cloud' && 
         unifiedStorage.status === 'configured' && 
         !unifiedStorage.googleDrive.isAuthenticated && 
-        !unifiedStorage.googleDrive.isLoading) {
-      dispatch(resetStorageConfiguration());
+        !unifiedStorage.googleDrive.isLoading &&
+        storageInitialized) { // Only consider resetting if storage was previously initialized
+      
+      // Set a timeout to delay the reset, allowing time for cookie restoration
+      const resetTimeout = setTimeout(() => {
+        // Double-check that we're still not authenticated after the delay
+        if (!unifiedStorage.googleDrive.isAuthenticated && !unifiedStorage.googleDrive.isLoading) {
+          console.log('🔄 Google Drive authentication lost, resetting storage configuration');
+          dispatch(resetStorageConfiguration());
+        }
+      }, 5000); // 5 second delay to allow for cookie restoration and visibility changes
+      
+      return () => clearTimeout(resetTimeout);
     }
-  }, [dispatch, unifiedStorage.mode, unifiedStorage.status, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading]);
+  }, [dispatch, unifiedStorage.mode, unifiedStorage.status, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.googleDrive.isLoading, storageInitialized]);
 
   useEffect(() => {
     if (!unifiedStorage.mode) return;
     
     const initializeStorage = async () => {
       try {
+        // If we've decided to skip storage initialization, exit early
+        if (skipStorageInitRef.current) {
+          return;
+        }
         const envInfo = getEnvironmentInfo();
         const storageMode = envInfo.storageMode;
+        
+        // Skip storage initialization in cloud mode if no FIDU auth AND auth has been checked
+        // This prevents skipping on first load when auth hasn't been checked yet
+        if (storageMode === 'cloud' && authInitialized && !hasFIDUAuth) {
+          // Don't re-run if we've already marked storage as initialized
+          if (!storageInitialized) {
+            console.log('⚡ [Optimization] Skipping storage initialization - no FIDU auth in cloud mode');
+            setStorageInitialized(true);
+            setCloudAdapterFullyInitialized(true);
+            updateLoadingStep('storage', 'completed');
+            updateLoadingStep('google-drive', 'completed');
+            updateLoadingStep('data-sync', 'completed');
+          }
+          // Persistently skip any storage initialization thereafter
+          skipStorageInitRef.current = true;
+          return;
+        }
+        
+        // Don't re-initialize if already done
+        if (storageInitialized) {
+          return;
+        }
+        
         const loadingMessage = storageMode === 'cloud' 
           ? 'Fetching your cloud data...' 
           : 'Initializing storage service...';
         
         setStorageModeInfo({ mode: storageMode, loadingMessage });
         
-        // Only initialize Google Drive auth if we're in cloud mode
-        if (storageMode === 'cloud') {
-          dispatch(initializeGoogleDriveAuth());
-        }
+        // Update loading step
+        updateLoadingStep('storage', 'in_progress');
         
+        // Initialize storage service (for cloud mode, this will also initialize Google Drive auth)
         const storageService = getUnifiedStorageService();
         await storageService.initialize();
+        updateLoadingStep('storage', 'completed');
         
+        // For cloud mode, initialize AuthManager with the Google Drive auth service
         if (storageMode === 'cloud') {
-          const maxAttempts = 20;
-          let attempts = 0;
+          console.log('🔄 Initializing centralized AuthManager...');
+          updateLoadingStep('google-drive', 'in_progress');
           
-          while (attempts < maxAttempts) {
-            try {
-              const adapter = storageService.getAdapter();
-              const _probeAdapterStart = Date.now();
-              
-              if ('isAuthenticated' in adapter && typeof adapter.isAuthenticated === 'function') {
-                const isAuthenticated = adapter.isAuthenticated();
-                if (!isAuthenticated) {
-                  break;
-                }
-                
-                await adapter.getContexts(undefined, 1, 1);
-              } else {
-                if ('isDirectoryAccessible' in adapter && typeof adapter.isDirectoryAccessible === 'function') {
-                  const isAccessible = adapter.isDirectoryAccessible();
-                  if (!isAccessible) {
-                    break;
-                  }
-                }
-                await adapter.getContexts(undefined, 1, 1);
-              }
-              
-              const _probeAdapterEnd = Date.now();
-              break;
-            } catch (probeError: any) {
-              attempts++;
-              
-              if (probeError.message?.includes('Cloud storage adapter not initialized')) {
-                // Adapter not ready yet
-              } else if (probeError.message?.includes('User must authenticate with Google Drive first')) {
-                break;
-              } else if (probeError.message?.includes('No directory access. Please select a directory first')) {
-                break;
-              } else {
-                console.error('🚫 [App.Filter] Probe hit a non initialization error', { error: probeError });
-                setStorageError(`Adapter probe failed: ${probeError.message || 'Unknown probe error'}`);
-                setStorageInitialized(false);
-                return;
-              }
-              
-              if (attempts >= maxAttempts) {
-                console.warn('⚠️ Cloud adapter never became operation-ready within total probe timeout. Will continue since initial sync was attempted.');
-                setStorageError(`Cloud storage adapter took longer than expected to come fully online.  Please reload if issues persist.`);
-              }
-              
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
+          const authManager = getAuthManager(dispatch);
+          const googleDriveAuthService = await getGoogleDriveAuthService();
+          authManager.setGoogleDriveAuthService(googleDriveAuthService);
+          
+          // Initialize authentication through the AuthManager
+          await authManager.initialize();
+          console.log('✅ AuthManager initialization complete');
+          
+          // Quick Win #1: Trust AuthManager state instead of probing
+          // If AuthManager confirms authentication, storage is ready
+          const authStatus = authManager.getAuthStatus();
+          
+          if (authStatus.isAuthenticated && authStatus.user) {
+            console.log('✅ [Optimization] AuthManager confirms authentication - skipping probe loop');
+            updateLoadingStep('google-drive', 'completed');
+            updateLoadingStep('data-sync', 'completed'); // Data is already synced
+            // Storage is ready, no need to probe
+          } else {
+            console.log('ℹ️  [Optimization] No authentication confirmed - user needs to connect');
+            updateLoadingStep('google-drive', 'completed'); // Mark as complete (will need manual auth)
+            updateLoadingStep('data-sync', 'completed'); // Skip sync for now
+            // User needs to authenticate, storage will be configured after OAuth
           }
+        } else {
+          // Local/filesystem mode - skip Google Drive and sync steps
+          updateLoadingStep('google-drive', 'completed');
+          updateLoadingStep('data-sync', 'completed');
         }
         
         console.log('✅ Storage service initialized successfully');
         setStorageInitialized(true);
         setStorageError(null);
+        
+        // Mark storage as configured in cloud mode (auth status already updated earlier)
+        if (storageMode === 'cloud') {
+          dispatch(markStorageConfigured());
+          console.log('✅ Storage marked as configured');
+        }
       } catch (error: any) {
         console.error('❌ Failed to initialize storage service:', error);
+        updateLoadingStep('storage', 'error', error.message || 'Storage initialization failed');
         setStorageError(error.message || 'Failed to initialize storage service');
         setStorageInitialized(false);
       }
     };
     
     initializeStorage();
-  }, [unifiedStorage.mode, dispatch]);
+  }, [unifiedStorage.mode, dispatch, authInitialized, hasFIDUAuth, storageInitialized]);
+
+  // Re-initialize CloudStorageAdapter when authentication becomes available
+  useEffect(() => {
+    const checkAndCompleteInitialization = async () => {
+      const envInfo = getEnvironmentInfo();
+      if (envInfo.storageMode !== 'cloud') {
+        // Not cloud mode - set as initialized
+        setCloudAdapterFullyInitialized(true);
+        return;
+      }
+      
+      if (!storageInitialized) return;
+      
+      // If no FIDU auth, set flag to allow login screen to show
+      if (!unifiedStorage.googleDrive.isAuthenticated) {
+        console.log('ℹ️  [App] No authentication - setting cloud adapter flag to allow login screen');
+        setCloudAdapterFullyInitialized(true);
+        return;
+      }
+      
+      try {
+        const storageService = getUnifiedStorageService();
+        const adapter = storageService.getAdapter();
+        
+        // Check if adapter is a CloudStorageAdapter
+        if ('isFullyInitialized' in adapter && typeof adapter.isFullyInitialized === 'function') {
+          const isFullyInitialized = adapter.isFullyInitialized();
+          
+          if (!isFullyInitialized) {
+            console.log('🔧 [App] CloudStorageAdapter not fully initialized, completing initialization...');
+            updateLoadingStep('google-drive', 'in_progress');
+            await (adapter as any).initialize();
+            console.log('✅ [App] CloudStorageAdapter initialization completed');
+            updateLoadingStep('google-drive', 'completed');
+            updateLoadingStep('data-sync', 'completed');
+          } else {
+            console.log('✅ [App] CloudStorageAdapter already fully initialized');
+          }
+          
+          // Set flag regardless - either was already initialized or just completed
+          setCloudAdapterFullyInitialized(true);
+        } else {
+          // Not a CloudStorageAdapter - set as initialized
+          setCloudAdapterFullyInitialized(true);
+        }
+      } catch (error) {
+        console.warn('Failed to complete CloudStorageAdapter initialization:', error);
+        updateLoadingStep('google-drive', 'error', 'Initialization failed');
+        setCloudAdapterFullyInitialized(true); // Continue anyway to avoid infinite loading
+      }
+    };
+    
+    checkAndCompleteInitialization();
+  }, [unifiedStorage.googleDrive.isAuthenticated, storageInitialized]);
 
   // Sync filesystem status from adapter to unified state
   useEffect(() => {
@@ -295,17 +514,84 @@ const AppContent: React.FC<AppContentProps> = () => {
       return;
     }
 
-    const interval = setInterval(() => {
-      dispatch(checkGoogleDriveAuthStatus());
-    }, 30000);
+    // Use AuthManager for periodic auth checks (reduced frequency since we handle visibility)
+    const interval = setInterval(async () => {
+      const authManager = getAuthManager(dispatch);
+      await authManager.checkAndRestore();
+    }, 60000); // Check every 60 seconds instead of 30
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        dispatch(checkGoogleDriveAuthStatus());
+        console.log('🔄 App became visible, restoring settings and authentication...');
+        
+        // First restore settings from cookies
+        try {
+          console.log('🔄 Restoring settings from cookies...');
+          await dispatch(fetchSettings()).unwrap();
+          console.log('✅ Settings restored from cookies');
+        } catch (error) {
+          console.warn('Failed to restore settings on visibility change:', error);
+        }
+        
+        // Use AuthManager to check and restore authentication
+        try {
+          const authManager = getAuthManager(dispatch);
+          await authManager.checkAndRestore();
+        } catch (error) {
+          console.warn('Failed to check/restore authentication on visibility change:', error);
+        }
       }
     };
 
+    // Mobile-specific handling for app state changes
+    const handlePageShow = async (event: PageTransitionEvent) => {
+      console.log('🔄 Page show event (mobile app restoration)', { persisted: event.persisted });
+      // Small delay to ensure the app is fully restored
+      setTimeout(() => {
+        handleVisibilityChange();
+      }, 100);
+    };
+
+    const handlePageHide = () => {
+      console.log('🔄 Page hide event (mobile app backgrounded)');
+      // Optionally save any pending state here
+    };
+
+    // Additional mobile-specific events
+    const handleFocus = async () => {
+      console.log('🔄 Window focus event (mobile app focused)');
+      // Handle focus restoration - common on mobile when returning from other apps
+      setTimeout(() => {
+        handleVisibilityChange();
+      }, 50);
+    };
+
+    const handleBlur = () => {
+      console.log('🔄 Window blur event (mobile app lost focus)');
+      // App lost focus - could be minimized or switched to another app
+    };
+
+    const handleOnline = async () => {
+      console.log('🔄 Network online event (mobile network restored)');
+      // Network came back online - good time to check authentication
+      setTimeout(() => {
+        handleVisibilityChange();
+      }, 200);
+    };
+
+    const handleBeforeUnload = () => {
+      console.log('🔄 Before unload event (mobile app closing)');
+      // App is about to close - save any critical state
+    };
+
+    // Add comprehensive mobile-specific event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'google_drive_tokens' && e.newValue !== e.oldValue) {
@@ -318,9 +604,15 @@ const AppContent: React.FC<AppContentProps> = () => {
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [dispatch]);
+  }, [dispatch, unifiedStorage.googleDrive.isAuthenticated]);
 
   const currentMode = settings.theme === 'auto' 
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -379,40 +671,37 @@ const AppContent: React.FC<AppContentProps> = () => {
     },
   });
 
-  if (authLoading || !storageInitialized || unifiedStorage.googleDrive.isLoading) {
+  // In cloud mode, wait for Google Drive authentication AND CloudStorageAdapter initialization before rendering pages
+  // BUT: if auth failed (has error) or storage is not configured, let the app render to show login
+  const isCloudMode = unifiedStorage.mode === 'cloud';
+  const authFailed = unifiedStorage.googleDrive.error !== null;
+  const needsConfiguration = unifiedStorage.status !== 'configured';
+  const waitingForCloudAuth = isCloudMode 
+    && !unifiedStorage.googleDrive.isAuthenticated 
+    && storageInitialized 
+    && !authFailed 
+    && !needsConfiguration;
+  
+  // In cloud mode, also wait for CloudStorageAdapter to be fully initialized
+  const waitingForCloudAdapter = isCloudMode && !cloudAdapterFullyInitialized;
+  
+  // Skip loading screen if early check detected no FIDU auth in cloud mode
+  const shouldShowLoadingScreen = !earlyNoAuthDetected 
+    && (authLoading || !storageInitialized || unifiedStorage.googleDrive.isLoading || waitingForCloudAuth || waitingForCloudAdapter);
+  
+  if (shouldShowLoadingScreen) {
+    // Use the new unified loading progress component
+    const subtitle = storageModeInfo.mode === 'cloud' 
+      ? 'Setting up Google Drive connection and syncing your data'
+      : 'Preparing your local workspace';
+    
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
-        height="100vh"
-        flexDirection="column"
-        gap={2}
-      >
-        <CircularProgress size={60} />
-        <Box>
-          {authLoading ? 'Initializing FIDU Chat Lab...' : 
-           unifiedStorage.googleDrive.isLoading ? 'Checking Google Drive connection...' :
-           storageModeInfo.loadingMessage}
-        </Box>
-        {storageModeInfo.mode === 'cloud' && !storageError && (
-          <Box color="text.secondary" textAlign="center" maxWidth="400px" fontSize="0.9em">
-            <Box>Setting up Google Drive connection</Box>
-            <Box fontSize="0.8em" mt={0.5}>
-              This may take a few moments...
-            </Box>
-          </Box>
-        )}
-        {storageError && (
-          <Box color="error.main" textAlign="center" maxWidth="400px">
-            <Box fontWeight="bold" mb={1}>Storage Initialization Error:</Box>
-            <Box fontSize="0.9em">{storageError}</Box>
-            <Box fontSize="0.8em" mt={1} color="text.secondary">
-              Please check your configuration and try again.
-            </Box>
-          </Box>
-        )}
-      </Box>
+      <LoadingProgress 
+        steps={loadingSteps}
+        title="Initializing FIDU Chat Lab..."
+        subtitle={subtitle}
+        showProgress={true}
+      />
     );
   }
 

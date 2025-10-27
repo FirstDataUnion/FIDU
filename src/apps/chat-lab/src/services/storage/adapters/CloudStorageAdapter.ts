@@ -38,19 +38,25 @@ export class CloudStorageAdapter implements StorageAdapter {
       } 
       
       // Reset if not fully initialized
-      if (this.authService?.isAuthenticated()) {
-        this.initialized = false;
-      } else {
-        this.initialized = false;
-      }
+      console.log('🔄 [CloudStorageAdapter] Not fully initialized, resetting for re-initialization');
+      this.initialized = false;
+      
+      // Reset component state
+      this.dbManager = null;
+      this.driveService = null;
+      this.syncService = null;
+      this.smartAutoSyncService = null;
     }
 
     try {
-      // Initialize Google Drive authentication
+      // Get Google Drive auth service (but don't call initialize - AuthManager handles that)
       this.authService = await getGoogleDriveAuthService();
-      await this.authService.initialize();
+      console.log('📦 [CloudStorageAdapter] Auth service acquired, waiting for authentication...');
 
+      // If not authenticated, we're done for now
+      // AuthManager will handle auth and then the app can call our methods once auth completes
       if (!this.authService.isAuthenticated()) {
+        console.log('ℹ️  [CloudStorageAdapter] Not authenticated yet - will initialize fully once auth completes');
         this.initialized = true;
         return;
       }
@@ -772,7 +778,9 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   private async ensureFullyReady(): Promise<void> {
-    this.ensureInitialized();
+    if (!this.isInitialized()) {
+      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+    }
     
     // Check authentication first
     if (!this.isAuthenticated()) {

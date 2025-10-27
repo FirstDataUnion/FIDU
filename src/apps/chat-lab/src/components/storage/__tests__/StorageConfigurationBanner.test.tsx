@@ -5,6 +5,23 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { MemoryRouter } from 'react-router-dom';
 import { StorageConfigurationBanner } from '../StorageConfigurationBanner';
 
+// Mock Redux hooks
+const mockDispatch = jest.fn();
+const mockUseAppSelector = jest.fn();
+
+jest.mock('../../../store', () => ({
+  useAppDispatch: () => mockDispatch,
+  useAppSelector: (selector: any) => mockUseAppSelector(selector),
+}));
+
+// Mock the authenticateGoogleDrive action
+jest.mock('../../../store/slices/unifiedStorageSlice', () => ({
+  authenticateGoogleDrive: jest.fn(() => ({
+    type: 'unifiedStorage/authenticateGoogleDrive',
+    payload: Promise.resolve(),
+  })),
+}));
+
 // Mock window.location
 const mockLocation = {
   href: '',
@@ -31,6 +48,24 @@ describe('StorageConfigurationBanner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocation.href = '';
+    
+    // Default mock return values
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: false,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'local',
+          },
+        },
+      };
+      return selector(mockState);
+    });
   });
 
   it('should render full banner by default', () => {
@@ -41,12 +76,106 @@ describe('StorageConfigurationBanner', () => {
     expect(screen.getByText('Go to Settings')).toBeInTheDocument();
   });
 
+  it('should show Google Drive reconnect button when user has cloud storage mode but is not authenticated', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: false,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'cloud',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner />);
+
+    expect(screen.getByText('Reconnect Google Drive')).toBeInTheDocument();
+    expect(screen.getByText('Your Google Drive connection has expired. Please reconnect to continue saving your data, or go to Settings to change your storage option.')).toBeInTheDocument();
+  });
+
+  it('should not show Google Drive reconnect button when user is authenticated', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: true,
+            isLoading: false,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'cloud',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner />);
+
+    expect(screen.queryByText('Reconnect Google Drive')).not.toBeInTheDocument();
+  });
+
+  it('should not show Google Drive reconnect button when user has local storage mode', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: false,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'local',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner />);
+
+    expect(screen.queryByText('Reconnect Google Drive')).not.toBeInTheDocument();
+  });
+
   it('should render compact banner when compact prop is true', () => {
     renderWithProviders(<StorageConfigurationBanner compact />);
 
     expect(screen.getByText('Storage configuration required.')).toBeInTheDocument();
     expect(screen.getByText('You need to configure your storage choices to save any data.')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('should show Google Drive reconnect button in compact banner when user has cloud storage mode but is not authenticated', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: false,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'cloud',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner compact />);
+
+    expect(screen.getByText('Reconnect Google Drive')).toBeInTheDocument();
+    expect(screen.getByText('Your Google Drive connection has expired. Please reconnect to continue saving your data.')).toBeInTheDocument();
   });
 
   it('should have correct styling for full banner', () => {
@@ -133,5 +262,53 @@ describe('StorageConfigurationBanner', () => {
 
     const button = screen.getByText('Settings');
     expect(button).toHaveClass('MuiButton-sizeSmall');
+  });
+
+  it('should show loading state when Google Drive authentication is in progress', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: true,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'cloud',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner />);
+
+    expect(screen.getByText('Connecting...')).toBeInTheDocument();
+    expect(screen.getByText('Connecting...')).toBeDisabled();
+  });
+
+  it('should show loading state in compact banner when Google Drive authentication is in progress', () => {
+    mockUseAppSelector.mockImplementation((selector) => {
+      const mockState = {
+        unifiedStorage: {
+          googleDrive: {
+            isAuthenticated: false,
+            isLoading: true,
+          },
+        },
+        settings: {
+          settings: {
+            storageMode: 'cloud',
+          },
+        },
+      };
+      return selector(mockState);
+    });
+
+    renderWithProviders(<StorageConfigurationBanner compact />);
+
+    expect(screen.getByText('Connecting...')).toBeInTheDocument();
+    expect(screen.getByText('Connecting...')).toBeDisabled();
   });
 });

@@ -403,9 +403,11 @@ const SystemPromptsPage = React.memo(() => {
 
   useEffect(() => {
     if (currentProfile?.id) {
-      dispatch(fetchSystemPrompts(currentProfile.id));
+      dispatch(fetchSystemPrompts(currentProfile.id)).catch((error) => {
+        console.log('Initial fetch failed, will retry when auth completes:', error);
+      });
     }
-  }, [dispatch, currentProfile?.id]);
+  }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated]);
 
   // Memoize expensive calculations to prevent recalculation on every render
   const { fabricPrompts, builtInPrompts, userPrompts, whartonPrompts } = useMemo(() => {

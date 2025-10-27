@@ -386,18 +386,10 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
-      // The thunk calls setItem for auth_token with saved profile data from previous test
-      // This is the actual behavior we're testing (data from previous test interferes)
-      const expectedProfileData = {
-        id: 'profile-1',
-        name: 'Saved Profile',
-        user_id: 'user-1',
-        create_timestamp: '2024-01-01T00:00:00Z',
-        update_timestamp: '2024-01-01T00:00:00Z',
-      };
+      // The thunk calls setItem for auth_token with the token
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'auth_token',
-        JSON.stringify(expectedProfileData)
+        'test-token'
       );
       expect(mockLocalStorage.setItem).toHaveBeenCalledTimes(1);
     });
@@ -422,11 +414,10 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
-      // The thunk calls setItem for auth_token with user data
-      // This is the actual behavior we're testing
+      // The thunk calls setItem for auth_token with the token
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'auth_token',
-        JSON.stringify(mockUser)
+        'test-token'
       );
       expect(mockLocalStorage.setItem).toHaveBeenCalledTimes(1);
     });

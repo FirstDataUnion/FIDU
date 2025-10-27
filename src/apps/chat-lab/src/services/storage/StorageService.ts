@@ -62,6 +62,28 @@ export class StorageService {
     this.initialized = true;
   }
 
+  /**
+   * Force re-initialization of the storage service and underlying adapter.
+   * Useful after authentication state changes (e.g., Google Drive restored).
+   */
+  async reinitialize(): Promise<void> {
+    // If we don't have a config yet, fall back to normal initialize flow
+    if (!this.config) {
+      this.initialized = false;
+      await this.initialize();
+      return;
+    }
+
+    // Reset initialization state to allow proper re-initialization
+    this.initialized = false;
+
+    // Recreate adapter with existing configuration
+    this.adapter = createStorageAdapter(this.config);
+    await this.adapter.initialize();
+
+    this.initialized = true;
+  }
+
   async switchMode(newMode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
     if (this.config?.mode === newMode) {
       return;

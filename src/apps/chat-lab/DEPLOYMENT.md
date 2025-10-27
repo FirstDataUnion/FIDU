@@ -145,6 +145,9 @@ VITE_GOOGLE_CLIENT_SECRET=your-secret  # For Mode 3 (frontend-only dev)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-secret
 
+# Identity Service URL (backend)
+IDENTITY_SERVICE_URL=https://dev.identity.firstdataunion.org
+
 # OpenBao (optional for local dev)
 OPENBAO_ENABLED=false
 
@@ -168,6 +171,7 @@ OPENBAO_ENABLED=true
 OPENBAO_ADDRESS=https://openbao.yourcompany.com
 OPENBAO_TOKEN=hvs.production-token
 OPENBAO_SECRET_PATH=fidu/chatlab/prod
+IDENTITY_SERVICE_URL=https://identity.firstdataunion.org
 ENVIRONMENT=prod
 PORT=8080
 

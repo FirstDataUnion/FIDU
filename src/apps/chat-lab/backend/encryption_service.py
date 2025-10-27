@@ -4,11 +4,13 @@ Integrates with the identity service to encrypt/decrypt refresh tokens using use
 This mirrors the frontend EncryptionService but works server-side.
 """
 
-import os
 import base64
-import hashlib
 import logging
+import os
+import secrets
+
 import httpx
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +20,22 @@ class BackendEncryptionService:
 
     def __init__(self):
         self.identity_service_url = os.getenv(
-            "IDENTITY_SERVICE_URL", "http://localhost:4000"
+            "IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org"
         )
         self.key_cache = {}  # Simple in-memory cache
+        logger.info(
+            "BackendEncryptionService initialized with identity service URL: %s",
+            self.identity_service_url,
+        )
 
     async def get_user_encryption_key(self, user_id: str, auth_token: str) -> str:
         """
         Get user-specific encryption key from identity service.
         """
+        # Validate auth_token is not empty
+        if not auth_token or not auth_token.strip():
+            raise ValueError(f"Empty or invalid auth token provided for user {user_id}")
+
         try:
             # Check cache first
             if user_id in self.key_cache:
@@ -68,6 +78,10 @@ class BackendEncryptionService:
         """
         Create a new encryption key for the user.
         """
+        # Validate auth_token is not empty
+        if not auth_token or not auth_token.strip():
+            raise ValueError(f"Empty or invalid auth token provided for user {user_id}")
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -98,48 +112,61 @@ class BackendEncryptionService:
     def encrypt_refresh_token(self, token: str, encryption_key: str) -> str:
         """
         Encrypt refresh token using user-specific encryption key.
-        Uses the same AES-256-GCM encryption as the frontend.
+        Uses AES-256-GCM encryption compatible with frontend Web Crypto API.
         """
         try:
-            # For now, use base64 encoding with key-based salt
-            # In production, implement proper AES-256-GCM encryption
+            # Convert base64 key to bytes
+            key_bytes = base64.b64decode(encryption_key)
 
-            # Create a salt from the encryption key
-            salt = hashlib.sha256(encryption_key.encode()).hexdigest()[:16]
+            # Generate random nonce (12 bytes for GCM)
+            nonce = secrets.token_bytes(12)
 
-            # Simple encryption (placeholder - implement proper AES-256-GCM)
-            encrypted_data = base64.b64encode(f"{salt}:{token}".encode()).decode()
+            # Create AESGCM cipher
+            aesgcm = AESGCM(key_bytes)
 
-            logger.info("Encrypted refresh token using user-specific key")
+            # Encrypt the token
+            ciphertext = aesgcm.encrypt(nonce, token.encode("utf-8"), None)
+
+            # Combine nonce + ciphertext and encode as base64
+            # Format: base64(nonce + ciphertext)
+            encrypted_data = base64.b64encode(nonce + ciphertext).decode("utf-8")
+
+            logger.info("Encrypted refresh token using AES-256-GCM")
             return encrypted_data
 
         except Exception as e:
             logger.error("Failed to encrypt refresh token: %s", e)
-            raise
+            raise RuntimeError(f"Failed to encrypt refresh token: {e}") from e
 
     def decrypt_refresh_token(self, encrypted_token: str, encryption_key: str) -> str:
         """
         Decrypt refresh token using user-specific encryption key.
+        Uses AES-256-GCM decryption compatible with frontend Web Crypto API.
         """
         try:
-            # Simple decryption (placeholder - implement proper AES-256-GCM)
+            # Convert base64 key to bytes
+            key_bytes = base64.b64decode(encryption_key)
 
-            # Create the same salt from the encryption key
-            salt = hashlib.sha256(encryption_key.encode()).hexdigest()[:16]
+            # Decode the encrypted data
+            encrypted_data = base64.b64decode(encrypted_token)
 
-            decrypted_data = base64.b64decode(encrypted_token.encode()).decode()
+            # Extract nonce (first 12 bytes) and ciphertext (rest)
+            nonce = encrypted_data[:12]
+            ciphertext = encrypted_data[12:]
 
-            # Extract token from "salt:token" format
-            if decrypted_data.startswith(f"{salt}:"):
-                token = decrypted_data[len(f"{salt}:") :]
-                logger.info("Decrypted refresh token using user-specific key")
-                return token
+            # Create AESGCM cipher
+            aesgcm = AESGCM(key_bytes)
 
-            raise ValueError("Invalid encrypted token format")
+            # Decrypt the token
+            decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+            decrypted_token = decrypted_bytes.decode("utf-8")
+
+            logger.info("Decrypted refresh token using AES-256-GCM")
+            return decrypted_token
 
         except Exception as e:
             logger.error("Failed to decrypt refresh token: %s", e)
-            raise
+            raise RuntimeError(f"Failed to decrypt refresh token: {e}") from e
 
 
 # Global instance

@@ -3,6 +3,8 @@ FastAPI server for FIDU Chat Lab with metrics support.
 Serves static files and forwards metrics to VictoriaMetrics.
 """
 
+# pylint: disable=too-many-lines
+
 # pylint: disable=import-error
 
 import os
@@ -12,7 +14,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -204,23 +206,50 @@ def get_cookie_value(request: Request, name: str) -> Optional[str]:
 def get_user_id_from_request(request: Request) -> str:
     """
     Extract user ID from the request.
-    This would typically come from JWT token or session.
-    For now, we'll use a placeholder approach.
+    First tries to get user ID from FIDU auth cookies, then falls back to other methods.
     """
-    # TODO: Implement proper user ID extraction from JWT token
-    # This could be from Authorization header or session cookie
+    # Get environment from the request (we'll detect it from the request path)
+    environment = "prod"  # Default
+    if "dev.chatlab" in str(request.url):
+        environment = "dev"
+    elif "localhost" in str(request.url) or "127.0.0.1" in str(request.url):
+        environment = "local"
 
-    # Placeholder: use a default user ID for now
-    # In production, extract from JWT token in Authorization header
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        # Extract user ID from JWT token (simplified)
-        # In production, you'd decode the JWT and extract the user_id claim
-        return "default_user"  # Placeholder
+    # Try to get user info from FIDU auth cookies
+    # This is the most reliable method since we store user info there
+    user_cookie_name = f"fidu_user{'_' + environment if environment != 'prod' else ''}"
+    logger.debug("Looking for user cookie: %s", user_cookie_name)
+
+    # Log all cookies for debugging
+    all_cookies = request.cookies
+    logger.debug("Available cookies: %s", list(all_cookies.keys()))
+
+    user_cookie = get_cookie_value(request, user_cookie_name)
+
+    if user_cookie:
+        try:
+            user_data = json.loads(user_cookie)
+            user_id = (
+                user_data.get("id")
+                or user_data.get("user_id")
+                or user_data.get("email")
+            )
+            if user_id:
+                logger.debug("✅ Extracted user ID from FIDU auth cookies: %s", user_id)
+                return str(user_id)
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning("Failed to parse user data from FIDU auth cookies: %s", e)
 
     # Fallback: use IP-based user identification (not recommended for production)
     client_ip = request.client.host if request.client else "unknown"
-    return f"user_{client_ip}"
+    fallback_user_id = f"user_{client_ip}"
+    logger.warning(
+        "⚠️ Using fallback user ID: %s (could not extract from FIDU auth cookies. "
+        "Cookie name searched: %s)",
+        fallback_user_id,
+        user_cookie_name,
+    )
+    return fallback_user_id
 
 
 def clear_cookie(response: Response, name: str):
@@ -491,7 +520,9 @@ async def get_config():
 
 
 @app.post(f"{BASE_PATH}/api/oauth/exchange-code")
-async def exchange_oauth_code(request: Request):
+async def exchange_oauth_code(
+    request: Request,
+):  # pylint: disable=too-many-locals,too-many-statements
     """
     Exchange OAuth authorization code for tokens (server-side only).
 
@@ -513,6 +544,7 @@ async def exchange_oauth_code(request: Request):
         data = await request.json()
         code = data.get("code")
         redirect_uri = data.get("redirect_uri")
+        environment = data.get("environment", "prod")  # Default to prod
 
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code")
@@ -552,6 +584,8 @@ async def exchange_oauth_code(request: Request):
             token_data = response.json()
 
             logger.info("✅ OAuth token exchange successful")
+            logger.info("Token response keys: %s", list(token_data.keys()))
+            logger.info("Has refresh token: %s", bool(token_data.get("refresh_token")))
 
             # Create response with HTTP-only cookie for refresh token
             response_data = {
@@ -565,26 +599,66 @@ async def exchange_oauth_code(request: Request):
 
             # Store refresh token in encrypted HTTP-only cookie (30 days) if present
             if token_data.get("refresh_token"):
-                # Get user ID and auth token for encryption
+                logger.info("🔄 Storing refresh token in HTTP-only cookie...")
+                # Get user ID for encryption
                 user_id = get_user_id_from_request(request)
                 auth_token = request.headers.get("Authorization", "").replace(
                     "Bearer ", ""
                 )
 
-                # Encrypt the refresh token using user-specific key
-                encrypted_token = await encrypt_refresh_token(
-                    token_data["refresh_token"], user_id, auth_token
-                )
+                # Create environment-specific cookie name
+                suffix = "_" + environment if environment != "prod" else ""
+                cookie_name = f"google_refresh_token{suffix}"
+                logger.info("Using cookie name: %s", cookie_name)
 
-                set_secure_cookie(
-                    fastapi_response,
-                    "google_refresh_token",
-                    encrypted_token,
-                    max_age=30 * 24 * 60 * 60,  # 30 days
-                )
-                logger.info(
-                    "✅ Encrypted refresh token stored in HTTP-only cookie for user %s",
-                    user_id,
+                # For OAuth exchange, we may not have an auth token yet
+                # Use a simpler encryption approach for initial OAuth flow
+                try:
+                    if auth_token:
+                        # If we have an auth token, use the full encryption
+                        encrypted_token = await encrypt_refresh_token(
+                            token_data["refresh_token"], user_id, auth_token
+                        )
+                    else:
+                        # For OAuth exchange without auth token, use simpler encryption
+                        # This allows storing the refresh token before full authentication
+                        encryption_key = (
+                            await encryption_service.get_user_encryption_key(
+                                user_id,
+                                "",  # Empty auth token for pre-auth refresh tokens
+                            )
+                        )
+                        encrypted_token = encryption_service.encrypt_refresh_token(
+                            token_data["refresh_token"], encryption_key
+                        )
+                        logger.info(
+                            "Using simplified encryption for OAuth exchange refresh token"
+                        )
+
+                    set_secure_cookie(
+                        fastapi_response,
+                        cookie_name,
+                        encrypted_token,
+                        max_age=30 * 24 * 60 * 60,  # 30 days
+                    )
+                    logger.info(
+                        "✅ Encrypted refresh token stored in HTTP-only cookie "
+                        "for user %s in %s environment",
+                        user_id,
+                        environment,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to encrypt refresh token during OAuth exchange: %s", e
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to encrypt refresh token securely",
+                    ) from e
+            else:
+                logger.warning(
+                    "⚠️ No refresh token provided by Google OAuth - "
+                    "user may need to re-authorize with prompt=consent"
                 )
 
             return fastapi_response
@@ -605,27 +679,63 @@ async def refresh_oauth_token(request: Request):
     is automatically retrieved from HTTP-only cookies, making it more secure
     and persistent than localStorage.
 
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
     Returns:
         - access_token: New Google access token
         - expires_in: Token expiration time in seconds
     """
     try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Create environment-specific cookie name
+        cookie_name = (
+            f"google_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+
         # Get encrypted refresh token from HTTP-only cookie
-        encrypted_token = get_cookie_value(request, "google_refresh_token")
+        encrypted_token = get_cookie_value(request, cookie_name)
 
         if not encrypted_token:
             raise HTTPException(
-                status_code=401, detail="No refresh token found in cookies"
+                status_code=401,
+                detail=f"No refresh token found in cookies for {environment} environment",
             )
 
         # Get user ID and auth token for decryption
         user_id = get_user_id_from_request(request)
         auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
-        # Decrypt the refresh token using user-specific key
-        refresh_token = await decrypt_refresh_token(
-            encrypted_token, user_id, auth_token
-        )
+        # Decrypt the refresh token using appropriate method
+        try:
+            if auth_token:
+                # If we have an auth token, use the full decryption
+                refresh_token = await decrypt_refresh_token(
+                    encrypted_token, user_id, auth_token
+                )
+            else:
+                # If no auth token, try simpler decryption approaches
+                try:
+                    # Try encryption service with empty auth token
+                    encryption_key = await encryption_service.get_user_encryption_key(
+                        user_id, ""  # Empty auth token for pre-auth refresh tokens
+                    )
+                    refresh_token = encryption_service.decrypt_refresh_token(
+                        encrypted_token, encryption_key
+                    )
+                except Exception as exc:
+                    # No fallback - if encryption fails, the token is invalid
+                    logger.error(
+                        "Failed to decrypt refresh token with encryption service"
+                    )
+                    raise HTTPException(
+                        status_code=401, detail="Invalid or corrupted refresh token"
+                    ) from exc
+        except Exception as e:
+            logger.error("Failed to decrypt refresh token: %s", e)
+            raise HTTPException(status_code=401, detail="Invalid refresh token") from e
 
         if not chatlab_secrets or not chatlab_secrets.google_client_secret:
             raise HTTPException(
@@ -660,7 +770,7 @@ async def refresh_oauth_token(request: Request):
                         status_code=401,
                         content={"error": "Refresh token expired or revoked"},
                     )
-                    clear_cookie(fastapi_response, "google_refresh_token")
+                    clear_cookie(fastapi_response, cookie_name)
                     return fastapi_response
 
                 raise HTTPException(
@@ -685,9 +795,12 @@ async def refresh_oauth_token(request: Request):
 
 
 @app.post(f"{BASE_PATH}/api/oauth/logout")
-async def logout_oauth():
+async def logout_oauth(request: Request):
     """
     Logout from Google OAuth by clearing the refresh token cookie.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
 
     Returns:
         - success: Boolean indicating logout success
@@ -695,15 +808,108 @@ async def logout_oauth():
     try:
         logger.info("Logging out from Google OAuth...")
 
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Create environment-specific cookie name
+        cookie_name = (
+            f"google_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+
         # Create response to clear the cookie
         fastapi_response = JSONResponse(content={"success": True})
-        clear_cookie(fastapi_response, "google_refresh_token")
+        clear_cookie(fastapi_response, cookie_name)
 
         logger.info("✅ Google OAuth logout successful")
         return fastapi_response
 
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("OAuth logout failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get(f"{BASE_PATH}/api/oauth/get-tokens")
+async def get_oauth_tokens(request: Request):
+    """
+    Get Google Drive OAuth tokens from HTTP-only cookies.
+
+    This endpoint retrieves the stored refresh token from cookies and returns
+    it to the frontend for authentication restoration.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - refresh_token: Encrypted refresh token (if available)
+        - has_tokens: Boolean indicating if tokens are available
+    """
+    try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Create environment-specific cookie name
+        cookie_name = (
+            f"google_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Get encrypted refresh token from HTTP-only cookie
+        encrypted_token = get_cookie_value(request, cookie_name)
+
+        if not encrypted_token:
+            logger.info(
+                "No Google Drive refresh token found in cookies for %s environment",
+                environment,
+            )
+            return JSONResponse(content={"has_tokens": False, "refresh_token": None})
+
+        # Get user ID and auth token for decryption
+        user_id = get_user_id_from_request(request)
+        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+
+        # Decrypt the refresh token
+        try:
+            if auth_token:
+                # If we have an auth token, use the full decryption
+                refresh_token = await decrypt_refresh_token(
+                    encrypted_token, user_id, auth_token
+                )
+            else:
+                # If no auth token, try simpler decryption approaches
+                try:
+                    # Try encryption service with empty auth token
+                    encryption_key = await encryption_service.get_user_encryption_key(
+                        user_id, ""  # Empty auth token for pre-auth refresh tokens
+                    )
+                    refresh_token = encryption_service.decrypt_refresh_token(
+                        encrypted_token, encryption_key
+                    )
+                except Exception as exc:
+                    # No fallback - if encryption fails, the token is invalid
+                    logger.error(
+                        "Failed to decrypt refresh token with encryption service"
+                    )
+                    raise HTTPException(
+                        status_code=401, detail="Invalid or corrupted refresh token"
+                    ) from exc
+        except Exception as e:
+            logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+            raise HTTPException(
+                status_code=500, detail="Failed to decrypt refresh token"
+            ) from e
+
+        logger.info(
+            "✅ Google Drive refresh token retrieved from HTTP-only cookie for %s environment",
+            environment,
+        )
+
+        return JSONResponse(
+            content={"has_tokens": True, "refresh_token": refresh_token}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to get Google Drive tokens: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -735,6 +941,16 @@ async def set_auth_token(request: Request):
         # Get user ID for encryption
         user_id = get_user_id_from_request(request)
         auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+
+        # Validate auth token is present and not empty
+        if not auth_token or auth_token.strip() == "":
+            logger.warning(
+                "Empty or missing auth token when setting tokens for user %s", user_id
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required: valid auth token must be provided",
+            )
 
         # Create response
         fastapi_response = JSONResponse(content={"success": True})
@@ -838,6 +1054,16 @@ async def get_auth_tokens(request: Request):
         user_id = get_user_id_from_request(request)
         auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
+        # Validate auth token is present and not empty
+        if not auth_token or auth_token.strip() == "":
+            logger.warning(
+                "Empty or missing auth token in request from user %s", user_id
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required: valid auth token must be provided",
+            )
+
         response_data = {}
 
         # Get authentication token
@@ -883,6 +1109,598 @@ async def get_auth_tokens(request: Request):
 
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to get auth tokens: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post(f"{BASE_PATH}/api/settings/set")
+async def set_user_settings(request: Request):
+    """
+    Set user settings in HTTP-only cookie.
+
+    Request body:
+        - settings: User settings object
+        - environment: Environment identifier (dev, prod, local)
+
+    Returns:
+        - success: Boolean indicating success
+    """
+    try:
+        data = await request.json()
+        settings = data.get("settings")
+        environment = data.get("environment", "prod")
+
+        if not settings:
+            raise HTTPException(status_code=400, detail="Missing settings data")
+
+        # Get user ID for encryption
+        user_id = get_user_id_from_request(request)
+        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+
+        # Create response
+        fastapi_response = JSONResponse(content={"success": True})
+
+        # Create environment-specific cookie name
+        cookie_name = (
+            f"user_settings{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Encrypt and store settings in HTTP-only cookie
+        # Require authentication for security - no fallback to unencrypted storage
+        if not auth_token or auth_token.strip() == "":
+            logger.warning(
+                "No auth token provided for settings storage - rejecting request for security"
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to store settings securely",
+            )
+
+        try:
+            # Use full encryption with auth token for security
+            encrypted_settings = await encrypt_refresh_token(
+                json.dumps(settings), user_id, auth_token
+            )
+        except Exception as e:
+            logger.error("Failed to encrypt settings: %s", e)
+            raise HTTPException(
+                status_code=500, detail="Failed to encrypt settings securely"
+            ) from e
+        set_secure_cookie(
+            fastapi_response,
+            cookie_name,
+            encrypted_settings,
+            max_age=30 * 24 * 60 * 60,  # 30 days
+        )
+
+        logger.info(
+            "✅ User settings stored in HTTP-only cookie for user %s in %s environment",
+            user_id,
+            environment,
+        )
+        return fastapi_response
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to set user settings: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get(f"{BASE_PATH}/api/settings/get")
+async def get_user_settings(request: Request):
+    """
+    Get user settings from HTTP-only cookie.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - settings: User settings object (if available)
+    """
+    try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Get user ID for decryption
+        user_id = get_user_id_from_request(request)
+        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+
+        response_data = {}
+
+        # Create environment-specific cookie name
+        cookie_name = (
+            f"user_settings{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Get settings (encrypted) - require authentication for security
+        if not auth_token or auth_token.strip() == "":
+            logger.warning(
+                "No auth token provided for settings retrieval - rejecting request for security"
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to retrieve settings securely",
+            )
+
+        settings_cookie = get_cookie_value(request, cookie_name)
+        if settings_cookie:
+            try:
+                # Use full decryption with auth token for security
+                settings_data = await decrypt_refresh_token(
+                    settings_cookie, user_id, auth_token
+                )
+                response_data["settings"] = json.loads(settings_data)
+                logger.info(
+                    "✅ User settings retrieved from HTTP-only cookie for user %s in %s environment",
+                    user_id,
+                    environment,
+                )
+            except (ValueError, RuntimeError, json.JSONDecodeError) as e:
+                logger.warning(
+                    "Failed to decrypt settings data for %s environment: %s",
+                    environment,
+                    e,
+                )
+        else:
+            logger.info("No settings cookie found for %s environment", environment)
+
+        return JSONResponse(content=response_data)
+
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 401) without wrapping them
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to get user settings: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post(f"{BASE_PATH}/api/auth/fidu/set-tokens")
+async def set_fidu_auth_tokens(request: Request):
+    """
+    Set FIDU authentication tokens in HTTP-only cookies.
+
+    This endpoint stores both access and refresh tokens securely in HTTP-only cookies
+    following industry best practices for token management.
+
+    Request body:
+        - access_token: Short-lived access token (15-30 minutes)
+        - refresh_token: Long-lived refresh token (30-90 days)
+        - user: User information
+        - environment: Environment identifier (dev, prod, local)
+
+    Returns:
+        - success: Boolean indicating success
+    """
+    try:
+        data = await request.json()
+        access_token = data.get("access_token")
+        refresh_token = data.get("refresh_token")
+        user = data.get("user")
+        environment = data.get("environment", "prod")
+
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Missing access token")
+
+        if not refresh_token:
+            raise HTTPException(status_code=400, detail="Missing refresh token")
+
+        if not user:
+            raise HTTPException(status_code=400, detail="Missing user information")
+
+        logger.info("Setting FIDU auth tokens in HTTP-only cookies...")
+
+        # Create response
+        fastapi_response = JSONResponse(content={"success": True})
+
+        # Create environment-specific cookie names
+        access_cookie_name = (
+            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        refresh_cookie_name = (
+            f"fidu_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        user_cookie_name = (
+            f"fidu_user{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Set access token cookie (short-lived: 30 minutes)
+        set_secure_cookie(
+            fastapi_response,
+            access_cookie_name,
+            access_token,
+            max_age=30 * 60,  # 30 minutes
+        )
+
+        # Set refresh token cookie (long-lived: 90 days)
+        set_secure_cookie(
+            fastapi_response,
+            refresh_cookie_name,
+            refresh_token,
+            max_age=90 * 24 * 60 * 60,  # 90 days
+        )
+
+        # Set user info cookie (long-lived: 90 days)
+        set_secure_cookie(
+            fastapi_response,
+            user_cookie_name,
+            json.dumps(user),
+            max_age=90 * 24 * 60 * 60,  # 90 days
+        )
+
+        logger.info(
+            "✅ FIDU auth tokens stored in HTTP-only cookies for %s environment",
+            environment,
+        )
+
+        return fastapi_response
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to set FIDU auth tokens: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get(f"{BASE_PATH}/api/auth/fidu/get-tokens")
+async def get_fidu_auth_tokens(request: Request):
+    """
+    Get FIDU authentication tokens from HTTP-only cookies.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - access_token: Current access token (if available)
+        - refresh_token: Current refresh token (if available)
+        - user: User information (if available)
+    """
+    try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Create environment-specific cookie names
+        access_cookie_name = (
+            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        refresh_cookie_name = (
+            f"fidu_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        user_cookie_name = (
+            f"fidu_user{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        response_data = {}
+
+        # Get access token
+        access_token = get_cookie_value(request, access_cookie_name)
+        if access_token and access_token.strip():
+            response_data["access_token"] = access_token
+
+        # Get refresh token
+        refresh_token = get_cookie_value(request, refresh_cookie_name)
+        if refresh_token and refresh_token.strip():
+            response_data["refresh_token"] = refresh_token
+
+        # Get user info
+        user_cookie = get_cookie_value(request, user_cookie_name)
+        if user_cookie and user_cookie.strip():
+            try:
+                response_data["user"] = json.loads(user_cookie)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Failed to parse user cookie for %s environment", environment
+                )
+
+        logger.info(
+            "✅ FIDU auth tokens retrieved from HTTP-only cookies for %s environment",
+            environment,
+        )
+
+        return JSONResponse(content=response_data)
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to get FIDU auth tokens: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post(f"{BASE_PATH}/api/auth/fidu/refresh-access-token")
+async def refresh_fidu_access_token(request: Request):
+    """
+    Refresh FIDU access token using refresh token from HTTP-only cookies.
+
+    This endpoint uses the refresh token stored in HTTP-only cookies to get a new
+    access token, following the standard OAuth2 refresh token flow.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - access_token: New access token
+        - expires_in: Token expiration time in seconds
+    """
+    try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        # Create environment-specific cookie names
+        refresh_cookie_name = (
+            f"fidu_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Get refresh token from HTTP-only cookie
+        refresh_token = get_cookie_value(request, refresh_cookie_name)
+
+        if not refresh_token:
+            raise HTTPException(
+                status_code=401,
+                detail=f"No refresh token found in cookies for {environment} environment",
+            )
+
+        logger.info("Refreshing FIDU access token...")
+
+        # Call FIDU identity service to refresh the token
+        # This would typically involve calling your FIDU identity service
+        # For now, we'll simulate the refresh process
+
+        # Call FIDU identity service to refresh the token
+        try:
+            # Get identity service URL from encryption service
+            identity_service_url = encryption_service.identity_service_url
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{identity_service_url}/refresh",
+                    json={"refresh_token": refresh_token},
+                    timeout=30.0,
+                )
+
+                if not response.is_success:
+                    logger.error("FIDU token refresh failed: %s", response.status_code)
+                    raise HTTPException(
+                        status_code=response.status_code, detail="Token refresh failed"
+                    )
+
+                token_data = response.json()
+                logger.info("✅ FIDU access token refreshed successfully")
+
+        except httpx.RequestError as e:
+            logger.error("Network error during FIDU token refresh: %s", e)
+            raise HTTPException(
+                status_code=503, detail="Token refresh service unavailable"
+            ) from e
+
+        # Create response with new access token cookie
+        response_data = {
+            "access_token": token_data["access_token"],
+            "expires_in": token_data["expires_in"],
+        }
+
+        fastapi_response = JSONResponse(content=response_data)
+
+        # Set new access token cookie
+        access_cookie_name = (
+            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        set_secure_cookie(
+            fastapi_response,
+            access_cookie_name,
+            token_data["access_token"],
+            max_age=token_data["expires_in"],  # Use actual expiration time
+        )
+
+        logger.info("✅ FIDU access token refreshed successfully")
+
+        return fastapi_response
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to refresh FIDU access token: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post(f"{BASE_PATH}/api/auth/refresh-all")
+async def refresh_all_tokens(
+    request: Request,
+):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    """
+    Batch refresh both FIDU and Google Drive tokens in a single request.
+
+    This optimization reduces HTTP overhead by refreshing both token types
+    simultaneously instead of requiring separate calls.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - fidu: Object with access_token and expires_in (if FIDU token exists)
+        - google_drive: Object with access_token and expires_in (if Google token exists)
+        - errors: Object with any errors that occurred
+    """
+    try:
+        environment = request.query_params.get("env", "prod")
+
+        result: Dict[str, Any] = {"fidu": None, "google_drive": None, "errors": {}}
+
+        # Attempt to refresh FIDU token
+        try:
+            suffix = "_" + environment if environment != "prod" else ""
+            fidu_refresh_cookie_name = f"fidu_refresh_token{suffix}"
+            fidu_refresh_token = get_cookie_value(request, fidu_refresh_cookie_name)
+
+            if fidu_refresh_token:
+                logger.info("Refreshing FIDU access token in batch...")
+
+                # Call FIDU identity service
+                identity_service_url = encryption_service.identity_service_url
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{identity_service_url}/refresh",
+                        json={"refresh_token": fidu_refresh_token},
+                        timeout=30.0,
+                    )
+
+                    if response.is_success:
+                        token_data = response.json()
+                        result["fidu"] = {
+                            "access_token": token_data["access_token"],
+                            "expires_in": token_data["expires_in"],
+                        }
+                        logger.info("✅ FIDU token refreshed in batch")
+                    else:
+                        result["errors"][
+                            "fidu"
+                        ] = f"Refresh failed with status {response.status_code}"
+                        logger.warning(
+                            "FIDU token refresh failed in batch: %s",
+                            response.status_code,
+                        )
+            else:
+                logger.debug("No FIDU refresh token found for batch refresh")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            result["errors"]["fidu"] = str(e)
+            logger.warning("FIDU token refresh failed in batch: %s", e)
+
+        # Attempt to refresh Google Drive token
+        try:
+            suffix = "_" + environment if environment != "prod" else ""
+            google_refresh_cookie_name = f"google_refresh_token{suffix}"
+            encrypted_token = get_cookie_value(request, google_refresh_cookie_name)
+
+            if encrypted_token:
+                logger.info("Refreshing Google Drive access token in batch...")
+
+                # Get user ID and auth token for decryption
+                user_id = get_user_id_from_request(request)
+                auth_token = request.headers.get("Authorization", "").replace(
+                    "Bearer ", ""
+                )
+
+                # Decrypt the refresh token
+                if auth_token:
+                    refresh_token = await decrypt_refresh_token(
+                        encrypted_token, user_id, auth_token
+                    )
+                else:
+                    encryption_key = await encryption_service.get_user_encryption_key(
+                        user_id, ""
+                    )
+                    refresh_token = encryption_service.decrypt_refresh_token(
+                        encrypted_token, encryption_key
+                    )
+
+                # Refresh token using Google OAuth2
+                if chatlab_secrets and chatlab_secrets.google_client_secret:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "https://oauth2.googleapis.com/token",
+                            data={
+                                "client_id": chatlab_secrets.google_client_id,
+                                "client_secret": chatlab_secrets.google_client_secret,
+                                "refresh_token": refresh_token,
+                                "grant_type": "refresh_token",
+                            },
+                            timeout=30.0,
+                        )
+
+                        if response.is_success:
+                            token_data = response.json()
+                            result["google_drive"] = {
+                                "access_token": token_data["access_token"],
+                                "expires_in": token_data["expires_in"],
+                            }
+                            logger.info("✅ Google Drive token refreshed in batch")
+                        else:
+                            result["errors"][
+                                "google_drive"
+                            ] = f"Refresh failed with status {response.status_code}"
+                            logger.warning(
+                                "Google Drive token refresh failed in batch: %s",
+                                response.status_code,
+                            )
+                else:
+                    result["errors"]["google_drive"] = "OAuth not configured on server"
+            else:
+                logger.debug("No Google Drive refresh token found for batch refresh")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            result["errors"]["google_drive"] = str(e)
+            logger.warning("Google Drive token refresh failed in batch: %s", e)
+
+        # Create response with updated cookies
+        fastapi_response = JSONResponse(content=result)
+
+        # Set FIDU access token cookie if refreshed
+        fidu_tokens = result.get("fidu")
+        if fidu_tokens and isinstance(fidu_tokens, dict):
+            fidu_access_cookie_name = (
+                f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+            )
+            set_secure_cookie(
+                fastapi_response,
+                fidu_access_cookie_name,
+                fidu_tokens["access_token"],
+                max_age=fidu_tokens["expires_in"],
+            )
+
+        # Google Drive tokens are not stored in cookies (only access token in localStorage)
+        # So we don't need to set a cookie here
+
+        logger.info(
+            "✅ Batch token refresh complete (FIDU: %s, Google: %s)",
+            "success" if result["fidu"] else "skipped",
+            "success" if result["google_drive"] else "skipped",
+        )
+
+        return fastapi_response
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to batch refresh tokens: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post(f"{BASE_PATH}/api/auth/fidu/clear-tokens")
+async def clear_fidu_auth_tokens(request: Request):
+    """
+    Clear all FIDU authentication cookies.
+
+    Query params:
+        - env: Environment identifier (dev, prod, local)
+
+    Returns:
+        - success: Boolean indicating success
+    """
+    try:
+        # Get environment from query params
+        environment = request.query_params.get("env", "prod")
+
+        logger.info("Clearing FIDU authentication cookies...")
+
+        # Create response
+        fastapi_response = JSONResponse(content={"success": True})
+
+        # Create environment-specific cookie names
+        access_cookie_name = (
+            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        refresh_cookie_name = (
+            f"fidu_refresh_token{'_' + environment if environment != 'prod' else ''}"
+        )
+        user_cookie_name = (
+            f"fidu_user{'_' + environment if environment != 'prod' else ''}"
+        )
+
+        # Clear all FIDU auth cookies
+        clear_cookie(fastapi_response, access_cookie_name)
+        clear_cookie(fastapi_response, refresh_cookie_name)
+        clear_cookie(fastapi_response, user_cookie_name)
+
+        logger.info(
+            "✅ FIDU authentication cookies cleared for %s environment", environment
+        )
+
+        return fastapi_response
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to clear FIDU auth tokens: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

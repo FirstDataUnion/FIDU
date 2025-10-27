@@ -18,7 +18,12 @@ export class UnifiedStorageService {
    * Useful after authentication changes
    */
   async reinitialize(): Promise<void> {
-    await this.storageService.initialize();
+    // Prefer the storage service's explicit reinitialize to ensure adapter rebuild
+    if ((this.storageService as any).reinitialize) {
+      await (this.storageService as any).reinitialize();
+    } else {
+      await this.storageService.initialize();
+    }
   }
 
   async switchMode(mode: 'local' | 'cloud' | 'filesystem'): Promise<void> {

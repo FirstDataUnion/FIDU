@@ -5,6 +5,22 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2025-10-27
+
+### Added
+- **G-Drive re-auth button**: Added a quick "Re-Auth" one click button to the storage misconfiguration banner to allow for quick reconnection to google drive in the case that refresh tokens aren't available.
+
+### Changed
+- **Loading Screen improvements**: Centralised auth processes and upfront loading and a more visually pleasing process that will ensure all auth and data loading is completed before the app pages appear. 
+
+
+### Fixed
+
+- **Refresh Token Storage**: Fixed issue where access and refresh tokens weren't being recorded or used correctly at times. This will greatly improve the Chatlab's ability to keep a user logged into their FIDU account for longer periods. This will apply to both Google Drive and FIDU tokens, general auth stability should be massively improved. 
+- **Better storage selection memory**: Also improved chatlabs ability to remember storage preferences and auto select+ initialise this on a return visit. 
+- **Mobile Authentication Persistence Improvements**: Further changes to the storage of refresh tokens and user settings in cookies to prevent excessive re-authentication on mobile devices and browsers. Added better support for mobile specific events to ensure we always try to re-auth with drive automatically when we can. 
+
+
 ## [0.1.5] - 2025-10-23
 
 ### Added

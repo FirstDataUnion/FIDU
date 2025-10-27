@@ -5,6 +5,7 @@ Tests for the new encryption service integration with cookies.
 
 import pytest
 import json
+import base64
 from unittest.mock import Mock, patch, AsyncMock
 import httpx
 
@@ -25,8 +26,13 @@ class TestBackendEncryptionService:
     def setup_method(self):
         """Set up test fixtures."""
         self.service = BackendEncryptionService()
-        self.service.identity_service_url = "http://localhost:4000"
-        self.service.key_cache = {}  # Clear cache for each test
+
+    def _get_test_key(self) -> str:
+        """Get a proper base64-encoded 256-bit key for testing."""
+        # Generate exactly 32 bytes and encode as base64
+        return base64.b64encode(b"test_encryption_key_32_bytes_exact"[:32]).decode(
+            "utf-8"
+        )
 
     @pytest.mark.asyncio
     async def test_get_user_encryption_key_success(self):
@@ -113,7 +119,10 @@ class TestBackendEncryptionService:
 
     def test_encrypt_refresh_token(self):
         """Test token encryption."""
-        encryption_key = "test_encryption_key"
+        # Use a proper base64-encoded 256-bit key (32 bytes)
+        encryption_key = base64.b64encode(
+            b"test_encryption_key_32_bytes_exact"[:32]
+        ).decode("utf-8")
         token = "test_refresh_token"
 
         encrypted = self.service.encrypt_refresh_token(token, encryption_key)
@@ -127,7 +136,7 @@ class TestBackendEncryptionService:
 
     def test_decrypt_refresh_token(self):
         """Test token decryption."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         token = "test_refresh_token"
 
         # Encrypt first
@@ -140,20 +149,22 @@ class TestBackendEncryptionService:
 
     def test_decrypt_with_wrong_key_fails(self):
         """Test that decryption fails with wrong key."""
-        encryption_key1 = "key1"
-        encryption_key2 = "key2"
+        encryption_key1 = self._get_test_key()
+        encryption_key2 = base64.b64encode(
+            b"different_test_key_32_bytes_long!"[:32]
+        ).decode("utf-8")
         token = "test_refresh_token"
 
         # Encrypt with key1
         encrypted = self.service.encrypt_refresh_token(token, encryption_key1)
 
-        # Try to decrypt with key2
-        with pytest.raises(ValueError, match="Invalid encrypted token format"):
+        # Try to decrypt with key2 - should fail with InvalidTag (AES-GCM behavior)
+        with pytest.raises(RuntimeError, match="Failed to decrypt refresh token"):
             self.service.decrypt_refresh_token(encrypted, encryption_key2)
 
     def test_encrypt_decrypt_roundtrip(self):
         """Test complete encrypt/decrypt roundtrip."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         original_token = "very_long_refresh_token_12345"
 
         # Encrypt
@@ -201,7 +212,7 @@ class TestBackendEncryptionService:
 
     def test_encryption_with_special_characters(self):
         """Test encryption with special characters in token."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         special_token = "token_with_special_chars!@#$%^&*()_+-=[]{}|;':\",./<>?"
 
         encrypted = self.service.encrypt_refresh_token(special_token, encryption_key)
@@ -211,7 +222,7 @@ class TestBackendEncryptionService:
 
     def test_encryption_with_unicode(self):
         """Test encryption with unicode characters."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         unicode_token = "token_with_unicode_🚀_🎉_测试"
 
         encrypted = self.service.encrypt_refresh_token(unicode_token, encryption_key)
@@ -232,7 +243,7 @@ class TestBackendEncryptionService:
 
     def test_empty_token_handling(self):
         """Test handling of empty tokens."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         empty_token = ""
 
         encrypted = self.service.encrypt_refresh_token(empty_token, encryption_key)
@@ -242,7 +253,7 @@ class TestBackendEncryptionService:
 
     def test_very_long_token(self):
         """Test encryption with very long tokens."""
-        encryption_key = "test_encryption_key"
+        encryption_key = self._get_test_key()
         long_token = "a" * 1000  # 1000 character token
 
         encrypted = self.service.encrypt_refresh_token(long_token, encryption_key)
@@ -265,7 +276,11 @@ class TestEncryptionServiceIntegration:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                "encryption_key": {"key": "integration_test_key"}
+                "encryption_key": {
+                    "key": base64.b64encode(
+                        b"integration_test_key_32_bytes_long!"[:32]
+                    ).decode("utf-8")
+                }
             }
 
             mock_client.return_value.__aenter__.return_value.get.return_value = (
@@ -298,11 +313,21 @@ class TestEncryptionServiceIntegration:
 
                 if "user1" in str(kwargs.get("headers", {}).get("Authorization", "")):
                     mock_response.json.return_value = {
-                        "encryption_key": {"key": "user1_key"}
+                        "encryption_key": {
+                            "key": base64.b64encode(
+                                b"user1_test_key_32_bytes_longer!"
+                                + b"x" * (32 - len(b"user1_test_key_32_bytes_longer!"))
+                            ).decode("utf-8")
+                        }
                     }
                 else:
                     mock_response.json.return_value = {
-                        "encryption_key": {"key": "user2_key"}
+                        "encryption_key": {
+                            "key": base64.b64encode(
+                                b"user2_test_key_32_bytes_longer!"
+                                + b"y" * (32 - len(b"user2_test_key_32_bytes_longer!"))
+                            ).decode("utf-8")
+                        }
                     }
 
                 return mock_response
@@ -314,15 +339,39 @@ class TestEncryptionServiceIntegration:
             # Encrypt same token for different users
             token = "shared_token"
 
-            encrypted1 = service.encrypt_refresh_token(token, "user1_key")
-            encrypted2 = service.encrypt_refresh_token(token, "user2_key")
+            encrypted1 = service.encrypt_refresh_token(
+                token,
+                base64.b64encode(
+                    b"user1_test_key_32_bytes_longer!"
+                    + b"x" * (32 - len(b"user1_test_key_32_bytes_longer!"))
+                ).decode("utf-8"),
+            )
+            encrypted2 = service.encrypt_refresh_token(
+                token,
+                base64.b64encode(
+                    b"user2_test_key_32_bytes_longer!"
+                    + b"y" * (32 - len(b"user2_test_key_32_bytes_longer!"))
+                ).decode("utf-8"),
+            )
 
             # Should produce different encrypted values
             assert encrypted1 != encrypted2
 
             # Each should decrypt correctly with its own key
-            decrypted1 = service.decrypt_refresh_token(encrypted1, "user1_key")
-            decrypted2 = service.decrypt_refresh_token(encrypted2, "user2_key")
+            decrypted1 = service.decrypt_refresh_token(
+                encrypted1,
+                base64.b64encode(
+                    b"user1_test_key_32_bytes_longer!"
+                    + b"x" * (32 - len(b"user1_test_key_32_bytes_longer!"))
+                ).decode("utf-8"),
+            )
+            decrypted2 = service.decrypt_refresh_token(
+                encrypted2,
+                base64.b64encode(
+                    b"user2_test_key_32_bytes_longer!"
+                    + b"y" * (32 - len(b"user2_test_key_32_bytes_longer!"))
+                ).decode("utf-8"),
+            )
 
             assert decrypted1 == token
             assert decrypted2 == token

@@ -68,6 +68,7 @@ import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner'
 import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { MetricsService } from '../services/metrics/MetricsService';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 import LongRequestWarning from '../components/common/LongRequestWarning';
@@ -821,6 +822,7 @@ export default function PromptLabPage() {
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { settings } = useAppSelector((state) => state.settings);
+  const unifiedStorage = useUnifiedStorage();
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
   const STORAGE_KEYS = useMemo(() => ({
@@ -1104,7 +1106,7 @@ export default function PromptLabPage() {
   const [longRequestAnalysis, setLongRequestAnalysis] = useState<LongRequestAnalysis | null>(null);
   const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
   const [isRequestCancelled, setIsRequestCancelled] = useState(false);
-  const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
+  const [_requestStartTime, setRequestStartTime] = useState<number | null>(null);
 
   // Show toast message
   const showToast = useCallback((message: string) => {
@@ -1116,10 +1118,14 @@ export default function PromptLabPage() {
   // Load contexts and system prompts
   useEffect(() => {
     if (currentProfile) {
-      dispatch(fetchContexts(currentProfile.id));
-      dispatch(fetchSystemPrompts(currentProfile.id));
+      dispatch(fetchContexts(currentProfile.id)).catch((error) => {
+        console.log('Initial contexts fetch failed, will retry when auth completes:', error);
+      });
+      dispatch(fetchSystemPrompts(currentProfile.id)).catch((error) => {
+        console.log('Initial system prompts fetch failed, will retry when auth completes:', error);
+      });
     }
-  }, [currentProfile, dispatch]);
+  }, [currentProfile, dispatch, unifiedStorage.googleDrive.isAuthenticated]);
 
   // Set default system prompt when loaded
   useEffect(() => {

@@ -83,9 +83,11 @@ export default function ContextsPage() {
 
   useEffect(() => {
     if (currentProfile?.id) {
-      dispatch(fetchContexts(currentProfile.id));
+      dispatch(fetchContexts(currentProfile.id)).catch((error) => {
+        console.log('Initial fetch failed, will retry when auth completes:', error);
+      });
     }
-  }, [dispatch, currentProfile?.id]);
+  }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated]);
 
   // Memoize filtered contexts to prevent recalculation on every render
   const filteredContexts = useMemo(() => {

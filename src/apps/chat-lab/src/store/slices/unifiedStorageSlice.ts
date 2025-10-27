@@ -125,7 +125,7 @@ const initialState: UnifiedStorageState = {
 // Async thunks
 export const initializeGoogleDriveAuth = createAsyncThunk(
   'unifiedStorage/initializeGoogleDriveAuth',
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue, getState, dispatch }) => {
     try {
       const state = getState() as { unifiedStorage: UnifiedStorageState };
       const storageMode = state.unifiedStorage.mode;
@@ -139,15 +139,17 @@ export const initializeGoogleDriveAuth = createAsyncThunk(
         };
       }
 
-      const authService = await getGoogleDriveAuthService();
-      await authService.initialize();
+      // Use AuthManager for coordinated initialization
+      const { getAuthManager } = await import('../../services/auth/AuthManager');
+      const authManager = getAuthManager(dispatch as any);
+      await authManager.initialize();
       
-      const status = authService.getAuthStatus();
+      const status = authManager.getAuthStatus();
       
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: status.expiresAt
+        expiresAt: null // AuthManager doesn't track expiresAt in its status
       };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to initialize Google Drive auth');
@@ -171,7 +173,7 @@ export const authenticateGoogleDrive = createAsyncThunk(
 
 export const checkGoogleDriveAuthStatus = createAsyncThunk(
   'unifiedStorage/checkGoogleDriveAuthStatus',
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue, getState, dispatch }) => {
     try {
       const state = getState() as { unifiedStorage: UnifiedStorageState };
       const storageMode = state.unifiedStorage.mode;
@@ -185,15 +187,18 @@ export const checkGoogleDriveAuthStatus = createAsyncThunk(
         };
       }
 
-      const authService = await getGoogleDriveAuthService();
-      // Ensure auth service is initialized before checking status
-      await authService.initialize();
-      const status = authService.getAuthStatus();
+      // Use AuthManager for coordinated status check
+      const { getAuthManager } = await import('../../services/auth/AuthManager');
+      const authManager = getAuthManager(dispatch as any);
+      
+      // Use checkAndRestore which is safe to call frequently (has debouncing)
+      await authManager.checkAndRestore();
+      const status = authManager.getAuthStatus();
       
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: status.expiresAt
+        expiresAt: null // AuthManager doesn't track expiresAt in its status
       };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to check Google Drive auth status');
@@ -238,6 +243,18 @@ const unifiedStorageSlice = createSlice({
     
     markStorageConfigured: (state) => {
       state.status = 'configured';
+      saveUnifiedStateToStorage(state);
+    },
+    
+    setGoogleDriveAuthState: (state, action: PayloadAction<{ isAuthenticated: boolean, user?: any }>) => {
+      state.googleDrive.isAuthenticated = action.payload.isAuthenticated;
+      state.googleDrive.error = null;
+      state.googleDrive.showAuthModal = false;
+      
+      if (action.payload.user) {
+        state.googleDrive.user = action.payload.user;
+      }
+      
       saveUnifiedStateToStorage(state);
     },
     
@@ -385,6 +402,7 @@ const unifiedStorageSlice = createSlice({
 export const {
   updateStorageMode,
   markStorageConfigured,
+  setGoogleDriveAuthState,
   resetStorageConfiguration,
   setShowAuthModal,
   clearGoogleDriveError,

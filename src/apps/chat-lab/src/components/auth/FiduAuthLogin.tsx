@@ -2,6 +2,7 @@
 declare global {
   interface Window {
     FIDUAuth?: any;
+    __fiduAuthInstance?: any;
   }
 }
 
@@ -13,6 +14,8 @@ import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
 import { refreshTokenService } from '../../services/api/refreshTokenService';
 import { getIdentityServiceUrl } from '../../utils/environment';
 import { isEmailAllowed, getAllowedEmails } from '../../utils/emailAllowlist';
+import { getFiduAuthCookieService } from '../../services/auth/FiduAuthCookieService';
+import { getEnvironmentInfo } from '../../utils/environment';
 
 const FIDU_SDK_ID = 'fidu-sdk-script';
 
@@ -77,7 +80,7 @@ const FiduAuthLogin: React.FC = () => {
     document.body.appendChild(script);
     return () => {
       clearTimeout(loadingTimeout);
-      if (script.parentNode) script.parentNode.removeChild(script);
+      // Do NOT remove the script on unmount to avoid double-loading and re-declaration errors
     };
   }, []);
 
@@ -90,23 +93,48 @@ const FiduAuthLogin: React.FC = () => {
       return;
     }
 
-    // Remove any previous widget
-    const container = document.getElementById('fiduAuthContainer');
-    if (container) container.innerHTML = '';
-
-    const fidu = new window.FIDUAuth({
+    // Reuse existing instance if present to avoid double init
+    const fidu = window.__fiduAuthInstance || new window.FIDUAuth({
       fiduHost: getFiduHost(),
       debug: true,
     });
+    window.__fiduAuthInstance = fidu;
 
-    fidu.on('onAuthSuccess', async (_user: any, token: string) => {
+    fidu.on('onAuthSuccess', async (_user: any, token: string | any, _portalUrl: any, refreshToken?: string) => {
       try {
-        localStorage.setItem('auth_token', token);
+        // Store tokens in HTTP-only cookies (primary storage)
+        const fiduAuthService = getFiduAuthCookieService();
+        
+        // Extract access token and refresh token
+        // The SDK now passes the refresh token as the 4th parameter
+        let accessToken: string;
+        let refreshTokenValue: string;
+        
+        if (typeof token === 'object' && token !== null && token.access_token) {
+          // New format: token is an object with access_token, refresh_token, expires_in
+          accessToken = token.access_token;
+          refreshTokenValue = token.refresh_token || token.access_token; // Fallback to access token if no refresh token
+        } else {
+          // Standard format: token is a string (access token)
+          accessToken = token as string;
+          
+          // Use the refresh token parameter if provided, otherwise fallback to localStorage, otherwise to access token
+          if (refreshToken && refreshToken.trim() !== '') {
+            refreshTokenValue = refreshToken;
+            console.log('✅ Using refresh token from callback parameter');
+          } else {
+            // Fallback: Get refresh token from localStorage (SDK stores it as 'fiduRefreshToken')
+            refreshTokenValue = localStorage.getItem('fiduRefreshToken') || accessToken;
+            console.log('⚠️ Refresh token not in callback, using localStorage fallback');
+          }
+        }
+        
         // Fetch user info from identity service
-        const user = await fetchCurrentUser(token);
+        const user = await fetchCurrentUser(accessToken);
         
         // Check email allowlist (development only)
         if (!isEmailAllowed(user.email)) {
+          await fiduAuthService.clearTokens();
           refreshTokenService.clearAllAuthTokens();
           
           const allowedEmails = getAllowedEmails();
@@ -118,13 +146,78 @@ const FiduAuthLogin: React.FC = () => {
           return;
         }
         
-        localStorage.setItem('user', JSON.stringify(user));
-        // Set auth_token cookie for backend compatibility (expires in 1 hour)
-        document.cookie = `auth_token=${token}; path=/; max-age=3600; samesite=lax`;
-        // Re-initialize Redux auth state (fetches profiles, etc.)
-        await dispatch(initializeAuth());
+        // Store tokens in HTTP-only cookies with proper access and refresh tokens
+        const success = await fiduAuthService.setTokens(accessToken, refreshTokenValue, user);
+        
+        // Log token values for debugging (first 30 chars only)
+        console.log('🔑 Storing tokens:', {
+          accessToken: accessToken.substring(0, 30) + '...',
+          refreshToken: refreshTokenValue.substring(0, 30) + '...',
+          areDifferent: accessToken !== refreshTokenValue
+        });
+        
+        if (success) {
+          console.log('✅ FIDU auth tokens stored in HTTP-only cookies');
+          
+          // Keep localStorage as fallback for backward compatibility
+          localStorage.setItem('auth_token', accessToken);
+          localStorage.setItem('user', JSON.stringify(user));
+          
+          // Set auth_token cookie for backend compatibility (expires in 1 hour)
+          document.cookie = `auth_token=${accessToken}; path=/; max-age=3600; samesite=lax`;
+          
+          // Re-initialize Redux auth state (fetches profiles, etc.)
+          await dispatch(initializeAuth());
+          
+          // After FIDU auth, use AuthManager to check and restore Google Drive authentication
+          const envInfo = getEnvironmentInfo();
+          if (envInfo.storageMode === 'cloud') {
+            try {
+              console.log('🔄 Using AuthManager to check/restore Google Drive authentication after FIDU login...');
+              const { getAuthManager } = await import('../../services/auth/AuthManager');
+              const { store } = await import('../../store');
+              const { getUnifiedStorageService } = await import('../../services/storage/UnifiedStorageService');
+              const authManager = getAuthManager(store.dispatch);
+              
+              // Use AuthManager to check and restore
+              const restored = await authManager.checkAndRestore();
+              
+              if (restored) {
+                console.log('✅ Google Drive authentication restored via AuthManager after FIDU login');
+                
+                // Optimization: Skip OAuth callback redirect and directly reinitialize storage
+                // This saves 1-2 seconds by avoiding the page redirect and reload
+                console.log('⚡ [Optimization] Skipping OAuth callback redirect - directly reinitializing storage');
+                
+                try {
+                  // Re-initialize storage to trigger data sync
+                  const storageService = getUnifiedStorageService();
+                  await storageService.reinitialize();
+                  console.log('✅ Storage re-initialized and data synced after FIDU login');
+                  
+                  // No redirect needed - user stays on current page with data loaded
+                  return;
+                } catch (storageError) {
+                  console.warn('Failed to reinitialize storage, falling back to OAuth callback redirect:', storageError);
+                  // Fallback: If direct reinit fails, use the OAuth callback flow
+                  window.location.href = '/fidu-chat-lab/oauth-callback?postLogin=1';
+                  return;
+                }
+              } else {
+                console.log('ℹ️ No Google Drive authentication found');
+              }
+            } catch (error) {
+              console.warn('Failed to restore Google Drive authentication via AuthManager:', error);
+              // Don't fail the login if Google Drive restore fails
+            }
+          }
+        } else {
+          throw new Error('Failed to store auth tokens in HTTP-only cookies');
+        }
       } catch (error) {
         // Clear tokens if user info fetching fails to prevent loops
+        const fiduAuthService = getFiduAuthCookieService();
+        await fiduAuthService.clearTokens();
         refreshTokenService.clearAllAuthTokens();
         console.error('Error fetching user info:', error);
         setError('Authentication succeeded, but failed to fetch user info. Please try again.');
@@ -136,6 +229,10 @@ const FiduAuthLogin: React.FC = () => {
       refreshTokenService.clearAllAuthTokens();
       setError('Authentication failed. Please try again.');
     });
+
+    // Clear any previous widget content
+    const container = document.getElementById('fiduAuthContainer');
+    if (container) container.innerHTML = '';
 
     fidu.init().then((isAuthenticated: boolean) => {
       if (!isAuthenticated) {

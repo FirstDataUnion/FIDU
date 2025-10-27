@@ -188,14 +188,9 @@ cp "$ENV_FILE" "$LOCAL_BUILD_DIR/.env"
 echo -e "${BLUE}📄 Copying backend...${NC}"
 cp -r backend "$LOCAL_BUILD_DIR/"
 
-# Create requirements.txt with OpenBao support
-cat > "$LOCAL_BUILD_DIR/requirements.txt" << EOF
-fastapi==0.116.1
-uvicorn[standard]==0.24.0
-httpx==0.28.1
-prometheus-client==0.21.0
-hvac==2.3.0
-EOF
+# Copy the actual requirements.txt file
+echo -e "${BLUE}📄 Copying requirements.txt...${NC}"
+cp requirements.txt "$LOCAL_BUILD_DIR/"
 
 # Create systemd service file
 cat > "$LOCAL_BUILD_DIR/${SERVICE_NAME}.service" << EOF
@@ -364,6 +359,7 @@ These are read from server environment or .env file:
 - OPENBAO_SECRET_PATH - Path to secrets in OpenBao
 - GOOGLE_CLIENT_ID - Fallback client ID
 - GOOGLE_CLIENT_SECRET - Fallback client secret
+- IDENTITY_SERVICE_URL - Identity service URL (matches VITE_IDENTITY_SERVICE_URL)
 - PORT - Server port (default: ${PORT})
 - ENVIRONMENT - Environment name (${ENVIRONMENT})
 

@@ -84,18 +84,22 @@ Object.defineProperty(global, 'localStorage', {
   writable: true,
 });
 
-// Mock sessionStorage
-const sessionStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-  length: 0,
-  key: jest.fn(),
-};
+// Mock fetch for HTTP-only cookie services
+global.fetch = jest.fn();
 
-Object.defineProperty(global, 'sessionStorage', {
-  value: sessionStorageMock,
+// Mock window.location for environment detection
+Object.defineProperty(window, 'location', {
+  value: {
+    hostname: 'localhost',
+    pathname: '/',
+    href: 'http://localhost:3000/',
+  },
+  writable: true,
+});
+
+// Mock document.cookie for cookie operations
+Object.defineProperty(document, 'cookie', {
+  value: '',
   writable: true,
 });
 
