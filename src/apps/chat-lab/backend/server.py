@@ -893,9 +893,14 @@ async def get_oauth_tokens(request: Request):
                     ) from exc
         except Exception as e:
             logger.error("Failed to decrypt Google Drive refresh token: %s", e)
-            raise HTTPException(
-                status_code=500, detail="Failed to decrypt refresh token"
-            ) from e
+            # Clear the corrupted token cookie
+            logger.warning("Google Drive refresh token is corrupted - clearing it")
+            fastapi_response = JSONResponse(
+                status_code=500,
+                content={"detail": "Invalid or corrupted refresh token - please re-authenticate"}
+            )
+            clear_cookie(fastapi_response, cookie_name)
+            return fastapi_response
 
         logger.info(
             "✅ Google Drive refresh token retrieved from HTTP-only cookie for %s environment",
@@ -1455,6 +1460,18 @@ async def refresh_fidu_access_token(request: Request):
 
                 if not response.is_success:
                     logger.error("FIDU token refresh failed: %s", response.status_code)
+                    
+                    # If refresh failed with 401, the refresh token is invalid - clear it
+                    if response.status_code == 401:
+                        logger.warning("FIDU refresh token is invalid - clearing all tokens")
+                        fastapi_response = JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid refresh token - please log in again"}
+                        )
+                        # Clear the invalid refresh token cookie
+                        clear_cookie(fastapi_response, refresh_cookie_name)
+                        return fastapi_response
+                    
                     raise HTTPException(
                         status_code=response.status_code, detail="Token refresh failed"
                     )

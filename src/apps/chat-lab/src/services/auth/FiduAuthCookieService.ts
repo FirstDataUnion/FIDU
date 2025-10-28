@@ -123,8 +123,9 @@ export class FiduAuthCookieService {
         console.log('✅ FIDU access token refreshed successfully');
         return data.access_token;
       } else if (response.status === 401) {
-        // No refresh token available - this is expected when user hasn't logged in
-        console.log('ℹ️ No FIDU refresh token found in cookies - user needs to log in');
+        // Refresh token failed - clear tokens as they're invalid
+        console.warn('⚠️ FIDU refresh token is invalid - clearing all tokens');
+        await this.clearTokens();
         return null;
       } else {
         console.error('❌ Failed to refresh FIDU access token:', response.status);

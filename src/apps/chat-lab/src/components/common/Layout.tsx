@@ -371,7 +371,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             opacity: 0.5,
           }}
         >
-          v0.1.5 • FIDU
+          v0.1.6 • FIDU
         </Typography>
       </Box>
     </Box>
