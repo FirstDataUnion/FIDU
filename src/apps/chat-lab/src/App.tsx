@@ -19,12 +19,14 @@ import { useStorageUserId } from './hooks/useStorageUserId';
 import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo, getEnvironmentInfo } from './utils/environment';
 import Layout from './components/common/Layout';
+import PublicPageWrapper from './components/common/PublicPageWrapper';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthWrapper from './components/auth/AuthWrapper';
 import GoogleDriveAuthPrompt from './components/auth/GoogleDriveAuthPrompt';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import { StorageSelectionModal } from './components/storage/StorageSelectionModal';
 import { StorageConfigurationBanner } from './components/storage/StorageConfigurationBanner';
+import { isPublicRoute } from './utils/publicRoutes';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
 import { serverLogger } from './utils/serverLogger';
 import { initializeErrorTracking } from './utils/errorTracking';
@@ -78,6 +80,66 @@ const RouteTracker: React.FC = () => {
   }, [location]);
 
   return null;
+};
+
+// Conditional layout wrapper that renders Layout for authenticated routes
+// and PublicPageWrapper for public routes
+const ConditionalLayout: React.FC<{ children: React.ReactNode; banner?: React.ReactNode }> = ({ children, banner }) => {
+  const location = useLocation();
+  const isPublic = isPublicRoute(location.pathname);
+
+  if (isPublic) {
+    return <PublicPageWrapper>{children}</PublicPageWrapper>;
+  }
+
+  return <Layout banner={banner}>{children}</Layout>;
+};
+
+// Wrapper for modals/banners that only renders them on non-public routes
+const ConditionalModals: React.FC<{
+  showStorageModal: boolean;
+  onDismissStorageModal: () => void;
+  onStorageConfigured: () => void;
+  envInfo: any;
+  unifiedStorage: any;
+}> = ({ 
+  showStorageModal, 
+  onDismissStorageModal, 
+  onStorageConfigured,
+  envInfo,
+  unifiedStorage
+}) => {
+  const location = useLocation();
+  const isPublic = isPublicRoute(location.pathname);
+
+  if (isPublic) {
+    return null;
+  }
+
+  return (
+    <>
+      {/* Cookie Consent Banner */}
+      <CookieBanner />
+      
+      {/* Storage Selection Modal - Priority over Google Drive auth modal */}
+      <StorageSelectionModal
+        open={showStorageModal}
+        onClose={onDismissStorageModal}
+        onStorageConfigured={onStorageConfigured}
+      />
+      
+      {/* Google Drive Auth Modal - Show when user needs to auth (either configured or initializing) */}
+      {envInfo.storageMode === 'cloud' && unifiedStorage.mode === 'cloud' && unifiedStorage.googleDrive.showAuthModal && (
+        <GoogleDriveAuthPrompt 
+          onAuthenticated={() => {
+            // This callback is now handled by the OAuthCallbackPage
+            // The OAuth flow will redirect to /oauth-callback which handles everything
+            serverLogger.info('🔄 OAuth flow initiated - will redirect to callback page');
+          }} 
+        />
+      )}
+    </>
+  );
 };
 
 interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
@@ -746,7 +808,7 @@ const AppContent: React.FC<AppContentProps> = () => {
         <RouteTracker />
         <ErrorBoundary>
           <AuthWrapper>
-            <Layout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
+            <ConditionalLayout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <Routes>
                   <Route path="/" element={<PromptLabPage />} />
@@ -762,9 +824,17 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 </Routes>
               </Suspense>
-            </Layout>
+            </ConditionalLayout>
           </AuthWrapper>
         </ErrorBoundary>
+        {/* Modals and banners - must be inside Router for useLocation() */}
+        <ConditionalModals
+          showStorageModal={showStorageSelectionModal}
+          onDismissStorageModal={handleDismissStorageModal}
+          onStorageConfigured={handleStorageConfigured}
+          envInfo={envInfo}
+          unifiedStorage={unifiedStorage}
+        />
       </Router>
     </ThemeProvider>
   );
@@ -772,27 +842,6 @@ const AppContent: React.FC<AppContentProps> = () => {
   return (
     <>
       {mainAppContent}
-      
-      {/* Cookie Consent Banner */}
-      <CookieBanner />
-      
-      {/* Storage Selection Modal - Priority over Google Drive auth modal */}
-      <StorageSelectionModal
-        open={showStorageSelectionModal}
-        onClose={handleDismissStorageModal}
-        onStorageConfigured={handleStorageConfigured}
-      />
-      
-      {/* Google Drive Auth Modal - Show when user needs to auth (either configured or initializing) */}
-      {envInfo.storageMode === 'cloud' && unifiedStorage.mode === 'cloud' && unifiedStorage.googleDrive.showAuthModal && (
-        <GoogleDriveAuthPrompt 
-          onAuthenticated={() => {
-            // This callback is now handled by the OAuthCallbackPage
-            // The OAuth flow will redirect to /oauth-callback which handles everything
-            serverLogger.info('🔄 OAuth flow initiated - will redirect to callback page');
-          }} 
-        />
-      )}
     </>
   );
 };
