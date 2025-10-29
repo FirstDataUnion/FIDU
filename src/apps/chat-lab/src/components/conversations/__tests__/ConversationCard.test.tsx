@@ -54,7 +54,7 @@ describe('ConversationCard', () => {
   it('should render platform chip with correct color', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
     
-    const platformChip = screen.getByText('CHATGPT');
+    const platformChip = screen.getByText('ChatGPT');
     expect(platformChip).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe('ConversationCard', () => {
       <ConversationCard {...defaultProps} conversation={claudeConversation} />
     );
     
-    expect(screen.getByText('CLAUDE')).toBeInTheDocument();
+    expect(screen.getByText('Claude')).toBeInTheDocument();
   });
 
   it('should handle long titles with ellipsis', () => {

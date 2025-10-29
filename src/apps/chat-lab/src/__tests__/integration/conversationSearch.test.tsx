@@ -12,7 +12,6 @@ const ConversationSearchTestComponent: React.FC = () => {
   const { filteredConversations } = useConversationFilters({
     conversations: [testConversations.chatgpt, testConversations.claude, testConversations.gemini],
     searchQuery,
-    selectedPlatforms: [],
     selectedTags: [],
     showArchived: true,
     sortBy: 'updatedAt',

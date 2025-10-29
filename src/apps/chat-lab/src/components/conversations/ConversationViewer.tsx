@@ -22,7 +22,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import type { Conversation } from '../../types';
-import { getPlatformColor } from '../../utils/conversationUtils';
+import { getPlatformColor, calculatePrimaryModelsDisplay, calculatePrimaryModelsFromMessages, getModelDisplayName } from '../../utils/conversationUtils';
 import EnhancedMarkdown from '../common/EnhancedMarkdown';
 
 interface ConversationViewerProps {
@@ -32,6 +32,14 @@ interface ConversationViewerProps {
 const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation }) => {
   const navigate = useNavigate();
   const { currentMessages, messagesLoading, error } = useAppSelector((state) => state.conversations);
+
+  // Prefer modelsUsed from conversation, but recalculate from messages if available
+  // This ensures we show the most up-to-date information
+  const modelDisplay = conversation.modelsUsed && conversation.modelsUsed.length > 0
+    ? calculatePrimaryModelsDisplay(conversation.modelsUsed)
+    : (currentMessages.length > 0 
+        ? calculatePrimaryModelsFromMessages(currentMessages)
+        : getModelDisplayName(conversation.platform));
 
 
 
@@ -184,7 +192,7 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip
-                label={conversation.platform.toUpperCase()}
+                label={modelDisplay}
                 size="small"
                 sx={{ 
                   backgroundColor: getPlatformColor(conversation.platform),

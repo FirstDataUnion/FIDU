@@ -12,13 +12,10 @@ import {
 
 interface ConversationFiltersProps {
   showFilters: boolean;
-  selectedPlatforms: string[];
   selectedTags: string[];
   sortBy: string;
   sortOrder: 'asc' | 'desc';
-  allPlatforms: string[];
   allTags: string[];
-  onPlatformsChange: (platforms: string[]) => void;
   onTagsChange: (tags: string[]) => void;
   onSortByChange: (sortBy: string) => void;
   onSortOrderChange: (sortOrder: 'asc' | 'desc') => void;
@@ -26,13 +23,10 @@ interface ConversationFiltersProps {
 
 const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
   showFilters,
-  selectedPlatforms,
   selectedTags,
   sortBy,
   sortOrder,
-  allPlatforms,
   allTags,
-  onPlatformsChange,
   onTagsChange,
   onSortByChange,
   onSortOrderChange,
@@ -45,28 +39,10 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = React.memo(({
         display: 'grid', 
         gridTemplateColumns: { 
           xs: '1fr', 
-          md: 'repeat(4, 1fr)' 
+          md: 'repeat(3, 1fr)' 
         }, 
         gap: 2 
       }}>
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ mb: 1, marginTop: 1 }}>Platforms</InputLabel>
-          <Select
-            multiple
-            value={selectedPlatforms}
-            onChange={(e) => onPlatformsChange(e.target.value as string[])}
-            renderValue={(selected) => selected.join(', ')}
-            sx={{ mt: 1 }}
-          >
-            {allPlatforms.map((platform) => (
-              <MenuItem key={platform} value={platform}>
-                <Checkbox checked={selectedPlatforms.includes(platform)} />
-                {platform.toUpperCase()}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        
         <FormControl fullWidth size="small">
           <InputLabel sx={{ mb: 4, marginTop: 1 }}>Tags</InputLabel>
           <Select

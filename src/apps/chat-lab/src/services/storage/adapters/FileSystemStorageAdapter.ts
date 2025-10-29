@@ -14,6 +14,7 @@ import { FileSystemService } from '../filesystem/FileSystemService';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
+import { extractUniqueModels } from '../../../utils/conversationUtils';
 
 // File names for our SQLite databases (matching Google Drive naming convention)
 const CONVERSATIONS_DB_FILE = 'fidu_conversations_v1.db';
@@ -1483,11 +1484,18 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         isArchived: false,
         isFavorite: false,
         participants: [],
-        status: 'active'
-      };
-    }
+      status: 'active',
+      modelsUsed: []
+    };
+  }
 
-    // Transform original prompt data if it exists
+  // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
+  // This saves computation for conversations that already have it stored
+  const modelsUsed = finalData.modelsUsed && Array.isArray(finalData.modelsUsed)
+    ? finalData.modelsUsed
+    : extractUniqueModels(finalData.interactions || []);
+
+  // Transform original prompt data if it exists
     let originalPrompt: Conversation['originalPrompt'] | undefined;
     if (finalData.originalPrompt) {
       let systemPrompts: any[] = [];
@@ -1544,6 +1552,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       isFavorite: finalData.isFavorite || false,
       participants: finalData.participants || [],
       status: finalData.status || 'active',
+      modelsUsed,
       originalPrompt
     };
   }

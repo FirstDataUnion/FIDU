@@ -249,13 +249,19 @@ describe('Token Authentication Integration Tests', () => {
             }),
           } as Response);
         } else if (callCount === 2) {
-          // Second call: refresh token - fails
+          // Second call: refresh token - fails with 401
           return Promise.resolve({
             ok: false,
             status: 401,
             json: () => Promise.resolve({
               detail: 'Refresh token expired',
             }),
+          } as Response);
+        } else if (callCount === 3) {
+          // Third call: clear tokens (automatically called when refresh fails with 401)
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({}),
           } as Response);
         }
         // Fallback
@@ -270,8 +276,8 @@ describe('Token Authentication Integration Tests', () => {
       // Service returns null when no access token and refresh fails
       expect(fiduAccessToken).toBeNull();
       
-      // Should make two API calls (get tokens + refresh)
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      // Should make three API calls (get tokens + refresh fails + clear tokens)
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 });

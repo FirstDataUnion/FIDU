@@ -17,6 +17,7 @@ import { SmartAutoSyncService } from '../sync/SmartAutoSyncService';
 import { unsyncedDataManager } from '../UnsyncedDataManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
+import { extractUniqueModels } from '../../../utils/conversationUtils';
 
 export class CloudStorageAdapter implements StorageAdapter {
   private initialized = false;
@@ -950,11 +951,18 @@ export class CloudStorageAdapter implements StorageAdapter {
         isArchived: false,
         isFavorite: false,
         participants: [],
-        status: 'active'
-      };
-    }
+      status: 'active',
+      modelsUsed: []
+    };
+  }
 
-    // Transform original prompt data if it exists
+  // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
+  // This saves computation for conversations that already have it stored
+  const modelsUsed = finalData.modelsUsed && Array.isArray(finalData.modelsUsed)
+    ? finalData.modelsUsed
+    : extractUniqueModels(finalData.interactions || []);
+
+  // Transform original prompt data if it exists
     let originalPrompt: Conversation['originalPrompt'] | undefined;
     if (finalData.originalPrompt) {
       let systemPrompts: any[] = [];
@@ -1028,6 +1036,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       isFavorite: finalData.isFavorite || false,
       participants: finalData.participants || [],
       status: finalData.status || 'active',
+      modelsUsed,
       originalPrompt
     };
   }

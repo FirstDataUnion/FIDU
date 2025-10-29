@@ -43,7 +43,6 @@ import {
   selectConversationsLoading,
   selectConversationsError,
   selectAllTags,
-  selectAllPlatforms,
   selectSortedConversations
 } from '../store/selectors/conversationsSelectors';
 
@@ -62,7 +61,6 @@ const ConversationsPage: React.FC = React.memo(() => {
   
   // Search and Filter State
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -107,7 +105,6 @@ const ConversationsPage: React.FC = React.memo(() => {
 
   // Use memoized selectors for better performance
   const allTags = useAppSelector((state) => selectAllTags(state));
-  const allPlatforms = useAppSelector((state) => selectAllPlatforms(state));
   const sortedConversations = useAppSelector((state) => selectSortedConversations(state));
 
   // Use lazy loading for better performance with large lists
@@ -122,11 +119,6 @@ const ConversationsPage: React.FC = React.memo(() => {
   });
 
   // Handler functions to update both local state and Redux store
-  const handlePlatformsChange = useCallback((platforms: string[]) => {
-    setSelectedPlatforms(platforms);
-    dispatch(setFilters({ platforms } as any));
-  }, [dispatch]);
-
   const handleTagsChange = useCallback((tags: string[]) => {
     setSelectedTags(tags);
     dispatch(setFilters({ tags } as any));
@@ -506,7 +498,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                         onClick={() => setShowFilters(!showFilters)}
                         aria-label="Toggle filters"
                       >
-                        <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
+                        <Badge badgeContent={selectedTags.length} color="primary">
                           <FilterIcon />
                         </Badge>
                       </IconButton>
@@ -518,13 +510,10 @@ const ConversationsPage: React.FC = React.memo(() => {
               {/* Filters Panel */}
               <ConversationFilters
                 showFilters={showFilters}
-                selectedPlatforms={selectedPlatforms}
                 selectedTags={selectedTags}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
-                allPlatforms={allPlatforms}
                 allTags={allTags}
-                onPlatformsChange={handlePlatformsChange}
                 onTagsChange={handleTagsChange}
                 onSortByChange={handleSortByChange}
                 onSortOrderChange={handleSortOrderChange}
@@ -537,23 +526,22 @@ const ConversationsPage: React.FC = React.memo(() => {
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                   <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                   <Typography variant="h6" gutterBottom>
-                    {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
+                    {searchQuery || selectedTags.length > 0 
                       ? 'No conversations match your filters' 
                       : 'No conversations found'
                     }
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
+                    {searchQuery || selectedTags.length > 0
                       ? 'Try adjusting your search terms or filters'
                       : 'Your AI conversations will appear here once you have some data.'
                     }
                   </Typography>
-                  {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
+                  {(searchQuery || selectedTags.length > 0) && (
                     <Button 
                       variant="outlined" 
                       onClick={() => {
                         clearSearch();
-                        handlePlatformsChange([]);
                         handleTagsChange([]);
                         handleSortByChange('updatedAt');
                         handleSortOrderChange('desc');
@@ -735,7 +723,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                       onClick={() => setShowFilters(!showFilters)}
                       aria-label="Toggle filters"
                     >
-                      <Badge badgeContent={selectedPlatforms.length + selectedTags.length} color="primary">
+                      <Badge badgeContent={selectedTags.length} color="primary">
                         <FilterIcon />
                       </Badge>
                     </IconButton>
@@ -790,13 +778,10 @@ const ConversationsPage: React.FC = React.memo(() => {
         {/* Filters Panel */}
         <ConversationFilters
           showFilters={showFilters}
-          selectedPlatforms={selectedPlatforms}
           selectedTags={selectedTags}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          allPlatforms={allPlatforms}
           allTags={allTags}
-          onPlatformsChange={handlePlatformsChange}
           onTagsChange={handleTagsChange}
           onSortByChange={handleSortByChange}
           onSortOrderChange={handleSortOrderChange}
@@ -875,24 +860,23 @@ const ConversationsPage: React.FC = React.memo(() => {
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <ChatIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" gutterBottom>
-                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0 
+                    {searchQuery || selectedTags.length > 0
                     ? 'No conversations match your filters' 
                     : 'No conversations found'
                   }
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0
+                    {searchQuery || selectedTags.length > 0
                     ? 'Try adjusting your search terms or filters'
                     : 'Your AI conversations will appear here once you have some data.'
                   }
                 </Typography>
                 <Stack direction="row" spacing={2} justifyContent="center">
-                  {(searchQuery || selectedPlatforms.length > 0 || selectedTags.length > 0) && (
+                  {(searchQuery || selectedTags.length > 0) && (
                     <Button 
                       variant="outlined" 
                       onClick={() => {
                         clearSearch();
-                        handlePlatformsChange([]);
                         handleTagsChange([]);
                         handleSortByChange('updatedAt');
                         handleSortOrderChange('desc');

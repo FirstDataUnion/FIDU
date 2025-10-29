@@ -2,6 +2,7 @@ import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate, SystemPrompt } from '../../types';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../constants/protectedTags';
+import { extractUniqueModels } from '../../utils/conversationUtils';
 
 
 export interface ConversationsResponse {
@@ -31,7 +32,8 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
       isArchived: false,
       isFavorite: false,
       participants: [],
-      status: 'active'
+      status: 'active',
+      modelsUsed: []
     };
   }
 
@@ -100,6 +102,12 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
     };
   }
 
+  // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
+  // This saves computation for conversations that already have it stored
+  const modelsUsed = packet.data.modelsUsed && Array.isArray(packet.data.modelsUsed)
+    ? packet.data.modelsUsed
+    : extractUniqueModels(packet.data.interactions || []);
+
   return {
     id: packet.id,
     title: packet.data.conversationTitle || packet.data.conversationUrl,
@@ -113,11 +121,17 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
     isFavorite: packet.data.isFavorite || false,
     participants: packet.data.participants || [],
     status: packet.data.status || 'active',
+    modelsUsed,
     originalPrompt
   };
 };
 
 const transformConversationToDataPacket = (profile_id: string, conversation: Partial<Conversation>, messages: Message[], originalPrompt?: Conversation['originalPrompt']): ConversationDataPacket => {
+  // Compute modelsUsed from messages and merge with existing
+  const computedModelsUsed = extractUniqueModels(messages);
+  const existingModelsUsed = conversation.modelsUsed || [];
+  const mergedModelsUsed = [...new Set([...existingModelsUsed, ...computedModelsUsed])];
+
   return {
     id: conversation.id || crypto.randomUUID(),
     profile_id: profile_id,
@@ -141,6 +155,8 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
       isFavorite: conversation.isFavorite || false,
       participants: conversation.participants || [],
       status: conversation.status || 'active',
+      // Store modelsUsed for efficient retrieval (computed once, reused on subsequent loads)
+      modelsUsed: mergedModelsUsed,
       // Include original prompt information if available
       originalPrompt: originalPrompt ? {
         promptText: originalPrompt.promptText,
@@ -167,6 +183,12 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
   if (!conversation.id) {
     throw new Error('Conversation ID is required to update conversation');
   }
+  
+  // Compute modelsUsed from messages and merge with existing
+  const computedModelsUsed = extractUniqueModels(messages);
+  const existingModelsUsed = conversation.modelsUsed || [];
+  const mergedModelsUsed = [...new Set([...existingModelsUsed, ...computedModelsUsed])];
+
   return {
     id: conversation.id,
     tags: conversation.tags || [], // Preserve existing tags for updates
@@ -187,6 +209,8 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
       isFavorite: conversation.isFavorite || false,
       participants: conversation.participants || [],
       status: conversation.status || 'active',
+      // Store modelsUsed for efficient retrieval (computed once, reused on subsequent loads)
+      modelsUsed: mergedModelsUsed,
       // Include original prompt information if available
       originalPrompt: originalPrompt ? {
         promptText: originalPrompt.promptText,

@@ -6,6 +6,11 @@ import {
   formatDate,
   formatTimestamp,
   formatMessageContent,
+  getModelDisplayName,
+  extractUniqueModels,
+  calculatePrimaryModelsDisplay,
+  calculatePrimaryModelsFromInteractions,
+  calculatePrimaryModelsFromMessages,
 } from '../conversationUtils';
 
 describe('conversationUtils', () => {
@@ -225,6 +230,212 @@ describe('conversationUtils', () => {
       expect(result).toContain('**Bold text**');
       expect(result).toContain('1. First item');
       expect(result).toContain('- Bullet point');
+    });
+  });
+
+  describe('getModelDisplayName', () => {
+    it('should return "AutoRouter" for autorouter models', () => {
+      expect(getModelDisplayName('autorouter')).toBe('AutoRouter');
+      expect(getModelDisplayName('openrouter')).toBe('AutoRouter');
+      expect(getModelDisplayName('AUTOROUTER')).toBe('AutoRouter');
+    });
+
+    it('should return correct names for OpenAI models', () => {
+      expect(getModelDisplayName('gpt-4o')).toBe('GPT-4o');
+      expect(getModelDisplayName('gpt-4-turbo')).toBe('GPT-4 Turbo');
+      expect(getModelDisplayName('gpt-4')).toBe('GPT-4');
+      expect(getModelDisplayName('gpt-3.5-turbo')).toBe('GPT-3.5');
+      expect(getModelDisplayName('gpt-5')).toBe('GPT-5');
+      expect(getModelDisplayName('chatgpt')).toBe('ChatGPT');
+    });
+
+    it('should return correct names for Anthropic models', () => {
+      expect(getModelDisplayName('claude-3.5-sonnet')).toBe('Claude 3.5 Sonnet');
+      expect(getModelDisplayName('claude-3-opus')).toBe('Claude 3 Opus');
+      expect(getModelDisplayName('claude-3-sonnet')).toBe('Claude 3 Sonnet');
+      expect(getModelDisplayName('claude-3-haiku')).toBe('Claude 3 Haiku');
+      expect(getModelDisplayName('claude')).toBe('Claude');
+    });
+
+    it('should return correct names for Google models', () => {
+      expect(getModelDisplayName('gemini-flash')).toBe('Gemini Flash');
+      expect(getModelDisplayName('gemini-pro')).toBe('Gemini Pro');
+      expect(getModelDisplayName('gemini')).toBe('Gemini');
+    });
+
+    it('should return "Unknown" for invalid models', () => {
+      expect(getModelDisplayName('unknown')).toBe('Unknown');
+      expect(getModelDisplayName('other')).toBe('Unknown');
+      expect(getModelDisplayName('')).toBe('Unknown');
+      expect(getModelDisplayName(null as any)).toBe('Unknown');
+      expect(getModelDisplayName(undefined as any)).toBe('Unknown');
+    });
+
+    it('should format unknown model IDs with capitalization', () => {
+      expect(getModelDisplayName('custom-model-name')).toBe('Custom Model Name');
+      expect(getModelDisplayName('my_custom_model')).toBe('My Custom Model');
+    });
+  });
+
+  describe('extractUniqueModels', () => {
+    it('should extract models from assistant messages only', () => {
+      const interactions = [
+        { role: 'user', platform: 'user-platform' },
+        { role: 'assistant', platform: 'gpt-4o' },
+        { role: 'assistant', platform: 'claude-3-5-sonnet' },
+        { role: 'user', platform: 'user-platform' },
+        { role: 'assistant', platform: 'gpt-4o' }, // duplicate
+      ];
+
+      const result = extractUniqueModels(interactions);
+      expect(result).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+    });
+
+    it('should handle interaction format with actor and model', () => {
+      const interactions = [
+        { actor: 'user', model: 'user-platform' },
+        { actor: 'bot', model: 'autorouter' },
+        { actor: 'assistant', model: 'gpt-4o' },
+        { actor: 'bot', model: 'autorouter' }, // duplicate
+      ];
+
+      const result = extractUniqueModels(interactions);
+      expect(result).toEqual(['autorouter', 'gpt-4o']);
+    });
+
+    it('should filter out invalid models', () => {
+      const interactions = [
+        { role: 'assistant', platform: 'gpt-4o' },
+        { role: 'assistant', platform: 'unknown' },
+        { role: 'assistant', platform: 'other' },
+        { role: 'assistant', platform: '' },
+        { role: 'assistant', platform: 'claude-3-5-sonnet' },
+      ];
+
+      const result = extractUniqueModels(interactions);
+      expect(result).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+    });
+
+    it('should return empty array for no assistant messages', () => {
+      const interactions = [
+        { role: 'user', platform: 'user-platform' },
+        { role: 'system', platform: 'system-platform' },
+      ];
+
+      const result = extractUniqueModels(interactions);
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty array for empty input', () => {
+      expect(extractUniqueModels([])).toEqual([]);
+    });
+
+    it('should handle mixed format (both role and actor)', () => {
+      const interactions = [
+        { role: 'assistant', platform: 'gpt-4o' },
+        { actor: 'bot', model: 'claude-3-5-sonnet' },
+      ];
+
+      const result = extractUniqueModels(interactions);
+      expect(result).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+    });
+  });
+
+  describe('calculatePrimaryModelsDisplay', () => {
+    it('should return single model name for one model', () => {
+      expect(calculatePrimaryModelsDisplay(['gpt-4o'])).toBe('GPT-4o');
+      expect(calculatePrimaryModelsDisplay(['autorouter'])).toBe('AutoRouter');
+      expect(calculatePrimaryModelsDisplay(['claude-3-5-sonnet'])).toBe('Claude 3.5 Sonnet');
+    });
+
+    it('should return two models separated by "/" for two models', () => {
+      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet'])).toBe('GPT-4o/Claude 3.5 Sonnet');
+      expect(calculatePrimaryModelsDisplay(['autorouter', 'gpt-4o'])).toBe('AutoRouter/GPT-4o');
+    });
+
+    it('should return "Multiple Models" for three or more models', () => {
+      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet', 'gemini-flash'])).toBe('Multiple Models');
+      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet', 'gemini-flash', 'gpt-3.5-turbo'])).toBe('Multiple Models');
+    });
+
+    it('should handle duplicates by returning unique models', () => {
+      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'gpt-4o', 'claude-3-5-sonnet'])).toBe('GPT-4o/Claude 3.5 Sonnet');
+    });
+
+    it('should return "Unknown" for empty or invalid models', () => {
+      expect(calculatePrimaryModelsDisplay([])).toBe('Unknown');
+      expect(calculatePrimaryModelsDisplay(['unknown', 'other'])).toBe('Unknown');
+    });
+
+    it('should filter out invalid models before calculating', () => {
+      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'unknown', 'other'])).toBe('GPT-4o');
+      expect(calculatePrimaryModelsDisplay(['unknown', 'other', 'gpt-4o'])).toBe('GPT-4o');
+    });
+  });
+
+  describe('calculatePrimaryModelsFromInteractions', () => {
+    it('should calculate from interactions with model field', () => {
+      const interactions = [
+        { actor: 'user', model: 'user-platform' },
+        { actor: 'assistant', model: 'gpt-4o' },
+        { actor: 'assistant', model: 'claude-3-5-sonnet' },
+      ];
+
+      const result = calculatePrimaryModelsFromInteractions(interactions);
+      expect(result).toBe('GPT-4o/Claude 3.5 Sonnet');
+    });
+
+    it('should return "Unknown" when no valid models found', () => {
+      const interactions = [
+        { actor: 'user', model: 'user-platform' },
+        { actor: 'assistant', model: 'unknown' },
+      ];
+
+      const result = calculatePrimaryModelsFromInteractions(interactions);
+      expect(result).toBe('Unknown');
+    });
+
+    it('should handle bot actor as assistant', () => {
+      const interactions = [
+        { actor: 'bot', model: 'autorouter' },
+        { actor: 'assistant', model: 'gpt-4o' },
+      ];
+
+      const result = calculatePrimaryModelsFromInteractions(interactions);
+      expect(result).toBe('AutoRouter/GPT-4o');
+    });
+  });
+
+  describe('calculatePrimaryModelsFromMessages', () => {
+    it('should calculate from messages with platform field', () => {
+      const messages = [
+        { role: 'user', platform: 'user-platform' },
+        { role: 'assistant', platform: 'gpt-4o' },
+        { role: 'assistant', platform: 'claude-3-5-sonnet' },
+      ];
+
+      const result = calculatePrimaryModelsFromMessages(messages);
+      expect(result).toBe('GPT-4o/Claude 3.5 Sonnet');
+    });
+
+    it('should return "Unknown" when no valid models found', () => {
+      const messages = [
+        { role: 'user', platform: 'user-platform' },
+        { role: 'assistant', platform: 'unknown' },
+      ];
+
+      const result = calculatePrimaryModelsFromMessages(messages);
+      expect(result).toBe('Unknown');
+    });
+
+    it('should handle bot role as assistant', () => {
+      const messages = [
+        { role: 'bot', platform: 'autorouter' },
+        { role: 'assistant', platform: 'gpt-4o' },
+      ];
+
+      const result = calculatePrimaryModelsFromMessages(messages);
+      expect(result).toBe('AutoRouter/GPT-4o');
     });
   });
 });

@@ -12,6 +12,9 @@ export interface Conversation {
   isFavorite: boolean;
   participants: string[];
   status: 'active' | 'archived' | 'deleted';
+  // List of unique models used in this conversation (e.g., ["autorouter", "gpt-4o", "claude-3-5-sonnet"])
+  // Computed from actual messages and updated when conversation is saved/updated
+  modelsUsed?: string[];
   // Original prompt information for conversation restart
   originalPrompt?: {
     promptText: string;
@@ -138,6 +141,8 @@ export interface ConversationDataPacket {
     isFavorite: boolean;
     participants: string[];
     status: 'active' | 'archived' | 'deleted';
+    // List of unique models used in this conversation (computed and stored for performance)
+    modelsUsed?: string[];
     // Original prompt information for conversation restart
     originalPrompt?: {
       promptText: string;
@@ -175,6 +180,8 @@ export interface ConversationDataPacketUpdate {
     isFavorite: boolean;
     participants: string[];
     status: 'active' | 'archived' | 'deleted';
+    // List of unique models used in this conversation (computed and stored for performance)
+    modelsUsed?: string[];
     // Original prompt information for conversation restart
     originalPrompt?: {
       promptText: string;

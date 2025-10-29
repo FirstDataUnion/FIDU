@@ -67,7 +67,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -84,7 +83,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -95,28 +93,11 @@ describe('useConversationFilters', () => {
     expect(result.current.allTags).toEqual(['ai', 'chat', 'discussion', 'archived', 'general']);
   });
 
-  it('should extract all unique platforms', () => {
-    const { result } = renderHook(() =>
-      useConversationFilters({
-        conversations: mockConversations,
-        searchQuery: '',
-        selectedPlatforms: [],
-        selectedTags: [],
-        showArchived: true,
-        sortBy: 'updatedAt',
-        sortOrder: 'desc',
-      })
-    );
-
-    expect(result.current.allPlatforms).toEqual(['chatgpt', 'claude', 'gemini']);
-  });
-
   it('should filter by search query in title', () => {
     const { result } = renderHook(() =>
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: 'ChatGPT',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -133,7 +114,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: 'Claude',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -150,7 +130,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: 'ai',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -165,29 +144,12 @@ describe('useConversationFilters', () => {
     ]);
   });
 
-  it('should filter by selected platforms', () => {
-    const { result } = renderHook(() =>
-      useConversationFilters({
-        conversations: mockConversations,
-        searchQuery: '',
-        selectedPlatforms: ['chatgpt'],
-        selectedTags: [],
-        showArchived: true,
-        sortBy: 'updatedAt',
-        sortOrder: 'desc',
-      })
-    );
-
-    expect(result.current.filteredConversations).toHaveLength(2);
-    expect(result.current.filteredConversations.every(c => c.platform === 'chatgpt')).toBe(true);
-  });
 
   it('should filter by selected tags', () => {
     const { result } = renderHook(() =>
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: ['chat'],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -204,7 +166,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: false,
         sortBy: 'updatedAt',
@@ -220,9 +181,8 @@ describe('useConversationFilters', () => {
     const { result } = renderHook(() =>
       useConversationFilters({
         conversations: mockConversations,
-        searchQuery: 'Hello',
-        selectedPlatforms: ['chatgpt'],
-        selectedTags: ['ai'],
+        searchQuery: 'ChatGPT',
+        selectedTags: ['chat'],
         showArchived: false,
         sortBy: 'updatedAt',
         sortOrder: 'desc',
@@ -238,7 +198,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -256,7 +215,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -274,7 +232,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'title',
@@ -294,7 +251,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'messageCount',
@@ -314,7 +270,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: [],
         searchQuery: '',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',
@@ -325,7 +280,6 @@ describe('useConversationFilters', () => {
     expect(result.current.filteredConversations).toHaveLength(0);
     expect(result.current.sortedConversations).toHaveLength(0);
     expect(result.current.allTags).toEqual([]);
-    expect(result.current.allPlatforms).toEqual([]);
   });
 
   it('should handle case-insensitive search', () => {
@@ -333,7 +287,6 @@ describe('useConversationFilters', () => {
       useConversationFilters({
         conversations: mockConversations,
         searchQuery: 'chatgpt',
-        selectedPlatforms: [],
         selectedTags: [],
         showArchived: true,
         sortBy: 'updatedAt',

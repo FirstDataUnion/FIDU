@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type { Conversation } from '../types';
+import { getModelDisplayName } from '../utils/conversationUtils';
 
 interface UseConversationFiltersProps {
   conversations: Conversation[];
   searchQuery: string;
-  selectedPlatforms: string[];
   selectedTags: string[];
   showArchived: boolean;
   sortBy: string;
@@ -14,7 +14,6 @@ interface UseConversationFiltersProps {
 export const useConversationFilters = ({
   conversations,
   searchQuery,
-  selectedPlatforms,
   selectedTags,
   showArchived,
   sortBy,
@@ -23,11 +22,6 @@ export const useConversationFilters = ({
   // Memoized expensive calculations
   const allTags = useMemo(() => 
     [...new Set(conversations.flatMap((c: Conversation) => c.tags))], 
-    [conversations]
-  );
-  
-  const allPlatforms = useMemo(() => 
-    [...new Set(conversations.map((c: Conversation) => c.platform))], 
     [conversations]
   );
 
@@ -40,12 +34,12 @@ export const useConversationFilters = ({
         const matchesTitle = conversation.title.toLowerCase().includes(searchLower);
         const matchesContent = conversation.lastMessage?.toLowerCase().includes(searchLower);
         const matchesTags = conversation.tags.some((tag: string) => tag.toLowerCase().includes(searchLower));
-        if (!matchesTitle && !matchesContent && !matchesTags) return false;
-      }
-      
-      // Platform filter
-      if (selectedPlatforms.length > 0 && !selectedPlatforms.includes(conversation.platform)) {
-        return false;
+        // Search in modelsUsed - check if any model display name matches
+        const matchesModels = conversation.modelsUsed?.some((model: string) => 
+          getModelDisplayName(model).toLowerCase().includes(searchLower) ||
+          model.toLowerCase().includes(searchLower)
+        ) || false;
+        if (!matchesTitle && !matchesContent && !matchesTags && !matchesModels) return false;
       }
       
       // Tags filter
@@ -60,7 +54,7 @@ export const useConversationFilters = ({
       
       return true;
     });
-  }, [conversations, searchQuery, selectedPlatforms, selectedTags, showArchived]);
+  }, [conversations, searchQuery, selectedTags, showArchived]);
 
   // Memoized sorted conversations
   const sortedConversations = useMemo(() => {
@@ -77,7 +71,6 @@ export const useConversationFilters = ({
 
   return {
     allTags,
-    allPlatforms,
     filteredConversations,
     sortedConversations,
   };

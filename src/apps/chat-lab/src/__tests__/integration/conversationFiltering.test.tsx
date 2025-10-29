@@ -35,7 +35,6 @@ const ConversationIntegrationTestComponent: React.FC = () => {
   const { filteredConversations } = useConversationFilters({
     conversations: mockConversations,
     searchQuery: '',
-    selectedPlatforms: [],
     selectedTags: [],
     showArchived: true,
     sortBy: 'updatedAt',
@@ -82,7 +81,7 @@ describe('Conversation Integration', () => {
     
     // Test that the component renders without errors
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
-    expect(screen.getByText('CHATGPT')).toBeInTheDocument();
+    expect(screen.getByText('ChatGPT')).toBeInTheDocument();
     expect(screen.getByText('5 messages')).toBeInTheDocument();
     expect(screen.getByText('Hello world')).toBeInTheDocument();
     expect(screen.getByText('test')).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
 import type { RootState, Conversation } from '../../types';
+import { getModelDisplayName } from '../../utils/conversationUtils';
 
 // Base selectors
 const selectConversationsState = (state: RootState) => state.conversations;
@@ -59,12 +60,12 @@ export const selectFilteredConversations = createSelector(
         const matchesTitle = conversation.title.toLowerCase().includes(searchLower);
         const matchesContent = conversation.lastMessage?.toLowerCase().includes(searchLower);
         const matchesTags = conversation.tags.some((tag: string) => tag.toLowerCase().includes(searchLower));
-        if (!matchesTitle && !matchesContent && !matchesTags) return false;
-      }
-      
-      // Platform filter
-      if (filters.platforms && filters.platforms.length > 0 && !filters.platforms.includes(conversation.platform)) {
-        return false;
+        // Search in modelsUsed - check if any model display name matches
+        const matchesModels = conversation.modelsUsed?.some((model: string) => 
+          getModelDisplayName(model).toLowerCase().includes(searchLower) ||
+          model.toLowerCase().includes(searchLower)
+        ) || false;
+        if (!matchesTitle && !matchesContent && !matchesTags && !matchesModels) return false;
       }
       
       // Tags filter
@@ -111,10 +112,7 @@ export const selectAllTags = createSelector(
   (conversations) => [...new Set(conversations.flatMap((c: Conversation) => c.tags))]
 );
 
-export const selectAllPlatforms = createSelector(
-  [selectConversations],
-  (conversations) => [...new Set(conversations.map((c: Conversation) => c.platform))]
-);
+// Note: selectAllPlatforms removed - platform filtering is deprecated
 
 export const selectConversationStats = createSelector(
   [selectConversations],

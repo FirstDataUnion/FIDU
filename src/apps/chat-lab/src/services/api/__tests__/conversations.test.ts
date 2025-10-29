@@ -300,6 +300,7 @@ describe('conversationsApi', () => {
           data: expect.objectContaining({
             sourceChatbot: 'CHATGPT',
             conversationTitle: 'New Conversation',
+            modelsUsed: expect.any(Array), // Should compute and store modelsUsed
             interactions: expect.arrayContaining([
               expect.objectContaining({
                 actor: 'user',
@@ -339,6 +340,7 @@ describe('conversationsApi', () => {
           tags: ['updated'],
           data: expect.objectContaining({
             conversationTitle: 'Updated Conversation',
+            modelsUsed: expect.any(Array), // Should compute and store modelsUsed
           }),
         }),
       }));
@@ -354,6 +356,107 @@ describe('conversationsApi', () => {
       
       await expect(conversationsApi.updateConversation(conversation, mockMessages))
         .rejects.toThrow('Conversation ID is required to update conversation');
+    });
+
+    it('should compute and store modelsUsed when creating conversation', async () => {
+      const mockResponse = {
+        data: mockConversationDataPacket,
+        status: 201,
+      };
+      
+      mockFiduVaultAPIClient.post.mockResolvedValue(mockResponse);
+      
+      const messagesWithMultipleModels: Message[] = [
+        {
+          id: '1-0',
+          conversationId: '1',
+          role: 'user',
+          content: 'Hello',
+          timestamp: new Date('2024-01-01T00:00:00Z'),
+          platform: 'user',
+          attachments: [],
+          isEdited: false,
+        },
+        {
+          id: '1-1',
+          conversationId: '1',
+          role: 'assistant',
+          content: 'Hi!',
+          timestamp: new Date('2024-01-01T00:01:00Z'),
+          platform: 'gpt-4o',
+          attachments: [],
+          isEdited: false,
+        },
+        {
+          id: '1-2',
+          conversationId: '1',
+          role: 'assistant',
+          content: 'Another response',
+          timestamp: new Date('2024-01-01T00:02:00Z'),
+          platform: 'claude-3-5-sonnet',
+          attachments: [],
+          isEdited: false,
+        },
+      ];
+
+      const conversation = {
+        title: 'Multi-Model Conversation',
+        platform: 'chatgpt' as const,
+        tags: ['test'],
+      };
+      
+      await conversationsApi.createConversation('profile-1', conversation, messagesWithMultipleModels);
+      
+      const callArgs = mockFiduVaultAPIClient.post.mock.calls[0][1];
+      const dataPacket = callArgs.data_packet;
+      
+      expect(dataPacket.data.modelsUsed).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+    });
+
+    it('should merge existing modelsUsed when updating conversation', async () => {
+      const mockResponse = {
+        data: {
+          ...mockConversationDataPacket,
+          data: {
+            ...mockConversationDataPacket.data,
+            modelsUsed: ['gpt-4o'], // Existing models
+          },
+        },
+        status: 200,
+      };
+      
+      mockFiduVaultAPIClient.put.mockResolvedValue(mockResponse);
+      
+      const newMessages: Message[] = [
+        {
+          id: '1-2',
+          conversationId: '1',
+          role: 'assistant',
+          content: 'New response',
+          timestamp: new Date('2024-01-01T00:03:00Z'),
+          platform: 'claude-3-5-sonnet', // New model
+          attachments: [],
+          isEdited: false,
+        },
+      ];
+
+      const conversation = {
+        id: '1',
+        title: 'Updated Conversation',
+        platform: 'chatgpt' as const,
+        tags: ['updated'],
+        modelsUsed: ['gpt-4o'], // Existing from conversation
+      };
+      
+      await conversationsApi.updateConversation(conversation, newMessages);
+      
+      const callArgs = mockFiduVaultAPIClient.put.mock.calls[0][1];
+      const dataPacket = callArgs.data_packet;
+      
+      // Should merge existing + new
+      expect(dataPacket.data.modelsUsed).toContain('gpt-4o');
+      expect(dataPacket.data.modelsUsed).toContain('claude-3-5-sonnet');
+      expect(dataPacket.data.modelsUsed.length).toBe(2);
     });
   });
 
@@ -376,6 +479,72 @@ describe('conversationsApi', () => {
       expect(result.tags).toEqual(['Chat-Bot-Conversation', 'test']);
       expect(result.isArchived).toBe(false);
       expect(result.isFavorite).toBe(false);
+    });
+
+    it('should compute modelsUsed from interactions when not stored', async () => {
+      const dataPacketWithMultipleModels = {
+        ...mockConversationDataPacket,
+        data: {
+          ...mockConversationDataPacket.data,
+          interactions: [
+            {
+              actor: 'user',
+              timestamp: '2024-01-01T00:00:00Z',
+              content: 'Hello',
+              attachments: [],
+              model: 'chatgpt',
+            },
+            {
+              actor: 'bot',
+              timestamp: '2024-01-01T00:01:00Z',
+              content: 'Hi there!',
+              attachments: [],
+              model: 'gpt-4o',
+            },
+            {
+              actor: 'assistant',
+              timestamp: '2024-01-01T00:02:00Z',
+              content: 'Another response',
+              attachments: [],
+              model: 'claude-3-5-sonnet',
+            },
+          ],
+          // No modelsUsed field - should be computed
+        },
+      };
+
+      const mockResponse = {
+        data: dataPacketWithMultipleModels,
+        status: 200,
+      };
+      
+      mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
+      
+      const result = await conversationsApi.getById('1');
+      
+      expect(result.modelsUsed).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+    });
+
+    it('should use stored modelsUsed when available', async () => {
+      const dataPacketWithStoredModels = {
+        ...mockConversationDataPacket,
+        data: {
+          ...mockConversationDataPacket.data,
+          modelsUsed: ['autorouter', 'gpt-4o', 'custom-model'],
+        },
+      };
+
+      const mockResponse = {
+        data: dataPacketWithStoredModels,
+        status: 200,
+      };
+      
+      mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
+      
+      const result = await conversationsApi.getById('1');
+      
+      // Should use stored value, not recompute
+      expect(result.modelsUsed).toEqual(['autorouter', 'gpt-4o', 'custom-model']);
     });
 
     it('should handle conversation with original prompt data', async () => {

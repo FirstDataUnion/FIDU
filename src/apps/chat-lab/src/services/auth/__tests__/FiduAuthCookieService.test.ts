@@ -86,7 +86,7 @@ describe('FiduAuthCookieService', () => {
     });
 
     it('should handle 401 error gracefully (no refresh token)', async () => {
-      // Mock 401 response (no refresh token)
+      // Mock 401 response (no refresh token) - refresh call
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -95,16 +95,30 @@ describe('FiduAuthCookieService', () => {
         }),
       } as Response);
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      // Mock clear tokens call (automatically called when refresh fails with 401)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      } as Response);
+
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
       
       const result = await authService.refreshAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'ℹ️ No FIDU refresh token found in cookies - user needs to log in'
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '⚠️ FIDU refresh token is invalid - clearing all tokens'
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('🗑️ Clearing FIDU auth tokens for')
       );
       
-      consoleSpy.mockRestore();
+      // Should make 2 API calls: refresh (fails) + clear tokens
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      
+      consoleWarnSpy.mockRestore();
+      consoleLogSpy.mockRestore();
     });
 
     it('should handle other HTTP errors', async () => {

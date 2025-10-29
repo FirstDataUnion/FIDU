@@ -17,7 +17,7 @@ import {
   Tag as TagIcon
 } from '@mui/icons-material';
 import type { Conversation } from '../../types';
-import { getPlatformColor, formatDate, getTagColor } from '../../utils/conversationUtils';
+import { getPlatformColor, formatDate, getTagColor, getModelDisplayName, calculatePrimaryModelsDisplay } from '../../utils/conversationUtils';
 
 interface ConversationCardProps {
   conversation: Conversation;
@@ -40,6 +40,11 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
   const handleClick = () => onSelect(conversation);
   
   const handleTagClick = (e: React.MouseEvent) => onTagManagement(conversation, e);
+
+  // Use modelsUsed if available, fall back to platform for backward compatibility
+  const modelDisplay = conversation.modelsUsed && conversation.modelsUsed.length > 0
+    ? calculatePrimaryModelsDisplay(conversation.modelsUsed)
+    : getModelDisplayName(conversation.platform);
 
   if (isMobile) {
     // Mobile-optimized compact layout
@@ -90,7 +95,7 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
 
           <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Chip
-              label={conversation.platform.toUpperCase()}
+              label={modelDisplay}
               size="small"
               sx={{ 
                 backgroundColor: getPlatformColor(conversation.platform),
@@ -208,7 +213,7 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
 
         <Box sx={{ mb: 2 }}>
           <Chip
-            label={conversation.platform.toUpperCase()}
+            label={modelDisplay}
             size="small"
             sx={{ 
               backgroundColor: getPlatformColor(conversation.platform),
