@@ -253,15 +253,20 @@ def get_user_id_from_request(request: Request) -> str:
 
 
 def clear_cookie(response: Response, name: str):
-    """Clear a cookie by setting it to expire."""
+    """Clear a cookie by setting it to expire.
+    
+    Must use the EXACT same domain/path/secure settings as when the cookie was set,
+    otherwise the browser won't match and clear it.
+    """
     response.set_cookie(
         key=name,
         value="",
         max_age=0,
         httponly=True,
-        secure=True,
+        secure=ENVIRONMENT == "prod",  # Match the setting in set_secure_cookie
         samesite="strict",
         path="/",
+        domain=".firstdataunion.org" if ENVIRONMENT == "prod" else None,  # Match the setting in set_secure_cookie
     )
 
 
@@ -1464,12 +1469,17 @@ async def refresh_fidu_access_token(request: Request):
                     # If refresh failed with 401, the refresh token is invalid - clear it
                     if response.status_code == 401:
                         logger.warning("FIDU refresh token is invalid - clearing all tokens")
+                        # Create access token cookie name to clear both tokens
+                        access_cookie_name = (
+                            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+                        )
                         fastapi_response = JSONResponse(
                             status_code=401,
                             content={"detail": "Invalid refresh token - please log in again"}
                         )
-                        # Clear the invalid refresh token cookie
+                        # Clear both access and refresh token cookies
                         clear_cookie(fastapi_response, refresh_cookie_name)
+                        clear_cookie(fastapi_response, access_cookie_name)
                         return fastapi_response
                     
                     raise HTTPException(
