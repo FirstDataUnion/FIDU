@@ -5,6 +5,18 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - UNRELEASED
+
+### Added
+- **FIDU Challenger System Prompt**: new built in system prompt to help challenge and strengthen ideas. 
+
+### Changed
+
+
+
+### Fixed
+- **Wharton System Prompts**: fixed some of the prompt content and token estimations of the wharton system prompts. 
+
 ## [0.1.6] - 2025-10-27
 
 ### Added
