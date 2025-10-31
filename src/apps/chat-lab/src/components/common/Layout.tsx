@@ -41,6 +41,7 @@ import {
   Sync as SyncIcon,
   PrivacyTip as PrivacyIcon,
   NewReleases as WhatsNewIcon,
+  SmartToy as SmartToyIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -60,6 +61,7 @@ import { InsufficientPermissionsError } from '../../services/storage/drive/Googl
 import { setInsufficientPermissions, revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
+import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
 
 const drawerWidth = 240;
 
@@ -206,6 +208,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const advancedMenuItems = [
     { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
     { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
+    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents' },
   ];
 
 
@@ -272,7 +275,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
               <ListItemText 
                 primary={item.text} 
                 primaryTypographyProps={{ 
@@ -371,7 +376,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             opacity: 0.5,
           }}
         >
-          v0.1.6 • FIDU
+          v7 • FIDU
         </Typography>
       </Box>
     </Box>
@@ -657,7 +662,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           </Box>
         )}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {children}
+        {children}
+        {/* Background Agent Alerts */}
+        <AgentAlertsToaster />
         </Box>
       </Box>
       

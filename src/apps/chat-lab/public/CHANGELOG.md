@@ -9,12 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **FIDU Challenger System Prompt**: new built in system prompt to help challenge and strengthen ideas. 
+- **Background Agents**: initial scaffolding (DataPacket-based schema/API client) to support configurable background analysis agents stored like system prompts.
+- **Background Agents**: Customisable agents that can be triggered to run the background of a conversation, performing various evaluation tasks and reporting back to the user in a configurable approach
+- **FIDU Evaluator Background Agent**: Added one built in background agent thay performs analysis for eithical issues in a chat bot, alerting the user if any are found. 
 
 ### Changed
 
 
 
 ### Fixed
+- **Local login race condition**: fixed an issue where the FIDU login window would never appear when running locally due to initializing the SDK before it was ready. Added a robust readiness wait-and-retry to ensure the SDK is available before initialization.
 - **Wharton System Prompts**: fixed some of the prompt content and token estimations of the wharton system prompts. 
 
 ## [0.1.6] - 2025-10-27

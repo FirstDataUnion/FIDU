@@ -6,6 +6,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import AuthWrapper from '../AuthWrapper';
+import { MemoryRouter } from 'react-router-dom';
 
 // Mock the environment module
 jest.mock('@/utils/environment', () => ({
@@ -42,12 +43,11 @@ const createMockStore = (initialState = {}) => {
   });
 };
 
-const _renderWithProviders = (component: React.ReactElement, initialState = {}) => {
-  const store = createMockStore(initialState);
+const renderWithProvidersAndRouter = (ui: React.ReactElement, store: any) => {
   return render(
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        {component}
+        <MemoryRouter initialEntries={['/']}>{ui}</MemoryRouter>
       </ThemeProvider>
     </Provider>
   );
@@ -59,14 +59,11 @@ describe('AuthWrapper', () => {
       auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
     });
 
-    render(
-      <Provider store={mockStore}>
-        <ThemeProvider theme={theme}>
-          <AuthWrapper>
-            <div data-testid="protected-content">Protected Content</div>
-          </AuthWrapper>
-        </ThemeProvider>
-      </Provider>
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div data-testid="protected-content">Protected Content</div>
+      </AuthWrapper>,
+      mockStore
     );
 
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();
@@ -78,14 +75,11 @@ describe('AuthWrapper', () => {
       auth: (state = { isAuthenticated: false, isLoading: false, isInitialized: false, currentProfile: null }, _action: any) => state
     });
 
-    render(
-      <Provider store={mockStore}>
-        <ThemeProvider theme={theme}>
-          <AuthWrapper>
-            <div data-testid="protected-content">Protected Content</div>
-          </AuthWrapper>
-        </ThemeProvider>
-      </Provider>
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div data-testid="protected-content">Protected Content</div>
+      </AuthWrapper>,
+      mockStore
     );
 
     expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
@@ -96,14 +90,11 @@ describe('AuthWrapper', () => {
       auth: (state = { isAuthenticated: false, isLoading: false, isInitialized: true, currentProfile: null }, _action: any) => state
     });
 
-    render(
-      <Provider store={mockStore}>
-        <ThemeProvider theme={theme}>
-          <AuthWrapper>
-            <div data-testid="protected-content">Protected Content</div>
-          </AuthWrapper>
-        </ThemeProvider>
-      </Provider>
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div data-testid="protected-content">Protected Content</div>
+      </AuthWrapper>,
+      mockStore
     );
 
     // Should show login component (FiduAuthLogin)
@@ -115,14 +106,11 @@ describe('AuthWrapper', () => {
           auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: null, profiles: [] }, _action: any) => state
         });
 
-        render(
-          <Provider store={mockStore}>
-            <ThemeProvider theme={theme}>
-              <AuthWrapper>
-                <div data-testid="protected-content">Protected Content</div>
-              </AuthWrapper>
-            </ThemeProvider>
-          </Provider>
+        renderWithProvidersAndRouter(
+          <AuthWrapper>
+            <div data-testid="protected-content">Protected Content</div>
+          </AuthWrapper>,
+          mockStore
         );
 
         // Should show profile selector
@@ -134,16 +122,13 @@ describe('AuthWrapper', () => {
       auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
     });
 
-    render(
-      <Provider store={mockStore}>
-        <ThemeProvider theme={theme}>
-          <AuthWrapper>
-            <div data-testid="child-1">Child 1</div>
-            <div data-testid="child-2">Child 2</div>
-            <div data-testid="child-3">Child 3</div>
-          </AuthWrapper>
-        </ThemeProvider>
-      </Provider>
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div data-testid="child-1">Child 1</div>
+        <div data-testid="child-2">Child 2</div>
+        <div data-testid="child-3">Child 3</div>
+      </AuthWrapper>,
+      mockStore
     );
 
     expect(screen.getByTestId('child-1')).toBeInTheDocument();
@@ -156,14 +141,11 @@ describe('AuthWrapper', () => {
           auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
         });
 
-        render(
-          <Provider store={mockStore}>
-            <ThemeProvider theme={theme}>
-              <AuthWrapper>
-                <div>Empty children</div>
-              </AuthWrapper>
-            </ThemeProvider>
-          </Provider>
+        renderWithProvidersAndRouter(
+          <AuthWrapper>
+            <div>Empty children</div>
+          </AuthWrapper>,
+          mockStore
         );
 
         // Should not crash and should render the wrapper

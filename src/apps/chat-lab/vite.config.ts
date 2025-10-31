@@ -9,6 +9,22 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: '/fidu-chat-lab/',
+    server: {
+      proxy: {
+        // Direct API calls (when pathname does not include base)
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          // Rewrite to backend's BASE_PATH so FastAPI routes match
+          rewrite: (path) => `/fidu-chat-lab${path}`,
+        },
+        // API calls when the app is served under the base path in dev
+        '/fidu-chat-lab/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+        },
+      },
+    },
     build: {
       rollupOptions: {
         output: {

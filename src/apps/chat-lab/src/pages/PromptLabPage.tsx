@@ -30,6 +30,9 @@ import {
   MenuItem,
   Collapse,
   Link,
+  Badge,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -41,7 +44,7 @@ import {
   Search as SearchIcon,
   ChatBubbleOutline as ChatBubbleIcon,
   Refresh as RefreshIcon,
-  ExpandMore,
+  ExpandMore as ExpandMoreIcon,
   RestartAlt as RestartAltIcon,
   Replay as ReplayIcon,
   Send as SendIcon,
@@ -50,6 +53,7 @@ import {
   AutoFixHigh as WizardIcon,
   MenuBook as MenuBookIcon,
   CheckCircle as CheckCircleIcon,
+  SmartToy as SmartToyIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -58,21 +62,358 @@ import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { updateConversationWithMessages } from '../store/slices/conversationsSlice';
 import { conversationsService } from '../services/conversationsService';
+import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
+import { BUILT_IN_BACKGROUND_AGENTS } from '../data/backgroundAgents';
+import type { BackgroundAgent } from '../services/api/backgroundAgents';
+import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
+import { ApiError } from '../services/api/apiClients';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
+import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
+import { WizardWindow } from '../components/wizards/WizardWindow';
+import LongRequestWarning from '../components/common/LongRequestWarning';
+import ContextHelpModal from '../components/help/ContextHelpModal';
+import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
+import { subscribeToAgentAlerts, getUnreadAlertCount, markAlertAsRead } from '../services/agents/agentAlerts';
+import { getFilteredAlerts } from '../services/agents/agentAlertHistory';
+import InlineAgentResults from '../components/alerts/InlineAgentResults';
+import AlertTimelineModal from '../components/alerts/AlertTimelineModal';
+import { analyzeRequestDuration, type LongRequestAnalysis } from '../utils/longRequestDetection';
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
-import { WizardWindow } from '../components/wizards/WizardWindow';
-import { ApiError } from '../services/api/apiClients';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
-import ContextHelpModal from '../components/help/ContextHelpModal';
-import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
-import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
-import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
+
+// Safely import MetricsService - it may not be available in all environments (e.g., local dev)
 import { MetricsService } from '../services/metrics/MetricsService';
-import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
-import LongRequestWarning from '../components/common/LongRequestWarning';
-import { analyzeRequestDuration, type LongRequestAnalysis } from '../utils/longRequestDetection';
+
+// Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
+const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
+  try {
+    if (typeof MetricsService !== 'undefined' && MetricsService?.recordMessageSent) {
+      MetricsService.recordMessageSent(model, status);
+    }
+  } catch (error) {
+    // Silently ignore metrics errors - they should never block the chat flow
+    console.debug('Metrics recording failed (non-blocking):', error);
+  }
+};
+
+// LocalStorage key for background agent preferences (reuse from BackgroundAgentsPage)
+const BACKGROUND_AGENT_PREFS_KEY = 'fidu-chat-lab-backgroundAgentPrefs';
+
+interface BackgroundAgentPreferences {
+  runEveryNTurns: number;
+  verbosityThreshold: number;
+}
+
+interface AllAgentPreferences {
+  [agentId: string]: BackgroundAgentPreferences;
+}
+
+// Helper functions for localStorage preferences
+const loadAgentPreferences = (): AllAgentPreferences => {
+  try {
+    const stored = localStorage.getItem(BACKGROUND_AGENT_PREFS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch (error) {
+    console.warn('Failed to load background agent preferences:', error);
+    return {};
+  }
+};
+
+const setAgentPreference = (agentId: string, prefs: Partial<BackgroundAgentPreferences>): void => {
+  const allPrefs = loadAgentPreferences();
+  allPrefs[agentId] = {
+    ...(allPrefs[agentId] || {}),
+    ...prefs,
+  };
+  try {
+    localStorage.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(allPrefs));
+  } catch (error) {
+    console.warn('Failed to save background agent preferences:', error);
+  }
+};
+
+// Simple time ago formatter
+const formatTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSecs < 60) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
+
+// Component for individual agent card in dialog
+function BackgroundAgentDialogCard({
+  agent,
+  onUpdatePreference,
+  alerts = [],
+  autoExpand = false,
+  onAlertsChanged,
+}: {
+  agent: BackgroundAgent;
+  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number }) => void;
+  alerts?: Array<{ id: string; createdAt: string; rating: number; severity: 'info' | 'warn' | 'error'; message: string; read: boolean }>;
+  autoExpand?: boolean;
+  onAlertsChanged?: () => void;
+}) {
+  const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
+  const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
+  const [alertsExpanded, setAlertsExpanded] = useState(autoExpand && alerts.length > 0);
+  
+  const unreadCount = alerts.filter(a => !a.read).length;
+  const recentAlerts = alerts.slice(0, 5); // Show last 5 alerts
+
+  // Update local state when agent changes
+  useEffect(() => {
+    setLocalRunEveryNTurns(agent.runEveryNTurns);
+    setLocalVerbosityThreshold(agent.verbosityThreshold);
+  }, [agent.runEveryNTurns, agent.verbosityThreshold]);
+
+  // Auto-expand if there are unread alerts
+  useEffect(() => {
+    if (autoExpand && unreadCount > 0 && !alertsExpanded) {
+      setAlertsExpanded(true);
+      // Mark all unread alerts as read when auto-expanding
+      alerts.filter(a => !a.read).forEach(alert => {
+        markAlertAsRead(alert.id);
+      });
+      // Notify parent to refresh counts
+      if (onAlertsChanged) {
+        setTimeout(() => {
+          onAlertsChanged();
+        }, 100);
+      }
+    }
+  }, [autoExpand, unreadCount, alerts, alertsExpanded, onAlertsChanged]); // Run when dependencies change
+
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'error': return { bg: 'error.light', border: 'error.main', text: 'error.dark', chip: 'error' };
+      case 'warn': return { bg: 'warning.light', border: 'warning.main', text: 'warning.dark', chip: 'warning' };
+      default: return { bg: 'info.light', border: 'info.main', text: 'info.dark', chip: 'info' };
+    }
+  };
+
+  return (
+    <Paper
+      sx={{
+        p: 2,
+        border: '1px solid',
+        borderColor: unreadCount > 0 ? 'error.main' : 'divider',
+        borderRadius: 2,
+        borderWidth: unreadCount > 0 ? 2 : 1,
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+        <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {agent.name}
+            </Typography>
+            {unreadCount > 0 && (
+              <Badge
+                badgeContent={unreadCount}
+                color="error"
+                max={99}
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.7rem',
+                    minWidth: 18,
+                    height: 18,
+                    ml: 1, // Additional left margin for spacing
+                  },
+                }}
+              />
+            )}
+            {agent.isSystem && (
+              <Chip
+                label="Built-in"
+                size="small"
+                sx={{
+                  fontSize: '0.7rem',
+                  height: '20px',
+                }}
+              />
+            )}
+          </Box>
+          {agent.description && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+              {agent.description}
+            </Typography>
+          )}
+        </Box>
+        {recentAlerts.length > 0 && (
+          <IconButton
+            size="small"
+            onClick={() => {
+              const willExpand = !alertsExpanded;
+              setAlertsExpanded(willExpand);
+              
+              // Mark all unread alerts as read when expanding
+              if (willExpand && unreadCount > 0) {
+                alerts.filter(a => !a.read).forEach(alert => {
+                  markAlertAsRead(alert.id);
+                });
+                // Notify parent to refresh counts
+                if (onAlertsChanged) {
+                  setTimeout(() => {
+                    onAlertsChanged();
+                  }, 100);
+                }
+              }
+            }}
+            sx={{ ml: 1 }}
+          >
+            {alertsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
+        )}
+      </Box>
+      
+      <Stack spacing={2}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+            Runs every:
+          </Typography>
+          <TextField
+            type="number"
+            value={localRunEveryNTurns}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 6;
+              setLocalRunEveryNTurns(value);
+              onUpdatePreference(agent.id, {
+                runEveryNTurns: value,
+                verbosityThreshold: localVerbosityThreshold,
+              });
+            }}
+            size="small"
+            variant="outlined"
+            inputProps={{ min: 1, max: 100 }}
+            sx={{
+              width: '80px',
+              '& .MuiOutlinedInput-root': {
+                height: '32px',
+                fontSize: '0.875rem',
+              }
+            }}
+          />
+          <Typography variant="body2">turns</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+              Verbosity threshold:
+            </Typography>
+            <Tooltip
+              title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
+              arrow
+              placement="top"
+            >
+              <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+            </Tooltip>
+          </Box>
+          <TextField
+            type="number"
+            value={localVerbosityThreshold}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 40;
+              setLocalVerbosityThreshold(value);
+              onUpdatePreference(agent.id, {
+                runEveryNTurns: localRunEveryNTurns,
+                verbosityThreshold: value,
+              });
+            }}
+            size="small"
+            variant="outlined"
+            inputProps={{ min: 0, max: 100 }}
+            sx={{
+              width: '80px',
+              '& .MuiOutlinedInput-root': {
+                height: '32px',
+                fontSize: '0.875rem',
+              }
+            }}
+          />
+          <Typography variant="body2">/100</Typography>
+        </Box>
+      </Stack>
+
+      {/* Expandable Alerts Section */}
+      {recentAlerts.length > 0 && (
+        <Collapse in={alertsExpanded}>
+          <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Recent Alerts ({alerts.length} total)
+            </Typography>
+            <Stack spacing={1}>
+              {recentAlerts.map((alert) => {
+                const colors = getSeverityColor(alert.severity);
+                return (
+                  <Paper
+                    key={alert.id}
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                      borderWidth: alert.read ? 1 : 2,
+                      opacity: alert.read ? 0.7 : 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={alert.severity.toUpperCase()}
+                          size="small"
+                          color={colors.chip as any}
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                        <Chip
+                          label={`Rating: ${alert.rating}/100`}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatTimeAgo(new Date(alert.createdAt))}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ color: colors.text, mt: 0.5 }}>
+                      {alert.message || 'Background agent alert'}
+                    </Typography>
+                  </Paper>
+                );
+              })}
+              {alerts.length > 5 && (
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', mt: 0.5 }}>
+                  Showing 5 of {alerts.length} alerts
+                </Typography>
+              )}
+            </Stack>
+          </Box>
+        </Collapse>
+      )}
+      
+      {recentAlerts.length === 0 && (
+        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.875rem' }}>
+            No recent alerts
+          </Typography>
+        </Box>
+      )}
+    </Paper>
+  );
+}
 
 
 // Helper function to generate user-friendly error messages and debug info
@@ -887,12 +1228,88 @@ export default function PromptLabPage() {
   const [systemPromptSuggestorError, setSystemPromptSuggestorError] = useState<string | null>(null);
   const [systemPromptSuggestorInitialMessage, setSystemPromptSuggestorInitialMessage] = useState<string>('');
 
+  // Background Agents state
+  const [backgroundAgentsDialogOpen, setBackgroundAgentsDialogOpen] = useState(false);
+  const [backgroundAgents, setBackgroundAgents] = useState<BackgroundAgent[]>([]);
+  const [backgroundAgentsLoading, setBackgroundAgentsLoading] = useState(false);
+  const [backgroundAgentsPrefsVersion, setBackgroundAgentsPrefsVersion] = useState(0);
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0);
+  const [showAllConversations, setShowAllConversations] = useState(false); // Filter toggle
+  const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+  const [backgroundAgentsEvaluating, setBackgroundAgentsEvaluating] = useState(false);
+
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
     if (settings.lastUsedModel && settings.lastUsedModel !== selectedModel) {
       setSelectedModel(settings.lastUsedModel);
     }
   }, [settings.lastUsedModel, selectedModel]);
+
+  // Load background agents when dialog opens
+  useEffect(() => {
+    if (backgroundAgentsDialogOpen && currentProfile?.id) {
+      const loadAgents = async () => {
+        setBackgroundAgentsLoading(true);
+        try {
+          const storage = getUnifiedStorageService();
+          const profileId = currentProfile.id;
+          
+          // Load custom agents from storage
+          const { backgroundAgents: customAgents } = await storage.getBackgroundAgents(undefined, 1, 20, profileId);
+          const filteredCustom = (customAgents || []).filter((a: BackgroundAgent) => !a.isSystem && a.enabled);
+          
+          // Transform built-in agents with preferences
+          const storedPrefs = loadAgentPreferences();
+          const builtInAgents = BUILT_IN_BACKGROUND_AGENTS.map((template) => {
+            const agentId = `built-in-${template.name.toLowerCase().replace(/\s+/g, '-')}`;
+            const userPrefs = storedPrefs[agentId];
+            return {
+              id: agentId,
+              name: template.name,
+              description: template.description,
+              enabled: true,
+              promptTemplate: template.promptTemplate,
+              runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
+              verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
+              contextWindowStrategy: template.contextWindowStrategy,
+              contextParams: template.contextParams,
+              outputSchemaName: template.outputSchemaName,
+              customOutputSchema: template.customOutputSchema,
+              notifyChannel: template.notifyChannel,
+              isSystem: true,
+              categories: template.categories || [],
+              version: template.version,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as BackgroundAgent;
+          });
+          
+          // Combine and filter for enabled agents
+          const allAgents = [...builtInAgents, ...filteredCustom];
+          setBackgroundAgents(allAgents);
+          
+          // Refresh unread count when dialog opens
+          setUnreadAlertCount(getUnreadAlertCount());
+        } catch (error) {
+          console.error('Error loading background agents:', error);
+        } finally {
+          setBackgroundAgentsLoading(false);
+        }
+      };
+      void loadAgents();
+    }
+  }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion, showAllConversations]);
+
+  const handleUpdateBackgroundAgentPreference = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number }) => {
+    setAgentPreference(agentId, prefs);
+    setBackgroundAgentsPrefsVersion((prev) => prev + 1);
+    // Update local state immediately for better UX
+    setBackgroundAgents((prev) => prev.map((agent) => 
+      agent.id === agentId 
+        ? { ...agent, runEveryNTurns: prefs.runEveryNTurns, verbosityThreshold: prefs.verbosityThreshold }
+        : agent
+    ));
+  }, []);
 
   // System Prompts Management
   const [systemPromptDrawerOpen, setSystemPromptDrawerOpen] = useState(false);
@@ -1114,6 +1531,26 @@ export default function PromptLabPage() {
     setToastOpen(true);
   }, []);
 
+  // Get conversation ID for filtering alerts
+  const currentConversationId = currentConversation?.id || 'current';
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAgentAlerts(() => {
+      // Alert is handled by InlineAgentResults component now
+      // Update unread count
+      setUnreadAlertCount(getUnreadAlertCount());
+    });
+    
+    // Initial load and periodic updates
+    const updateUnreadCount = () => setUnreadAlertCount(getUnreadAlertCount());
+    updateUnreadCount();
+    const interval = setInterval(updateUnreadCount, 5000);
+    
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -1452,8 +1889,8 @@ export default function PromptLabPage() {
         return;
       }
 
-      // Track successful message sent to model
-      MetricsService.recordMessageSent(selectedModel, 'success');
+      // Track successful message sent to model (safely handle if MetricsService unavailable)
+      safeRecordMessageSent(selectedModel, 'success');
 
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
@@ -1471,7 +1908,50 @@ export default function PromptLabPage() {
         
         // Save conversation after AI response
         setTimeout(() => {
-          saveConversation([...messages, userMessage, aiMessage]);
+          const allMessages = [...messages, userMessage, aiMessage];
+          saveConversation(allMessages);
+          // Trigger background agents after assistant response
+          // Use fire-and-forget with comprehensive error handling to ensure
+          // background agent failures never affect the main chat UI
+          (async () => {
+            try {
+              // Compute assistant turn count as number of assistant messages
+              const assistantTurns = allMessages.filter(m => m.role === 'assistant').length;
+              console.log(`🤖 [BackgroundAgents] Triggering evaluation - Assistant turn count: ${assistantTurns}, Total messages: ${allMessages.length}`);
+              
+              // Map to slice messages shape
+              const sliceMessages = allMessages.map(m => ({ role: m.role as any, content: m.content, timestamp: m.timestamp }));
+              // Lazy import to avoid bundle bloat in case of code splitting
+              const { maybeEvaluateBackgroundAgents } = await import('../services/agents/backgroundAgentRunner');
+              const profileId = currentProfile?.id;
+              if (!profileId) {
+                console.warn(`🤖 [BackgroundAgents] Cannot evaluate - no profile ID available`);
+                return;
+              }
+              console.log(`🤖 [BackgroundAgents] Starting evaluation with profile: ${profileId}`);
+              
+              // Set evaluating state
+              setBackgroundAgentsEvaluating(true);
+              
+              // Execute in fire-and-forget mode - errors are fully isolated
+              await maybeEvaluateBackgroundAgents({
+                profileId,
+                conversationId: currentConversation?.id || 'current',
+                messages: sliceMessages as any,
+                turnCount: assistantTurns,
+                messageId: aiMessage.id, // Link alerts to this specific assistant message
+              }).catch((error: any) => {
+                // Additional safety layer - log but never throw
+                console.error(`🤖 [BackgroundAgents] Evaluation failed (non-blocking):`, error?.message || error);
+              });
+            } catch (error: any) {
+              // Catch all errors including import failures - log but never throw
+              console.warn('Background agent system error (non-blocking):', error?.message || error);
+            } finally {
+              // Always reset evaluating state when done
+              setBackgroundAgentsEvaluating(false);
+            }
+          })(); // IIFE for fire-and-forget async execution
         }, 100);
       } else {
         console.log('AI response failed - Status:', response.status, 'Content present:', !!response.responses?.content, 'Full response:', response);
@@ -1480,8 +1960,8 @@ export default function PromptLabPage() {
     } catch (error) {
       console.error('Error getting AI response:', error);
       
-      // Track error message sent to model
-      MetricsService.recordMessageSent(selectedModel, 'error');
+      // Track error message sent to model (safely handle if MetricsService unavailable)
+      safeRecordMessageSent(selectedModel, 'error');
       
       // Determine user-friendly error message and debug info
       const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(error, selectedModel);
@@ -2547,6 +3027,28 @@ export default function PromptLabPage() {
                       </IconButton>
                     </Tooltip>
                   )}
+                  {/* Show agent results for this assistant message */}
+                  {message.role === 'assistant' && (() => {
+                    // Get alerts that are specifically linked to this message ID
+                    const relevantAlerts = getFilteredAlerts({ 
+                      conversationId: currentConversationId,
+                      messageId: message.id, // Only show alerts for this specific message
+                    });
+                    
+                    // Create agent name map from loaded background agents
+                    const agentNameMap = backgroundAgents.reduce((acc, agent) => {
+                      acc[agent.id] = agent.name;
+                      return acc;
+                    }, {} as Record<string, string>);
+                    
+                    return relevantAlerts.length > 0 ? (
+                      <InlineAgentResults
+                        alerts={relevantAlerts}
+                        conversationId={currentConversationId}
+                        agentNameMap={agentNameMap}
+                      />
+                    ) : null;
+                  })()}
                 </Paper>
               </Box>
                 );
@@ -2634,7 +3136,7 @@ export default function PromptLabPage() {
             }}
           >
             <Box>
-              <ExpandMore />
+              <ExpandMoreIcon />
             </Box>
           </Button>
         </Box>
@@ -2694,7 +3196,7 @@ export default function PromptLabPage() {
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     System Prompts
                   </Typography>
-                  <ExpandMore 
+                  <ExpandMoreIcon 
                     sx={{ 
                       fontSize: 18,
                       transform: systemPromptDrawerOpen ?  'rotate(0deg)' : 'rotate(180deg)',
@@ -3314,7 +3816,7 @@ export default function PromptLabPage() {
                       height: 44,
                     }}
                   >
-                    {showMobileControls ? <ExpandMore /> : <ExpandLessIcon />}
+                    {showMobileControls ? <ExpandMoreIcon /> : <ExpandLessIcon />}
                   </IconButton>
                 </Box>
               )}
@@ -3765,6 +4267,267 @@ export default function PromptLabPage() {
           {toastMessage}
         </Alert>
       </Snackbar>
+
+      {/* Background Agents Floating Button */}
+      <Tooltip 
+        title={
+          backgroundAgentsEvaluating 
+            ? 'Evaluating background agents...' 
+            : unreadAlertCount > 0 
+              ? `Background Agents (${unreadAlertCount} unread alert${unreadAlertCount !== 1 ? 's' : ''})` 
+              : 'Background Agents'
+        } 
+        placement="left"
+      >
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: isMobile ? 80 : 100,
+            right: isMobile ? 16 : 24,
+            zIndex: 1000,
+          }}
+        >
+          <IconButton
+            onClick={() => {
+              setBackgroundAgentsDialogOpen(true);
+              // Refresh unread count when opening
+              setUnreadAlertCount(getUnreadAlertCount());
+            }}
+            sx={{
+              backgroundColor: unreadAlertCount > 0 ? 'error.main' : 'primary.main',
+              color: 'white',
+              width: isMobile ? 48 : 56,
+              height: isMobile ? 48 : 56,
+              boxShadow: unreadAlertCount > 0 ? 6 : 3,
+              '&:hover': {
+                backgroundColor: unreadAlertCount > 0 ? 'error.dark' : 'primary.dark',
+                boxShadow: 8,
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.2s ease-in-out',
+              ...(unreadAlertCount > 0 && !backgroundAgentsEvaluating && {
+                animation: 'pulse 2s ease-in-out infinite',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 1 },
+                  '50%': { opacity: 0.8 },
+                },
+              }),
+              position: 'relative',
+            }}
+          >
+            <Badge
+              badgeContent={unreadAlertCount > 0 ? unreadAlertCount : 0}
+              color="error"
+              max={99}
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: unreadAlertCount > 9 ? 20 : 18,
+                  height: unreadAlertCount > 9 ? 20 : 18,
+                  padding: unreadAlertCount > 9 ? '0 4px' : 0,
+                },
+              }}
+            >
+              <SmartToyIcon />
+            </Badge>
+            {/* Subtle spinner overlay when evaluating */}
+            {backgroundAgentsEvaluating && (
+              <CircularProgress
+                size={32}
+                thickness={3}
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  marginTop: '-16px',
+                  marginLeft: '-16px',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                }}
+              />
+            )}
+          </IconButton>
+        </Box>
+      </Tooltip>
+
+      {/* Background Agents Dialog */}
+      <Dialog
+        open={backgroundAgentsDialogOpen}
+        onClose={() => setBackgroundAgentsDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            m: { xs: 1, sm: 2 },
+            height: { xs: '90vh', sm: 'auto' },
+            maxHeight: { xs: '90vh', sm: '80vh' }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SmartToyIcon />
+            <Typography variant="h6">Active Background Agents</Typography>
+            {unreadAlertCount > 0 && (
+              <Badge 
+                badgeContent={unreadAlertCount} 
+                color="error" 
+                max={99}
+                sx={{
+                  '& .MuiBadge-badge': {
+                    ml: 1, // Additional left margin for spacing
+                  },
+                }}
+              >
+                <Box />
+              </Badge>
+            )}
+          </Box>
+          <Tooltip
+            title={showAllConversations 
+              ? "Showing alerts from all conversations. Toggle off to show only alerts from the current conversation." 
+              : "Showing alerts from current conversation only. Toggle on to see alerts from all conversations."}
+            arrow
+            placement="left"
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showAllConversations}
+                  onChange={(e) => setShowAllConversations(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                  All conversations
+                </Typography>
+              }
+              sx={{ mr: 0 }}
+            />
+          </Tooltip>
+        </DialogTitle>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: 2 }}>
+          {backgroundAgentsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : backgroundAgents.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <SmartToyIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                No active background agents
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setBackgroundAgentsDialogOpen(false);
+                  navigate('/background-agents');
+                }}
+                sx={{
+                  color: 'primary.dark',
+                  borderColor: 'primary.dark',
+                  backgroundColor: 'background.paper',
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                Add More Agents
+              </Button>
+            </Box>
+          ) : (
+            <Stack spacing={2}>
+              {backgroundAgents.map((agent) => {
+                // Get alerts for this agent, filtered by conversation if needed
+                const allAlerts = getFilteredAlerts({
+                  agentId: agent.id,
+                  conversationId: showAllConversations ? undefined : currentConversationId,
+                });
+                const agentUnreadCount = allAlerts.filter(a => !a.read).length;
+                
+                return (
+                  <BackgroundAgentDialogCard
+                    key={agent.id}
+                    agent={agent}
+                    onUpdatePreference={handleUpdateBackgroundAgentPreference}
+                    alerts={allAlerts}
+                    autoExpand={agentUnreadCount > 0}
+                    onAlertsChanged={() => {
+                      // Refresh unread counts when alerts are marked as read
+                      setUnreadAlertCount(getUnreadAlertCount());
+                    }}
+                  />
+                );
+              })}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 2 }, flexWrap: 'wrap', gap: 1 }}>
+          <Button
+            onClick={() => {
+              setTimelineModalOpen(true);
+            }}
+            startIcon={<MenuBookIcon />}
+            variant="outlined"
+            sx={{
+              mr: 'auto',
+              color: 'primary.dark',
+              borderColor: 'primary.dark',
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'primary.light',
+                borderColor: 'primary.main'
+              }
+            }}
+          >
+            View All Alerts Timeline
+          </Button>
+          <Button
+            onClick={() => {
+              setBackgroundAgentsDialogOpen(false);
+              navigate('/background-agents');
+            }}
+            startIcon={<AddIcon />}
+            variant="outlined"
+            sx={{
+              color: 'primary.dark',
+              borderColor: 'primary.dark',
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'primary.light',
+                borderColor: 'primary.main'
+              }
+            }}
+          >
+            Add More Agents
+          </Button>
+          <Button 
+            onClick={() => setBackgroundAgentsDialogOpen(false)}
+            sx={{
+              color: 'primary.dark'
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Alert Timeline Modal */}
+      <AlertTimelineModal
+        open={timelineModalOpen}
+        onClose={() => {
+          setTimelineModalOpen(false);
+          // Refresh counts when closing
+          setUnreadAlertCount(getUnreadAlertCount());
+        }}
+        conversationId={currentConversationId}
+        currentAgents={backgroundAgents}
+        onAlertsChanged={() => {
+          setUnreadAlertCount(getUnreadAlertCount());
+        }}
+      />
     </Box>
   );
 } 

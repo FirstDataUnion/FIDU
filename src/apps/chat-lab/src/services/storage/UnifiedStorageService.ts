@@ -169,6 +169,47 @@ export class UnifiedStorageService {
     return await adapter.deleteSystemPrompt(systemPromptId);
   }
 
+  // Background Agent operations
+  async getBackgroundAgents(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getBackgroundAgents !== 'function') {
+      throw new Error('Background Agents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getBackgroundAgents(queryParams, page, limit, profileId);
+  }
+
+  async getBackgroundAgentById(agentId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getBackgroundAgentById !== 'function') {
+      throw new Error('Background Agents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getBackgroundAgentById(agentId);
+  }
+
+  async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).createBackgroundAgent !== 'function') {
+      throw new Error('Background Agents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).createBackgroundAgent(agent, profileId);
+  }
+
+  async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).updateBackgroundAgent !== 'function') {
+      throw new Error('Background Agents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).updateBackgroundAgent(agent, profileId);
+  }
+
+  async deleteBackgroundAgent(agentId: string): Promise<string> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).deleteBackgroundAgent !== 'function') {
+      throw new Error('Background Agents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).deleteBackgroundAgent(agentId);
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     const adapter = this.storageService.getAdapter();

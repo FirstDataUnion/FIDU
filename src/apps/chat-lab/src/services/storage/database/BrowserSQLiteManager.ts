@@ -311,14 +311,17 @@ export class BrowserSQLiteManager {
     
     const tagsToStore = JSON.stringify(dataPacket.tags || []);
 
+    // Helper to convert undefined to null for SQLite compatibility
+    const nullIfUndefined = (value: any): any => value === undefined ? null : value;
+
     try {
       stmt.run([
         dataPacket.id,
-        requestId,
-        dataPacket.profile_id,
-        dataPacket.user_id,
-        dataPacket.create_timestamp,
-        dataPacket.update_timestamp,
+        requestId || null,
+        nullIfUndefined(dataPacket.profile_id),
+        nullIfUndefined(dataPacket.user_id),
+        nullIfUndefined(dataPacket.create_timestamp),
+        nullIfUndefined(dataPacket.update_timestamp),
         tagsToStore,
         dataToStore,
         'pending' // Mark as pending sync
@@ -371,9 +374,12 @@ export class BrowserSQLiteManager {
       return await this.getDataPacketById(dataPacket.id);
     }
 
+    // Helper to convert undefined to null for SQLite compatibility
+    const nullIfUndefined = (value: any): any => value === undefined ? null : value;
+
     // Build update query dynamically
     const updateFields = ['update_timestamp = ?', 'sync_status = ?'];
-    const params = [dataPacket.update_timestamp || new Date().toISOString(), 'pending'];
+    const params = [nullIfUndefined(dataPacket.update_timestamp) || new Date().toISOString(), 'pending'];
 
     if (dataPacket.tags !== undefined) {
       updateFields.push('tags = ?');
@@ -419,7 +425,13 @@ export class BrowserSQLiteManager {
         INSERT INTO data_packet_updates (request_id, data_packet_id, update_timestamp)
         VALUES (?, ?, ?)
       `);
-      updateRecordStmt.run([requestId, dataPacket.id, dataPacket.update_timestamp || new Date().toISOString()]);
+      
+      // Ensure all values are defined before binding - convert undefined to null for SQLite
+      updateRecordStmt.run([
+        nullIfUndefined(requestId),
+        nullIfUndefined(dataPacket.id),
+        nullIfUndefined(dataPacket.update_timestamp) || new Date().toISOString()
+      ]);
       updateRecordStmt.free();
 
       // Sync tags if provided

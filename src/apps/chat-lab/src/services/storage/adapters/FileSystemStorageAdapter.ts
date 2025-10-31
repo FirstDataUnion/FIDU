@@ -298,12 +298,13 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     const requestId = this.generateRequestId(this.ensureUserId(), dataPacket.id, 'update');
     
     try {
-      const storedPacket = await dbManager.storeDataPacket(requestId, dataPacket);
+      // Use updateDataPacket for updates (not storeDataPacket which does INSERT and requires profile_id)
+      const updatedPacket = await dbManager.updateDataPacket(requestId, dataPacket);
       
       // Auto-sync after updating conversation
       await this.sync();
       
-      return this.transformDataPacketToConversation(storedPacket);
+      return this.transformDataPacketToConversation(updatedPacket);
     } catch (error) {
       console.error('Error updating conversation:', error);
       throw error;
@@ -758,6 +759,98 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
   }
 
+  // Background Agent operations - Direct file operations
+  async getBackgroundAgents(_queryParams?: any, _page = 1, _limit = 20, _profileId?: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const agentPackets = (allDataPackets || []).filter((packet: any) =>
+        packet.tags && packet.tags.includes('FIDU-CHAT-LAB-BackgroundAgent')
+      );
+      const startIndex = (_page - 1) * _limit;
+      const endIndex = startIndex + _limit;
+      const paginatedPackets = agentPackets.slice(startIndex, endIndex);
+      const backgroundAgents = paginatedPackets
+        .filter((packet: any) => packet && packet.id)
+        .map((packet: any) => {
+          try {
+            return this.transformDataPacketToBackgroundAgent(packet);
+          } catch (error) {
+            console.warn('Failed to transform background agent data packet:', error, packet);
+            return null;
+          }
+        })
+        .filter((a: any) => a !== null);
+      return { backgroundAgents, total: agentPackets.length, page: _page, limit: _limit };
+    } catch (error) {
+      console.error('Error loading background agents:', error);
+      return { backgroundAgents: [], total: 0, page: _page, limit: _limit };
+    }
+  }
+
+  async getBackgroundAgentById(agentId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const packet = allDataPackets.find((p: any) => p.id === agentId && p.tags && p.tags.includes('FIDU-CHAT-LAB-BackgroundAgent'));
+      if (!packet) {
+        throw new Error(`Background agent with ID ${agentId} not found`);
+      }
+      return this.transformDataPacketToBackgroundAgent(packet);
+    } catch (error) {
+      console.error('Error loading background agent:', error);
+      throw error;
+    }
+  }
+
+  async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
+      await this.storeDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToBackgroundAgent(dataPacket);
+    } catch (error) {
+      console.error('Error creating background agent:', error);
+      throw error;
+    }
+  }
+
+  async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    if (!agent.id) {
+      throw new Error('Background agent ID is required to update');
+    }
+    try {
+      const dataPacket = this.transformBackgroundAgentToDataPacketUpdate(agent, profileId);
+      const updatedPacket = await this.updateDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToBackgroundAgent(updatedPacket);
+    } catch (error) {
+      console.error('Error updating background agent:', error);
+      throw error;
+    }
+  }
+
+  async deleteBackgroundAgent(agentId: string): Promise<string> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      await this.deleteDataPacketDirectly(agentId);
+      return agentId;
+    } catch (error) {
+      console.error('Error deleting background agent:', error);
+      throw error;
+    }
+  }
+
   async getSystemPromptById(systemPromptId: string): Promise<any> {
     if (!this.isDirectoryAccessible()) {
       throw new Error('No directory access. Please select a directory first.');
@@ -949,6 +1042,86 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       await dbManager.storeDataPacket(requestId, dataPacket);
       const exported = await dbManager.exportConversationsDB();
       return exported.buffer as ArrayBuffer;
+    }
+  }
+
+  private async updateDataPacketDirectly(dataPacket: any): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+
+    try {
+      // Read current conversations database
+      const conversationsDbData = await this.readConversationsDatabase();
+      
+      // Update the data packet in the database and get the updated packet
+      const { updatedDbData, updatedPacket } = await this.updateDataPacketInDatabase(conversationsDbData, dataPacket);
+      
+      // Write updated database back to file
+      await this.writeConversationsDatabase(updatedDbData);
+      
+      console.log('Data packet updated directly in file:', dataPacket.id);
+      return updatedPacket;
+    } catch (error) {
+      console.error('Error updating data packet directly:', error);
+      throw error;
+    }
+  }
+
+  private async updateDataPacketInDatabase(dbData: ArrayBuffer, dataPacket: any): Promise<{ updatedDbData: ArrayBuffer; updatedPacket: any }> {
+    // Generate unique request ID using the same approach as other storage adapters
+    const requestId = this.generateRequestId(dataPacket.user_id, dataPacket.id, 'update');
+    
+    // If database is empty, throw error (can't update what doesn't exist)
+    if (dbData.byteLength === 0) {
+      throw new Error(`Cannot update data packet ${dataPacket.id}: database is empty`);
+    }
+    
+    // Load existing database, update packet, export
+    const dbManager = new BrowserSQLiteManager({
+      conversationsDbName: 'conversations',
+      apiKeysDbName: 'api_keys',
+      enableEncryption: true
+    });
+    await dbManager.initialize();
+    await dbManager.importConversationsDB(new Uint8Array(dbData));
+    const updatedPacket = await dbManager.updateDataPacket(requestId, dataPacket);
+    const exported = await dbManager.exportConversationsDB();
+    return { updatedDbData: exported.buffer as ArrayBuffer, updatedPacket };
+  }
+
+  private async deleteDataPacketDirectly(dataPacketId: string): Promise<void> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+
+    try {
+      // Read current conversations database
+      const conversationsDbData = await this.readConversationsDatabase();
+      
+      if (conversationsDbData.byteLength === 0) {
+        console.log('No conversations database file found, nothing to delete');
+        return;
+      }
+      
+      // Load database, delete packet, export
+      const dbManager = new BrowserSQLiteManager({
+        conversationsDbName: 'conversations',
+        apiKeysDbName: 'api_keys',
+        enableEncryption: true
+      });
+      await dbManager.initialize();
+      await dbManager.importConversationsDB(new Uint8Array(conversationsDbData));
+      await dbManager.deleteDataPacket(dataPacketId);
+      
+      // Export and write updated database back to file
+      const exported = await dbManager.exportConversationsDB();
+      await this.writeConversationsDatabase(exported.buffer as ArrayBuffer);
+      
+      console.log('Data packet deleted directly from file:', dataPacketId);
+    } catch (error) {
+      console.error('Error deleting data packet directly:', error);
+      throw error;
     }
   }
 
@@ -1375,10 +1548,10 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
         interactions: messages.map((message) => ({
-          actor: message.role,
-          timestamp: message.timestamp.toString(),
-          content: message.content,
-          attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+          actor: message.role || 'unknown',
+          timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString(),
+          content: message.content || '',
+          attachments: (message.attachments || []).map(att => att?.url || att?.toString() || '').filter(Boolean),
           model: message.platform || conversation.platform || 'unknown'
         })),
         targetModelRequested: conversation.platform || 'other',
@@ -1389,16 +1562,22 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         participants: conversation.participants || [],
         status: conversation.status || 'active',
         originalPrompt: originalPrompt ? {
-          promptText: originalPrompt.promptText,
-          contextId: originalPrompt.context?.id,
-          contextTitle: originalPrompt.context?.title,
-          contextDescription: originalPrompt.context?.body,
-          systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
-          systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
-          systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
-          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
-          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
-          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
+          promptText: originalPrompt.promptText || '',
+          contextId: originalPrompt.context?.id || null,
+          contextTitle: originalPrompt.context?.title || null,
+          contextDescription: originalPrompt.context?.body || null,
+          systemPromptIds: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.id) // Filter out undefined/null prompts and those without IDs
+            .map(sp => sp.id) || [],
+          systemPromptContents: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.content !== undefined) // Filter out undefined/null prompts
+            .map(sp => sp.content || '') || [],
+          systemPromptNames: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.name !== undefined) // Filter out undefined/null prompts
+            .map(sp => sp.name || '') || [],
+          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id || null,
+          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content || null,
+          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name || null,
           estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
         } : undefined
       }
@@ -1422,10 +1601,10 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
         interactions: messages.map((message) => ({
-          actor: message.role,
-          timestamp: message.timestamp.toString(),
-          content: message.content,
-          attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+          actor: message.role || 'unknown',
+          timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString(),
+          content: message.content || '',
+          attachments: (message.attachments || []).map(att => att?.url || att?.toString() || '').filter(Boolean),
           model: message.platform || conversation.platform || 'unknown'
         })),
         targetModelRequested: conversation.platform || 'other',
@@ -1436,16 +1615,22 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         participants: conversation.participants || [],
         status: conversation.status || 'active',
         originalPrompt: originalPrompt ? {
-          promptText: originalPrompt.promptText,
-          contextId: originalPrompt.context?.id,
-          contextTitle: originalPrompt.context?.title,
-          contextDescription: originalPrompt.context?.body,
-          systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
-          systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
-          systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
-          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
-          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
-          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
+          promptText: originalPrompt.promptText || '',
+          contextId: originalPrompt.context?.id || null,
+          contextTitle: originalPrompt.context?.title || null,
+          contextDescription: originalPrompt.context?.body || null,
+          systemPromptIds: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.id) // Filter out undefined/null prompts and those without IDs
+            .map(sp => sp.id) || [],
+          systemPromptContents: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.content !== undefined) // Filter out undefined/null prompts
+            .map(sp => sp.content || '') || [],
+          systemPromptNames: (originalPrompt.systemPrompts || [])
+            .filter(sp => sp && sp.name !== undefined) // Filter out undefined/null prompts
+            .map(sp => sp.name || '') || [],
+          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id || null,
+          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content || null,
+          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name || null,
           estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
         } : undefined
       }
@@ -1695,6 +1880,98 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       isBuiltIn: finalData.is_built_in || false,
       source: finalData.source || 'user',
       categories: (packet.tags || []).filter((tag: string) => tag !== 'FIDU-CHAT-LAB-SystemPrompt'),
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp
+    };
+  }
+
+  // Background agent transformation methods
+  private transformBackgroundAgentToDataPacket(agent: any, profileId: string): any {
+    return {
+      id: agent.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-BackgroundAgent', ...(agent.categories || [])],
+      data: {
+        name: agent.name || 'Untitled Agent',
+        description: agent.description || '',
+        enabled: Boolean(agent.enabled),
+        prompt_template: agent.promptTemplate || '',
+        cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
+        verbosity_threshold: agent.verbosityThreshold ?? 50,
+        context_window_strategy: agent.contextWindowStrategy || 'lastNMessages',
+        context_params: agent.contextParams
+          ? { lastN: agent.contextParams.lastN, token_limit: agent.contextParams.tokenLimit }
+          : undefined,
+        output_schema_name: agent.outputSchemaName || 'default',
+        custom_output_schema: agent.customOutputSchema ?? null,
+        notify_channel: agent.notifyChannel || 'inline',
+        is_system: agent.isSystem || false,
+        version: agent.version,
+      }
+    };
+  }
+
+  private transformBackgroundAgentToDataPacketUpdate(agent: any, profileId: string): any {
+    return {
+      id: agent.id,
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: agent.createdAt || new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-BackgroundAgent', ...(agent.categories || [])],
+      data: {
+        name: agent.name || 'Untitled Agent',
+        description: agent.description || '',
+        enabled: Boolean(agent.enabled),
+        prompt_template: agent.promptTemplate || '',
+        cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
+        verbosity_threshold: agent.verbosityThreshold ?? 50,
+        context_window_strategy: agent.contextWindowStrategy || 'lastNMessages',
+        context_params: agent.contextParams
+          ? { lastN: agent.contextParams.lastN, token_limit: agent.contextParams.tokenLimit }
+          : undefined,
+        output_schema_name: agent.outputSchemaName || 'default',
+        custom_output_schema: agent.customOutputSchema ?? null,
+        notify_channel: agent.notifyChannel || 'inline',
+        is_system: agent.isSystem || false,
+        version: agent.version,
+      }
+    };
+  }
+
+  private transformDataPacketToBackgroundAgent(packet: any): any {
+    const data = packet.data || {};
+    let parsedData = data;
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch (error) {
+        console.warn('Failed to parse background agent data as JSON string:', error);
+        parsedData = {};
+      }
+    }
+    const finalData = parsedData || {};
+    return {
+      id: packet.id,
+      name: finalData.name || 'Untitled Agent',
+      description: finalData.description || '',
+      enabled: Boolean(finalData.enabled),
+      promptTemplate: finalData.prompt_template || '',
+      runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
+      verbosityThreshold: finalData.verbosity_threshold ?? 50,
+      contextWindowStrategy: finalData.context_window_strategy || 'lastNMessages',
+      contextParams: finalData.context_params
+        ? { lastN: finalData.context_params.lastN, tokenLimit: finalData.context_params.token_limit }
+        : undefined,
+      outputSchemaName: finalData.output_schema_name || 'default',
+      customOutputSchema: finalData.custom_output_schema ?? null,
+      notifyChannel: finalData.notify_channel || 'inline',
+      isSystem: finalData.is_system || false,
+      categories: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-BackgroundAgent'),
+      version: finalData.version,
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp
     };

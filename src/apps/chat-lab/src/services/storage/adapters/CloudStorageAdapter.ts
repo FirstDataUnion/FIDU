@@ -635,6 +635,146 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
+  // Background Agent operations - implemented using data packets
+  async getBackgroundAgents(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    await this.ensureAuthenticated();
+
+    const queryParams = {
+      user_id: this.ensureUserId(),
+      profile_id: profileId,
+      tags: ['FIDU-CHAT-LAB-BackgroundAgent'],
+      limit: limit,
+      offset: (page - 1) * limit,
+      sort_order: 'desc'
+    };
+
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(queryParams);
+      const backgroundAgents = dataPackets.map((packet: any) => this.transformDataPacketToBackgroundAgent(packet));
+      return { backgroundAgents, total: backgroundAgents.length, page, limit };
+    } catch (error) {
+      console.error('Error fetching background agents:', error);
+      throw error;
+    }
+  }
+
+  async getBackgroundAgentById(agentId: string): Promise<any> {
+    await this.ensureAuthenticated();
+    try {
+      const dataPacket = await this.dbManager!.getDataPacketById(agentId);
+      return this.transformDataPacketToBackgroundAgent(dataPacket);
+    } catch (error) {
+      console.error('Error fetching background agent:', error);
+      throw error;
+    }
+  }
+
+  async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
+    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToBackgroundAgent(storedPacket);
+    } catch (error) {
+      console.error('Error creating background agent:', error);
+      throw error;
+    }
+  }
+
+  async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    await this.ensureAuthenticated();
+    if (!agent.id) {
+      throw new Error('Background agent ID is required to update');
+    }
+    const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
+    const requestId = this.generateRequestId();
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToBackgroundAgent(updatedPacket);
+    } catch (error) {
+      console.error('Error updating background agent:', error);
+      throw error;
+    }
+  }
+
+  async deleteBackgroundAgent(agentId: string): Promise<string> {
+    await this.ensureAuthenticated();
+    try {
+      await this.dbManager!.deleteDataPacket(agentId);
+      unsyncedDataManager.markAsUnsynced();
+      return agentId;
+    } catch (error) {
+      console.error('Error deleting background agent:', error);
+      throw error;
+    }
+  }
+
+  private transformBackgroundAgentToDataPacket(agent: any, profileId: string): any {
+    return {
+      id: agent.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-BackgroundAgent', ...(agent.categories || [])],
+      data: {
+        name: agent.name || 'Untitled Agent',
+        description: agent.description || '',
+        enabled: Boolean(agent.enabled),
+        prompt_template: agent.promptTemplate || '',
+        cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
+        verbosity_threshold: agent.verbosityThreshold ?? 50,
+        context_window_strategy: agent.contextWindowStrategy || 'lastNMessages',
+        context_params: agent.contextParams
+          ? { lastN: agent.contextParams.lastN, token_limit: agent.contextParams.tokenLimit }
+          : undefined,
+        output_schema_name: agent.outputSchemaName || 'default',
+        custom_output_schema: agent.customOutputSchema ?? null,
+        notify_channel: agent.notifyChannel || 'inline',
+        is_system: agent.isSystem || false,
+        version: agent.version,
+      },
+    };
+  }
+
+  private transformDataPacketToBackgroundAgent(packet: any): any {
+    const data = packet.data || {};
+    let parsedData = data;
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch (error) {
+        console.warn('Failed to parse background agent data as JSON string:', error);
+        parsedData = {};
+      }
+    }
+    const finalData = parsedData || {};
+    return {
+      id: packet.id,
+      name: finalData.name || 'Untitled Agent',
+      description: finalData.description || '',
+      enabled: Boolean(finalData.enabled),
+      promptTemplate: finalData.prompt_template || '',
+      runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
+      verbosityThreshold: finalData.verbosity_threshold ?? 50,
+      contextWindowStrategy: finalData.context_window_strategy || 'lastNMessages',
+      contextParams: finalData.context_params
+        ? { lastN: finalData.context_params.lastN, tokenLimit: finalData.context_params.token_limit }
+        : undefined,
+      outputSchemaName: finalData.output_schema_name || 'default',
+      customOutputSchema: finalData.custom_output_schema ?? null,
+      notifyChannel: finalData.notify_channel || 'inline',
+      isSystem: finalData.is_system || false,
+      categories: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-BackgroundAgent'),
+      version: finalData.version,
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+    };
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     await this.ensureAuthenticated();

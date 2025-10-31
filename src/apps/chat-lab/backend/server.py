@@ -32,7 +32,6 @@ from openbao_client import (  # type: ignore[import-not-found] # pylint: disable
     load_chatlab_secrets_from_openbao,
     ChatLabSecrets,
 )
-from encryption_service import encryption_service  # type: ignore[import-not-found]
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +40,56 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(), logging.FileHandler("/tmp/fidu-chat-lab.log")],
 )
 logger = logging.getLogger(__name__)
+
+
+def _load_env_file_if_present() -> None:
+    """Load environment variables from a local .env file without extra deps.
+
+    We look for .env files in the chat-lab directory so the backend can run
+    locally with the same values used by the frontend, without requiring
+    manual export in the shell.
+    """
+    candidate_files = [
+        Path(__file__).parent.parent / ".env.development.local",
+        Path(__file__).parent.parent / ".env.development",
+        Path(__file__).parent.parent / ".env",
+    ]
+
+    for env_path in candidate_files:
+        if env_path.exists():
+            try:
+                with env_path.open("r", encoding="utf-8") as f:
+                    for raw_line in f:
+                        line = raw_line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        # Support simple KEY=VALUE lines; ignore export prefix
+                        if line.startswith("export "):
+                            line = line[len("export "):]
+                        if "=" not in line:
+                            continue
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        # Strip surrounding quotes if present
+                        value = value.strip().strip('"').strip("'")
+                        if key and value and key not in os.environ:
+                            os.environ[key] = value
+                logger.info("Loaded environment variables from %s", env_path)
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to load .env file %s: %s", env_path, exc)
+                # Try next candidate
+
+
+# Load .env file BEFORE importing encryption_service so it can read the correct IDENTITY_SERVICE_URL
+_load_env_file_if_present()
+
+# Log the Identity Service URL that will be used (for debugging)
+identity_service_url = os.getenv("IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org")
+logger.info("Identity Service URL configured: %s", identity_service_url)
+
+# Now import encryption_service after environment is loaded
+from encryption_service import encryption_service  # type: ignore[import-not-found]
 
 # Configuration from environment
 PORT = int(os.getenv("PORT", "8080"))
@@ -361,6 +410,9 @@ async def startup_event():
     logger.info("🚀 Starting FIDU Chat Lab (%s) metrics service", ENVIRONMENT)
     logger.info("📊 Environment: %s", ENVIRONMENT)
     logger.info("📍 VictoriaMetrics URL: %s", VM_URL)
+
+    # Note: .env file is already loaded before module imports (see above)
+    # This ensures encryption_service and other modules get the correct values
 
     # Load secrets from OpenBao with fallback to environment variables
     try:

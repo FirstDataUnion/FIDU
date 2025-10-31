@@ -89,16 +89,50 @@ const FiduAuthLogin: React.FC = () => {
     if (loading || error) {
       return;
     }
-    if (!window.FIDUAuth) {
-      return;
-    }
 
-    // Reuse existing instance if present to avoid double init
-    const fidu = window.__fiduAuthInstance || new window.FIDUAuth({
-      fiduHost: getFiduHost(),
-      debug: true,
-    });
-    window.__fiduAuthInstance = fidu;
+    let cancelled = false;
+
+    const waitForFIDUAuth = async (maxWaitMs: number = 15000, pollIntervalMs: number = 100) => {
+      const start = Date.now();
+      // Fast path
+      if (window.FIDUAuth) return true;
+      // Poll until available or timeout
+      return await new Promise<boolean>((resolve) => {
+        const interval = setInterval(() => {
+          if (cancelled) {
+            clearInterval(interval);
+            resolve(false);
+            return;
+          }
+          if (window.FIDUAuth) {
+            clearInterval(interval);
+            resolve(true);
+            return;
+          }
+          if (Date.now() - start >= maxWaitMs) {
+            clearInterval(interval);
+            resolve(false);
+          }
+        }, pollIntervalMs);
+      });
+    };
+
+    const initWhenReady = async () => {
+      const ready = await waitForFIDUAuth();
+      if (!ready || cancelled) {
+        // If the SDK still isn't ready after waiting, surface an actionable error
+        if (!error) {
+          setError('Authentication system did not initialize in time. Please reload or click Retry.');
+        }
+        return;
+      }
+
+      // Reuse existing instance if present to avoid double init
+      const fidu = window.__fiduAuthInstance || new window.FIDUAuth({
+        fiduHost: getFiduHost(),
+        debug: true,
+      });
+      window.__fiduAuthInstance = fidu;
 
     fidu.on('onAuthSuccess', async (_user: any, token: string | any, _portalUrl: any, refreshToken?: string) => {
       try {
@@ -234,11 +268,18 @@ const FiduAuthLogin: React.FC = () => {
     const container = document.getElementById('fiduAuthContainer');
     if (container) container.innerHTML = '';
 
-    fidu.init().then((isAuthenticated: boolean) => {
-      if (!isAuthenticated) {
-        fidu.showLoginWidget();
-      }
-    });
+      fidu.init().then((isAuthenticated: boolean) => {
+        if (!isAuthenticated) {
+          fidu.showLoginWidget();
+        }
+      });
+    };
+
+    initWhenReady();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loading, error, dispatch]);
 
   return (

@@ -226,10 +226,15 @@ const SystemPromptCard = React.memo<{
             sx={{ 
               color: 'primary.dark', 
               borderColor: 'primary.dark',
+              backgroundColor: 'background.paper',
               fontSize: { xs: '0.7rem', sm: '0.75rem' },
               px: { xs: 2, sm: 1.5 },
               py: { xs: 1, sm: 0.5 },
-              minWidth: { xs: '120px', sm: 'auto' }
+              minWidth: { xs: '120px', sm: 'auto' },
+              '&:hover': {
+                backgroundColor: 'primary.light',
+                borderColor: 'primary.main'
+              }
             }}
           >
             {systemPrompt.isBuiltIn ? 'View' : 'View/Edit'}

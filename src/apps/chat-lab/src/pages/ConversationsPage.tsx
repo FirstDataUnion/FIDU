@@ -752,10 +752,10 @@ const ConversationsPage: React.FC = React.memo(() => {
                 flexShrink: 0,
                 color: 'primary.dark',
                 borderColor: 'primary.dark',
+                backgroundColor: 'background.paper',
                 '&:hover': {
-                  backgroundColor: 'primary.dark',
-                  color: 'primary.contrastText',
-                  borderColor: 'primary.dark'
+                  backgroundColor: 'primary.light',
+                  borderColor: 'primary.main'
                 }
               }}
             >
