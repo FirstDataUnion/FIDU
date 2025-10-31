@@ -65,7 +65,7 @@ def _load_env_file_if_present() -> None:
                             continue
                         # Support simple KEY=VALUE lines; ignore export prefix
                         if line.startswith("export "):
-                            line = line[len("export "):]
+                            line = line[len("export ") :]
                         if "=" not in line:
                             continue
                         key, value = line.split("=", 1)
@@ -76,7 +76,7 @@ def _load_env_file_if_present() -> None:
                             os.environ[key] = value
                 logger.info("Loaded environment variables from %s", env_path)
                 return
-            except Exception as exc:  # noqa: BLE001
+            except (IOError, OSError, ValueError, KeyError) as exc:
                 logger.warning("Failed to load .env file %s: %s", env_path, exc)
                 # Try next candidate
 
@@ -85,10 +85,13 @@ def _load_env_file_if_present() -> None:
 _load_env_file_if_present()
 
 # Log the Identity Service URL that will be used (for debugging)
-identity_service_url = os.getenv("IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org")
+identity_service_url = os.getenv(
+    "IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org"
+)
 logger.info("Identity Service URL configured: %s", identity_service_url)
 
 # Now import encryption_service after environment is loaded
+# pylint: disable=wrong-import-position
 from encryption_service import encryption_service  # type: ignore[import-not-found]
 
 # Configuration from environment
@@ -303,7 +306,7 @@ def get_user_id_from_request(request: Request) -> str:
 
 def clear_cookie(response: Response, name: str):
     """Clear a cookie by setting it to expire.
-    
+
     Must use the EXACT same domain/path/secure settings as when the cookie was set,
     otherwise the browser won't match and clear it.
     """
@@ -315,7 +318,9 @@ def clear_cookie(response: Response, name: str):
         secure=ENVIRONMENT == "prod",  # Match the setting in set_secure_cookie
         samesite="strict",
         path="/",
-        domain=".firstdataunion.org" if ENVIRONMENT == "prod" else None,  # Match the setting in set_secure_cookie
+        domain=(
+            ".firstdataunion.org" if ENVIRONMENT == "prod" else None
+        ),  # Match the setting in set_secure_cookie
     )
 
 
@@ -948,13 +953,15 @@ async def get_oauth_tokens(request: Request):
                     raise HTTPException(
                         status_code=401, detail="Invalid or corrupted refresh token"
                     ) from exc
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error("Failed to decrypt Google Drive refresh token: %s", e)
             # Clear the corrupted token cookie
             logger.warning("Google Drive refresh token is corrupted - clearing it")
             fastapi_response = JSONResponse(
                 status_code=500,
-                content={"detail": "Invalid or corrupted refresh token - please re-authenticate"}
+                content={
+                    "detail": "Invalid or corrupted refresh token - please re-authenticate"
+                },
             )
             clear_cookie(fastapi_response, cookie_name)
             return fastapi_response
@@ -1507,33 +1514,36 @@ async def refresh_fidu_access_token(request: Request):
         # Call FIDU identity service to refresh the token
         try:
             # Get identity service URL from encryption service
-            identity_service_url = encryption_service.identity_service_url
+            id_service_url = encryption_service.identity_service_url
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{identity_service_url}/refresh",
+                    f"{id_service_url}/refresh",
                     json={"refresh_token": refresh_token},
                     timeout=30.0,
                 )
 
                 if not response.is_success:
                     logger.error("FIDU token refresh failed: %s", response.status_code)
-                    
+
                     # If refresh failed with 401, the refresh token is invalid - clear it
                     if response.status_code == 401:
-                        logger.warning("FIDU refresh token is invalid - clearing all tokens")
-                        # Create access token cookie name to clear both tokens
-                        access_cookie_name = (
-                            f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
+                        logger.warning(
+                            "FIDU refresh token is invalid - clearing all tokens"
                         )
+                        # Create access token cookie name to clear both tokens
+                        env_suffix = '_' + environment if environment != 'prod' else ''
+                        access_cookie_name = f"fidu_access_token{env_suffix}"
                         fastapi_response = JSONResponse(
                             status_code=401,
-                            content={"detail": "Invalid refresh token - please log in again"}
+                            content={
+                                "detail": "Invalid refresh token - please log in again"
+                            },
                         )
                         # Clear both access and refresh token cookies
                         clear_cookie(fastapi_response, refresh_cookie_name)
                         clear_cookie(fastapi_response, access_cookie_name)
                         return fastapi_response
-                    
+
                     raise HTTPException(
                         status_code=response.status_code, detail="Token refresh failed"
                     )
@@ -1610,10 +1620,10 @@ async def refresh_all_tokens(
                 logger.info("Refreshing FIDU access token in batch...")
 
                 # Call FIDU identity service
-                identity_service_url = encryption_service.identity_service_url
+                id_service_url = encryption_service.identity_service_url
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        f"{identity_service_url}/refresh",
+                        f"{id_service_url}/refresh",
                         json={"refresh_token": fidu_refresh_token},
                         timeout=30.0,
                     )
