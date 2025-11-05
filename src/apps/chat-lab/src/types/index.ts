@@ -118,6 +118,21 @@ export interface CreateProfileRequest {
   };
 }
 
+// Background Agent Alert Metadata stored in message metadata
+export interface BackgroundAgentAlertMetadata {
+  agentId: string;
+  agentName?: string; // For display purposes
+  createdAt: string;
+  rating: number;
+  severity: 'info' | 'warn' | 'error';
+  message: string; // Legacy field - kept for backward compatibility, use shortMessage instead
+  shortMessage?: string; // Brief notification for toast/popup (1-2 sentences)
+  description?: string; // Detailed explanation for expanded view (2-4 paragraphs)
+  details?: Record<string, any>;
+  rawModelOutput?: string;
+  parsedResult?: Record<string, any>;
+}
+
 // FIDU Vault Data Packet types
 export interface ConversationDataPacket {
   id: string;
@@ -133,6 +148,10 @@ export interface ConversationDataPacket {
       content: string;
       attachments: string[];
       model?: string; // Model that generated this specific message
+      metadata?: {
+        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
+        [key: string]: any; // Allow other metadata fields
+      };
     }>;
     targetModelRequested: string;
     conversationUrl: string;
@@ -172,6 +191,10 @@ export interface ConversationDataPacketUpdate {
       content: string;
       attachments: string[];
       model?: string; // Model that generated this specific message
+      metadata?: {
+        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
+        [key: string]: any; // Allow other metadata fields
+      };
     }>;
     targetModelRequested: string;
     conversationUrl: string;

@@ -27,6 +27,7 @@ export function transformBuiltInAgentsWithPreferences(
       name: template.name,
       description: template.description,
       enabled: true,
+      actionType: template.actionType,
       promptTemplate: template.promptTemplate,
       runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
       verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,

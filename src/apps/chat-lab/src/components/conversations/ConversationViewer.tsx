@@ -10,20 +10,25 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Button
+  Button,
+  Collapse,
+  Stack
 } from '@mui/material';
 import {
   Person as PersonIcon,
   SmartToy as BotIcon,
   Settings as SystemIcon,
   ContentCopy as CopyIcon,
-  Chat as ChatIcon
+  Chat as ChatIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
-import type { Conversation } from '../../types';
+import type { Conversation, BackgroundAgentAlertMetadata } from '../../types';
 import { getPlatformColor, calculatePrimaryModelsDisplay, calculatePrimaryModelsFromMessages, getModelDisplayName } from '../../utils/conversationUtils';
 import EnhancedMarkdown from '../common/EnhancedMarkdown';
+import InlineAgentResults from '../alerts/InlineAgentResults';
 
 interface ConversationViewerProps {
   conversation: Conversation;
@@ -32,6 +37,52 @@ interface ConversationViewerProps {
 const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation }) => {
   const navigate = useNavigate();
   const { currentMessages, messagesLoading, error } = useAppSelector((state) => state.conversations);
+  const [expandedAlertDetails, setExpandedAlertDetails] = React.useState<Set<string>>(new Set());
+  
+  // Debug: Log messages with alerts when they're loaded
+  React.useEffect(() => {
+    if (currentMessages.length > 0) {
+      console.log(`📋 [ConversationViewer] Loading conversation "${conversation.title}" (ID: ${conversation.id})`);
+      console.log(`📋 [ConversationViewer] Total messages loaded: ${currentMessages.length}`);
+      
+      const messagesWithAlerts = currentMessages.filter(m => m.metadata?.backgroundAgentAlerts?.length > 0);
+      
+      if (messagesWithAlerts.length > 0) {
+        console.log(`📋 [ConversationViewer] ✅ Found ${messagesWithAlerts.length} message(s) with background agent alerts`);
+        
+        messagesWithAlerts.forEach((msg, idx) => {
+          const alerts = msg.metadata?.backgroundAgentAlerts || [];
+          console.log(`📋 [ConversationViewer]   Message ${idx + 1}:`, {
+            id: msg.id,
+            role: msg.role,
+            alertCount: alerts.length,
+            alerts: alerts.map((a: BackgroundAgentAlertMetadata) => ({
+              agentId: a.agentId,
+              agentName: a.agentName,
+              severity: a.severity,
+              rating: a.rating,
+              hasShortMessage: !!a.shortMessage,
+              hasDescription: !!a.description,
+              createdAt: a.createdAt,
+            }))
+          });
+        });
+        
+        // Summary
+        const totalAlerts = messagesWithAlerts.reduce((sum, m) => sum + (m.metadata?.backgroundAgentAlerts?.length || 0), 0);
+        const severityCounts = messagesWithAlerts.reduce((acc, m) => {
+          (m.metadata?.backgroundAgentAlerts || []).forEach((a: BackgroundAgentAlertMetadata) => {
+            acc[a.severity] = (acc[a.severity] || 0) + 1;
+          });
+          return acc;
+        }, {} as Record<string, number>);
+        
+        console.log(`📋 [ConversationViewer] Summary: ${totalAlerts} total alert(s) across ${messagesWithAlerts.length} message(s)`, severityCounts);
+      } else {
+        console.log(`📋 [ConversationViewer] ⚠️  No messages with background agent alerts found in this conversation`);
+      }
+    }
+  }, [currentMessages, conversation.id, conversation.title]);
 
   // Prefer modelsUsed from conversation, but recalculate from messages if available
   // This ensures we show the most up-to-date information
@@ -317,6 +368,127 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
                       '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '8px', marginBottom: '8px' },
                     }}
                   />
+                  
+                  {/* Show inline background agent alerts at bottom of message */}
+                  {message.metadata?.backgroundAgentAlerts && message.metadata.backgroundAgentAlerts.length > 0 && (
+                    <InlineAgentResults
+                      alerts={message.metadata.backgroundAgentAlerts.map((alert: BackgroundAgentAlertMetadata) => ({
+                        id: `${alert.agentId}-${alert.createdAt}`,
+                        agentId: alert.agentId,
+                        createdAt: alert.createdAt,
+                        rating: alert.rating,
+                        severity: alert.severity,
+                        message: alert.shortMessage || alert.message || '',
+                        shortMessage: alert.shortMessage,
+                        description: alert.description,
+                        details: alert.details,
+                        read: true, // In conversation viewer, all are considered "read"
+                        conversationId: conversation.id,
+                        messageId: message.id,
+                      }))}
+                      conversationId={conversation.id}
+                      agentNameMap={message.metadata.backgroundAgentAlerts.reduce((acc: Record<string, string>, alert: BackgroundAgentAlertMetadata) => {
+                        if (alert.agentName) {
+                          acc[alert.agentId] = alert.agentName;
+                        }
+                        return acc;
+                      }, {})}
+                    />
+                  )}
+                  
+                  {/* Expandable detailed view of alerts */}
+                  {message.metadata?.backgroundAgentAlerts && message.metadata.backgroundAgentAlerts.length > 0 && (() => {
+                    const alerts = message.metadata.backgroundAgentAlerts;
+                    const isExpanded = expandedAlertDetails.has(message.id);
+                    
+                    return (
+                      <Box sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            const newSet = new Set(expandedAlertDetails);
+                            if (isExpanded) {
+                              newSet.delete(message.id);
+                            } else {
+                              newSet.add(message.id);
+                            }
+                            setExpandedAlertDetails(newSet);
+                          }}
+                          startIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          sx={{ fontSize: '0.75rem', textTransform: 'none' }}
+                        >
+                          {isExpanded ? 'Hide' : 'Show'} Detailed Alert Information
+                        </Button>
+                        <Collapse in={isExpanded}>
+                          <Box sx={{ mt: 1 }}>
+                            <Divider sx={{ mb: 1 }} />
+                            <Stack spacing={2}>
+                              {alerts.map((alert: BackgroundAgentAlertMetadata, idx: number) => (
+                              <Alert
+                                key={idx}
+                                severity={alert.severity === 'warn' ? 'warning' : alert.severity}
+                                sx={{ width: '100%' }}
+                              >
+                                <Box>
+                                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                    {alert.agentName || alert.agentId}
+                                  </Typography>
+                                    {alert.shortMessage && (
+                                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                        {alert.shortMessage}
+                                      </Typography>
+                                    )}
+                                    {alert.description && (
+                                      <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                        {alert.description}
+                                      </Typography>
+                                    )}
+                                    {!alert.shortMessage && !alert.description && alert.message && (
+                                  <Typography variant="body2" sx={{ mb: 1 }}>
+                                    {alert.message}
+                                  </Typography>
+                                    )}
+                                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                                    <Chip
+                                      label={`Rating: ${alert.rating}/100`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                      <Chip
+                                        label={alert.severity.toUpperCase()}
+                                        size="small"
+                                        color={alert.severity === 'error' ? 'error' : alert.severity === 'warn' ? 'warning' : 'info'}
+                                      />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {new Date(alert.createdAt).toLocaleString()}
+                                    </Typography>
+                                    </Stack>
+                                    {alert.details?.parseError && (
+                                      <Alert severity="error" sx={{ mt: 1, mb: 1 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                                          Parse Error: {alert.details.parseError.message}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {alert.details.parseError.rawOutput || '(no raw output available)'}
+                                        </Typography>
+                                      </Alert>
+                                    )}
+                                    {alert.details && Object.keys(alert.details).filter(k => k !== 'parseError').length > 0 && (
+                                    <Box sx={{ mt: 1, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                                      <Typography variant="caption" color="text.secondary" component="pre" sx={{ fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}>
+                                          {JSON.stringify(Object.fromEntries(Object.entries(alert.details).filter(([k]) => k !== 'parseError')), null, 2)}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Alert>
+                            ))}
+                            </Stack>
+                          </Box>
+                        </Collapse>
+                    </Box>
+                    );
+                  })()}
                   
                   {/* Show attachments if any */}
                   {message.attachments && message.attachments.length > 0 && (

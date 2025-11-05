@@ -297,16 +297,27 @@ export class CloudStorageAdapter implements StorageAdapter {
       }
       
       // Transform interactions to Message format
-      return finalData.interactions.map((interaction: any, index: number) => ({
-        id: `${conversationId}-${index}`,
-        conversationId: conversationId,
-        content: interaction.content || '',
-        role: (interaction.actor?.toLowerCase() === 'bot' ? 'assistant' : interaction.actor?.toLowerCase()) as 'user' | 'assistant' | 'system',
-        timestamp: new Date(interaction.timestamp).toISOString(),
-        platform: interaction.model || finalData.sourceChatbot?.toLowerCase() || 'other',
-        metadata: {
-          attachments: interaction.attachments || []
-        },
+      const messages = finalData.interactions.map((interaction: any, index: number) => {
+        // Try to preserve original message ID from metadata if available, otherwise use generated ID
+        const originalMessageId = interaction.metadata?.originalMessageId;
+        const messageId = originalMessageId || `${conversationId}-${index}`;
+        
+        return {
+          id: messageId,
+          conversationId: conversationId,
+          content: interaction.content || '',
+          role: (interaction.actor?.toLowerCase() === 'bot' ? 'assistant' : interaction.actor?.toLowerCase()) as 'user' | 'assistant' | 'system',
+          timestamp: new Date(interaction.timestamp).toISOString(),
+          platform: interaction.model || finalData.sourceChatbot?.toLowerCase() || 'other',
+          metadata: {
+            attachments: interaction.attachments || [],
+            // Preserve background agent alerts if present
+            ...(interaction.metadata?.backgroundAgentAlerts ? { backgroundAgentAlerts: interaction.metadata.backgroundAgentAlerts } : {}),
+            // Preserve any other metadata fields (but exclude originalMessageId since we're using it as the ID)
+            ...(interaction.metadata ? Object.fromEntries(
+              Object.entries(interaction.metadata).filter(([key]) => key !== 'attachments' && key !== 'backgroundAgentAlerts' && key !== 'originalMessageId')
+            ) : {})
+          },
         attachments: interaction.attachments?.map((attachment: string, attIndex: number) => ({
           id: `${conversationId}-${index}-${attIndex}`,
           name: attachment,
@@ -314,7 +325,31 @@ export class CloudStorageAdapter implements StorageAdapter {
           url: attachment
         })) || [],
         isEdited: false
-      }));
+      };
+      });
+      
+      // Debug: Log alerts found in loaded messages
+      const messagesWithAlerts = messages.filter((m: Message) => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0);
+      if (messagesWithAlerts.length > 0) {
+        const totalAlerts = messagesWithAlerts.reduce((sum: number, m: Message) => sum + (m.metadata?.backgroundAgentAlerts?.length ?? 0), 0);
+        console.log(`📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`);
+        messagesWithAlerts.forEach((msg: Message) => {
+          const alerts = msg.metadata?.backgroundAgentAlerts || [];
+          console.log(`📋 [CloudStorage]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`, 
+            alerts.map((a: any) => ({
+              agent: a.agentName || a.agentId,
+              severity: a.severity,
+              rating: a.rating,
+              hasShortMessage: !!a.shortMessage,
+              hasDescription: !!a.description,
+            }))
+          );
+        });
+      } else {
+        console.log(`📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`);
+      }
+      
+      return messages;
     } catch (error) {
       console.error('Error fetching conversation messages:', error);
       throw error;
@@ -724,6 +759,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         name: agent.name || 'Untitled Agent',
         description: agent.description || '',
         enabled: Boolean(agent.enabled),
+        action_type: agent.actionType || 'alert', // CRITICAL: Must include action_type
         prompt_template: agent.promptTemplate || '',
         cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
         verbosity_threshold: agent.verbosityThreshold ?? 50,
@@ -752,11 +788,19 @@ export class CloudStorageAdapter implements StorageAdapter {
       }
     }
     const finalData = parsedData || {};
+    
+    // Validate actionType - ensure it's always set and valid
+    const actionType = 
+      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_context'))
+        ? finalData.action_type
+        : 'alert'; // Default to 'alert' for backward compatibility and safety
+    
     return {
       id: packet.id,
       name: finalData.name || 'Untitled Agent',
       description: finalData.description || '',
       enabled: Boolean(finalData.enabled),
+      actionType: actionType,
       promptTemplate: finalData.prompt_template || '',
       runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
       verbosityThreshold: finalData.verbosity_threshold ?? 50,
@@ -986,7 +1030,12 @@ export class CloudStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp.toString(),
           content: message.content,
           attachments: message.attachments?.map(att => att.url || att.toString()) || [],
-          model: message.platform || conversation.platform || 'unknown'
+          model: message.platform || conversation.platform || 'unknown',
+          // Store metadata including background agent alerts and original message ID
+          metadata: {
+            ...(message.metadata || {}),
+            originalMessageId: message.id, // Preserve original message ID for alert matching
+          }
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',
@@ -1033,7 +1082,12 @@ export class CloudStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp.toString(),
           content: message.content,
           attachments: message.attachments?.map(att => att.url || att.toString()) || [],
-          model: message.platform || conversation.platform || 'unknown'
+          model: message.platform || conversation.platform || 'unknown',
+          // Store metadata including background agent alerts and original message ID
+          metadata: {
+            ...(message.metadata || {}),
+            originalMessageId: message.id, // Preserve original message ID for alert matching
+          }
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',

@@ -4,7 +4,7 @@ import { ApiError, type ErrorResponse } from './apiClients';
 import { getGatewayUrl } from '../../utils/environment';
 import { refreshTokenService } from './refreshTokenService';
 import { apiKeyService, type SupportedProvider } from './apiKeyService';
-import { getModelConfig, getModelAgentUrl, convertLegacyModelId, MODEL_CONFIGS } from '../../data/models';
+import { getModelConfig, getModelAgentUrl, convertLegacyModelId, getModelConfigs } from '../../data/models';
 
 // NLP Workbench API Configuration
 const NLP_WORKBENCH_API_CONFIG = {
@@ -157,7 +157,7 @@ const NLP_WORKBENCH_API_CONFIG = {
       if (!modelConfig) {
         throw new ApiError(
           400,
-          `Model '${modelId}' not found. Available models: ${Object.keys(MODEL_CONFIGS).join(', ')}`,
+          `Model '${modelId}' not found. Available models: ${Object.keys(getModelConfigs()).join(', ')}`,
           { modelId, actualModelId }
         );
       }

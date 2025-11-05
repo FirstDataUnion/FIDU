@@ -435,16 +435,52 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         }
       }
       
-      const messages: Message[] = parsedData.interactions?.map((interaction: any, index: number) => ({
-        id: `${conversationPacket.id}-${index}`,
-        conversationId: conversationPacket.id,
-        role: interaction.actor,
-        content: interaction.content,
-        timestamp: interaction.timestamp,
-        platform: interaction.model || parsedData.sourceChatbot || 'unknown',
-        attachments: interaction.attachments?.map((url: string) => ({ url })) || [],
-        isEdited: false
-      })) || [];
+      const messages: Message[] = parsedData.interactions?.map((interaction: any, index: number) => {
+        // Try to preserve original message ID from metadata if available, otherwise use generated ID
+        const originalMessageId = interaction.metadata?.originalMessageId;
+        const messageId = originalMessageId || `${conversationPacket.id}-${index}`;
+        
+        return {
+          id: messageId,
+          conversationId: conversationPacket.id,
+          role: interaction.actor,
+          content: interaction.content,
+          timestamp: interaction.timestamp,
+          platform: interaction.model || parsedData.sourceChatbot || 'unknown',
+          metadata: {
+            attachments: interaction.attachments || [],
+            // Preserve background agent alerts if present
+            ...(interaction.metadata?.backgroundAgentAlerts ? { backgroundAgentAlerts: interaction.metadata.backgroundAgentAlerts } : {}),
+            // Preserve any other metadata fields (but exclude originalMessageId since we're using it as the ID)
+            ...(interaction.metadata ? Object.fromEntries(
+              Object.entries(interaction.metadata).filter(([key]) => key !== 'attachments' && key !== 'backgroundAgentAlerts' && key !== 'originalMessageId')
+            ) : {})
+          },
+          attachments: interaction.attachments?.map((url: string) => ({ url })) || [],
+          isEdited: false
+        };
+      }) || [];
+      
+      // Debug: Log alerts found in loaded messages
+      const messagesWithAlerts = messages.filter(m => m.metadata?.backgroundAgentAlerts?.length > 0);
+      if (messagesWithAlerts.length > 0) {
+        const totalAlerts = messagesWithAlerts.reduce((sum, m) => sum + (m.metadata?.backgroundAgentAlerts?.length || 0), 0);
+        console.log(`📋 [FileSystemStorage] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`);
+        messagesWithAlerts.forEach(msg => {
+          const alerts = msg.metadata?.backgroundAgentAlerts || [];
+          console.log(`📋 [FileSystemStorage]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`, 
+            alerts.map((a: any) => ({
+              agent: a.agentName || a.agentId,
+              severity: a.severity,
+              rating: a.rating,
+              hasShortMessage: !!a.shortMessage,
+              hasDescription: !!a.description,
+            }))
+          );
+        });
+      } else {
+        console.log(`📋 [FileSystemStorage] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`);
+      }
       
       return messages;
     } catch (error) {
@@ -1552,7 +1588,12 @@ export class FileSystemStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString(),
           content: message.content || '',
           attachments: (message.attachments || []).map(att => att?.url || att?.toString() || '').filter(Boolean),
-          model: message.platform || conversation.platform || 'unknown'
+          model: message.platform || conversation.platform || 'unknown',
+          // Store metadata including original message ID for alert matching
+          metadata: {
+            ...(message.metadata || {}),
+            originalMessageId: message.id, // Preserve original message ID for alert matching
+          }
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',
@@ -1605,7 +1646,12 @@ export class FileSystemStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString(),
           content: message.content || '',
           attachments: (message.attachments || []).map(att => att?.url || att?.toString() || '').filter(Boolean),
-          model: message.platform || conversation.platform || 'unknown'
+          model: message.platform || conversation.platform || 'unknown',
+          // Store metadata including original message ID for alert matching
+          metadata: {
+            ...(message.metadata || {}),
+            originalMessageId: message.id, // Preserve original message ID for alert matching
+          }
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',
@@ -1926,6 +1972,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         name: agent.name || 'Untitled Agent',
         description: agent.description || '',
         enabled: Boolean(agent.enabled),
+        action_type: agent.actionType || 'alert', // CRITICAL: Must include action_type
         prompt_template: agent.promptTemplate || '',
         cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
         verbosity_threshold: agent.verbosityThreshold ?? 50,
@@ -1954,11 +2001,19 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       }
     }
     const finalData = parsedData || {};
+    
+    // Validate actionType - ensure it's always set and valid
+    const actionType = 
+      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_context'))
+        ? finalData.action_type
+        : 'alert'; // Default to 'alert' for backward compatibility and safety
+    
     return {
       id: packet.id,
       name: finalData.name || 'Untitled Agent',
       description: finalData.description || '',
       enabled: Boolean(finalData.enabled),
+      actionType: actionType,
       promptTemplate: finalData.prompt_template || '',
       runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
       verbosityThreshold: finalData.verbosity_threshold ?? 50,

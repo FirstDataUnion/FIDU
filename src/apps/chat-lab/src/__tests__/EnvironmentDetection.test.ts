@@ -3,6 +3,7 @@
  * Tests that environment detection works correctly for dev/prod switching
  */
 
+import { detectRuntimeEnvironment } from '../utils/environment';
 import { CookieSettingsService } from '../services/settings/CookieSettingsService';
 
 describe('Environment Detection for Dev/Prod Switching', () => {
@@ -28,10 +29,7 @@ describe('Environment Detection for Dev/Prod Switching', () => {
         writable: true,
       });
 
-      const service = new CookieSettingsService();
-      
-      // Access private method for testing
-      const environment = service['detectEnvironment']();
+      const environment = detectRuntimeEnvironment();
       expect(environment).toBe('dev');
     });
 
@@ -45,10 +43,7 @@ describe('Environment Detection for Dev/Prod Switching', () => {
         writable: true,
       });
 
-      const service = new CookieSettingsService();
-      
-      // Access private method for testing
-      const environment = service['detectEnvironment']();
+      const environment = detectRuntimeEnvironment();
       expect(environment).toBe('prod');
     });
 
@@ -62,10 +57,7 @@ describe('Environment Detection for Dev/Prod Switching', () => {
         writable: true,
       });
 
-      const service = new CookieSettingsService();
-      
-      // Access private method for testing
-      const environment = service['detectEnvironment']();
+      const environment = detectRuntimeEnvironment();
       expect(environment).toBe('local');
     });
 
@@ -188,8 +180,7 @@ describe('Environment Detection for Dev/Prod Switching', () => {
           writable: true,
         });
 
-        const service = new CookieSettingsService();
-        const environment = service['detectEnvironment']();
+        const environment = detectRuntimeEnvironment();
         expect(environment).toBe(expected);
       });
     });

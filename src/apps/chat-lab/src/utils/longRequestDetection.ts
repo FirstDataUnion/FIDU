@@ -3,7 +3,7 @@
  * and providing appropriate user feedback
  */
 
-import { MODEL_CONFIGS } from '../data/models';
+import { getModelConfigs } from '../data/models';
 
 export interface LongRequestAnalysis {
   isLikelyLongRunning: boolean;
@@ -23,7 +23,7 @@ export function analyzeRequestDuration(
   contextLength: number = 0,
   conversationLength: number = 0
 ): LongRequestAnalysis {
-  const modelConfig = MODEL_CONFIGS[modelId];
+  const modelConfig = getModelConfigs()[modelId];
   const promptLength = prompt.length;
   
   const reasons: string[] = [];

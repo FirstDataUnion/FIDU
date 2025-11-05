@@ -37,4 +37,69 @@ export const getIdentityServiceUrl = () => {
 export const getGatewayUrl = () => {
   const url = import.meta.env.VITE_GATEWAY_URL || 'https://gateway.firstdataunion.org';
   return url;
+};
+
+/**
+ * Detect the current runtime environment based on hostname
+ * This is used for cookie prefixes and environment-specific behavior
+ * 
+ * @returns 'dev' | 'prod' | 'local'
+ */
+export const detectRuntimeEnvironment = (): 'dev' | 'prod' | 'local' => {
+  if (typeof window === 'undefined') {
+    // Fallback for SSR or non-browser contexts
+    return import.meta.env.DEV ? 'dev' : 'prod';
+  }
+  
+  const hostname = window.location.hostname;
+  
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'local';
+  }
+  
+  if (hostname.includes('dev.') || hostname.includes('-dev.')) {
+    return 'dev';
+  }
+  
+  return 'prod';
+};
+
+/**
+ * Check if we're in a dev/staging environment for workbench selection
+ * Dev deployment points to staging workbench, prod deployment points to prod workbench
+ * 
+ * Priority:
+ * 1. VITE_WORKBENCH_ENV env var (explicit control)
+ * 2. Hostname detection (for deployments)
+ * 3. Default to 'dev' for localhost (for local testing with staging workbench)
+ */
+export const isDevEnvironment = (): boolean => {
+  // First, check for explicit env var override
+  const envVar = import.meta.env.VITE_WORKBENCH_ENV;
+  if (envVar === 'dev' || envVar === 'staging') {
+    return true;
+  }
+  if (envVar === 'prod' || envVar === 'production') {
+    return false;
+  }
+  
+  if (typeof window === 'undefined') {
+    // Fallback for SSR or non-browser contexts
+    return import.meta.env.DEV;
+  }
+  
+  const hostname = window.location.hostname;
+  
+  // Localhost defaults to dev/staging for local testing
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return true;
+  }
+  
+  // Check hostname patterns for dev/staging
+  if (hostname.includes('dev.') || hostname.includes('-dev.')) {
+    return true;
+  }
+  
+  // Default to prod for production deployments
+  return false;
 }; 

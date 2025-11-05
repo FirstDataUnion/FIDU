@@ -4,6 +4,7 @@
  */
 
 import { getFiduAuthCookieService } from './FiduAuthCookieService';
+import { detectRuntimeEnvironment } from '../../utils/environment';
 
 // Custom error for insufficient OAuth scopes
 export class InsufficientScopesError extends Error {
@@ -428,7 +429,7 @@ export class GoogleDriveAuthService {
         body: JSON.stringify({
           code: code,
           redirect_uri: this.config.redirectUri,
-          environment: this.detectEnvironment(),
+          environment: detectRuntimeEnvironment(),
         }),
         // Short timeout to quickly detect if backend is unavailable
         signal: this.createTimeoutSignal(5000),
@@ -626,8 +627,8 @@ export class GoogleDriveAuthService {
       ? '/fidu-chat-lab' 
       : '';
     
-    // Detect environment for cookie isolation
-    const environment = this.detectEnvironment();
+    // Detect environment for cookie isolation using shared utility
+    const environment = detectRuntimeEnvironment();
     
     try {
       // Get FIDU auth token for secure token refresh
@@ -873,8 +874,8 @@ export class GoogleDriveAuthService {
         ? '/fidu-chat-lab' 
         : '';
       
-      // Detect environment for cookie isolation
-      const environment = this.detectEnvironment();
+      // Detect environment for cookie isolation using shared utility
+      const environment = detectRuntimeEnvironment();
       
       // Get FIDU auth token for secure token retrieval
       const fiduAuthService = getFiduAuthCookieService();
@@ -983,20 +984,6 @@ export class GoogleDriveAuthService {
     return navigator.onLine;
   }
 
-  /**
-   * Detect the current environment (dev, prod, local)
-   */
-  private detectEnvironment(): string {
-    const hostname = window.location.hostname;
-    
-    if (hostname.includes('dev.')) {
-      return 'dev';
-    } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-      return 'local';
-    } else {
-      return 'prod';
-    }
-  }
 
   /**
    * Enhanced restoration that handles network state

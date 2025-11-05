@@ -31,8 +31,6 @@ import {
   Collapse,
   Link,
   Badge,
-  Switch,
-  FormControlLabel,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -54,6 +52,7 @@ import {
   MenuBook as MenuBookIcon,
   CheckCircle as CheckCircleIcon,
   SmartToy as SmartToyIcon,
+  ArrowUpward as ArrowUpwardIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -105,6 +104,7 @@ const BACKGROUND_AGENT_PREFS_KEY = 'fidu-chat-lab-backgroundAgentPrefs';
 interface BackgroundAgentPreferences {
   runEveryNTurns: number;
   verbosityThreshold: number;
+  contextLastN?: number; // For 'lastNMessages' strategy
 }
 
 interface AllAgentPreferences {
@@ -156,18 +156,35 @@ function BackgroundAgentDialogCard({
   agent,
   onUpdatePreference,
   alerts = [],
-  autoExpand = false,
+  autoExpand: _autoExpand = false,
   onAlertsChanged,
+  onJumpToMessage,
 }: {
   agent: BackgroundAgent;
-  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number }) => void;
-  alerts?: Array<{ id: string; createdAt: string; rating: number; severity: 'info' | 'warn' | 'error'; message: string; read: boolean }>;
+  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
+  alerts?: Array<{ 
+    id: string; 
+    createdAt: string; 
+    rating: number; 
+    severity: 'info' | 'warn' | 'error'; 
+    message: string; 
+    shortMessage?: string;
+    description?: string;
+    details?: Record<string, any>;
+    rawModelOutput?: string;
+    read: boolean;
+    messageId?: string; // ID of the message that triggered this alert
+  }>;
   autoExpand?: boolean;
   onAlertsChanged?: () => void;
+  onJumpToMessage?: (messageId: string) => void; // Callback to scroll to message and close modal
 }) {
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
-  const [alertsExpanded, setAlertsExpanded] = useState(autoExpand && alerts.length > 0);
+  const [localContextLastN, setLocalContextLastN] = useState(agent.contextParams?.lastN || 6);
+  const [alertsExpanded, setAlertsExpanded] = useState(false); // Always start collapsed
+  const [expandedRawOutput, setExpandedRawOutput] = useState<Set<string>>(new Set());
+  const [expandedExecStatus, setExpandedExecStatus] = useState<Set<string>>(new Set());
   
   const unreadCount = alerts.filter(a => !a.read).length;
   const recentAlerts = alerts.slice(0, 5); // Show last 5 alerts
@@ -176,24 +193,8 @@ function BackgroundAgentDialogCard({
   useEffect(() => {
     setLocalRunEveryNTurns(agent.runEveryNTurns);
     setLocalVerbosityThreshold(agent.verbosityThreshold);
-  }, [agent.runEveryNTurns, agent.verbosityThreshold]);
-
-  // Auto-expand if there are unread alerts
-  useEffect(() => {
-    if (autoExpand && unreadCount > 0 && !alertsExpanded) {
-      setAlertsExpanded(true);
-      // Mark all unread alerts as read when auto-expanding
-      alerts.filter(a => !a.read).forEach(alert => {
-        markAlertAsRead(alert.id);
-      });
-      // Notify parent to refresh counts
-      if (onAlertsChanged) {
-        setTimeout(() => {
-          onAlertsChanged();
-        }, 100);
-      }
-    }
-  }, [autoExpand, unreadCount, alerts, alertsExpanded, onAlertsChanged]); // Run when dependencies change
+    setLocalContextLastN(agent.contextParams?.lastN || 6);
+  }, [agent.runEveryNTurns, agent.verbosityThreshold, agent.contextParams?.lastN]);
 
 
   const getSeverityColor = (severity: string) => {
@@ -293,6 +294,7 @@ function BackgroundAgentDialogCard({
               onUpdatePreference(agent.id, {
                 runEveryNTurns: value,
                 verbosityThreshold: localVerbosityThreshold,
+                contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
               });
             }}
             size="small"
@@ -330,6 +332,7 @@ function BackgroundAgentDialogCard({
               onUpdatePreference(agent.id, {
                 runEveryNTurns: localRunEveryNTurns,
                 verbosityThreshold: value,
+                contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
               });
             }}
             size="small"
@@ -345,6 +348,46 @@ function BackgroundAgentDialogCard({
           />
           <Typography variant="body2">/100</Typography>
         </Box>
+        {agent.contextWindowStrategy === 'lastNMessages' && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+                Context messages:
+              </Typography>
+              <Tooltip
+                title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation."
+                arrow
+                placement="top"
+              >
+                <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <TextField
+              type="number"
+              value={localContextLastN}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 6;
+                setLocalContextLastN(value);
+                onUpdatePreference(agent.id, {
+                  runEveryNTurns: localRunEveryNTurns,
+                  verbosityThreshold: localVerbosityThreshold,
+                  contextLastN: value,
+                });
+              }}
+              size="small"
+              variant="outlined"
+              inputProps={{ min: 1, max: 100 }}
+              sx={{
+                width: '80px',
+                '& .MuiOutlinedInput-root': {
+                  height: '32px',
+                  fontSize: '0.875rem',
+                }
+              }}
+            />
+            <Typography variant="body2">messages</Typography>
+          </Box>
+        )}
       </Stack>
 
       {/* Expandable Alerts Section */}
@@ -357,6 +400,11 @@ function BackgroundAgentDialogCard({
             <Stack spacing={1}>
               {recentAlerts.map((alert) => {
                 const colors = getSeverityColor(alert.severity);
+                const parseError = alert.details?.parseError;
+                const hasParseError = !!parseError;
+                const showRawOutput = expandedRawOutput.has(alert.id);
+                const showExecStatus = expandedExecStatus.has(alert.id);
+                
                 return (
                   <Paper
                     key={alert.id}
@@ -364,7 +412,7 @@ function BackgroundAgentDialogCard({
                     sx={{
                       p: 1.5,
                       backgroundColor: colors.bg,
-                      borderColor: colors.border,
+                      borderColor: hasParseError ? 'error.main' : colors.border,
                       borderWidth: alert.read ? 1 : 2,
                       opacity: alert.read ? 0.7 : 1,
                     }}
@@ -383,14 +431,157 @@ function BackgroundAgentDialogCard({
                           variant="outlined"
                           sx={{ height: 20, fontSize: '0.7rem' }}
                         />
+                        {hasParseError && (
+                          <Chip
+                            label="Parse Error"
+                            size="small"
+                            color="error"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
                       </Box>
                       <Typography variant="caption" color="text.secondary">
                         {formatTimeAgo(new Date(alert.createdAt))}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ color: colors.text, mt: 0.5 }}>
-                      {alert.message || 'Background agent alert'}
+                    <Typography variant="body2" sx={{ color: colors.text, mt: 0.5, mb: hasParseError ? 1 : 0 }}>
+                      {alert.shortMessage || alert.message || 'Background agent alert'}
                     </Typography>
+                    {alert.description && (
+                      <Typography variant="body2" sx={{ color: colors.text, mt: 0.5, fontSize: '0.875rem' }}>
+                        {alert.description}
+                      </Typography>
+                    )}
+                    
+                    {/* Action Buttons */}
+                    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                      {alert.messageId && onJumpToMessage && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ArrowUpwardIcon />}
+                          onClick={() => onJumpToMessage(alert.messageId!)}
+                          sx={{
+                            fontSize: '0.75rem',
+                            color: 'primary.dark',
+                            borderColor: 'primary.dark',
+                            backgroundColor: 'background.paper',
+                            '&:hover': {
+                              backgroundColor: 'primary.light',
+                              borderColor: 'primary.main'
+                            }
+                          }}
+                        >
+                          Jump to Message
+                        </Button>
+                      )}
+                    </Stack>
+                    
+                    {/* Parse Error Debugging Section */}
+                    {hasParseError && (
+                      <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                        <Alert severity="error" sx={{ mb: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            Parse Error: {parseError.message}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            The model response could not be parsed. This may be a transient error.
+                          </Typography>
+                        </Alert>
+                        <Stack spacing={1} direction="row" sx={{ mb: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              const newSet = new Set(expandedRawOutput);
+                              if (showRawOutput) {
+                                newSet.delete(alert.id);
+                              } else {
+                                newSet.add(alert.id);
+                              }
+                              setExpandedRawOutput(newSet);
+                            }}
+                            startIcon={showRawOutput ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            {showRawOutput ? 'Hide' : 'Show'} Raw Output
+                          </Button>
+                          {parseError.execStatus && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                const newSet = new Set(expandedExecStatus);
+                                if (showExecStatus) {
+                                  newSet.delete(alert.id);
+                                } else {
+                                  newSet.add(alert.id);
+                                }
+                                setExpandedExecStatus(newSet);
+                              }}
+                              startIcon={showExecStatus ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                              sx={{ fontSize: '0.75rem' }}
+                            >
+                              {showExecStatus ? 'Hide' : 'Show'} Execution Status
+                            </Button>
+                          )}
+                        </Stack>
+                        <Collapse in={showRawOutput}>
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              p: 1,
+                              backgroundColor: 'background.default',
+                              mt: 1,
+                              maxHeight: '200px',
+                              overflow: 'auto',
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              component="pre"
+                              sx={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.7rem',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-all',
+                                m: 0,
+                              }}
+                            >
+                              {parseError.rawOutput || alert.rawModelOutput || '(no output)'}
+                    </Typography>
+                          </Paper>
+                        </Collapse>
+                        {parseError.execStatus && (
+                          <Collapse in={showExecStatus}>
+                            <Paper
+                              variant="outlined"
+                              sx={{
+                                p: 1,
+                                backgroundColor: 'background.default',
+                                mt: 1,
+                                maxHeight: '300px',
+                                overflow: 'auto',
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                component="pre"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.7rem',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-all',
+                                  m: 0,
+                                }}
+                              >
+                                {JSON.stringify(parseError.execStatus, null, 2)}
+                              </Typography>
+                            </Paper>
+                          </Collapse>
+                        )}
+                      </Box>
+                    )}
                   </Paper>
                 );
               })}
@@ -1234,7 +1425,6 @@ export default function PromptLabPage() {
   const [backgroundAgentsLoading, setBackgroundAgentsLoading] = useState(false);
   const [backgroundAgentsPrefsVersion, setBackgroundAgentsPrefsVersion] = useState(0);
   const [unreadAlertCount, setUnreadAlertCount] = useState(0);
-  const [showAllConversations, setShowAllConversations] = useState(false); // Filter toggle
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
   const [backgroundAgentsEvaluating, setBackgroundAgentsEvaluating] = useState(false);
 
@@ -1272,7 +1462,9 @@ export default function PromptLabPage() {
               runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
               verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
               contextWindowStrategy: template.contextWindowStrategy,
-              contextParams: template.contextParams,
+              contextParams: template.contextWindowStrategy === 'lastNMessages' && userPrefs?.contextLastN !== undefined
+                ? { ...template.contextParams, lastN: userPrefs.contextLastN }
+                : template.contextParams,
               outputSchemaName: template.outputSchemaName,
               customOutputSchema: template.customOutputSchema,
               notifyChannel: template.notifyChannel,
@@ -1288,8 +1480,8 @@ export default function PromptLabPage() {
           const allAgents = [...builtInAgents, ...filteredCustom];
           setBackgroundAgents(allAgents);
           
-          // Refresh unread count when dialog opens
-          setUnreadAlertCount(getUnreadAlertCount());
+          // Refresh unread count when dialog opens (filtered by current conversation)
+          setUnreadAlertCount(currentConversation?.id ? getUnreadAlertCount(currentConversation.id) : 0);
         } catch (error) {
           console.error('Error loading background agents:', error);
         } finally {
@@ -1298,17 +1490,142 @@ export default function PromptLabPage() {
       };
       void loadAgents();
     }
-  }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion, showAllConversations]);
+  }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion]);
 
-  const handleUpdateBackgroundAgentPreference = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number }) => {
-    setAgentPreference(agentId, prefs);
+  const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+    // Find the agent to determine if it's built-in or custom
+    const agent = backgroundAgents.find(a => a.id === agentId);
+    
+    if (!agent) {
+      console.warn(`Agent ${agentId} not found`);
+      return;
+    }
+    
+    if (agent.isSystem) {
+      // Built-in agents: save preferences to localStorage
+      const prefsToSave: Partial<BackgroundAgentPreferences> = {
+        runEveryNTurns: prefs.runEveryNTurns,
+        verbosityThreshold: prefs.verbosityThreshold,
+      };
+      if (prefs.contextLastN !== undefined) {
+        prefsToSave.contextLastN = prefs.contextLastN;
+      }
+      setAgentPreference(agentId, prefsToSave);
     setBackgroundAgentsPrefsVersion((prev) => prev + 1);
-    // Update local state immediately for better UX
-    setBackgroundAgents((prev) => prev.map((agent) => 
-      agent.id === agentId 
-        ? { ...agent, runEveryNTurns: prefs.runEveryNTurns, verbosityThreshold: prefs.verbosityThreshold }
-        : agent
-    ));
+      
+      // Update local state for built-in agents
+      setBackgroundAgents((prev) => prev.map((a) => 
+        a.id === agentId 
+          ? { 
+              ...a, 
+              runEveryNTurns: prefs.runEveryNTurns, 
+              verbosityThreshold: prefs.verbosityThreshold,
+              contextParams: a.contextWindowStrategy === 'lastNMessages' && prefs.contextLastN !== undefined
+                ? { ...a.contextParams, lastN: prefs.contextLastN }
+                : a.contextParams,
+            }
+          : a
+      ));
+    } else {
+      // Custom agents: update in storage
+      try {
+        const storage = getUnifiedStorageService();
+        if (!currentProfile?.id) {
+          console.warn('No profile ID available for updating custom agent');
+          return;
+        }
+        
+        const updatedAgent: BackgroundAgent = {
+          ...agent,
+          runEveryNTurns: prefs.runEveryNTurns,
+          verbosityThreshold: prefs.verbosityThreshold,
+          contextParams: agent.contextWindowStrategy === 'lastNMessages' && prefs.contextLastN
+            ? { ...agent.contextParams, lastN: prefs.contextLastN }
+            : agent.contextParams,
+          updatedAt: new Date().toISOString(),
+        };
+        
+        await storage.updateBackgroundAgent(updatedAgent, currentProfile.id);
+        console.log(`✅ Updated custom agent ${agent.name} in storage`);
+        
+        // Reload agents to ensure we have the latest data from storage
+        // This ensures any other fields that might have been updated are reflected
+        const { backgroundAgents: reloadedAgents } = await storage.getBackgroundAgents(undefined, 1, 20, currentProfile.id);
+        const filteredCustom = (reloadedAgents || []).filter((a: BackgroundAgent) => !a.isSystem && a.enabled);
+        
+        // Reload built-in agents with preferences
+        const storedPrefs = loadAgentPreferences();
+        const builtInAgents = BUILT_IN_BACKGROUND_AGENTS.map((template) => {
+          const agentId = `built-in-${template.name.toLowerCase().replace(/\s+/g, '-')}`;
+          const userPrefs = storedPrefs[agentId];
+          return {
+            id: agentId,
+            name: template.name,
+            description: template.description,
+            enabled: true,
+            promptTemplate: template.promptTemplate,
+            runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
+            verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
+            contextWindowStrategy: template.contextWindowStrategy,
+            contextParams: template.contextWindowStrategy === 'lastNMessages' && userPrefs?.contextLastN !== undefined
+              ? { ...template.contextParams, lastN: userPrefs.contextLastN }
+              : template.contextParams,
+            outputSchemaName: template.outputSchemaName,
+            customOutputSchema: template.customOutputSchema,
+            notifyChannel: template.notifyChannel,
+            isSystem: true,
+            categories: template.categories || [],
+            version: template.version,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as BackgroundAgent;
+        });
+        
+        // Update with reloaded agents
+        setBackgroundAgents([...builtInAgents, ...filteredCustom]);
+      } catch (error) {
+        console.error(`Failed to update custom agent ${agentId}:`, error);
+        // Still update local state for better UX even if storage fails
+        setBackgroundAgents((prev) => prev.map((a) => 
+          a.id === agentId 
+            ? { 
+                ...a, 
+                runEveryNTurns: prefs.runEveryNTurns, 
+                verbosityThreshold: prefs.verbosityThreshold,
+                contextParams: a.contextWindowStrategy === 'lastNMessages' && prefs.contextLastN !== undefined
+                  ? { ...a.contextParams, lastN: prefs.contextLastN }
+                  : a.contextParams,
+              }
+            : a
+        ));
+      }
+    }
+  }, [backgroundAgents, currentProfile?.id]);
+
+  // Jump to message handler - scrolls to message and closes modal
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    // Close the background agents dialog
+    setBackgroundAgentsDialogOpen(false);
+    
+    // Small delay to ensure dialog is closed before scrolling
+    setTimeout(() => {
+      // Find the message element
+      const messageElement = document.getElementById(`message-${messageId}`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+        });
+        // Add a highlight effect
+        messageElement.style.transition = 'box-shadow 0.3s ease';
+        messageElement.style.boxShadow = '0 0 20px rgba(25, 118, 210, 0.5)';
+        setTimeout(() => {
+          messageElement.style.boxShadow = '';
+        }, 2000);
+      } else {
+        console.warn(`Message ${messageId} not found in DOM`);
+      }
+    }, 100);
   }, []);
 
   // System Prompts Management
@@ -1532,25 +1849,34 @@ export default function PromptLabPage() {
   }, []);
 
   // Get conversation ID for filtering alerts
-  const currentConversationId = currentConversation?.id || 'current';
+  const currentConversationId = currentConversation?.id;
 
+  // Update unread count whenever conversation changes
   useEffect(() => {
+    // Update unread count based on current conversation (or all if no conversation)
+    const updateUnreadCount = () => {
+      const count = currentConversationId 
+        ? getUnreadAlertCount(currentConversationId)
+        : 0; // No unread count for new/unsaved conversations
+      setUnreadAlertCount(count);
+    };
+    
+    // Initial update
+    updateUnreadCount();
+    
+    // Subscribe to new alerts - update count when alerts are created or marked as read
     const unsubscribe = subscribeToAgentAlerts(() => {
-      // Alert is handled by InlineAgentResults component now
-      // Update unread count
-      setUnreadAlertCount(getUnreadAlertCount());
+      updateUnreadCount();
     });
     
-    // Initial load and periodic updates
-    const updateUnreadCount = () => setUnreadAlertCount(getUnreadAlertCount());
-    updateUnreadCount();
+    // Periodic updates to catch any changes
     const interval = setInterval(updateUnreadCount, 5000);
     
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, []);
+  }, [currentConversationId]); // Re-run when conversation changes
 
   // Load contexts and system prompts
   useEffect(() => {
@@ -1644,6 +1970,9 @@ export default function PromptLabPage() {
               restoreConversationSettings(location.state.conversation);
             }
             
+            // Update unread alert count for this conversation
+            setUnreadAlertCount(getUnreadAlertCount(conversationId));
+            
             // Clear the navigation state to prevent reloading on subsequent renders
             navigate('/prompt-lab', { replace: true });
           } else {
@@ -1665,6 +1994,9 @@ export default function PromptLabPage() {
             
             setCurrentConversation(conversation);
             setMessages(messages);
+            
+            // Update unread alert count for this conversation
+            setUnreadAlertCount(getUnreadAlertCount(conversationId));
             
             // Clear the navigation state to prevent reloading on subsequent renders
             navigate('/prompt-lab', { replace: true });
@@ -1750,17 +2082,21 @@ export default function PromptLabPage() {
   }, [location.state, navigate]);
 
   // Save or update conversation
-  const saveConversation = useCallback(async (messages: Message[]) => {
+  // Note: conversationId parameter allows passing the ID directly to avoid race conditions with state updates
+  const saveConversation = useCallback(async (messages: Message[], conversationIdOverride?: string) => {
     if (!currentProfile || messages.length === 0) return;
 
     setIsSavingConversation(true);
     try {
-      // Only update if we have a conversation with a valid ID
-      // Otherwise, create a new one (handles the case where conversation was restored from session but not yet saved)
-      if (currentConversation && currentConversation.id) {
+      // Use override ID if provided (from handleSendMessage), otherwise use currentConversation
+      const conversationId = conversationIdOverride || currentConversation?.id;
+      const conversationToSave = currentConversation || (conversationId ? { id: conversationId } as Partial<Conversation> : null);
+      
+      // Update existing conversation (it should always have an ID now since we generate it on first message)
+      if (conversationToSave && conversationId) {
         // Update existing conversation using Redux action
         const updatedConversation = await dispatch(updateConversationWithMessages({
-          conversation: currentConversation,
+          conversation: { ...conversationToSave, id: conversationId },
           messages,
           originalPrompt: {
             promptText: messages[0]?.content || '',
@@ -1779,10 +2115,13 @@ export default function PromptLabPage() {
           return [updatedConversation, ...filtered.slice(0, 4)];
         });
       } else {
-        // Create new conversation
+        // This should rarely happen now since we create conversation on first message
+        // But handle it as a fallback for edge cases
+        console.warn('⚠️ [Conversation] Attempting to save conversation without ID - this should not happen');
         const conversationData = {
+          id: crypto.randomUUID(), // Generate ID as fallback
           title: messages[0]?.content || 'New Conversation',
-          platform: 'chatgpt' as const,
+          platform: (selectedModel as 'chatgpt' | 'claude' | 'gemini' | 'other') || 'chatgpt' as const,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           lastMessage: messages[messages.length - 1]?.content || '',
@@ -1797,7 +2136,6 @@ export default function PromptLabPage() {
             context: selectedContext,
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
-            embellishments: [],
             metadata: { estimatedTokens: 0 }
           }
         };
@@ -1838,9 +2176,71 @@ export default function PromptLabPage() {
       setSystemPromptDrawerOpen(false);
     }
 
+    // Generate conversation ID immediately if this is the first message
+    // This ensures background agents and all messages have a valid conversation ID from the start
+    let conversationId: string;
+    
+    if (!currentConversation?.id) {
+      // Generate a new conversation ID for this new conversation
+      conversationId = crypto.randomUUID();
+      
+      // Create a conversation object immediately so it exists from the first message
+      const newConversation: Conversation = {
+        id: conversationId,
+        title: currentMessage.substring(0, 40) || 'New Conversation',
+        platform: selectedModel as any,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastMessage: '',
+        messageCount: 0,
+        tags: [],
+        isArchived: false,
+        isFavorite: false,
+        participants: ['user', 'AI'],
+        status: 'active',
+        modelsUsed: [],
+        originalPrompt: {
+          promptText: currentMessage,
+          context: selectedContext,
+          systemPrompts: selectedSystemPrompts,
+          systemPrompt: selectedSystemPrompts[0] || null,
+          metadata: { estimatedTokens: 0 }
+        }
+      };
+      
+      // CRITICAL: Set the conversation state immediately and also save it to storage
+      // This ensures the conversation exists before we try to save messages to it
+      setCurrentConversation(newConversation);
+      
+      // Immediately create the conversation in storage to ensure it exists
+      try {
+        if (currentProfile?.id) {
+          console.log(`📝 [Conversation] Creating new conversation in storage with ID: ${conversationId}`);
+          const createdConversation = await conversationsService.createConversation(
+            currentProfile.id,
+            newConversation,
+            [], // No messages yet - will be added when user message is saved
+            newConversation.originalPrompt
+          );
+          // Update with the created conversation (may have additional fields from server)
+          setCurrentConversation(createdConversation);
+          console.log(`📝 [Conversation] ✅ Successfully created conversation in storage`);
+        } else {
+          console.warn(`📝 [Conversation] No profile ID available - conversation will be created on first save`);
+        }
+      } catch (error) {
+        console.error(`📝 [Conversation] Failed to create conversation in storage:`, error);
+        // Continue anyway - will be created on save
+      }
+      
+      console.log(`📝 [Conversation] Created new conversation with ID: ${conversationId}`);
+    } else {
+      conversationId = currentConversation.id;
+    }
+
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
-      conversationId: 'current',
+      conversationId: conversationId,
       content: currentMessage,
       role: 'user',
       timestamp: new Date().toISOString(),
@@ -1897,7 +2297,7 @@ export default function PromptLabPage() {
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
-          conversationId: 'current',
+          conversationId: conversationId,
           content: content,
           role: 'assistant',
           timestamp: new Date().toISOString(),
@@ -1906,15 +2306,64 @@ export default function PromptLabPage() {
         };
         setMessages(prev => [...prev, aiMessage]);
         
-        // Save conversation after AI response
-        setTimeout(() => {
-          const allMessages = [...messages, userMessage, aiMessage];
-          saveConversation(allMessages);
-          // Trigger background agents after assistant response
+        // Save conversation after AI response, then trigger background agents
           // Use fire-and-forget with comprehensive error handling to ensure
           // background agent failures never affect the main chat UI
           (async () => {
             try {
+            const allMessages = [...messages, userMessage, aiMessage];
+            
+            // First, save the conversation and wait for it to complete
+            // This ensures messages are persisted before we try to attach alerts
+            // Pass conversationId explicitly to avoid race conditions with state updates
+            console.log(`🤖 [BackgroundAgents] Saving conversation before evaluation...`);
+            await saveConversation(allMessages, conversationId);
+            console.log(`🤖 [BackgroundAgents] Conversation saved, verifying messages are available in storage...`);
+            
+            // CRITICAL: Verify messages are actually available in storage before proceeding
+            // This prevents race conditions where save completes but messages aren't readable yet
+            const { getUnifiedStorageService } = await import('../services/storage/UnifiedStorageService');
+            const storage = getUnifiedStorageService();
+            const verificationMaxRetries = 10;
+            const verificationDelay = 300; // 300ms between verification attempts
+            let messagesVerified = false;
+            
+            for (let attempt = 0; attempt < verificationMaxRetries; attempt++) {
+              try {
+                const storedMessages = await storage.getMessages(conversationId);
+                const expectedMessageCount = allMessages.length;
+                
+                if (storedMessages.length >= expectedMessageCount) {
+                  // Check if we can find the target message (by ID or as last assistant message)
+                  const foundById = storedMessages.find(m => m.id === aiMessage.id);
+                  const assistantMessages = storedMessages.filter(m => m.role === 'assistant');
+                  const foundByPosition = assistantMessages.length > 0 && 
+                    assistantMessages[assistantMessages.length - 1];
+                  
+                  if (foundById || foundByPosition) {
+                    console.log(`🤖 [BackgroundAgents] ✅ Messages verified in storage (attempt ${attempt + 1}/${verificationMaxRetries}): ${storedMessages.length} messages found`);
+                    messagesVerified = true;
+                    break;
+                  }
+                }
+                
+                if (attempt < verificationMaxRetries - 1) {
+                  console.log(`🤖 [BackgroundAgents] Messages not yet available (attempt ${attempt + 1}/${verificationMaxRetries}): found ${storedMessages.length}, expected ${expectedMessageCount}, waiting ${verificationDelay}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, verificationDelay));
+                }
+              } catch (error) {
+                console.error(`🤖 [BackgroundAgents] Error verifying messages on attempt ${attempt + 1}:`, error);
+                if (attempt < verificationMaxRetries - 1) {
+                  await new Promise(resolve => setTimeout(resolve, verificationDelay));
+                }
+              }
+            }
+            
+            if (!messagesVerified) {
+              console.warn(`🤖 [BackgroundAgents] ⚠️ Could not verify messages in storage after ${verificationMaxRetries} attempts. Skipping agent evaluation to avoid alert persistence failures.`);
+              return;
+            }
+            
               // Compute assistant turn count as number of assistant messages
               const assistantTurns = allMessages.filter(m => m.role === 'assistant').length;
               console.log(`🤖 [BackgroundAgents] Triggering evaluation - Assistant turn count: ${assistantTurns}, Total messages: ${allMessages.length}`);
@@ -1936,23 +2385,22 @@ export default function PromptLabPage() {
               // Execute in fire-and-forget mode - errors are fully isolated
               await maybeEvaluateBackgroundAgents({
                 profileId,
-                conversationId: currentConversation?.id || 'current',
+                conversationId: conversationId, // Use the conversation ID we just ensured exists
                 messages: sliceMessages as any,
                 turnCount: assistantTurns,
-                messageId: aiMessage.id, // Link alerts to this specific assistant message
+                messageId: aiMessage.id, // Required: Link alerts to this specific assistant message
               }).catch((error: any) => {
                 // Additional safety layer - log but never throw
                 console.error(`🤖 [BackgroundAgents] Evaluation failed (non-blocking):`, error?.message || error);
               });
             } catch (error: any) {
-              // Catch all errors including import failures - log but never throw
+            // Catch all errors including import failures and save failures - log but never throw
               console.warn('Background agent system error (non-blocking):', error?.message || error);
             } finally {
               // Always reset evaluating state when done
               setBackgroundAgentsEvaluating(false);
             }
           })(); // IIFE for fire-and-forget async execution
-        }, 100);
       } else {
         console.log('AI response failed - Status:', response.status, 'Content present:', !!response.responses?.content, 'Full response:', response);
         throw new Error('The model failed to complete the call, please try again shortly');
@@ -1977,7 +2425,7 @@ export default function PromptLabPage() {
       // Add error message to chat
       const errorMessage: Message = {
         id: `msg-${Date.now()}-error`,
-        conversationId: 'current',
+        conversationId: currentConversation?.id || 'current',
         content: `Error: ${errorUserMessage}`,
         role: 'assistant',
         timestamp: new Date().toISOString(),
@@ -2010,7 +2458,7 @@ export default function PromptLabPage() {
     // Add a cancellation message to the chat
     const cancelMessage: Message = {
       id: `msg-${Date.now()}-cancel`,
-      conversationId: 'current',
+      conversationId: currentConversation?.id || 'current',
       content: 'Request cancelled by user.',
       role: 'assistant',
       timestamp: new Date().toISOString(),
@@ -2380,6 +2828,9 @@ export default function PromptLabPage() {
       // Restore system prompts and embellishments from the conversation
       restoreConversationSettings(conversation);
       
+      // Update unread alert count for this conversation
+      setUnreadAlertCount(getUnreadAlertCount(conversation.id));
+      
       // Close the drawer
       setConversationsDrawerOpen(false);
     } catch (error) {
@@ -2395,6 +2846,8 @@ export default function PromptLabPage() {
     setError(null);
     // Clear persisted conversation state
     clearSession();
+    // Reset unread alert count (no conversation = no alerts)
+    setUnreadAlertCount(0);
     // Reset to default system prompt
     if (systemPrompts.length > 0) {
       const defaultPrompt = systemPrompts.find(sp => sp.isDefault) || systemPrompts[0];
@@ -2494,7 +2947,7 @@ export default function PromptLabPage() {
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
-          conversationId: 'current',
+          conversationId: currentConversation?.id || 'current',
           content: content,
           role: 'assistant',
           timestamp: new Date().toISOString(),
@@ -2531,7 +2984,7 @@ export default function PromptLabPage() {
       // Add error message to chat
       const errorMessage: Message = {
         id: `msg-${Date.now()}-error`,
-        conversationId: 'current',
+        conversationId: currentConversation?.id || 'current',
         content: `Error: ${errorUserMessage}`,
         role: 'assistant',
         timestamp: new Date().toISOString(),
@@ -2735,12 +3188,15 @@ export default function PromptLabPage() {
                 return (
               <Box
                 key={message.id}
+                id={`message-${message.id}`}
+                data-message-id={message.id}
                 sx={{
                   display: 'flex',
                   justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
                   mb: isMobile ? 1.5 : 2,
                   mr: message.role === 'user' ? (isMobile ? '5%' : '15%') : 0,
                   ml: message.role === 'assistant' ? (isMobile ? '5%' : 0) : 0,
+                  scrollMarginTop: '80px', // Add offset for sticky headers
                 }}
               >
                 <Paper
@@ -3419,7 +3875,7 @@ export default function PromptLabPage() {
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={() => setSystemPromptModalOpen(true)}
+                      onClick={() => navigate('/system-prompts')}
                       startIcon={<AddIcon />}
                       sx={{ 
                         fontSize: '0.75rem',
@@ -4290,8 +4746,8 @@ export default function PromptLabPage() {
           <IconButton
             onClick={() => {
               setBackgroundAgentsDialogOpen(true);
-              // Refresh unread count when opening
-              setUnreadAlertCount(getUnreadAlertCount());
+              // Refresh unread count when opening (filtered by current conversation)
+              // The useEffect will handle the update automatically, but this ensures it's immediate
             }}
             sx={{
               backgroundColor: unreadAlertCount > 0 ? 'error.main' : 'primary.main',
@@ -4382,29 +4838,6 @@ export default function PromptLabPage() {
               </Badge>
             )}
           </Box>
-          <Tooltip
-            title={showAllConversations 
-              ? "Showing alerts from all conversations. Toggle off to show only alerts from the current conversation." 
-              : "Showing alerts from current conversation only. Toggle on to see alerts from all conversations."}
-            arrow
-            placement="left"
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showAllConversations}
-                  onChange={(e) => setShowAllConversations(e.target.checked)}
-                  size="small"
-                />
-              }
-              label={
-                <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-                  All conversations
-                </Typography>
-              }
-              sx={{ mr: 0 }}
-            />
-          </Tooltip>
         </DialogTitle>
         <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: 2 }}>
           {backgroundAgentsLoading ? (
@@ -4440,24 +4873,23 @@ export default function PromptLabPage() {
           ) : (
             <Stack spacing={2}>
               {backgroundAgents.map((agent) => {
-                // Get alerts for this agent, filtered by conversation if needed
+                // Get alerts for this agent, filtered by current conversation
                 const allAlerts = getFilteredAlerts({
                   agentId: agent.id,
-                  conversationId: showAllConversations ? undefined : currentConversationId,
+                  conversationId: currentConversationId,
                 });
-                const agentUnreadCount = allAlerts.filter(a => !a.read).length;
-                
                 return (
                   <BackgroundAgentDialogCard
                     key={agent.id}
                     agent={agent}
                     onUpdatePreference={handleUpdateBackgroundAgentPreference}
                     alerts={allAlerts}
-                    autoExpand={agentUnreadCount > 0}
+                    autoExpand={false}
                     onAlertsChanged={() => {
-                      // Refresh unread counts when alerts are marked as read
-                      setUnreadAlertCount(getUnreadAlertCount());
+                      // Refresh unread counts when alerts are marked as read (filtered by current conversation)
+                      setUnreadAlertCount(currentConversationId ? getUnreadAlertCount(currentConversationId) : 0);
                     }}
+                    onJumpToMessage={handleJumpToMessage}
                   />
                 );
               })}
@@ -4519,13 +4951,14 @@ export default function PromptLabPage() {
         open={timelineModalOpen}
         onClose={() => {
           setTimelineModalOpen(false);
-          // Refresh counts when closing
-          setUnreadAlertCount(getUnreadAlertCount());
+          // Refresh counts when closing (filtered by current conversation)
+          // The useEffect will handle the update automatically
         }}
         conversationId={currentConversationId}
         currentAgents={backgroundAgents}
         onAlertsChanged={() => {
-          setUnreadAlertCount(getUnreadAlertCount());
+          // Refresh counts when alerts change (filtered by current conversation)
+          setUnreadAlertCount(currentConversationId ? getUnreadAlertCount(currentConversationId) : 0);
         }}
       />
     </Box>

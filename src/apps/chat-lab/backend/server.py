@@ -1531,7 +1531,7 @@ async def refresh_fidu_access_token(request: Request):
                             "FIDU refresh token is invalid - clearing all tokens"
                         )
                         # Create access token cookie name to clear both tokens
-                        env_suffix = '_' + environment if environment != 'prod' else ''
+                        env_suffix = "_" + environment if environment != "prod" else ""
                         access_cookie_name = f"fidu_access_token{env_suffix}"
                         fastapi_response = JSONResponse(
                             status_code=401,

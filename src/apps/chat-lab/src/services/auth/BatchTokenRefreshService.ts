@@ -11,6 +11,7 @@
  */
 
 import { getFiduAuthCookieService } from './FiduAuthCookieService';
+import { detectRuntimeEnvironment } from '../../utils/environment';
 
 export interface BatchRefreshResult {
   fidu?: {
@@ -36,18 +37,8 @@ export class BatchTokenRefreshService {
       ? '/fidu-chat-lab' 
       : '';
     
-    // Detect environment based on hostname
-    this.environment = this.detectEnvironment();
-  }
-
-  /**
-   * Detect the current environment (dev, prod, local)
-   */
-  private detectEnvironment(): string {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') return 'local';
-    if (hostname.includes('dev.') || hostname.includes('-dev.')) return 'dev';
-    return 'prod';
+    // Detect environment based on hostname using shared utility
+    this.environment = detectRuntimeEnvironment();
   }
 
   /**

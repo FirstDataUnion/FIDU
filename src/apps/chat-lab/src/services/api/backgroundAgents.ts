@@ -2,6 +2,8 @@ import { fiduVaultAPIClient } from './apiClientFIDUVault';
 
 export const BACKGROUND_AGENT_TAG = 'FIDU-CHAT-LAB-BackgroundAgent';
 
+export type AgentActionType = 'alert' | 'update_context';
+
 export interface BackgroundAgentDataPacket {
   id: string;
   profile_id: string;
@@ -12,6 +14,7 @@ export interface BackgroundAgentDataPacket {
     name: string;
     description: string;
     enabled: boolean;
+    action_type: AgentActionType;
     prompt_template: string;
     cadence: {
       run_every_n_turns: number;
@@ -36,6 +39,7 @@ export interface BackgroundAgent {
   name: string;
   description: string;
   enabled: boolean;
+  actionType: AgentActionType;
   promptTemplate: string;
   runEveryNTurns: number;
   verbosityThreshold: number;
@@ -55,11 +59,18 @@ export interface BackgroundAgent {
 }
 
 const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket): BackgroundAgent => {
+  // Validate actionType - ensure it's always set and valid
+  const actionType: AgentActionType = 
+    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_context'))
+      ? packet.data.action_type
+      : 'alert'; // Default to 'alert' for backward compatibility and safety
+  
   return {
     id: packet.id,
     name: packet.data.name,
     description: packet.data.description,
     enabled: packet.data.enabled,
+    actionType: actionType,
     promptTemplate: packet.data.prompt_template,
     runEveryNTurns: packet.data.cadence?.run_every_n_turns ?? 6,
     verbosityThreshold: packet.data.verbosity_threshold,
@@ -95,6 +106,7 @@ const transformBackgroundAgentToDataPacket = (
       name: agent.name,
       description: agent.description,
       enabled: agent.enabled,
+      action_type: agent.actionType,
       prompt_template: agent.promptTemplate,
       cadence: {
         run_every_n_turns: agent.runEveryNTurns,

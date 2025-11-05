@@ -246,12 +246,14 @@ export default function ModelSelectionModal({
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Select AI Model
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Choose the AI model for your conversation
-        </Typography>
+        <Box>
+          <Typography component="span" variant="h6" sx={{ fontWeight: 600, display: 'block' }}>
+            Select AI Model
+          </Typography>
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+            Choose the AI model for your conversation
+          </Typography>
+        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ p: 0 }}>
@@ -455,7 +457,7 @@ export default function ModelSelectionModal({
                       }
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <Typography variant="body2" color="text.secondary" component="div" sx={{ mb: 1 }}>
                             {model.description}
                           </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -473,7 +475,7 @@ export default function ModelSelectionModal({
                             />
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               {getSpeedIcon(model.speed)}
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary" component="span">
                                 {model.speed}
                               </Typography>
                             </Box>
@@ -485,6 +487,7 @@ export default function ModelSelectionModal({
                           </Box>
                         </Box>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                   </ListItemButton>
                 </Tooltip>

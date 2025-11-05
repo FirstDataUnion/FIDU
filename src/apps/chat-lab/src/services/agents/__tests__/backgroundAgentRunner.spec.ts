@@ -1,5 +1,9 @@
-import { maybeEvaluateBackgroundAgents } from '../backgroundAgentRunner';
+import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
+
+const mockGetConversationById = jest.fn();
+const mockGetMessages = jest.fn();
+const mockUpdateConversation = jest.fn();
 
 jest.mock('../../storage/UnifiedStorageService', () => ({
   getUnifiedStorageService: () => ({
@@ -13,6 +17,7 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
           verbosityThreshold: 50,
           contextWindowStrategy: 'lastNMessages',
           contextParams: { lastN: 6 },
+          actionType: 'alert',
         } as BackgroundAgent,
         { 
           id: 'a2', 
@@ -20,9 +25,13 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
           enabled: false, 
           runEveryNTurns: 1, 
           verbosityThreshold: 0,
+          actionType: 'alert',
         } as BackgroundAgent,
       ],
     }),
+    getConversationById: mockGetConversationById,
+    getMessages: mockGetMessages,
+    updateConversation: mockUpdateConversation,
   }),
 }));
 
@@ -63,30 +72,42 @@ describe('maybeEvaluateBackgroundAgents', () => {
       { role: 'assistant', content: 'hello' },
     ] as any,
     turnCount: 0,
+    messageId: 'test-msg-1', // Required parameter
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear debounce cache to prevent test interference
+    clearDebounceCache();
+    
     // Reset to default mock that triggers alerts
     mockEvaluateBackgroundAgent.mockResolvedValue({
       agentId: 'a1',
+      actionType: 'alert',
       rating: 30, // Below threshold of 50 to trigger alert
       severity: 'warn',
       notify: true,
       message: 'Test alert',
       details: {},
-      rawModelOutput: '',
-      parsedResult: {},
+      rawModelOutput: '{"rating": 30, "warning_message": "Test alert"}',
+      parsedResult: { rating: 30, warning_message: 'Test alert' },
     });
+    
+    // Setup default storage mocks
+    mockGetConversationById.mockResolvedValue({ id: 'c1', title: 'Test Conversation' });
+    mockGetMessages.mockResolvedValue([
+      { id: 'test-msg-1', conversationId: 'c1', content: 'Hello', role: 'assistant', timestamp: new Date().toISOString(), platform: 'test' }
+    ]);
+    mockUpdateConversation.mockResolvedValue({ id: 'c1', title: 'Test Conversation' });
   });
 
   it('does not trigger when cadence does not match', async () => {
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 1 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 1, messageId: 'test-msg-1' });
     expect(addAgentAlertSpy).not.toHaveBeenCalled();
   });
 
   it('triggers evaluation when cadence matches and emits alert above threshold', async () => {
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     expect(addAgentAlertSpy).toHaveBeenCalledTimes(1);
     const alert = addAgentAlertSpy.mock.calls[0][0];
     expect(alert.agentId).toBe('a1');
@@ -94,7 +115,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
   });
 
   it('skips disabled agents', async () => {
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     const alert = addAgentAlertSpy.mock.calls[0][0];
     expect(alert.agentId).toBe('a1');
   });
@@ -111,9 +132,188 @@ describe('maybeEvaluateBackgroundAgents', () => {
     expect(alert.messageId).toBe('test-msg-1');
   });
 
+  it('persists alert metadata to message when conversationId is valid', async () => {
+    mockGetMessages.mockResolvedValueOnce([
+      { 
+        id: 'test-msg-1', 
+        conversationId: 'c1', 
+        content: 'Hello', 
+        role: 'assistant', 
+        timestamp: new Date().toISOString(), 
+        platform: 'test',
+        metadata: {}
+      }
+    ]);
+
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: 'test-msg-1',
+    });
+
+    expect(mockGetConversationById).toHaveBeenCalledWith('c1');
+    expect(mockGetMessages).toHaveBeenCalledWith('c1');
+    expect(mockUpdateConversation).toHaveBeenCalled();
+    
+    const updateCall = mockUpdateConversation.mock.calls[0];
+    const updatedMessages = updateCall[1];
+    const targetMessage = updatedMessages.find((m: any) => m.id === 'test-msg-1');
+    
+    expect(targetMessage).toBeDefined();
+    expect(targetMessage.metadata.backgroundAgentAlerts).toBeDefined();
+    expect(targetMessage.metadata.backgroundAgentAlerts.length).toBe(1);
+    expect(targetMessage.metadata.backgroundAgentAlerts[0].agentId).toBe('a1');
+    expect(targetMessage.metadata.backgroundAgentAlerts[0].agentName).toBe('Agent 1');
+    expect(targetMessage.metadata.backgroundAgentAlerts[0].rating).toBe(30);
+  });
+
+  it('does not persist alerts when conversationId is "current"', async () => {
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'current',
+      messageId: 'test-msg-1',
+    });
+
+    expect(mockGetConversationById).not.toHaveBeenCalled();
+    expect(mockUpdateConversation).not.toHaveBeenCalled();
+  });
+
+  it('does not persist alerts when messageId is missing', async () => {
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: '',
+    });
+
+    expect(mockGetConversationById).not.toHaveBeenCalled();
+    expect(mockUpdateConversation).not.toHaveBeenCalled();
+  });
+
+  it('appends to existing alerts when message already has alerts', async () => {
+    mockGetMessages.mockResolvedValueOnce([
+      { 
+        id: 'test-msg-1', 
+        conversationId: 'c1', 
+        content: 'Hello', 
+        role: 'assistant', 
+        timestamp: new Date().toISOString(), 
+        platform: 'test',
+        metadata: {
+          backgroundAgentAlerts: [
+            {
+              agentId: 'a2',
+              agentName: 'Agent 2',
+              createdAt: new Date().toISOString(),
+              rating: 40,
+              severity: 'warn',
+              message: 'Existing alert'
+            }
+          ]
+        }
+      }
+    ]);
+
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: 'test-msg-1',
+    });
+
+    const updateCall = mockUpdateConversation.mock.calls[0];
+    const updatedMessages = updateCall[1];
+    const targetMessage = updatedMessages.find((m: any) => m.id === 'test-msg-1');
+    
+    expect(targetMessage.metadata.backgroundAgentAlerts.length).toBe(2);
+    expect(targetMessage.metadata.backgroundAgentAlerts[0].agentId).toBe('a2');
+    expect(targetMessage.metadata.backgroundAgentAlerts[1].agentId).toBe('a1');
+  });
+
+  it('handles message not found gracefully without persisting alerts', async () => {
+    // Mock to always return a message with different ID (never the target)
+    mockGetMessages.mockResolvedValue([
+      { id: 'other-msg', conversationId: 'c1', content: 'Other', role: 'assistant', timestamp: new Date().toISOString(), platform: 'test', metadata: {} }
+    ]);
+
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: 'test-msg-1',
+    });
+
+    // Alert should still be created (in memory)
+    expect(addAgentAlertSpy).toHaveBeenCalled();
+    
+    // But should not persist to message metadata when message not found
+    // (after retries, it will log a warning and not update)
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Message ID test-msg-1 not found')
+    );
+    
+    // Should not update conversation when message not found after all retries
+    expect(mockUpdateConversation).not.toHaveBeenCalled();
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('handles message not found when no assistant messages exist', async () => {
+    // Mock to always return only user messages (no assistant messages)
+    mockGetMessages.mockResolvedValue([
+      { id: 'user-msg', conversationId: 'c1', content: 'User message', role: 'user', timestamp: new Date().toISOString(), platform: 'test' }
+    ]);
+
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: 'test-msg-1',
+    });
+
+    // Alert should still be created (in memory)
+    expect(addAgentAlertSpy).toHaveBeenCalled();
+    
+    // Should not update when message not found (after retries)
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Message ID test-msg-1 not found')
+    );
+    
+    // Should not update conversation when message not found after all retries
+    expect(mockUpdateConversation).not.toHaveBeenCalled();
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('handles storage errors gracefully without breaking alert creation', async () => {
+    mockGetConversationById.mockRejectedValueOnce(new Error('Storage error'));
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    await maybeEvaluateBackgroundAgents({ 
+      ...baseParams, 
+      turnCount: 2,
+      conversationId: 'c1',
+      messageId: 'test-msg-1',
+    });
+
+    // Alert should still be created
+    expect(addAgentAlertSpy).toHaveBeenCalled();
+    // Error should be logged but not thrown
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    
+    consoleErrorSpy.mockRestore();
+  });
+
   it('generates unique alert IDs', async () => {
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 4 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 4, messageId: 'test-msg-2' });
     
     expect(addAgentAlertSpy).toHaveBeenCalledTimes(2);
     const alert1 = addAgentAlertSpy.mock.calls[0][0];
@@ -128,6 +328,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
   it('does not create alert when rating exceeds threshold', async () => {
     mockEvaluateBackgroundAgent.mockResolvedValueOnce({
       agentId: 'a1',
+      actionType: 'alert',
       rating: 80, // Above threshold of 50
       severity: 'info',
       notify: true,
@@ -137,7 +338,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
       parsedResult: {},
     });
 
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     
     expect(addAgentAlertSpy).not.toHaveBeenCalled();
   });
@@ -145,6 +346,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
   it('does not create alert when notify is false', async () => {
     mockEvaluateBackgroundAgent.mockResolvedValueOnce({
       agentId: 'a1',
+      actionType: 'alert',
       rating: 30, // Below threshold
       severity: 'warn',
       notify: false, // Should not notify
@@ -154,7 +356,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
       parsedResult: {},
     });
 
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     
     expect(addAgentAlertSpy).not.toHaveBeenCalled();
   });
@@ -164,7 +366,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
 
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     
-    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2 });
+    await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     
     // Should not throw, just log error
     expect(consoleSpy).toHaveBeenCalled();

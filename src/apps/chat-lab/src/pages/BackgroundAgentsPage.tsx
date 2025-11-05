@@ -24,6 +24,10 @@ import {
   Tabs,
   Tooltip,
   Slider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,7 +42,7 @@ import { useAppSelector } from '../hooks/redux';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
-import type { BackgroundAgent } from '../services/api/backgroundAgents';
+import type { BackgroundAgent, AgentActionType } from '../services/api/backgroundAgents';
 import {
   loadAgentPreferences,
   setAgentPreference,
@@ -533,6 +537,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     name: string;
     description: string;
     enabled: boolean;
+    actionType: AgentActionType;
     promptTemplate: string;
     runEveryNTurns: number;
     verbosityThreshold: number;
@@ -543,6 +548,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     name: '',
     description: '',
     enabled: true,
+    actionType: 'alert',
     promptTemplate: '',
     runEveryNTurns: DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
     verbosityThreshold: DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD,
@@ -635,6 +641,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     name: string;
     description: string;
     enabled: boolean;
+    actionType: AgentActionType;
     promptTemplate: string;
     runEveryNTurns: number;
     verbosityThreshold: number;
@@ -645,6 +652,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     name: '',
     description: '',
     enabled: true,
+    actionType: 'alert',
     promptTemplate: '',
     runEveryNTurns: DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
     verbosityThreshold: DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD,
@@ -658,6 +666,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       name: '',
       description: '',
       enabled: true,
+      actionType: 'alert',
       promptTemplate: '',
       runEveryNTurns: DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
       verbosityThreshold: DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD,
@@ -688,6 +697,10 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       setError(`Run every N turns must be between ${DEFAULT_AGENT_CONFIG.MIN_TURNS} and ${DEFAULT_AGENT_CONFIG.MAX_TURNS}.`);
       return;
     }
+    if (!createForm.actionType || createForm.actionType.trim() === '') {
+      setError('Action Type is required. Please select an action type.');
+      return;
+    }
     if (createForm.verbosityThreshold < DEFAULT_AGENT_CONFIG.MIN_THRESHOLD || createForm.verbosityThreshold > DEFAULT_AGENT_CONFIG.MAX_THRESHOLD) {
       setError(`Verbosity threshold must be between ${DEFAULT_AGENT_CONFIG.MIN_THRESHOLD} and ${DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}.`);
       return;
@@ -706,11 +719,15 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       const profileId = currentProfile?.id;
       if (!profileId) throw new Error('No active profile.');
       
+      // Ensure actionType is set (default to 'alert' if somehow missing)
+      const actionType: AgentActionType = createForm.actionType || 'alert';
+      
       const newAgent: BackgroundAgent = {
         id: crypto.randomUUID(),
         name: createForm.name.trim(),
         description: createForm.description.trim(),
         enabled: createForm.enabled,
+        actionType: actionType,
         promptTemplate: createForm.promptTemplate.trim(),
         runEveryNTurns: createForm.runEveryNTurns,
         verbosityThreshold: createForm.verbosityThreshold,
@@ -774,6 +791,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       name: agent.name,
       description: agent.description,
       enabled: agent.enabled,
+      actionType: agent.actionType,
       promptTemplate: agent.promptTemplate,
       runEveryNTurns: agent.runEveryNTurns,
       verbosityThreshold: agent.verbosityThreshold,
@@ -797,6 +815,12 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         setError('Prompt template is required.');
         return;
       }
+    }
+    
+    // Validate actionType is required
+    if (!viewEditForm.actionType || viewEditForm.actionType.trim() === '') {
+      setError('Action Type is required. Please select an action type.');
+      return;
     }
     
     // Validate numeric fields
@@ -838,9 +862,13 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       }
       
       const storage = getUnifiedStorageService();
+      // Ensure actionType is set (default to 'alert' if somehow missing)
+      const actionType: AgentActionType = viewEditForm.actionType || 'alert';
+      
       const updated: BackgroundAgent = {
         ...selectedAgent,
         ...viewEditForm,
+        actionType: actionType, // Override with validated actionType
         updatedAt: new Date().toISOString()
       };
       const saved = await storage.updateBackgroundAgent(updated, currentProfile.id);
@@ -1129,6 +1157,30 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   }
                 }}
               />
+              <FormControl fullWidth disabled={selectedAgent?.isSystem} required>
+                <InputLabel id="view-edit-action-type-label">Action Type *</InputLabel>
+                <Select
+                  labelId="view-edit-action-type-label"
+                  value={viewEditForm.actionType || 'alert'}
+                  label="Action Type *"
+                  required
+                  onChange={(e) => setViewEditForm(prev => ({ ...prev, actionType: e.target.value as AgentActionType }))}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                >
+                  <MenuItem value="alert">
+                    <Box>
+                      <Typography variant="body1">Alert</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Creates alerts and notifications based on analysis
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
               {!selectedAgent?.isSystem && (
                 <FormControlLabel
                   control={
@@ -1148,7 +1200,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   type="number"
                   value={viewEditForm.runEveryNTurns}
                   onChange={(e) => setViewEditForm(prev => ({ ...prev, runEveryNTurns: parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS }))}
-                  helperText={selectedAgent?.isSystem ? "This setting is stored locally and only applies to you." : undefined}
+                  helperText={"a 'turn' is a message pair (user message + assistant message)"}
                   inputProps={{ min: DEFAULT_AGENT_CONFIG.MIN_TURNS, max: DEFAULT_AGENT_CONFIG.MAX_TURNS }}
                   sx={{
                     '& .MuiInputBase-root': {
@@ -1189,12 +1241,48 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     />
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    {selectedAgent?.isSystem 
-                      ? "This setting is stored locally and only applies to you." 
-                      : `Current: ${viewEditForm.verbosityThreshold}/100 - Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
+                    {`Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
                   </Typography>
                 </Box>
               </Box>
+              {viewEditForm.contextWindowStrategy === 'lastNMessages' && (
+                <TextField
+                  fullWidth
+                  label="Context Messages"
+                  type="number"
+                  value={viewEditForm.contextParams.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES}
+                  onChange={(e) => setViewEditForm(prev => ({
+                    ...prev,
+                    contextParams: {
+                      ...prev.contextParams,
+                      lastN: parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
+                    }
+                  }))}
+                  helperText={
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography component="span" variant="caption">
+                        Number of recent messages to include when evaluating
+                      </Typography>
+                      <Tooltip
+                        title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
+                        arrow
+                        placement="top"
+                      >
+                        <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
+                      </Tooltip>
+                    </Box>
+                  }
+                  inputProps={{ 
+                    min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES, 
+                    max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES 
+                  }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                />
+              )}
               <TextField
                 fullWidth
                 label="Prompt Template"
@@ -1362,6 +1450,30 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   }
                 }}
               />
+              <FormControl fullWidth required>
+                <InputLabel id="create-action-type-label">Action Type *</InputLabel>
+                <Select
+                  labelId="create-action-type-label"
+                  value={createForm.actionType || 'alert'}
+                  label="Action Type *"
+                  required
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, actionType: e.target.value as AgentActionType }))}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                >
+                  <MenuItem value="alert">
+                    <Box>
+                      <Typography variant="body1">Alert</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Creates alerts and notifications based on analysis
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
               <FormControlLabel
                 control={
                   <Switch

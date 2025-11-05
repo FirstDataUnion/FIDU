@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
-import { Box, Chip, Paper, Typography, Stack, Divider } from '@mui/material';
-import { SmartToy as SmartToyIcon } from '@mui/icons-material';
+import React, { useMemo, useState } from 'react';
+import { Box, Chip, Paper, Typography, Stack, Divider, Collapse, IconButton } from '@mui/material';
+import { SmartToy as SmartToyIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import type { AgentAlert } from '../../services/agents/agentAlerts';
 import { generateBuiltInAgentId } from '../../services/agents/agentTransformers';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../../data/backgroundAgents';
@@ -43,6 +43,9 @@ export default function InlineAgentResults({
   conversationId,
   agentNameMap 
 }: InlineAgentResultsProps): React.JSX.Element | null {
+  // Track which alerts are expanded to show full description
+  const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set());
+  
   // Filter alerts for this conversation if conversationId is provided
   const relevantAlerts = useMemo(() => {
     if (!alerts || alerts.length === 0) return [];
@@ -50,6 +53,16 @@ export default function InlineAgentResults({
       ? alerts.filter(a => !a.conversationId || a.conversationId === conversationId)
       : alerts;
   }, [alerts, conversationId]);
+  
+  const toggleExpand = (alertId: string) => {
+    const newExpanded = new Set(expandedAlerts);
+    if (newExpanded.has(alertId)) {
+      newExpanded.delete(alertId);
+    } else {
+      newExpanded.add(alertId);
+    }
+    setExpandedAlerts(newExpanded);
+  };
   
   // Group alerts by agent for better organization
   const alertsByAgent = useMemo(() => {
@@ -105,27 +118,75 @@ export default function InlineAgentResults({
               }} 
             />
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography 
                 variant="caption" 
                 sx={{ 
                   color: colors.text,
                   fontWeight: 600,
                   fontSize: '0.7rem',
-                  mb: 0.5,
-                  display: 'block',
                 }}
               >
                 {agentName}
               </Typography>
+                {alert.description && (
+                  <IconButton
+                    size="small"
+                    onClick={() => toggleExpand(alert.id)}
+                    sx={{
+                      color: colors.text,
+                      p: 0.25,
+                      ml: 1,
+                    }}
+                  >
+                    {expandedAlerts.has(alert.id) ? (
+                      <ExpandLessIcon sx={{ fontSize: 16 }} />
+                    ) : (
+                      <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                    )}
+                  </IconButton>
+                )}
+              </Box>
+              {alert.shortMessage ? (
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: colors.text,
+                    mb: alert.description ? 0.5 : 1,
+                    fontWeight: 500,
+                    cursor: alert.description ? 'pointer' : 'default',
+                  }}
+                  onClick={alert.description ? () => toggleExpand(alert.id) : undefined}
+                >
+                  {alert.shortMessage}
+                </Typography>
+              ) : (
               <Typography 
                 variant="body2" 
                 sx={{ 
                   color: colors.text,
-                  mb: 1,
+                    mb: alert.description ? 0.5 : 1,
                 }}
               >
                 {alert.message || 'Agent detected an issue in this conversation.'}
               </Typography>
+              )}
+              {alert.description && (
+                <Collapse in={expandedAlerts.has(alert.id)}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: colors.text,
+                      mb: 1,
+                      fontSize: '0.875rem',
+                      opacity: 0.9,
+                      pt: 0.5,
+                    }}
+                  >
+                    {alert.description}
+                  </Typography>
+                </Collapse>
+              )}
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                 <Chip
                   label={`Rating: ${alert.rating}/100`}
@@ -246,6 +307,7 @@ export default function InlineAgentResults({
                 <Stack spacing={1}>
                   {agentAlerts.map((alert) => {
                     const colors = getSeverityColor(alert.severity);
+                    const isExpanded = expandedAlerts.has(alert.id);
                     return (
                       <Paper
                         key={alert.id}
@@ -257,16 +319,49 @@ export default function InlineAgentResults({
                           borderWidth: 1,
                         }}
                       >
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                            {alert.shortMessage ? (
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: colors.text,
+                                  mb: alert.description ? 0.5 : 1,
+                                  fontWeight: 500,
+                                  cursor: alert.description ? 'pointer' : 'default',
+                                }}
+                                onClick={alert.description ? () => toggleExpand(alert.id) : undefined}
+                              >
+                                {alert.shortMessage}
+                              </Typography>
+                            ) : (
                         <Typography 
                           variant="body2" 
                           sx={{ 
                             color: colors.text,
-                            mb: 1,
+                                  mb: alert.description ? 0.5 : 1,
                           }}
                         >
                           {alert.message || 'Agent detected an issue.'}
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                            )}
+                            {alert.description && (
+                              <Collapse in={isExpanded}>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    color: colors.text,
+                                    mb: 1,
+                                    fontSize: '0.875rem',
+                                    opacity: 0.9,
+                                    pt: 0.5,
+                                  }}
+                                >
+                                  {alert.description}
+                                </Typography>
+                              </Collapse>
+                            )}
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                           <Chip
                             label={`Rating: ${alert.rating}/100`}
                             size="small"
@@ -286,7 +381,26 @@ export default function InlineAgentResults({
                               fontSize: '0.7rem',
                             }}
                           />
+                              {alert.description && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleExpand(alert.id)}
+                                  sx={{
+                                    color: colors.text,
+                                    p: 0.25,
+                                    ml: 'auto',
+                                  }}
+                                >
+                                  {isExpanded ? (
+                                    <ExpandLessIcon sx={{ fontSize: 16 }} />
+                                  ) : (
+                                    <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                                  )}
+                                </IconButton>
+                              )}
                         </Stack>
+                          </Box>
+                        </Box>
                       </Paper>
                     );
                   })}

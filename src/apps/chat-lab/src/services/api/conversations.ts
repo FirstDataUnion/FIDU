@@ -200,7 +200,9 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
         content: message.content,
         attachments: message.attachments?.map(att => att.url || att.toString()) || [],
         // Store the model that generated this specific message
-        model: message.platform || conversation.platform || 'unknown'
+        model: message.platform || conversation.platform || 'unknown',
+        // Store metadata including background agent alerts
+        metadata: message.metadata || undefined
       })),
       targetModelRequested: conversation.platform || 'other',
       conversationUrl: 'FIDU_Chat_Lab',
@@ -423,7 +425,13 @@ export const conversationsApi = {
           // Use per-message model if available, fall back to conversation-level model for backward compatibility
           platform: interaction.model || packet.data.sourceChatbot.toLowerCase(),
           metadata: {
-            attachments: interaction.attachments || []
+            attachments: interaction.attachments || [],
+            // Preserve background agent alerts if present
+            ...(interaction.metadata?.backgroundAgentAlerts ? { backgroundAgentAlerts: interaction.metadata.backgroundAgentAlerts } : {}),
+            // Preserve any other metadata fields
+            ...(interaction.metadata ? Object.fromEntries(
+              Object.entries(interaction.metadata).filter(([key]) => key !== 'attachments' && key !== 'backgroundAgentAlerts')
+            ) : {})
           },
           attachments: interaction.attachments?.map((attachment, attIndex) => ({
             id: `${conversationId}-${index}-${attIndex}`,
@@ -433,6 +441,25 @@ export const conversationsApi = {
           })) || [],
           isEdited: false
         }));
+        
+        // Debug: Log alerts found in loaded messages
+        const messagesWithAlerts = messages.filter(m => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0);
+        if (messagesWithAlerts.length > 0) {
+          const totalAlerts = messagesWithAlerts.reduce((sum, m) => sum + (m.metadata?.backgroundAgentAlerts?.length ?? 0), 0);
+          console.log(`📋 [ConversationsAPI] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`);
+          messagesWithAlerts.forEach(msg => {
+            const alerts = msg.metadata?.backgroundAgentAlerts || [];
+            console.log(`📋 [ConversationsAPI]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`, 
+              alerts.map((a: any) => ({
+                agent: a.agentName || a.agentId,
+                severity: a.severity,
+                rating: a.rating,
+              }))
+            );
+          });
+        } else {
+          console.log(`📋 [ConversationsAPI] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`);
+        }
         
         return messages;
       } else {

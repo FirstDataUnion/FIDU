@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,6 +21,7 @@ import {
   Switch,
   FormControlLabel,
   Badge,
+  Collapse,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -29,6 +30,8 @@ import {
   ClearAll as ClearAllIcon,
   Refresh as RefreshIcon,
   SmartToy as SmartToyIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import type { AgentAlert } from '../../services/agents/agentAlerts';
 import {
@@ -41,6 +44,8 @@ import {
 import { transformBuiltInAgentsWithPreferences } from '../../services/agents/agentTransformers';
 import { loadAgentPreferences } from '../../services/agents/agentPreferences';
 import type { BackgroundAgent } from '../../services/api/backgroundAgents';
+import { conversationsService } from '../../services/conversationsService';
+import type { Message } from '../../types';
 
 interface AlertTimelineModalProps {
   open: boolean;
@@ -89,8 +94,11 @@ export default function AlertTimelineModal({
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'error' | 'warn' | 'info'>('all');
   const [filterAgentId, setFilterAgentId] = useState<string>('all');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [showAllConversations, setShowAllConversations] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set());
+  const [messages, setMessages] = useState<Map<string, Message>>(new Map());
+  const [messageIdToMessageMap, setMessageIdToMessageMap] = useState<Map<string, Message>>(new Map()); // Map from alert.messageId to actual Message
+  const [refreshKey, setRefreshKey] = useState(0); // Force refresh when modal opens
 
   // Load all agents for filter dropdown
   const allAgents = useMemo(() => {
@@ -99,15 +107,27 @@ export default function AlertTimelineModal({
     return [...builtInAgents, ...currentAgents];
   }, [currentAgents]);
 
-  // Load and filter alerts
+  // Refresh alerts when modal opens to ensure we have the latest data
+  useEffect(() => {
+    if (open) {
+      // Force refresh by updating the refresh key
+      // This ensures we reload alerts from storage when the modal opens
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [open]);
+
+  // Load and filter alerts - always filter by conversationId when provided
+  // Include refreshKey in dependencies to force reload when modal opens
   const alerts = useMemo(() => {
+    // refreshKey is intentionally included to force refresh when modal opens
+    void refreshKey; // Reference to force dependency
     return getFilteredAlerts({
       unreadOnly: showUnreadOnly,
       severity: filterSeverity === 'all' ? undefined : filterSeverity,
       agentId: filterAgentId === 'all' ? undefined : filterAgentId,
-      conversationId: showAllConversations ? undefined : conversationId,
+      conversationId: conversationId || undefined, // Only filter by conversationId if provided (undefined means no filter)
     });
-  }, [filterSeverity, filterAgentId, showUnreadOnly, showAllConversations, conversationId]);
+  }, [filterSeverity, filterAgentId, showUnreadOnly, conversationId, refreshKey]);
 
   // Group alerts by date, then by agent
   const groupedAlerts = useMemo(() => {
@@ -147,7 +167,76 @@ export default function AlertTimelineModal({
     return groups;
   }, [alerts, allAgents]);
 
-  const unreadCount = getUnreadAlertCount();
+  // Calculate unread count filtered by conversation if provided
+  const unreadCount = conversationId ? getUnreadAlertCount(conversationId) : getUnreadAlertCount();
+
+  // Load messages when conversationId changes and build mapping from alert.messageId to actual messages
+  useEffect(() => {
+    if (open && conversationId) {
+      const loadMessages = async () => {
+        try {
+          const loadedMessages = await conversationsService.getMessages(conversationId);
+          const messagesMap = new Map<string, Message>();
+          const alertIdToMessageMap = new Map<string, Message>();
+          
+          loadedMessages.forEach(msg => {
+            messagesMap.set(msg.id, msg);
+          });
+          
+          setMessages(messagesMap);
+          setMessageIdToMessageMap(alertIdToMessageMap);
+        } catch (error) {
+          console.error('Failed to load messages for alert timeline:', error);
+        }
+      };
+      void loadMessages();
+    }
+  }, [open, conversationId]);
+
+  // Build mapping from alert.messageId to actual messages after messages and alerts are loaded
+  // This uses the same mechanism as jump-to-message: simple messageId matching
+  // Since we now preserve original message IDs in storage, we can directly match by messageId
+  useEffect(() => {
+    if (messages.size > 0 && alerts.length > 0) {
+      const alertIdToMessageMap = new Map<string, Message>();
+      
+      console.log(`[AlertTimeline] Building message mapping: ${alerts.length} alerts, ${messages.size} messages`);
+      
+      // For each alert, find the message by its messageId (same as jump-to-message)
+      alerts.forEach(alert => {
+        if (!alert.messageId) {
+          return; // Skip if no messageId
+        }
+        
+        // Simple ID match - same as jump-to-message mechanism
+        const foundMessage = messages.get(alert.messageId);
+        
+        if (foundMessage) {
+          alertIdToMessageMap.set(alert.messageId, foundMessage);
+          console.log(`[AlertTimeline] ✅ Mapped alert ${alert.id} (messageId: ${alert.messageId}) to message ${foundMessage.id}`);
+        } else {
+          console.warn(`[AlertTimeline] ❌ Could not find message with ID ${alert.messageId} for alert ${alert.id}`);
+          console.log(`[AlertTimeline] Available message IDs:`, Array.from(messages.keys()));
+        }
+      });
+      
+      console.log(`[AlertTimeline] Built mapping: ${alertIdToMessageMap.size} alert messageIds mapped`);
+      setMessageIdToMessageMap(alertIdToMessageMap);
+    }
+  }, [messages, alerts]);
+
+  // Toggle alert expansion
+  const toggleAlertExpansion = useCallback((alertId: string) => {
+    setExpandedAlerts(prev => {
+      const next = new Set(prev);
+      if (next.has(alertId)) {
+        next.delete(alertId);
+      } else {
+        next.add(alertId);
+      }
+      return next;
+    });
+  }, []);
 
   const handleRefresh = useCallback(() => {
     if (onAlertsChanged) {
@@ -157,6 +246,8 @@ export default function AlertTimelineModal({
 
   const handleMarkAllAsRead = useCallback(() => {
     markAllAlertsAsRead();
+    // Force refresh by incrementing refreshKey to reload alerts from storage
+    setRefreshKey(prev => prev + 1);
     handleRefresh();
     setAnchorEl(null);
   }, [handleRefresh]);
@@ -171,6 +262,8 @@ export default function AlertTimelineModal({
 
   const handleMarkAsRead = useCallback((alertId: string) => {
     markAlertAsRead(alertId);
+    // Force refresh by incrementing refreshKey to reload alerts from storage
+    setRefreshKey(prev => prev + 1);
     handleRefresh();
   }, [handleRefresh]);
 
@@ -303,24 +396,6 @@ export default function AlertTimelineModal({
           label={<Typography variant="caption">Unread only</Typography>}
         />
 
-        <Tooltip
-          title={showAllConversations
-            ? 'Showing alerts from all conversations'
-            : 'Showing alerts from current conversation only'}
-          arrow
-        >
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showAllConversations}
-                onChange={(e) => setShowAllConversations(e.target.checked)}
-                size="small"
-              />
-            }
-            label={<Typography variant="caption">All conversations</Typography>}
-          />
-        </Tooltip>
-
         <Box sx={{ flexGrow: 1 }} />
 
         <Tooltip title="Refresh">
@@ -422,17 +497,21 @@ export default function AlertTimelineModal({
                       <Stack spacing={1.5}>
                         {agentAlerts.map((alert) => {
                           const colors = getSeverityColor(alert.severity);
+                          const isExpanded = expandedAlerts.has(alert.id);
+                          // Get message from the pre-built mapping
+                          const triggeringMessage = alert.messageId ? messageIdToMessageMap.get(alert.messageId) : null;
+                          const hasMessageId = !!alert.messageId;
+                          const canLoadMessage = hasMessageId && (conversationId || alert.conversationId);
                           return (
                             <Box key={alert.id}>
                               <Paper
                                 variant="outlined"
                                 sx={{
                                   p: 1.5,
-                                  backgroundColor: colors.bg,
+                                  backgroundColor: alert.read ? 'transparent' : colors.bg,
                                   borderColor: colors.border,
                                   borderWidth: alert.read ? 1 : 2,
                                   opacity: alert.read ? 0.7 : 1,
-                                  bgcolor: alert.read ? 'transparent' : undefined,
                                 }}
                               >
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -463,28 +542,157 @@ export default function AlertTimelineModal({
                                   </Typography>
                                 </Box>
                                 <Typography variant="body2" sx={{ color: colors.text, mb: 1 }}>
-                                  {alert.message || 'Background agent alert'}
+                                  {alert.shortMessage || alert.message || 'Background agent alert'}
                                 </Typography>
-                                {!alert.read && (
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<CheckCircleIcon />}
-                                    onClick={() => handleMarkAsRead(alert.id)}
-                                    sx={{
-                                      mt: 1,
-                                      fontSize: '0.75rem',
-                                      color: 'primary.dark',
-                                      borderColor: 'primary.dark',
-                                      backgroundColor: 'background.paper',
-                                      '&:hover': {
-                                        backgroundColor: 'primary.light',
-                                        borderColor: 'primary.main'
-                                      }
-                                    }}
-                                  >
-                                    Mark as Read
-                                  </Button>
+                                {alert.description && (
+                                  <Typography variant="body2" sx={{ color: colors.text, mb: 1, fontSize: '0.875rem' }}>
+                                    {alert.description}
+                                  </Typography>
+                                )}
+                                
+                                {/* Action Buttons */}
+                                <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                                  {hasMessageId && (
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      startIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                      onClick={() => {
+                                        // If we don't have the message yet but have a conversationId, try to load it
+                                        if (!triggeringMessage && canLoadMessage) {
+                                          const loadMessage = async () => {
+                                            try {
+                                              const convId = conversationId || alert.conversationId;
+                                              if (convId) {
+                                                console.log(`[AlertTimeline] Loading messages for conversation ${convId} to find message ${alert.messageId}`);
+                                                const loadedMessages = await conversationsService.getMessages(convId);
+                                                console.log(`[AlertTimeline] Loaded ${loadedMessages.length} messages, looking for messageId: ${alert.messageId}`);
+                                                console.log(`[AlertTimeline] Available message IDs:`, loadedMessages.map(m => m.id));
+                                                
+                                                const msgMap = new Map<string, Message>();
+                                                loadedMessages.forEach(msg => {
+                                                  msgMap.set(msg.id, msg);
+                                                });
+                                                
+                                                // Simple ID match - same as jump-to-message mechanism
+                                                const foundMessage = msgMap.get(alert.messageId!);
+                                                
+                                                if (foundMessage) {
+                                                  console.log(`[AlertTimeline] ✅ Found message ${foundMessage.id} for alert messageId ${alert.messageId}`);
+                                                } else {
+                                                  console.warn(`[AlertTimeline] ❌ Could not find message with ID ${alert.messageId}`);
+                                                  console.log(`[AlertTimeline] Available message IDs:`, loadedMessages.map(m => m.id));
+                                                }
+                                                
+                                                // Update messages map with all loaded messages
+                                                setMessages(prev => {
+                                                  const combined = new Map(prev);
+                                                  msgMap.forEach((v, k) => combined.set(k, v));
+                                                  return combined;
+                                                });
+                                                
+                                                if (foundMessage) {
+                                                  // Add the found message to both maps
+                                                  setMessages(prev => {
+                                                    const updated = new Map(prev);
+                                                    updated.set(foundMessage!.id, foundMessage!);
+                                                    return updated;
+                                                  });
+                                                  setMessageIdToMessageMap(prev => {
+                                                    const updated = new Map(prev);
+                                                    updated.set(alert.messageId!, foundMessage!);
+                                                    return updated;
+                                                  });
+                                                } else {
+                                                  console.warn(`[AlertTimeline] Could not find message for alert ${alert.id}, messageId: ${alert.messageId}`);
+                                                }
+                                              }
+                                            } catch (error) {
+                                              console.error('[AlertTimeline] Failed to load message for alert:', error);
+                                            }
+                                          };
+                                          void loadMessage();
+                                        }
+                                        toggleAlertExpansion(alert.id);
+                                      }}
+                                      disabled={!canLoadMessage && !triggeringMessage}
+                                      sx={{
+                                        fontSize: '0.75rem',
+                                        color: 'primary.dark',
+                                        borderColor: 'primary.dark',
+                                        backgroundColor: 'background.paper',
+                                        '&:hover': {
+                                          backgroundColor: 'primary.light',
+                                          borderColor: 'primary.main'
+                                        },
+                                        '&.Mui-disabled': {
+                                          color: 'text.disabled',
+                                          borderColor: 'divider',
+                                        }
+                                      }}
+                                    >
+                                      {isExpanded ? 'Hide' : 'Show'} Original Chat Message
+                                    </Button>
+                                  )}
+                                  {!alert.read && (
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      startIcon={<CheckCircleIcon />}
+                                      onClick={() => handleMarkAsRead(alert.id)}
+                                      sx={{
+                                        fontSize: '0.75rem',
+                                        color: 'primary.dark',
+                                        borderColor: 'primary.dark',
+                                        backgroundColor: 'background.paper',
+                                        '&:hover': {
+                                          backgroundColor: 'primary.light',
+                                          borderColor: 'primary.main'
+                                        }
+                                      }}
+                                    >
+                                      Mark as Read
+                                    </Button>
+                                  )}
+                                </Stack>
+                                
+                                {/* Expanded Message View */}
+                                {isExpanded && (
+                                  <Collapse in={isExpanded}>
+                                    <Paper
+                                      variant="outlined"
+                                      sx={{
+                                        mt: 1.5,
+                                        p: 1.5,
+                                        backgroundColor: 'background.default',
+                                        borderColor: 'divider',
+                                      }}
+                                    >
+                                      {triggeringMessage ? (
+                                        <>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                                            Triggering Message ({triggeringMessage.role})
+                                          </Typography>
+                                          <Typography
+                                            variant="body2"
+                                            sx={{
+                                              whiteSpace: 'pre-wrap',
+                                              wordBreak: 'break-word',
+                                              color: 'text.primary',
+                                            }}
+                                          >
+                                            {triggeringMessage.content}
+                                          </Typography>
+                                        </>
+                                      ) : (
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                          {hasMessageId && !canLoadMessage
+                                            ? 'Message unavailable (conversation not found)'
+                                            : 'Loading message...'}
+                                        </Typography>
+                                      )}
+                                    </Paper>
+                                  </Collapse>
                                 )}
                               </Paper>
                             </Box>
@@ -525,4 +733,5 @@ export default function AlertTimelineModal({
     </Dialog>
   );
 }
+
 

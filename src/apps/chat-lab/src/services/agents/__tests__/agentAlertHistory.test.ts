@@ -328,12 +328,11 @@ describe('agentAlertHistory', () => {
       localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
       
       const filtered = getFilteredAlerts({ conversationId: 'conv-1' });
-      // Filter logic: !a.conversationId || a.conversationId === filters.conversationId
-      // So alerts with undefined conversationId are included when filtering by conversationId
-      // This allows showing alerts that weren't linked to a conversation
-      expect(filtered.length).toBeGreaterThanOrEqual(1);
-      // Should include both: alert-1 (undefined matches) and alert-2 (exact match)
-      expect(filtered.some(a => a.id === 'alert-1')).toBe(true);
+      // Filter logic: a.conversationId === filters.conversationId
+      // Only alerts with matching conversationId are included (excludes legacy alerts without conversationId)
+      expect(filtered.length).toBe(1);
+      // Should only include alert-2 (exact match)
+      expect(filtered.some(a => a.id === 'alert-1')).toBe(false);
       expect(filtered.some(a => a.id === 'alert-2')).toBe(true);
     });
 

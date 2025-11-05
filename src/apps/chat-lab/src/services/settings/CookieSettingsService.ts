@@ -5,6 +5,7 @@
 
 import type { UserSettings } from '../../types';
 import { getFiduAuthCookieService } from '../auth/FiduAuthCookieService';
+import { detectRuntimeEnvironment } from '../../utils/environment';
 
 export interface CookieSettingsResponse {
   settings?: UserSettings;
@@ -19,23 +20,8 @@ export class CookieSettingsService {
       ? '/fidu-chat-lab' 
       : '';
     
-    // Detect environment based on hostname
-    this.environment = this.detectEnvironment();
-  }
-
-  /**
-   * Detect the current environment (dev, prod, local)
-   */
-  private detectEnvironment(): string {
-    const hostname = window.location.hostname;
-    
-    if (hostname.includes('dev.')) {
-      return 'dev';
-    } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-      return 'local';
-    } else {
-      return 'prod';
-    }
+    // Detect environment based on hostname using shared utility
+    this.environment = detectRuntimeEnvironment();
   }
 
   /**

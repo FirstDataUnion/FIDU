@@ -95,10 +95,18 @@ export function clearAlertHistory(): void {
 
 /**
  * Get count of unread alerts
+ * @param conversationId Optional conversation ID to filter alerts by current conversation only
  */
-export function getUnreadAlertCount(): number {
+export function getUnreadAlertCount(conversationId?: string): number {
   const history = loadAlertHistory();
-  return history.filter(a => !a.read).length;
+  let filtered = history.filter(a => !a.read);
+  
+  // If conversationId is provided, only count alerts for that conversation
+  if (conversationId) {
+    filtered = filtered.filter(a => a.conversationId === conversationId);
+  }
+  
+  return filtered.length;
 }
 
 /**
@@ -130,7 +138,8 @@ export function getFilteredAlerts(filters?: {
   }
   
   if (filters?.conversationId) {
-    history = history.filter(a => !a.conversationId || a.conversationId === filters.conversationId);
+    // Only show alerts that match the conversationId exactly (exclude legacy alerts without conversationId)
+    history = history.filter(a => a.conversationId === filters.conversationId);
   }
   
   if (filters?.messageId) {

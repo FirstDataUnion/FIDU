@@ -5,7 +5,7 @@
  * These tests verify the behavior through the public maybeEvaluateBackgroundAgents API
  */
 
-import { maybeEvaluateBackgroundAgents } from '../backgroundAgentRunner';
+import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
 import type { ConversationSliceMessage } from '../backgroundAgentsService';
 
@@ -41,6 +41,9 @@ jest.mock('../agentAlerts', () => ({
 describe('Context Window Message Slicing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear debounce cache to prevent test interference
+    clearDebounceCache();
+    
     mockLoadAgentPreferences.mockReturnValue({});
     mockTransformBuiltInAgents.mockReturnValue([]);
     mockEvaluateBackgroundAgent.mockResolvedValue({
@@ -70,6 +73,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        actionType: 'alert',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         contextWindowStrategy: 'lastNMessages',
@@ -90,6 +94,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       // Verify evaluateBackgroundAgent was called with sliced messages
@@ -110,6 +115,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'lastNMessages',
         contextParams: {}, // No lastN specified
         promptTemplate: 'Test',
@@ -128,6 +134,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       const slice = mockEvaluateBackgroundAgent.mock.calls[0][1];
@@ -142,6 +149,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'lastNMessages',
         contextParams: { lastN: 10 }, // More than available
         promptTemplate: 'Test',
@@ -160,6 +168,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       const slice = mockEvaluateBackgroundAgent.mock.calls[0][1];
@@ -174,6 +183,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'lastNMessages',
         contextParams: { lastN: 150 }, // Invalid: too high
         promptTemplate: 'Test',
@@ -192,6 +202,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       const slice = mockEvaluateBackgroundAgent.mock.calls[0][1];
@@ -205,6 +216,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'lastNMessages',
         contextParams: { lastN: 6 },
         promptTemplate: 'Test',
@@ -225,6 +237,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages: [],
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       // Should handle gracefully - may or may not call evaluateBackgroundAgent
@@ -243,6 +256,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'summarizeThenEvaluate',
         contextParams: {},
         promptTemplate: 'Test',
@@ -261,6 +275,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       const slice = mockEvaluateBackgroundAgent.mock.calls[0][1];
@@ -275,6 +290,7 @@ describe('Context Window Message Slicing', () => {
         enabled: true,
         runEveryNTurns: 1,
         verbosityThreshold: 50,
+        actionType: 'alert',
         contextWindowStrategy: 'fullThreadIfSmall',
         contextParams: { tokenLimit: 4000 },
         promptTemplate: 'Test',
@@ -293,6 +309,7 @@ describe('Context Window Message Slicing', () => {
         conversationId: 'c1',
         messages,
         turnCount: 1,
+        messageId: 'test-msg-1',
       });
 
       const slice = mockEvaluateBackgroundAgent.mock.calls[0][1];

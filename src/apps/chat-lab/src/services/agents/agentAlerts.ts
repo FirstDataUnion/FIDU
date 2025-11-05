@@ -6,7 +6,9 @@ export type AgentAlert = {
   createdAt: string;
   rating: number;
   severity: 'info' | 'warn' | 'error';
-  message: string;
+  message: string; // Legacy field - kept for backward compatibility, use shortMessage instead
+  shortMessage?: string; // Brief notification for toast/popup (1-2 sentences)
+  description?: string; // Detailed explanation for expanded view (2-4 paragraphs)
   details?: Record<string, any>;
   read: boolean;
   conversationId?: string; // Optional: link alert to specific conversation
