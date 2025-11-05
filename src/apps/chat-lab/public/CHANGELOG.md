@@ -14,12 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **FIDU Evaluator Background Agent**: Added one built in background agent thay performs analysis for eithical issues in a chat bot, alerting the user if any are found. 
 
 ### Changed
-
+- **Register Process**: Registration process now redirects users to ID service dashboard and then redirects them to chat lab once registration completes, to provide a unified registration window. 
 
 
 ### Fixed
 - **Local login race condition**: fixed an issue where the FIDU login window would never appear when running locally due to initializing the SDK before it was ready. Added a robust readiness wait-and-retry to ensure the SDK is available before initialization.
-- **Wharton System Prompts**: fixed some of the prompt content and token estimations of the wharton system prompts. 
+- **Wharton System Prompts**: fixed some of the prompt content and token estimations of the wharton system prompts.
 
 ## [0.1.6] - 2025-10-27
 

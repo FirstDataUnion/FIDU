@@ -116,9 +116,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     setProfileMenuAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
+  const handleLogout = async () => {
     handleProfileMenuClose();
+    await dispatch(logout());
   };
 
   const handleManageAccount = () => {

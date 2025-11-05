@@ -9,7 +9,7 @@ declare global {
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/material';
 import { useAppDispatch } from '../../hooks/redux';
-import { initializeAuth } from '../../store/slices/authSlice';
+import { initializeAuth, logout } from '../../store/slices/authSlice';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
 import { refreshTokenService } from '../../services/api/refreshTokenService';
 import { getIdentityServiceUrl } from '../../utils/environment';
@@ -120,7 +120,6 @@ const FiduAuthLogin: React.FC = () => {
     const initWhenReady = async () => {
       const ready = await waitForFIDUAuth();
       if (!ready || cancelled) {
-        // If the SDK still isn't ready after waiting, surface an actionable error
         if (!error) {
           setError('Authentication system did not initialize in time. Please reload or click Retry.');
         }
@@ -128,13 +127,15 @@ const FiduAuthLogin: React.FC = () => {
       }
 
       // Reuse existing instance if present to avoid double init
+      // SDK automatically detects SSO tokens in URL when init() is called
       const fidu = window.__fiduAuthInstance || new window.FIDUAuth({
         fiduHost: getFiduHost(),
-        debug: true,
+        origin: window.location.origin, // Required for SSO validation
+        debug: false, // Set to true for debugging if needed
       });
       window.__fiduAuthInstance = fidu;
 
-    fidu.on('onAuthSuccess', async (_user: any, token: string | any, _portalUrl: any, refreshToken?: string) => {
+      fidu.on('onAuthSuccess', async (_user: any, token: string | any, _portalUrl: any, refreshToken?: string) => {
       try {
         // Store tokens in HTTP-only cookies (primary storage)
         const fiduAuthService = getFiduAuthCookieService();
@@ -152,14 +153,12 @@ const FiduAuthLogin: React.FC = () => {
           // Standard format: token is a string (access token)
           accessToken = token as string;
           
-          // Use the refresh token parameter if provided, otherwise fallback to localStorage, otherwise to access token
+          // Use the refresh token parameter if provided, otherwise fallback to localStorage
           if (refreshToken && refreshToken.trim() !== '') {
             refreshTokenValue = refreshToken;
-            console.log('✅ Using refresh token from callback parameter');
           } else {
             // Fallback: Get refresh token from localStorage (SDK stores it as 'fiduRefreshToken')
             refreshTokenValue = localStorage.getItem('fiduRefreshToken') || accessToken;
-            console.log('⚠️ Refresh token not in callback, using localStorage fallback');
           }
         }
         
@@ -183,15 +182,7 @@ const FiduAuthLogin: React.FC = () => {
         // Store tokens in HTTP-only cookies with proper access and refresh tokens
         const success = await fiduAuthService.setTokens(accessToken, refreshTokenValue, user);
         
-        // Log token values for debugging (first 30 chars only)
-        console.log('🔑 Storing tokens:', {
-          accessToken: accessToken.substring(0, 30) + '...',
-          refreshToken: refreshTokenValue.substring(0, 30) + '...',
-          areDifferent: accessToken !== refreshTokenValue
-        });
-        
         if (success) {
-          console.log('✅ FIDU auth tokens stored in HTTP-only cookies');
           
           // Keep localStorage as fallback for backward compatibility
           localStorage.setItem('auth_token', accessToken);
@@ -207,7 +198,6 @@ const FiduAuthLogin: React.FC = () => {
           const envInfo = getEnvironmentInfo();
           if (envInfo.storageMode === 'cloud') {
             try {
-              console.log('🔄 Using AuthManager to check/restore Google Drive authentication after FIDU login...');
               const { getAuthManager } = await import('../../services/auth/AuthManager');
               const { store } = await import('../../store');
               const { getUnifiedStorageService } = await import('../../services/storage/UnifiedStorageService');
@@ -217,18 +207,10 @@ const FiduAuthLogin: React.FC = () => {
               const restored = await authManager.checkAndRestore();
               
               if (restored) {
-                console.log('✅ Google Drive authentication restored via AuthManager after FIDU login');
-                
-                // Optimization: Skip OAuth callback redirect and directly reinitialize storage
-                // This saves 1-2 seconds by avoiding the page redirect and reload
-                console.log('⚡ [Optimization] Skipping OAuth callback redirect - directly reinitializing storage');
-                
                 try {
                   // Re-initialize storage to trigger data sync
                   const storageService = getUnifiedStorageService();
                   await storageService.reinitialize();
-                  console.log('✅ Storage re-initialized and data synced after FIDU login');
-                  
                   // No redirect needed - user stays on current page with data loaded
                   return;
                 } catch (storageError) {
@@ -237,8 +219,6 @@ const FiduAuthLogin: React.FC = () => {
                   window.location.href = '/fidu-chat-lab/oauth-callback?postLogin=1';
                   return;
                 }
-              } else {
-                console.log('ℹ️ No Google Drive authentication found');
               }
             } catch (error) {
               console.warn('Failed to restore Google Drive authentication via AuthManager:', error);
@@ -264,13 +244,24 @@ const FiduAuthLogin: React.FC = () => {
       setError('Authentication failed. Please try again.');
     });
 
-    // Clear any previous widget content
-    const container = document.getElementById('fiduAuthContainer');
-    if (container) container.innerHTML = '';
+    fidu.on('onLogout', () => {
+      // Handle logout - SDK handles SSO token detection automatically
+      dispatch(logout()).catch(() => {
+        refreshTokenService.clearAllAuthTokens();
+      });
+    });
 
+      // Clear any previous widget content
+      const container = document.getElementById('fiduAuthContainer');
+      if (container) {
+        container.innerHTML = '';
+      }
+
+      // Initialize SDK - this automatically detects SSO tokens in URL
       fidu.init().then((isAuthenticated: boolean) => {
         if (!isAuthenticated) {
-          fidu.showLoginWidget();
+          // Show login widget if user is not authenticated
+          fidu.showLoginWidget('fiduAuthContainer');
         }
       });
     };

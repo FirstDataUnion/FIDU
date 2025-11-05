@@ -62,6 +62,48 @@ export const deleteProfile = createAsyncThunk(
   }
 );
 
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      console.log('🧹 Starting logout process...');
+      
+      // Clear HTTP-only cookies via backend (FIDU auth)
+      const fiduAuthService = getFiduAuthCookieService();
+      await fiduAuthService.clearTokens();
+      console.log('✅ FIDU auth cookies cleared');
+      
+      // Clear Google Drive auth if available
+      try {
+        const { getGoogleDriveAuthService } = await import('../../services/auth/GoogleDriveAuth');
+        const googleDriveAuthService = await getGoogleDriveAuthService();
+        await googleDriveAuthService.logout();
+        console.log('✅ Google Drive auth cleared');
+      } catch (error) {
+        // If Google Drive auth service is not available, that's okay - just log it
+        console.warn('Could not clear Google Drive auth (may not be initialized):', error);
+      }
+      
+      // Clear localStorage and client-side cookies
+      refreshTokenService.clearAllAuthTokens();
+      console.log('✅ LocalStorage and client-side cookies cleared');
+      
+      // Also clear Google Drive tokens from localStorage if they exist
+      localStorage.removeItem('google_drive_tokens');
+      localStorage.removeItem('google_drive_user');
+      
+      return true;
+    } catch (error: any) {
+      console.error('❌ Logout failed:', error);
+      // Even if some steps fail, we should still clear what we can
+      refreshTokenService.clearAllAuthTokens();
+      localStorage.removeItem('google_drive_tokens');
+      localStorage.removeItem('google_drive_user');
+      return rejectWithValue(error.message || 'Failed to logout completely');
+    }
+  }
+);
+
 export const initializeAuth = createAsyncThunk(
   'auth/initializeAuth',
   async (_, { dispatch, rejectWithValue }) => {
@@ -166,17 +208,6 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    logout: (state) => {
-      state.user = null;
-      state.currentProfile = null;
-      state.profiles = [];
-      state.token = null;
-      state.isAuthenticated = false;
-      state.error = null;
-      
-      // Clear localStorage
-      refreshTokenService.clearAllAuthTokens();
-    },
     
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
       state.currentProfile = action.payload;
@@ -290,9 +321,34 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isInitialized = true;
         state.error = action.payload as string;
+      })
+      
+      // Logout
+      .addCase(logout.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.isLoading = false;
+        state.user = null;
+        state.currentProfile = null;
+        state.profiles = [];
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = null;
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.isLoading = false;
+        // Still clear state even if some steps failed
+        state.user = null;
+        state.currentProfile = null;
+        state.profiles = [];
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = action.payload as string;
       });
   },
 });
 
-export const { logout, setCurrentProfile, clearError, setLoading } = authSlice.actions;
+export const { setCurrentProfile, clearError, setLoading } = authSlice.actions;
 export default authSlice.reducer; 
