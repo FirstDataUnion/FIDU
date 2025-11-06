@@ -18,7 +18,6 @@ import {
   CircularProgress,
   Button,
   Link,
-  Fab,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -28,7 +27,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   FolderOutlined as FolderIcon,
-  HelpOutline as HelpOutlineIcon
+  HelpOutline as HelpOutlineIcon,
+  FileDownload as ImportIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -39,6 +39,11 @@ import { ConversationSelectionList } from '../components/contexts/ConversationSe
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 import ContextHelpModal from '../components/help/ContextHelpModal';
+import { useMultiSelect } from '../hooks/useMultiSelect';
+import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
+import { getResourceExportService } from '../services/resourceExport/resourceExportService';
+import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
+import type { ExportSelection } from '../services/resourceExport/types';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 
 export default function ContextsPage() {
@@ -46,10 +51,15 @@ export default function ContextsPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const dispatch = useAppDispatch();
-  const { currentProfile } = useAppSelector((state) => state.auth);
+  const { currentProfile, user } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
+  
+  // Multi-select export state
+  const multiSelect = useMultiSelect();
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,6 +210,33 @@ export default function ContextsPage() {
     });
     setViewEditDialogOpen(true);
   }, []);
+
+  const handleExportSelected = useCallback(async () => {
+    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+    setIsExporting(true);
+    try {
+      const exportService = getResourceExportService();
+      const selection: ExportSelection = {
+        contextIds: Array.from(multiSelect.selectedIds),
+      };
+      const exportData = await exportService.exportResources(
+        selection,
+        currentProfile.id,
+        user?.email
+      );
+      exportService.downloadExport(exportData);
+      multiSelect.exitSelectionMode();
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Could add error snackbar here
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentProfile?.id, multiSelect, user?.email]);
+
+  const handleCancelExport = useCallback(() => {
+    multiSelect.exitSelectionMode();
+  }, [multiSelect]);
 
   const handleViewEditSubmit = useCallback(async () => {
     if (!selectedContext || !currentProfile?.id || !viewEditForm.title || !viewEditForm.body) return;
@@ -400,15 +437,26 @@ export default function ContextsPage() {
             </Box>
             {/* Only show Add Context button on desktop */}
             {!isMobile && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateContext}
-                disabled={isDirectoryRequired}
-                sx={{ borderRadius: 2 }}
-              >
-                Add Context
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreateContext}
+                  disabled={isDirectoryRequired}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Add Context
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<ImportIcon />}
+                  onClick={() => setShowImportDialog(true)}
+                  disabled={isDirectoryRequired}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Import
+                </Button>
+              </Box>
             )}
           </Box>
 
@@ -467,6 +515,10 @@ export default function ContextsPage() {
                 key={context.id || `context-${index}`} 
                 context={context} 
                 onViewEdit={handleViewEditContext}
+                isSelectionMode={multiSelect.isSelectionMode}
+                isSelected={multiSelect.isSelected(context.id)}
+                onToggleSelection={multiSelect.toggleSelection}
+                onEnterSelectionMode={multiSelect.enterSelectionMode}
               />
           ))}
         </Box>
@@ -731,31 +783,28 @@ export default function ContextsPage() {
         onClose={() => setHelpModalOpen(false)}
       />
 
-      {/* Mobile Floating Action Button */}
-      {isMobile && unifiedStorage.status === 'configured' && (
-        <Fab
-          color="primary"
-          aria-label="Add Context"
-          onClick={handleCreateContext}
-          disabled={isDirectoryRequired}
-          sx={{
-            position: 'fixed',
-            bottom: 16,
-            right: 16,
-            zIndex: 1000,
-            backgroundColor: 'primary.main',
-            '&:hover': {
-              backgroundColor: 'primary.dark',
-            },
-            '&:disabled': {
-              backgroundColor: 'action.disabled',
-              color: 'action.disabled',
-            }
-          }}
-        >
-          <AddIcon />
-        </Fab>
+      {/* Floating Export Actions */}
+      {multiSelect.isSelectionMode && (
+        <FloatingExportActions
+          selectionCount={multiSelect.selectionCount}
+          onExport={handleExportSelected}
+          onCancel={handleCancelExport}
+          disabled={isExporting}
+        />
       )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Refresh contexts after import
+          if (currentProfile?.id) {
+            dispatch(fetchContexts(currentProfile.id));
+          }
+        }}
+      />
+
     </Box>
   );
 } 

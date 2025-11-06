@@ -61,6 +61,7 @@ import { InsufficientPermissionsError } from '../../services/storage/drive/Googl
 import { setInsufficientPermissions, revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
+import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
 
 const drawerWidth = 240;
@@ -376,7 +377,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             opacity: 0.5,
           }}
         >
-          v0.1.7 • FIDU
+          {getVersionDisplay()} • FIDU
         </Typography>
       </Box>
     </Box>

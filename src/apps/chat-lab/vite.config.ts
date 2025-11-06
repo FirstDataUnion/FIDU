@@ -1,5 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// Read version from package.json
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+const appVersion = packageJson.version
 
 export default defineConfig(({ mode }) => {
   // Determine if we should drop console logs
@@ -9,6 +15,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: '/fidu-chat-lab/',
+    define: {
+      // Inject app version at build time
+      // Note: Vite automatically prefixes env vars with VITE_, so we use VITE_APP_VERSION
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    },
+    envPrefix: 'VITE_',
     server: {
       proxy: {
         // Direct API calls (when pathname does not include base)

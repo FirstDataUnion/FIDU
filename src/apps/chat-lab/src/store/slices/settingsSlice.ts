@@ -89,12 +89,48 @@ const loadSettingsFromStorage = async (): Promise<UserSettings> => {
   return defaultSettings;
 };
 
+/**
+ * Create a plain object copy from Immer draft state
+ * This prevents "proxy revoked" errors when serializing settings
+ * Must be called synchronously within the reducer to avoid proxy revocation
+ */
+const createPlainSettingsCopy = (settings: UserSettings): UserSettings => {
+  try {
+    // Use structuredClone if available (modern browsers) - works with Immer proxies
+    if (typeof structuredClone !== 'undefined') {
+      return structuredClone(settings);
+    }
+    // Fallback: manual deep copy for older browsers
+    // This reads all properties synchronously before the proxy is revoked
+    return {
+      ...settings,
+      apiKeys: { ...settings.apiKeys },
+      privacySettings: { ...settings.privacySettings },
+      displaySettings: { ...settings.displaySettings },
+      syncSettings: { ...settings.syncSettings },
+    };
+  } catch (error) {
+    // If structuredClone fails, try JSON fallback as last resort
+    // This should work if current() provides a readable snapshot
+    try {
+      return JSON.parse(JSON.stringify(settings));
+    } catch (jsonError) {
+      console.error('Failed to create plain settings copy:', jsonError);
+      // Return a safe fallback
+      return { ...defaultSettings };
+    }
+  }
+};
+
 // Save settings to both cookies (primary) and localStorage (fallback)
 const saveSettingsToStorage = async (settings: UserSettings): Promise<void> => {
   try {
+    // Create a plain copy to avoid proxy issues
+    const plainSettings = createPlainSettingsCopy(settings);
+    
     // Primary: Save to HTTP-only cookies
     const cookieService = getCookieSettingsService();
-    const cookieSuccess = await cookieService.setSettings(settings);
+    const cookieSuccess = await cookieService.setSettings(plainSettings);
     
     if (cookieSuccess) {
       console.log('✅ Settings saved to HTTP-only cookies');
@@ -103,12 +139,13 @@ const saveSettingsToStorage = async (settings: UserSettings): Promise<void> => {
     }
     
     // Fallback: Also save to localStorage for backward compatibility
-    localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(settings));
+    localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(plainSettings));
   } catch (error) {
     console.warn('Failed to save settings:', error);
     // Fallback to localStorage only
     try {
-      localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(settings));
+      const plainSettings = createPlainSettingsCopy(settings);
+      localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(plainSettings));
     } catch (localError) {
       console.error('Failed to save settings to localStorage:', localError);
     }
@@ -143,50 +180,59 @@ const settingsSlice = createSlice({
     updateSettingsLocally: (state, action) => {
       state.settings = { ...state.settings, ...action.payload };
       // Save asynchronously without blocking the reducer
-      saveSettingsToStorage(state.settings).catch(error => 
+      // Create plain copy synchronously before reducer completes to avoid proxy revocation
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after update:', error)
       );
     },
     updateTheme: (state, action) => {
       state.settings.theme = action.payload;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after theme update:', error)
       );
     },
     updateLastUsedModel: (state, action) => {
       state.settings.lastUsedModel = action.payload;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after model update:', error)
       );
     },
     updateStorageMode: (state, action) => {
       state.settings.storageMode = action.payload;
       state.settings.userSelectedStorageMode = true; // Mark that user has made a selection
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after storage mode update:', error)
       );
     },
     markStorageConfigured: (state) => {
       state.settings.storageConfigured = true;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after marking configured:', error)
       );
     },
     resetStorageConfiguration: (state) => {
       state.settings.storageConfigured = false;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after reset configuration:', error)
       );
     },
     updateSyncDelay: (state, action) => {
       state.settings.syncSettings.autoSyncDelayMinutes = action.payload;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after sync delay update:', error)
       );
     },
     updateShareAnalytics: (state, action) => {
       state.settings.privacySettings.shareAnalytics = action.payload;
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after analytics update:', error)
       );
     },
@@ -195,7 +241,8 @@ const settingsSlice = createSlice({
     },
     resetToDefaults: (state) => {
       state.settings = { ...defaultSettings };
-      saveSettingsToStorage(state.settings).catch(error => 
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error => 
         console.warn('Failed to save settings after reset to defaults:', error)
       );
     },

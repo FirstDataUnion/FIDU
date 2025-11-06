@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
+import { APP_VERSION } from '../utils/version';
 
 /**
  * What's New Page
@@ -40,8 +41,16 @@ const WhatsNewPage: React.FC = () => {
         setError(null);
         
         // Fetch the markdown file from the public URL
+        // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
-        const response = await fetch(`${basePath}CHANGELOG.md`);
+        const changelogUrl = `${basePath}CHANGELOG.md?v=${APP_VERSION}`;
+        const response = await fetch(changelogUrl, {
+          // Add cache control headers to prevent browser caching
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to load changelog: ${response.status} ${response.statusText}`);

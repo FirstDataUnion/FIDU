@@ -22,6 +22,7 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   ArrowBack as ArrowBackIcon,
+  FileDownload as ImportIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -38,6 +39,11 @@ import { useDebouncedSearch } from '../hooks/useDebouncedSearch';
 import { useLazyLoad } from '../hooks/useLazyLoad';
 import VirtualList from '../components/common/VirtualList';
 import { validateSearchQuery } from '../utils/validation';
+import { useMultiSelect } from '../hooks/useMultiSelect';
+import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
+import { getResourceExportService } from '../services/resourceExport/resourceExportService';
+import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
+import type { ExportSelection } from '../services/resourceExport/types';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import {
   selectConversationsLoading,
@@ -56,7 +62,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   const loading = useAppSelector((state) => selectConversationsLoading(state));
   const error = useAppSelector((state) => selectConversationsError(state));
   const { items: contexts } = useAppSelector((state) => state.contexts);
-  const { isAuthenticated, currentProfile } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, currentProfile, user } = useAppSelector((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
   
   // Search and Filter State
@@ -86,6 +92,11 @@ const ConversationsPage: React.FC = React.memo(() => {
 
   // Mobile View State
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
+
+  // Multi-select for export
+  const multiSelect = useMultiSelect();
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // Memoized search handler to prevent infinite loops
   const handleSearch = useCallback((query: string) => {
@@ -350,6 +361,37 @@ const ConversationsPage: React.FC = React.memo(() => {
     }, 100);
   }, []);
 
+  // Export handlers
+  const handleExportSelected = useCallback(async () => {
+    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+
+    setIsExporting(true);
+    try {
+      const exportService = getResourceExportService();
+      const selection: ExportSelection = {
+        conversationIds: Array.from(multiSelect.selectedIds),
+      };
+      
+      const exportData = await exportService.exportResources(
+        selection,
+        currentProfile.id,
+        user?.email
+      );
+      
+      exportService.downloadExport(exportData);
+      multiSelect.exitSelectionMode();
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Could add error snackbar here
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentProfile?.id, multiSelect, user?.email]);
+
+  const handleCancelExport = useCallback(() => {
+    multiSelect.exitSelectionMode();
+  }, [multiSelect]);
+
   // Save tag changes
   const handleSaveTags = useCallback(() => {
     if (selectedConversation) {
@@ -563,6 +605,10 @@ const ConversationsPage: React.FC = React.memo(() => {
                       isCurrentlyViewing={selectedConversation?.id === conversation.id}
                       onSelect={handleConversationSelect}
                       onTagManagement={handleTagManagement}
+                      isSelectionMode={multiSelect.isSelectionMode}
+                      isSelected={multiSelect.isSelected(conversation.id)}
+                      onToggleSelection={multiSelect.toggleSelection}
+                      onEnterSelectionMode={multiSelect.enterSelectionMode}
                     />
                   ))}
                 </Box>
@@ -652,6 +698,28 @@ const ConversationsPage: React.FC = React.memo(() => {
           allTags={allTags}
           onTagsChange={setEditedTags}
           onSave={handleSaveTags}
+        />
+
+        {/* Floating Export Actions */}
+        {multiSelect.isSelectionMode && (
+          <FloatingExportActions
+            selectionCount={multiSelect.selectionCount}
+            onExport={handleExportSelected}
+            onCancel={handleCancelExport}
+            disabled={isExporting}
+          />
+        )}
+
+        {/* Resource Import Dialog */}
+        <ResourceImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            // Refresh conversations after import
+            if (currentProfile?.id) {
+              dispatch(fetchConversations({}));
+            }
+          }}
         />
       </Box>
     );
@@ -743,6 +811,24 @@ const ConversationsPage: React.FC = React.memo(() => {
               flexWrap: 'wrap'
             }}
           >
+            <Button
+              variant="outlined"
+              startIcon={<ImportIcon />}
+              onClick={() => setShowImportDialog(true)}
+              aria-label="Import resources"
+              sx={{ 
+                flexShrink: 0,
+                color: 'primary.dark',
+                borderColor: 'primary.dark',
+                backgroundColor: 'background.paper',
+                '&:hover': {
+                  backgroundColor: 'primary.light',
+                  borderColor: 'primary.main'
+                }
+              }}
+            >
+              Import
+            </Button>
             <Button
               variant="outlined"
               onClick={handleRefresh}
@@ -921,6 +1007,10 @@ const ConversationsPage: React.FC = React.memo(() => {
                       isCurrentlyViewing={selectedConversation?.id === conversation.id}
                       onSelect={handleConversationSelect}
                       onTagManagement={handleTagManagement}
+                      isSelectionMode={multiSelect.isSelectionMode}
+                      isSelected={multiSelect.isSelected(conversation.id)}
+                      onToggleSelection={multiSelect.toggleSelection}
+                      onEnterSelectionMode={multiSelect.enterSelectionMode}
                     />
                   ))
                 )}
@@ -1049,6 +1139,28 @@ const ConversationsPage: React.FC = React.memo(() => {
         allTags={allTags}
         onTagsChange={setEditedTags}
         onSave={handleSaveTags}
+      />
+
+      {/* Floating Export Actions */}
+      {multiSelect.isSelectionMode && (
+        <FloatingExportActions
+          selectionCount={multiSelect.selectionCount}
+          onExport={handleExportSelected}
+          onCancel={handleCancelExport}
+          disabled={isExporting}
+        />
+      )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Refresh conversations after import
+          if (currentProfile?.id) {
+            dispatch(fetchConversations({}));
+          }
+        }}
       />
     </Box>
   );

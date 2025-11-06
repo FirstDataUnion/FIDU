@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
+import { APP_VERSION } from '../utils/version';
 
 /**
  * Terms of Use Page
@@ -38,8 +39,16 @@ const TermsOfUsePage: React.FC = () => {
         setError(null);
         
         // Fetch the markdown file from the public URL
+        // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
-        const response = await fetch(`${basePath}TERMS_OF_USE.md`);
+        const termsOfUseUrl = `${basePath}TERMS_OF_USE.md?v=${APP_VERSION}`;
+        const response = await fetch(termsOfUseUrl, {
+          // Add cache control headers to prevent browser caching
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to load terms of use: ${response.status} ${response.statusText}`);

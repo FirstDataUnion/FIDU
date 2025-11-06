@@ -5,13 +5,14 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.7] - UNRELEASED
+## [0.1.7] - 2025-11-06
 
 ### Added
 - **FIDU Challenger System Prompt**: new built in system prompt to help challenge and strengthen ideas. 
 - **Background Agents**: initial scaffolding (DataPacket-based schema/API client) to support configurable background analysis agents stored like system prompts.
 - **Background Agents**: Customisable agents that can be triggered to run the background of a conversation, performing various evaluation tasks and reporting back to the user in a configurable approach
 - **FIDU Evaluator Background Agent**: Added one built in background agent thay performs analysis for eithical issues in a chat bot, alerting the user if any are found. 
+- **Import/Export process**: Added the ability to export resources (System Prompts, Contexts, Conversations, BackgroundAgents) in JSON files that can then be imported again user another profile, user, etc. intended as an early sharing mechanism. All resource display cards now show an export button that allow multi selection, and there is a settings option that allows for mass exporting of multiple resource types in a single file. 
 
 ### Changed
 - **Register Process**: Registration process now redirects users to ID service dashboard and then redirects them to chat lab once registration completes, to provide a unified registration window. 
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Local login race condition**: fixed an issue where the FIDU login window would never appear when running locally due to initializing the SDK before it was ready. Added a robust readiness wait-and-retry to ensure the SDK is available before initialization.
 - **Wharton System Prompts**: fixed some of the prompt content and token estimations of the wharton system prompts.
+- **Model Selection Reset on un-focus**: fixed a bug that caused the model selection to reset to default when focus was lost/regained to the chatlab window. 
 
 ## [0.1.6] - 2025-10-27
 

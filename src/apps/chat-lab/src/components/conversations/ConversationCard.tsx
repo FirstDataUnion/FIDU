@@ -14,7 +14,10 @@ import {
   Favorite as FavoriteIcon,
   Archive as ArchiveIcon,
   Check as CheckIcon,
-  Tag as TagIcon
+  Tag as TagIcon,
+  FileUpload as ExportIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
 import type { Conversation } from '../../types';
 import { getPlatformColor, formatDate, getTagColor, getModelDisplayName, calculatePrimaryModelsDisplay } from '../../utils/conversationUtils';
@@ -25,6 +28,10 @@ interface ConversationCardProps {
   isCurrentlyViewing: boolean;
   onSelect: (conversation: Conversation) => void;
   onTagManagement: (conversation: Conversation, event: React.MouseEvent) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
 }
 
 const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
@@ -32,14 +39,37 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
   isSelectedForContext,
   isCurrentlyViewing,
   onSelect,
-  onTagManagement
+  onTagManagement,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelection,
+  onEnterSelectionMode,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  const handleClick = () => onSelect(conversation);
+  const handleClick = () => {
+    if (isSelectionMode && onToggleSelection) {
+      onToggleSelection(conversation.id);
+    } else {
+      onSelect(conversation);
+    }
+  };
   
-  const handleTagClick = (e: React.MouseEvent) => onTagManagement(conversation, e);
+  const handleTagClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTagManagement(conversation, e);
+  };
+
+  const handleExportClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEnterSelectionMode) {
+      onEnterSelectionMode();
+      if (onToggleSelection) {
+        onToggleSelection(conversation.id);
+      }
+    }
+  };
 
   // Use modelsUsed if available, fall back to platform for backward compatibility
   const modelDisplay = conversation.modelsUsed && conversation.modelsUsed.length > 0
@@ -51,11 +81,12 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
     return (
       <Card 
         sx={{ 
-          cursor: 'pointer',
-          border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
-          borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
-          backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
+          cursor: isSelectionMode ? 'pointer' : 'pointer',
+          border: isSelected ? 2 : (isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1)),
+          borderColor: isSelected ? 'primary.main' : (isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider')),
+          backgroundColor: isSelected ? 'action.selected' : (isCurrentlyViewing ? 'action.selected' : 'background.paper'),
           maxWidth: '100%',
+          position: 'relative',
           '&:hover': { 
             boxShadow: 2,
             transform: 'translateY(-1px)',
@@ -64,6 +95,61 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
         }}
         onClick={handleClick}
       >
+        {/* Selection checkbox */}
+        {isSelectionMode && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              zIndex: 3,
+            }}
+          >
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelection?.(conversation.id);
+              }}
+              sx={{
+                backgroundColor: 'background.paper',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              {isSelected ? (
+                <CheckCircleIcon color="primary" />
+              ) : (
+                <RadioButtonUncheckedIcon />
+              )}
+            </IconButton>
+          </Box>
+        )}
+
+        {/* Export button */}
+        {!isSelectionMode && (
+          <IconButton
+            size="small"
+            onClick={handleExportClick}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 3,
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+              width: 28,
+              height: 28,
+            }}
+            aria-label="Export this conversation"
+          >
+            <ExportIcon fontSize="small" />
+          </IconButton>
+        )}
+
         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1.5 }}>
             <Typography variant="subtitle1" component="h3" sx={{ 
@@ -73,23 +159,15 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
               fontWeight: 600,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              pl: isSelectionMode ? 5 : 0,
             }}>
               {conversation.title}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
-              {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
               {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
               {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
               {conversation.isArchived && <ArchiveIcon color="action" fontSize="small" />}
-              <IconButton 
-                size="small" 
-                onClick={handleTagClick}
-                title="Manage Tags"
-                sx={{ p: 0.5 }}
-              >
-                <TagIcon fontSize="small" />
-              </IconButton>
             </Box>
           </Box>
 
@@ -132,8 +210,9 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
             </Typography>
           )}
 
-          {conversation.tags.length > 0 && (
-            <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            {conversation.tags.length > 0 ? (
+              <>
               {conversation.tags.slice(0, 3).map((tag: string) => (
                 <Chip
                   key={tag}
@@ -154,9 +233,25 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
                   variant="outlined"
                   sx={{ fontSize: '0.7rem', height: '18px' }}
                 />
+                )}
+              </>
+            ) : null}
+            {!isSelectionMode && (
+              <IconButton 
+                size="small" 
+                onClick={handleTagClick}
+                title="Manage Tags"
+                sx={{ 
+                  width: 24,
+                  height: 24,
+                  p: 0.5,
+                  ml: conversation.tags.length > 0 ? 0.5 : 0,
+                }}
+              >
+                <TagIcon fontSize="small" />
+              </IconButton>
               )}
             </Box>
-          )}
 
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
             {formatDate(new Date(conversation.updatedAt))}
@@ -171,11 +266,12 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
     <Card 
       sx={{ 
         height: '100%', 
-        cursor: 'pointer',
-        border: isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1),
-        borderColor: isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider'),
-        backgroundColor: isCurrentlyViewing ? 'action.selected' : 'background.paper',
+        cursor: isSelectionMode ? 'pointer' : 'pointer',
+        border: isSelected ? 2 : (isCurrentlyViewing ? 2 : (isSelectedForContext ? 2 : 1)),
+        borderColor: isSelected ? 'primary.main' : (isCurrentlyViewing ? 'secondary.main' : (isSelectedForContext ? 'primary.main' : 'divider')),
+        backgroundColor: isSelected ? 'action.selected' : (isCurrentlyViewing ? 'action.selected' : 'background.paper'),
         maxWidth: '100%',
+        position: 'relative',
         '&:hover': { 
           boxShadow: 3,
           transform: 'translateY(-2px)',
@@ -184,6 +280,61 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
       }}
       onClick={handleClick}
     >
+      {/* Selection checkbox */}
+      {isSelectionMode && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 3,
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelection?.(conversation.id);
+            }}
+            sx={{
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            {isSelected ? (
+              <CheckCircleIcon color="primary" />
+            ) : (
+              <RadioButtonUncheckedIcon />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Export button */}
+      {!isSelectionMode && (
+        <IconButton
+          size="small"
+          onClick={handleExportClick}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 3,
+            backgroundColor: 'background.paper',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+            width: 28,
+            height: 28,
+          }}
+          aria-label="Export this conversation"
+        >
+          <ExportIcon fontSize="small" />
+        </IconButton>
+      )}
+
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
           <Typography variant="h6" component="h3" sx={{ 
@@ -192,22 +343,15 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
             maxWidth: '70%',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            pl: isSelectionMode ? 5 : 0,
           }}>
             {conversation.title}
           </Typography>
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
-            {isCurrentlyViewing && <ChatIcon color="secondary" fontSize="small" />}
             {isSelectedForContext && <CheckIcon color="primary" fontSize="small" />}
             {conversation.isFavorite && <FavoriteIcon color="error" fontSize="small" />}
             {conversation.isArchived && <ArchiveIcon color="action" fontSize="small" />}
-            <IconButton 
-              size="small" 
-              onClick={handleTagClick}
-              title="Manage Tags"
-            >
-              <TagIcon fontSize="small" />
-            </IconButton>
           </Box>
         </Box>
 
@@ -246,20 +390,33 @@ const ConversationCard: React.FC<ConversationCardProps> = React.memo(({
           </Typography>
         )}
 
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
           {conversation.tags.map((tag: string) => (
             <Chip
               key={tag}
               label={tag}
               size="small"
               sx={{ 
-                mr: 0.5, 
-                mb: 0.5,
                 backgroundColor: getTagColor(tag),
                 color: 'white'
               }}
             />
           ))}
+          {!isSelectionMode && (
+            <IconButton 
+              size="small" 
+              onClick={handleTagClick}
+              title="Manage Tags"
+              sx={{
+                width: 24,
+                height: 24,
+                p: 0.5,
+                ml: conversation.tags.length > 0 ? 0.5 : 0,
+              }}
+            >
+              <TagIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
 
         <Typography variant="caption" color="text.secondary">

@@ -28,18 +28,25 @@ import {
   DeleteForever as DeleteForeverIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  PrivacyTip as PrivacyTipIcon
+  PrivacyTip as PrivacyTipIcon,
+  FileDownload as ImportIcon,
+  FileUpload as ExportIcon
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme, updateShareAnalytics } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { StorageModeSelector, SyncSettings, APIKeyManager } from '../components/settings';
 import { getEnvironmentInfo } from '../utils/environment';
+import ResourceExportDialog from '../components/resourceExport/ResourceExportDialog';
+import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 
 const SettingsPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
+  const { currentProfile, user } = useAppSelector((state) => state.auth);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   
   // Check environment mode - this determines deployment type
   const envInfo = getEnvironmentInfo();
@@ -243,6 +250,43 @@ const SettingsPage: React.FC = () => {
       {/* Sync Settings - Only show for cloud storage mode */}
       <SyncSettings />
 
+      {/* Resource Export/Import */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ExportIcon />
+            Mass Resource Export & Import
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Export a your resources as a JSON file to share with others. This options allows to to mass export all resources into a single file, also working well as a backup/restore. 
+          </Typography>
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              startIcon={<ExportIcon />}
+              onClick={() => setShowExportDialog(true)}
+              disabled={!currentProfile?.id}
+            >
+              Export Resources
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ImportIcon />}
+              onClick={() => setShowImportDialog(true)}
+              disabled={!currentProfile?.id}
+            >
+              Import Resources
+            </Button>
+          </Box>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
+            Exported files are unencrypted JSON. Imported resources will be assigned new IDs and linked to your account.
+          </Typography>
+        </CardContent>
+      </Card>
+
       {/* Privacy Settings */}
       <Card sx={{ mt: 3 }}>
         <CardContent>
@@ -371,6 +415,25 @@ const SettingsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Resource Export Dialog */}
+      {currentProfile?.id && (
+        <ResourceExportDialog
+          open={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          profileId={currentProfile.id}
+          userEmail={user?.email}
+        />
+      )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Optionally refresh the page or show a success message
+        }}
+      />
       </Box>
     </Box>
   );

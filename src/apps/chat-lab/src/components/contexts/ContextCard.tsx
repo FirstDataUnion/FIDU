@@ -6,30 +6,70 @@ import {
   Card,
   CardContent,
   CardActions,
-  Button
+  Button,
+  IconButton,
 } from '@mui/material';
+import {
+  FileUpload as ExportIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
+} from '@mui/icons-material';
 
 import type { Context } from '../../types/contexts';
 
 interface ContextCardProps {
   context: Context;
   onViewEdit: (context: Context) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
 }
 
-export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }) => {
+export const ContextCard = React.memo<ContextCardProps>(({ 
+  context, 
+  onViewEdit,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelection,
+  onEnterSelectionMode,
+}) => {
   const isBuiltIn = context.isBuiltIn || false;
   
   const handleViewEdit = React.useCallback(() => {
-    onViewEdit(context);
-  }, [context, onViewEdit]);
+    if (!isSelectionMode) {
+      onViewEdit(context);
+    }
+  }, [context, onViewEdit, isSelectionMode]);
+
+  const handleCardClick = React.useCallback(() => {
+    if (isSelectionMode && onToggleSelection && !isBuiltIn) {
+      onToggleSelection(context.id);
+    }
+  }, [isSelectionMode, onToggleSelection, context.id, isBuiltIn]);
+
+  const handleExportClick = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEnterSelectionMode) {
+      onEnterSelectionMode();
+      if (onToggleSelection && !isBuiltIn) {
+        onToggleSelection(context.id);
+      }
+    }
+  }, [onEnterSelectionMode, onToggleSelection, context.id, isBuiltIn]);
   
   return (
     <Card 
+      onClick={handleCardClick}
       sx={{ 
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
+        cursor: isSelectionMode && !isBuiltIn ? 'pointer' : 'default',
+        border: isSelected ? 2 : 1,
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
         '&:hover': { 
           boxShadow: 4,
           transform: 'translateY(-2px)',
@@ -37,6 +77,61 @@ export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }
         }
       }}
     >
+      {/* Selection checkbox */}
+      {isSelectionMode && !isBuiltIn && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 3,
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelection?.(context.id);
+            }}
+            sx={{
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            {isSelected ? (
+              <CheckCircleIcon color="primary" />
+            ) : (
+              <RadioButtonUncheckedIcon />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Export button */}
+      {!isSelectionMode && !isBuiltIn && (
+        <IconButton
+          size="small"
+          onClick={handleExportClick}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 3,
+            backgroundColor: 'background.paper',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+            width: 28,
+            height: 28,
+          }}
+          aria-label="Export this context"
+        >
+          <ExportIcon fontSize="small" />
+        </IconButton>
+      )}
+
       {/* Built-in indicator */}
       {isBuiltIn && (
         <Box
@@ -66,7 +161,8 @@ export const ContextCard = React.memo<ContextCardProps>(({ context, onViewEdit }
             mb: 1, 
             fontWeight: 600, 
             lineHeight: 1.2,
-            pr: 8, // Add right padding to prevent overlap with buttons
+            pr: isSelectionMode && !isBuiltIn ? 5 : (!isSelectionMode && !isBuiltIn ? 8 : 0),
+            pl: isSelectionMode && !isBuiltIn ? 5 : 0,
             wordBreak: 'break-word', // Allow long words to break
             overflowWrap: 'break-word' // Modern CSS for better word breaking
           }}

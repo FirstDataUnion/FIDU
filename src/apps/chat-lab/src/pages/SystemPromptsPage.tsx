@@ -26,7 +26,8 @@ import {
   CircularProgress,
   Link,
   Snackbar,
-  Alert
+  Alert,
+  IconButton,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -40,43 +41,79 @@ import {
   Extension as ExtensionIcon,
   HelpOutline as HelpOutlineIcon,
   PlayArrow as PlayArrowIcon,
-  MenuBook as MenuBookIcon
+  MenuBook as MenuBookIcon,
+  FileUpload as ExportIcon,
+  FileDownload as ImportIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
 
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
+import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
+import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
+import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { 
   fetchSystemPrompts, 
   createSystemPrompt, 
   updateSystemPrompt, 
   deleteSystemPrompt
 } from '../store/slices/systemPromptsSlice';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
-import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
-import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
+import { useMultiSelect } from '../hooks/useMultiSelect';
+import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
+import { getResourceExportService } from '../services/resourceExport/resourceExportService';
+import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
+import type { ExportSelection } from '../services/resourceExport/types';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{ 
   systemPrompt: any; 
   onViewEdit: (systemPrompt: any) => void;
   onTryPrompt: (systemPrompt: any) => void;
-}>(({ systemPrompt, onViewEdit, onTryPrompt }) => {
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
+}>(({ systemPrompt, onViewEdit, onTryPrompt, isSelectionMode = false, isSelected = false, onToggleSelection, onEnterSelectionMode }) => {
   const handleViewEdit = useCallback(() => {
     onViewEdit(systemPrompt);
   }, [systemPrompt, onViewEdit]);
 
   const handleTryPrompt = useCallback(() => {
-    onTryPrompt(systemPrompt);
-  }, [systemPrompt, onTryPrompt]);
+    if (!isSelectionMode) {
+      onTryPrompt(systemPrompt);
+    }
+  }, [systemPrompt, onTryPrompt, isSelectionMode]);
+
+  const handleCardClick = useCallback(() => {
+    if (isSelectionMode && onToggleSelection && !systemPrompt.isBuiltIn) {
+      onToggleSelection(systemPrompt.id);
+    }
+  }, [isSelectionMode, onToggleSelection, systemPrompt.id, systemPrompt.isBuiltIn]);
+
+  const handleExportClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEnterSelectionMode) {
+      onEnterSelectionMode();
+      if (onToggleSelection && !systemPrompt.isBuiltIn) {
+        onToggleSelection(systemPrompt.id);
+      }
+    }
+  }, [onEnterSelectionMode, onToggleSelection, systemPrompt.id, systemPrompt.isBuiltIn]);
 
   return (
     <Card 
+      onClick={handleCardClick}
       sx={{ 
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
+        cursor: isSelectionMode && !systemPrompt.isBuiltIn ? 'pointer' : 'default',
+        border: isSelected ? 2 : 1,
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
         '&:hover': { 
           boxShadow: 4,
           transform: 'translateY(-2px)',
@@ -84,13 +121,66 @@ const SystemPromptCard = React.memo<{
         }
       }}
     >
+      {/* Selection checkbox */}
+      {isSelectionMode && !systemPrompt.isBuiltIn && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 3,
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelection?.(systemPrompt.id);
+            }}
+            sx={{
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            {isSelected ? (
+              <CheckCircleIcon color="primary" />
+            ) : (
+              <RadioButtonUncheckedIcon />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Export button */}
+      {!isSelectionMode && !systemPrompt.isBuiltIn && (
+        <IconButton
+          size="small"
+          onClick={handleExportClick}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 3,
+            backgroundColor: 'background.paper',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          }}
+          aria-label="Export this prompt"
+        >
+          <ExportIcon fontSize="small" />
+        </IconButton>
+      )}
+
       {/* Source indicator */}
       {systemPrompt.source && (
         <Box
           sx={{
             position: 'absolute',
             top: 8,
-            right: 8,
+            right: !isSelectionMode && !systemPrompt.isBuiltIn ? 48 : 8,
             backgroundColor: systemPrompt.source === 'fabric' ? 'rgba(25, 118, 210, 0.8)' : 
                            systemPrompt.source === 'wharton' ? 'rgba(76, 175, 80, 0.8)' :
                            systemPrompt.source === 'built-in' ? 'rgba(0, 0, 0, 0.6)' : 
@@ -128,7 +218,9 @@ const SystemPromptCard = React.memo<{
           mb: 1, 
           fontWeight: 600, 
           lineHeight: 1.2,
-          fontSize: { xs: '1rem', sm: '1.25rem' }
+          fontSize: { xs: '1rem', sm: '1.25rem' },
+          pr: isSelectionMode && !systemPrompt.isBuiltIn ? 5 : (!isSelectionMode && !systemPrompt.isBuiltIn ? 8 : 0),
+          pl: isSelectionMode && !systemPrompt.isBuiltIn ? 5 : 0,
         }}>
           {systemPrompt.name}
         </Typography>
@@ -252,7 +344,11 @@ const OptimizedSystemPromptsGrid = React.memo<{
   prompts: any[];
   onViewEdit: (systemPrompt: any) => void;
   onTryPrompt: (systemPrompt: any) => void;
-}>(({ prompts, onViewEdit, onTryPrompt }) => {
+  isSelectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
+}>(({ prompts, onViewEdit, onTryPrompt, isSelectionMode = false, selectedIds = new Set(), onToggleSelection, onEnterSelectionMode }) => {
   const [visibleCount, setVisibleCount] = useState(20); // Start with 20 prompts
   const [isLoading, setIsLoading] = useState(false);
   
@@ -312,6 +408,10 @@ const OptimizedSystemPromptsGrid = React.memo<{
               systemPrompt={systemPrompt} 
               onViewEdit={onViewEdit}
               onTryPrompt={onTryPrompt}
+              isSelectionMode={isSelectionMode}
+              isSelected={selectedIds.has(systemPrompt.id)}
+              onToggleSelection={onToggleSelection}
+              onEnterSelectionMode={onEnterSelectionMode}
             />
           </Box>
         ))}
@@ -345,7 +445,7 @@ OptimizedSystemPromptsGrid.displayName = 'OptimizedSystemPromptsGrid';
 const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { currentProfile } = useAppSelector((state) => state.auth);
+  const { currentProfile, user } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
@@ -405,6 +505,11 @@ const SystemPromptsPage = React.memo(() => {
   // Loading states
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Multi-select for export
+  const multiSelect = useMultiSelect();
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   useEffect(() => {
     if (currentProfile?.id) {
@@ -612,6 +717,40 @@ const SystemPromptsPage = React.memo(() => {
     }
   }, [navigate]);
 
+  // Export handlers
+  const handleExportSelected = useCallback(async () => {
+    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+
+    setIsExporting(true);
+    try {
+      const exportService = getResourceExportService();
+      const selection: ExportSelection = {
+        systemPromptIds: Array.from(multiSelect.selectedIds),
+      };
+      
+      const exportData = await exportService.exportResources(
+        selection,
+        currentProfile.id,
+        user?.email
+      );
+      
+      exportService.downloadExport(exportData);
+      multiSelect.exitSelectionMode();
+    } catch (error) {
+      console.error('Export failed:', error);
+      setErrorSnackbar({
+        open: true,
+        message: 'Failed to export resources. Please try again.',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentProfile?.id, multiSelect, user?.email]);
+
+  const handleCancelExport = useCallback(() => {
+    multiSelect.exitSelectionMode();
+  }, [multiSelect]);
+
   const handleAddToCurrentConversation = useCallback(() => {
     if (promptToTry) {
       navigate('/prompt-lab', {
@@ -799,20 +938,38 @@ const SystemPromptsPage = React.memo(() => {
             minWidth: { xs: '100%', lg: '300px' },
             width: { xs: '100%', lg: 'auto' }
           }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateSystemPrompt}
-              disabled={isDirectoryRequired}
-              sx={{ 
-                borderRadius: 2, 
-                minWidth: { xs: '100%', sm: '200px' },
-                py: { xs: 1.5, sm: 1 },
-                fontSize: { xs: '0.875rem', sm: '0.875rem' }
-              }}
-            >
-              Add System Prompt
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateSystemPrompt}
+                disabled={isDirectoryRequired}
+                sx={{ 
+                  borderRadius: 2, 
+                  flex: 1,
+                  minWidth: { xs: '100%', sm: '200px' },
+                  py: { xs: 1.5, sm: 1 },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                }}
+              >
+                Add System Prompt
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ImportIcon />}
+                onClick={() => setShowImportDialog(true)}
+                disabled={isDirectoryRequired}
+                sx={{ 
+                  borderRadius: 2, 
+                  flex: 1,
+                  minWidth: { xs: '100%', sm: '200px' },
+                  py: { xs: 1.5, sm: 1 },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                }}
+              >
+                Import
+              </Button>
+            </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                 Need help picking a system prompt for your task?
@@ -976,6 +1133,10 @@ const SystemPromptsPage = React.memo(() => {
             prompts={filteredPrompts}
             onViewEdit={handleViewEditSystemPrompt}
             onTryPrompt={handleTryPrompt}
+            isSelectionMode={multiSelect.isSelectionMode}
+            selectedIds={multiSelect.selectedIds}
+            onToggleSelection={multiSelect.toggleSelection}
+            onEnterSelectionMode={multiSelect.enterSelectionMode}
           />
         </Box>
       ) : (
@@ -1545,6 +1706,28 @@ const SystemPromptsPage = React.memo(() => {
           {errorSnackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Floating Export Actions */}
+      {multiSelect.isSelectionMode && (
+        <FloatingExportActions
+          selectionCount={multiSelect.selectionCount}
+          onExport={handleExportSelected}
+          onCancel={handleCancelExport}
+          disabled={isExporting}
+        />
+      )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Refresh system prompts after import
+          if (currentProfile?.id) {
+            dispatch(fetchSystemPrompts(currentProfile.id));
+          }
+        }}
+      />
     </Box>
   );
 });

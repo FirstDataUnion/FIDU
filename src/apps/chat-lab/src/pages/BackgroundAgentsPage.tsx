@@ -28,6 +28,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  IconButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -36,12 +37,22 @@ import {
   Code as CodeIcon,
   HelpOutline as HelpOutlineIcon,
   SmartToy as SmartToyIcon,
+  FileUpload as ExportIcon,
+  FileDownload as ImportIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { useAppSelector } from '../hooks/redux';
+import { useAppSelector as useAppSelectorFull } from '../store';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
+import { useMultiSelect } from '../hooks/useMultiSelect';
+import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
+import { getResourceExportService } from '../services/resourceExport/resourceExportService';
+import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
+import type { ExportSelection } from '../services/resourceExport/types';
 import type { BackgroundAgent, AgentActionType } from '../services/api/backgroundAgents';
 import {
   loadAgentPreferences,
@@ -57,7 +68,11 @@ const BackgroundAgentCard = React.memo<{
   onToggleEnabled: (agent: BackgroundAgent) => void;
   onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
   onUpdateAgent?: (agent: BackgroundAgent) => Promise<void>;
-}>(({ agent, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent }) => {
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
+}>(({ agent, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, isSelected = false, onToggleSelection, onEnterSelectionMode }) => {
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
   const [localContextLastN, setLocalContextLastN] = useState(agent.contextParams?.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
@@ -70,8 +85,26 @@ const BackgroundAgentCard = React.memo<{
   }, [agent.runEveryNTurns, agent.verbosityThreshold, agent.contextParams?.lastN]);
 
   const handleViewEdit = useCallback(() => {
-    onViewEdit(agent);
-  }, [agent, onViewEdit]);
+    if (!isSelectionMode) {
+      onViewEdit(agent);
+    }
+  }, [agent, onViewEdit, isSelectionMode]);
+
+  const handleCardClick = useCallback(() => {
+    if (isSelectionMode && onToggleSelection && !agent.isSystem) {
+      onToggleSelection(agent.id);
+    }
+  }, [isSelectionMode, onToggleSelection, agent.id, agent.isSystem]);
+
+  const handleExportClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEnterSelectionMode) {
+      onEnterSelectionMode();
+      if (onToggleSelection && !agent.isSystem) {
+        onToggleSelection(agent.id);
+      }
+    }
+  }, [onEnterSelectionMode, onToggleSelection, agent.id, agent.isSystem]);
 
   const handleToggleEnabled = useCallback(() => {
     onToggleEnabled(agent);
@@ -156,11 +189,16 @@ const BackgroundAgentCard = React.memo<{
 
   return (
     <Card
+      onClick={handleCardClick}
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
+        cursor: isSelectionMode && !agent.isSystem ? 'pointer' : 'default',
+        border: isSelected ? 2 : 1,
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
         '&:hover': {
           boxShadow: 4,
           transform: 'translateY(-2px)',
@@ -168,6 +206,61 @@ const BackgroundAgentCard = React.memo<{
         }
       }}
     >
+      {/* Selection checkbox */}
+      {isSelectionMode && !agent.isSystem && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 3,
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelection?.(agent.id);
+            }}
+            sx={{
+              backgroundColor: 'background.paper',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            {isSelected ? (
+              <CheckCircleIcon color="primary" />
+            ) : (
+              <RadioButtonUncheckedIcon />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Export button */}
+      {!isSelectionMode && !agent.isSystem && (
+        <IconButton
+          size="small"
+          onClick={handleExportClick}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 3,
+            backgroundColor: 'background.paper',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+            width: 28,
+            height: 28,
+          }}
+          aria-label="Export this agent"
+        >
+          <ExportIcon fontSize="small" />
+        </IconButton>
+      )}
+
       {/* Built-in indicator */}
       {agent.isSystem && (
         <Box
@@ -191,7 +284,7 @@ const BackgroundAgentCard = React.memo<{
 
       <CardContent sx={{ flexGrow: 1, pb: 1, pt: agent.isSystem ? 4 : 2 }}>
         {/* Enabled toggle and indicator */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, pt: !isSelectionMode && !agent.isSystem ? 3 : 0, pr: 0 }}>
           <Chip
             label={agent.enabled ? 'Enabled' : 'Disabled'}
             size="small"
@@ -226,7 +319,9 @@ const BackgroundAgentCard = React.memo<{
           mb: 1,
           fontWeight: 600,
           lineHeight: 1.2,
-          fontSize: { xs: '1rem', sm: '1.25rem' }
+          fontSize: { xs: '1rem', sm: '1.25rem' },
+          pr: isSelectionMode && !agent.isSystem ? 5 : (!isSelectionMode && !agent.isSystem ? 8 : 0),
+          pl: isSelectionMode && !agent.isSystem ? 5 : 0,
         }}>
           {agent.name}
         </Typography>
@@ -490,7 +585,11 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
   onToggleEnabled: (agent: BackgroundAgent) => void;
   onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
   onUpdateAgent?: (agent: BackgroundAgent) => Promise<void>;
-}>(({ agents, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent }) => {
+  isSelectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
+  onEnterSelectionMode?: () => void;
+}>(({ agents, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, selectedIds, onToggleSelection, onEnterSelectionMode }) => {
   return (
     <Box sx={{
       display: 'grid',
@@ -509,6 +608,10 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
           onToggleEnabled={onToggleEnabled}
           onUpdatePreferences={onUpdatePreferences}
           onUpdateAgent={onUpdateAgent}
+          isSelectionMode={isSelectionMode}
+          isSelected={selectedIds?.has(agent.id) || false}
+          onToggleSelection={onToggleSelection}
+          onEnterSelectionMode={onEnterSelectionMode}
         />
       ))}
     </Box>
@@ -525,8 +628,14 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState(0); // 0: All, 1: Built-in, 2: Custom
   const [prefsVersion, setPrefsVersion] = useState(0); // Track preference changes to trigger re-renders
   const currentProfile = useAppSelector((state) => state.auth.currentProfile);
+  const { user } = useAppSelectorFull((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
+
+  // Multi-select export state
+  const multiSelect = useMultiSelect();
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
 
   // Dialog states
@@ -785,6 +894,33 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     setPrefsVersion((prev) => prev + 1);
   }, []);
 
+  const handleExportSelected = useCallback(async () => {
+    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+    setIsExporting(true);
+    try {
+      const exportService = getResourceExportService();
+      const selection: ExportSelection = {
+        backgroundAgentIds: Array.from(multiSelect.selectedIds),
+      };
+      const exportData = await exportService.exportResources(
+        selection,
+        currentProfile.id,
+        user?.email
+      );
+      exportService.downloadExport(exportData);
+      multiSelect.exitSelectionMode();
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Could add error snackbar here
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentProfile?.id, multiSelect, user?.email]);
+
+  const handleCancelExport = useCallback(() => {
+    multiSelect.exitSelectionMode();
+  }, [multiSelect]);
+
   const handleViewEditAgent = useCallback((agent: BackgroundAgent) => {
     setSelectedAgent(agent);
     setViewEditForm({
@@ -954,20 +1090,38 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
               minWidth: { xs: '100%', lg: '300px' },
               width: { xs: '100%', lg: 'auto' }
             }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateAgent}
-                disabled={isDirectoryRequired}
-                sx={{
-                  borderRadius: 2,
-                  minWidth: { xs: '100%', sm: '200px' },
-                  py: { xs: 1.5, sm: 1 },
-                  fontSize: { xs: '0.875rem', sm: '0.875rem' }
-                }}
-              >
-                Create New Agent
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreateAgent}
+                  disabled={isDirectoryRequired}
+                  sx={{
+                    borderRadius: 2,
+                    flex: 1,
+                    minWidth: { xs: '100%', sm: '200px' },
+                    py: { xs: 1.5, sm: 1 },
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                  }}
+                >
+                  Create New Agent
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<ImportIcon />}
+                  onClick={() => setShowImportDialog(true)}
+                  disabled={isDirectoryRequired}
+                  sx={{
+                    borderRadius: 2,
+                    flex: 1,
+                    minWidth: { xs: '100%', sm: '200px' },
+                    py: { xs: 1.5, sm: 1 },
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                  }}
+                >
+                  Import
+                </Button>
+              </Box>
             </Box>
           )}
         </Box>
@@ -1075,6 +1229,10 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
             onToggleEnabled={handleToggleEnabled}
             onUpdatePreferences={handleUpdatePreferences}
             onUpdateAgent={handleUpdateAgent}
+            isSelectionMode={multiSelect.isSelectionMode}
+            selectedIds={multiSelect.selectedIds}
+            onToggleSelection={multiSelect.toggleSelection}
+            onEnterSelectionMode={multiSelect.enterSelectionMode}
           />
         ) : (
           <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -1593,6 +1751,38 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Floating Export Actions */}
+      {multiSelect.isSelectionMode && (
+        <FloatingExportActions
+          selectionCount={multiSelect.selectionCount}
+          onExport={handleExportSelected}
+          onCancel={handleCancelExport}
+          disabled={isExporting}
+        />
+      )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Refresh background agents after import
+          if (currentProfile?.id) {
+            const load = async () => {
+              try {
+                const storage = getUnifiedStorageService();
+                const { backgroundAgents } = await storage.getBackgroundAgents(undefined, 1, 20, currentProfile.id);
+                const customAgents = (backgroundAgents || []).filter((a: BackgroundAgent) => !a.isSystem);
+                setAgents(customAgents);
+              } catch (e: any) {
+                setError(e?.message || 'Failed to load background agents');
+              }
+            };
+            void load();
+          }
+        }}
+      />
     </Box>
   );
 }

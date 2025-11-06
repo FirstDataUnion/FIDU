@@ -9,6 +9,8 @@ export default {
     '^@/utils/environment\\.ts$': '<rootDir>/src/__mocks__/utils/environment.ts',
     '.*/utils/environment$': '<rootDir>/src/__mocks__/utils/environment.ts',
     '.*/utils/environment\\.ts$': '<rootDir>/src/__mocks__/utils/environment.ts',
+    '.*/utils/version$': '<rootDir>/src/__mocks__/utils/version.ts',
+    '.*/utils/version\\.ts$': '<rootDir>/src/__mocks__/utils/version.ts',
     '.*/database/BrowserSQLiteManager$': '<rootDir>/src/__mocks__/services/storage/database/BrowserSQLiteManager.ts',
     '.*/metrics/MetricsService$': '<rootDir>/src/__mocks__/services/metrics/MetricsService.ts',
     '.*/auth/GoogleDriveAuth$': '<rootDir>/src/__mocks__/services/auth/GoogleDriveAuth.ts',

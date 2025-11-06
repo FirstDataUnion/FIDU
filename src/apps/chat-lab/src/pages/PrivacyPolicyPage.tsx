@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
+import { APP_VERSION } from '../utils/version';
 
 /**
  * Privacy Policy Page
@@ -38,8 +39,16 @@ const PrivacyPolicyPage: React.FC = () => {
         setError(null);
         
         // Fetch the markdown file from the public URL
+        // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
-        const response = await fetch(`${basePath}PRIVACY_POLICY.md`);
+        const privacyPolicyUrl = `${basePath}PRIVACY_POLICY.md?v=${APP_VERSION}`;
+        const response = await fetch(privacyPolicyUrl, {
+          // Add cache control headers to prevent browser caching
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to load privacy policy: ${response.status} ${response.statusText}`);
