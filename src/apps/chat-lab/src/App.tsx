@@ -22,6 +22,7 @@ import Layout from './components/common/Layout';
 import PublicPageWrapper from './components/common/PublicPageWrapper';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthWrapper from './components/auth/AuthWrapper';
+import { AuthErrorBoundary } from './components/auth/AuthErrorBoundary';
 import GoogleDriveAuthPrompt from './components/auth/GoogleDriveAuthPrompt';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import { StorageSelectionModal } from './components/storage/StorageSelectionModal';
@@ -194,8 +195,8 @@ const AppContent: React.FC<AppContentProps> = () => {
       
       try {
         // Quick check for FIDU tokens before starting full initialization
-        const { getFiduAuthCookieService } = await import('./services/auth/FiduAuthCookieService');
-        const fiduAuthService = getFiduAuthCookieService();
+        const { getFiduAuthService } = await import('./services/auth/FiduAuthService');
+        const fiduAuthService = getFiduAuthService();
         const tokens = await fiduAuthService.getTokens();
         
         if (!tokens?.access_token && !tokens?.refresh_token) {
@@ -808,7 +809,8 @@ const AppContent: React.FC<AppContentProps> = () => {
       <Router basename="/fidu-chat-lab">
         <RouteTracker />
         <ErrorBoundary>
-          <AuthWrapper>
+          <AuthErrorBoundary>
+            <AuthWrapper>
             <ConditionalLayout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <Routes>
@@ -828,6 +830,7 @@ const AppContent: React.FC<AppContentProps> = () => {
               </Suspense>
             </ConditionalLayout>
           </AuthWrapper>
+          </AuthErrorBoundary>
         </ErrorBoundary>
         {/* Modals and banners - must be inside Router for useLocation() */}
         <ConditionalModals

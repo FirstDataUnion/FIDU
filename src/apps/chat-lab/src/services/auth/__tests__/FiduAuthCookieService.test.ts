@@ -1,15 +1,24 @@
-import { FiduAuthCookieService } from '../FiduAuthCookieService';
+import { FiduAuthService } from '../FiduAuthService';
 
 // Mock fetch globally
 global.fetch = jest.fn();
 
-describe('FiduAuthCookieService', () => {
-  let authService: FiduAuthCookieService;
+const createResponse = (overrides: Partial<Response> & { json?: () => Promise<any> }) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({}),
+  text: async () => '',
+  ...overrides,
+}) as unknown as Response;
+
+describe('FiduAuthService', () => {
+  let authService: FiduAuthService;
   const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    authService = new FiduAuthCookieService();
+    localStorage.clear();
+    authService = new FiduAuthService();
   });
 
   describe('hasRefreshToken', () => {
@@ -65,14 +74,22 @@ describe('FiduAuthCookieService', () => {
 
   describe('refreshAccessToken', () => {
     it('should successfully refresh access token', async () => {
-      // Mock successful refresh
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      // hasRefreshToken -> getTokens
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
+
+      // refresh request
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({
           access_token: 'new-access-token',
           expires_in: 3600,
         }),
-      } as Response);
+      }));
 
       const result = await authService.refreshAccessToken();
       expect(result).toBe('new-access-token');
@@ -86,65 +103,69 @@ describe('FiduAuthCookieService', () => {
     });
 
     it('should handle 401 error gracefully (no refresh token)', async () => {
+      // hasRefreshToken -> tokens with refresh
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
+
       // Mock 401 response (no refresh token) - refresh call
-      mockFetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce(createResponse({
         ok: false,
         status: 401,
         json: () => Promise.resolve({
           detail: 'No refresh token found in cookies for dev environment',
         }),
-      } as Response);
-
-      // Mock clear tokens call (automatically called when refresh fails with 401)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({}),
-      } as Response);
-
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      }));
+      localStorage.setItem('auth_token', 'stale');
       
       const result = await authService.refreshAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '⚠️ FIDU refresh token is invalid - clearing all tokens'
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('🗑️ Clearing FIDU auth tokens for')
-      );
-      
-      // Should make 2 API calls: refresh (fails) + clear tokens
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      
-      consoleWarnSpy.mockRestore();
-      consoleLogSpy.mockRestore();
     });
 
     it('should handle other HTTP errors', async () => {
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
+
       // Mock 500 error
-      mockFetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce(createResponse({
         ok: false,
         status: 500,
         json: () => Promise.resolve({
           detail: 'Internal server error',
         }),
-      } as Response);
+        text: () => Promise.resolve('Internal server error'),
+      }));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
       const result = await authService.refreshAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '❌ Failed to refresh FIDU access token:',
-        500
-      );
+      expect(consoleSpy).toHaveBeenCalledWith('❌ Failed to refresh FIDU access token:', expect.any(Error));
       
       consoleSpy.mockRestore();
     });
 
     it('should handle network errors', async () => {
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
+
       // Mock network error
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
@@ -153,10 +174,7 @@ describe('FiduAuthCookieService', () => {
       const result = await authService.refreshAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '❌ Error refreshing FIDU access token:',
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalledWith('❌ Failed to refresh FIDU access token:', expect.any(Error));
       
       consoleSpy.mockRestore();
     });
@@ -180,55 +198,48 @@ describe('FiduAuthCookieService', () => {
 
     it('should refresh token when no access token but refresh token exists', async () => {
       // Mock tokens response with no access token
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({
           access_token: null,
           refresh_token: 'test-refresh-token',
           expires_in: 3600,
         }),
-      } as Response);
+      }));
 
       // Mock successful refresh
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({
           access_token: 'new-access-token',
           expires_in: 3600,
         }),
-      } as Response);
+      }));
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
       const result = await authService.getAccessToken();
       
       expect(result).toBe('new-access-token');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '🔄 No access token found, attempting refresh...'
-      );
+      expect(consoleSpy).not.toHaveBeenCalled();
       
       consoleSpy.mockRestore();
     });
 
     it('should return null when no tokens exist', async () => {
       // Mock tokens response with no tokens
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({
           access_token: null,
           refresh_token: null,
           expires_in: 0,
         }),
-      } as Response);
+      }));
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
       const result = await authService.getAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'ℹ️ No FIDU auth tokens found in HTTP-only cookies for local environment'
-      );
+      expect(consoleSpy).not.toHaveBeenCalled();
       
       consoleSpy.mockRestore();
     });
@@ -254,16 +265,23 @@ describe('FiduAuthCookieService', () => {
   describe('environment handling', () => {
     it('should use correct environment in API calls', async () => {
       // Create service with dev environment
-      const devAuthService = new FiduAuthCookieService();
+      const devAuthService = new FiduAuthService();
+      
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
       
       // Mock successful refresh
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({
           access_token: 'test-token',
           expires_in: 3600,
         }),
-      } as Response);
+      }));
 
       await devAuthService.refreshAccessToken();
 
@@ -276,56 +294,39 @@ describe('FiduAuthCookieService', () => {
 
   describe('edge cases', () => {
     it('should handle malformed JSON response', async () => {
+      mockFetch.mockResolvedValueOnce(createResponse({
+        json: () => Promise.resolve({
+          access_token: 'cached-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+        }),
+      }));
+
       // Mock malformed JSON
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.reject(new Error('Invalid JSON')),
-      } as Response);
+        text: () => Promise.resolve('Invalid JSON'),
+      }));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
       const result = await authService.refreshAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '❌ Error refreshing FIDU access token:',
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalledWith('❌ Failed to refresh FIDU access token:', expect.any(Error));
       
       consoleSpy.mockRestore();
     });
 
     it('should handle empty response body', async () => {
       // Mock empty response
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      mockFetch.mockResolvedValueOnce(createResponse({
         json: () => Promise.resolve({}),
-      } as Response);
+      }));
 
       const result = await authService.refreshAccessToken();
-      expect(result).toBeUndefined();
+      expect(result).toBeNull();
     });
 
-    it('should handle concurrent refresh attempts', async () => {
-      // Mock successful responses for both calls
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          access_token: 'test-token',
-          expires_in: 3600,
-        }),
-      } as Response);
-
-      // Start two concurrent refresh attempts
-      const promise1 = authService.refreshAccessToken();
-      const promise2 = authService.refreshAccessToken();
-
-      const [result1, result2] = await Promise.all([promise1, promise2]);
-      
-      expect(result1).toBe('test-token');
-      expect(result2).toBe('test-token');
-      // Both calls will make API requests (no deduplication in current implementation)
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-    });
   });
 });

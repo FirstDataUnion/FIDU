@@ -1634,11 +1634,14 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       throw new Error('Conversation ID is required to update conversation');
     }
     
+    const additionalTags = (conversation.tags || []).filter((tag) => !PROTECTED_TAGS.includes(tag as any));
+    const mergedTags = Array.from(new Set([...PROTECTED_TAGS, ...additionalTags]));
+
     return {
       id: conversation.id,
       user_id: this.ensureUserId(), // Required for encryption
       update_timestamp: new Date().toISOString(),
-      tags: conversation.tags || [],
+      tags: mergedTags,
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
         interactions: messages.map((message) => ({
@@ -1701,8 +1704,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     // Ensure object from any source, even if null
     const finalData = parsedData || {};
 
-    // Add validation to ensure required fields exist
-    if (!finalData.interactions?.length) {
+    // Add validation to ensure data object is valid
+    if (!finalData || typeof finalData !== 'object' || Object.keys(finalData).length === 0) {
       return {
         id: packet.id,
         title: "Error: Could not parse data packet as conversation",
@@ -1715,16 +1718,20 @@ export class FileSystemStorageAdapter implements StorageAdapter {
         isArchived: false,
         isFavorite: false,
         participants: [],
-      status: 'active',
-      modelsUsed: []
-    };
-  }
+        status: 'active',
+        modelsUsed: []
+      };
+    }
+    
+    // Allow conversations with no messages yet (newly created conversations)
+    // Just use empty array for interactions if not present
+    const interactions = finalData.interactions || [];
 
   // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
   // This saves computation for conversations that already have it stored
   const modelsUsed = finalData.modelsUsed && Array.isArray(finalData.modelsUsed)
     ? finalData.modelsUsed
-    : extractUniqueModels(finalData.interactions || []);
+    : extractUniqueModels(interactions);
 
   // Transform original prompt data if it exists
     let originalPrompt: Conversation['originalPrompt'] | undefined;
@@ -1759,7 +1766,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
 
     // Transform messages from interactions
-    const messages: Message[] = finalData.interactions.map((interaction: any, index: number) => ({
+    const messages: Message[] = interactions.map((interaction: any, index: number) => ({
       id: `${packet.id}-${index}`,
       conversationId: packet.id,
       role: interaction.actor,
@@ -1772,8 +1779,8 @@ export class FileSystemStorageAdapter implements StorageAdapter {
 
     return {
       id: packet.id,
-      title: finalData.conversationTitle || 'Untitled Conversation',
-      platform: finalData.sourceChatbot?.toLowerCase() || 'other',
+      title: finalData.conversationTitle || finalData.conversationUrl || 'Untitled Conversation',
+      platform: (finalData.sourceChatbot?.toLowerCase() || 'other') as "chatgpt" | "claude" | "gemini" | "other",
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
       lastMessage: messages.length > 0 ? messages[messages.length - 1].content : '',

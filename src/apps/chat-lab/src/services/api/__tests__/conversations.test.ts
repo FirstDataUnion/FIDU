@@ -1,6 +1,7 @@
 import { conversationsApi } from '../conversations';
 import { fiduVaultAPIClient } from '../apiClientFIDUVault';
 import { refreshTokenService } from '../refreshTokenService';
+import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import type { Message, ConversationDataPacket } from '../../../types';
 
 // Mock the API client
@@ -337,7 +338,7 @@ describe('conversationsApi', () => {
         request_id: expect.any(String),
         data_packet: expect.objectContaining({
           id: '1',
-          tags: ['updated'],
+          tags: expect.arrayContaining([...PROTECTED_TAGS, 'updated']),
           data: expect.objectContaining({
             conversationTitle: 'Updated Conversation',
             modelsUsed: expect.any(Array), // Should compute and store modelsUsed
@@ -346,6 +347,30 @@ describe('conversationsApi', () => {
       }));
       
       expect(result.title).toBe('Test Conversation');
+    });
+
+    it('should include protected tags when updating without custom tags', async () => {
+      const mockResponse = {
+        data: mockConversationDataPacket,
+        status: 200,
+      };
+
+      mockFiduVaultAPIClient.put.mockResolvedValue(mockResponse);
+
+      const conversation = {
+        id: '1',
+        title: 'Updated Conversation',
+        platform: 'chatgpt' as const,
+      };
+
+      await conversationsApi.updateConversation(conversation, mockMessages);
+
+      const callArgs = mockFiduVaultAPIClient.put.mock.calls[0][1];
+      const dataPacket = callArgs.data_packet;
+
+      PROTECTED_TAGS.forEach((tag) => {
+        expect(dataPacket.tags).toContain(tag);
+      });
     });
 
     it('should throw error when conversation ID is missing', async () => {
@@ -613,13 +638,39 @@ describe('conversationsApi', () => {
       expect(result.originalPrompt?.systemPrompts?.[1].content).toBe('Content 2');
     });
 
-    it('should handle invalid data packet gracefully', async () => {
-      const invalidDataPacket = {
+    it('should handle data packet with no interactions (new conversation)', async () => {
+      const emptyConversationPacket = {
         ...mockConversationDataPacket,
         data: {
           ...mockConversationDataPacket.data,
-          interactions: [], // No interactions
+          interactions: [], // No interactions yet
         },
+      };
+      
+      const mockResponse = {
+        data: emptyConversationPacket,
+        status: 200,
+      };
+      
+      mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
+      
+      const result = await conversationsApi.getById('1');
+      
+      // New behavior: empty conversations should preserve their title and metadata
+      expect(result.title).toBe('Test Conversation');
+      expect(result.lastMessage).toBe(''); // Empty since no interactions
+      expect(result.messageCount).toBe(0);
+      expect(result.platform).toBe('chatgpt');
+    });
+    
+    it('should handle truly invalid data packet gracefully', async () => {
+      const invalidDataPacket = {
+        id: '1',
+        profile_id: 'profile-1',
+        create_timestamp: '2023-01-01T00:00:00Z',
+        update_timestamp: '2023-01-01T00:00:00Z',
+        tags: ['Chat-Bot-Conversation'],
+        data: null, // Completely invalid data object
       };
       
       const mockResponse = {

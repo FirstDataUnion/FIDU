@@ -241,8 +241,7 @@ describe('ConversationCard', () => {
     const tagButton = screen.getByTitle('Manage Tags');
     fireEvent.click(tagButton);
     
-    // Both onSelect and onTagManagement should be called when tag button is clicked
-    expect(mockOnSelect).toHaveBeenCalled();
+    expect(mockOnSelect).not.toHaveBeenCalled();
     expect(mockOnTagManagement).toHaveBeenCalled();
   });
 

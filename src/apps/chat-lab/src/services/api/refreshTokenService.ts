@@ -5,6 +5,13 @@
  * It can be integrated into existing API clients without changing their interface.
  */
 
+import {
+  getFiduAuthService,
+  AuthenticationRequiredError,
+  TokenAcquisitionTimeoutError,
+} from '../auth/FiduAuthService';
+import { beginLogout, completeLogout, currentLogoutSource } from '../auth/logoutCoordinator';
+
 export interface TokenRefreshResponse {
   access_token: string;
   expires_in: number;
@@ -238,23 +245,41 @@ class RefreshTokenService {
    */
   private dispatchLogout(): void {
     try {
+      const started = beginLogout('auto');
+      if (!started) {
+        const source = currentLogoutSource();
+        console.log('🔁 Logout already in progress, skipping duplicate auto-dispatch', { source });
+        return;
+      }
       // Import the store dynamically to avoid circular dependencies
       import('../../store').then(({ store }) => {
         // Import the logout action dynamically
         import('../../store/slices/authSlice').then(({ logout }) => {
-          store.dispatch(logout());
+          store.dispatch(logout()).catch((error) => {
+            console.error('Logout dispatch failed:', error);
+            // Ensure logout coordinator is reset even if dispatch fails
+            completeLogout();
+            // Fallback to page reload if logout fails
+            window.location.reload();
+          });
         }).catch((error) => {
           console.warn('Failed to import logout action:', error);
+          // Ensure logout coordinator is reset
+          completeLogout();
           // Fallback to page reload if Redux dispatch fails
           window.location.reload();
         });
       }).catch((error) => {
         console.warn('Failed to import store:', error);
+        // Ensure logout coordinator is reset
+        completeLogout();
         // Fallback to page reload if Redux dispatch fails
         window.location.reload();
       });
     } catch (error) {
       console.warn('Failed to dispatch logout action:', error);
+      // Ensure logout coordinator is reset
+      completeLogout();
       // Fallback to page reload if Redux dispatch fails
       window.location.reload();
     }
@@ -266,12 +291,42 @@ class RefreshTokenService {
   createAuthInterceptor() {
     return {
       // Request interceptor
-      request: (config: any) => {
-        // Add auth token to request headers
-        const token = this.getAccessToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+      request: async (config: any) => {
+        const headers = config.headers ?? (config.headers = {});
+        const skipGuard = Boolean(config?.skipFiduAuthGuard);
+
+        if (skipGuard) {
+          return config;
         }
+
+        try {
+          const token = await getFiduAuthService().ensureAccessToken({
+            onWait: () => console.log('🔐 Ensuring FIDU auth before identity service request...'),
+          });
+
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+            return config;
+          }
+        } catch (error) {
+          if (error instanceof AuthenticationRequiredError) {
+            this.clearAllAuthTokens();
+            this.dispatchLogout();
+            return Promise.reject(error);
+          }
+
+          if (error instanceof TokenAcquisitionTimeoutError) {
+            return Promise.reject(error);
+          }
+
+          console.warn('Failed to ensure FIDU auth token before request:', error);
+        }
+
+        const fallbackToken = this.getAccessToken();
+        if (fallbackToken) {
+          headers.Authorization = `Bearer ${fallbackToken}`;
+        }
+
         return config;
       },
       

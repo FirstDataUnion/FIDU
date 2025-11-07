@@ -5,6 +5,16 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - - 2025-11-08
+
+
+### Fixed
+- **Conversation storage tags**: Ensure updates always retain required protected tags so newly created chats stay visible on the conversations page and sync correctly to Google Drive, fixing bug that caused conversations to not be saved. 
+- **Immediate logout restore**: Wait for Google Drive re-initialization before finishing login so immediate logout→login cycles no longer trigger storage errors.
+- **Authentication logout loops**: Fixed infinite logout loops caused by stuck logout coordinator state with automatic 10-second timeout recovery
+- **Login Window not appearing afer logout**: Fixed a bug that caused the login window to not load correctly after logging out.
+- **Google Auth Failed**: Fixed edge cases where Google Drive auth can fail due to a token encoding error, now automatically recovers. 
+
 ## [0.1.7] - 2025-11-06
 
 ### Added

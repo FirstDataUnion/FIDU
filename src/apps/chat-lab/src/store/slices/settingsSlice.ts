@@ -78,8 +78,14 @@ const loadSettingsFromStorage = async (): Promise<UserSettings> => {
       }
       
       // Migrate to cookies for future use
-      await cookieService.setSettings(mergedSettings);
-      console.log('✅ Migrated localStorage settings to cookies');
+      const migrationResult = await cookieService.setSettings(mergedSettings);
+      if (migrationResult.success) {
+        console.log('✅ Migrated localStorage settings to cookies');
+      } else if (migrationResult.reason === 'auth_unavailable') {
+        console.log('ℹ️ Skipping cookie settings migration until authentication is available');
+      } else {
+        console.warn('⚠️ Failed to migrate settings to cookies:', migrationResult);
+      }
       
       return mergedSettings;
     }
@@ -130,12 +136,14 @@ const saveSettingsToStorage = async (settings: UserSettings): Promise<void> => {
     
     // Primary: Save to HTTP-only cookies
     const cookieService = getCookieSettingsService();
-    const cookieSuccess = await cookieService.setSettings(plainSettings);
+    const cookieResult = await cookieService.setSettings(plainSettings);
     
-    if (cookieSuccess) {
+    if (cookieResult.success) {
       console.log('✅ Settings saved to HTTP-only cookies');
+    } else if (cookieResult.reason === 'auth_unavailable') {
+      console.log('ℹ️ Unable to save settings to cookies yet (authentication not available); using localStorage fallback');
     } else {
-      console.warn('⚠️ Failed to save settings to cookies, falling back to localStorage');
+      console.warn('⚠️ Failed to save settings to cookies, falling back to localStorage', cookieResult);
     }
     
     // Fallback: Also save to localStorage for backward compatibility

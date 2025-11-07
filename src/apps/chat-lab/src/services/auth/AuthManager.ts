@@ -15,7 +15,7 @@
 
 import type { AppDispatch } from '../../store';
 import { GoogleDriveAuthService } from './GoogleDriveAuth';
-import { FiduAuthCookieService, getFiduAuthCookieService } from './FiduAuthCookieService';
+import { getFiduAuthService } from './FiduAuthService';
 import { 
   markStorageConfigured,
   setGoogleDriveAuthState 
@@ -37,7 +37,7 @@ type AuthEventCallback = (status: AuthStatus) => void;
  */
 export class AuthManager {
   private googleDriveAuthService: GoogleDriveAuthService | null = null;
-  private fiduAuthService: FiduAuthCookieService;
+  private fiduAuthService: ReturnType<typeof getFiduAuthService>;
   private dispatch: AppDispatch;
   
   // State tracking
@@ -55,7 +55,7 @@ export class AuthManager {
 
   constructor(dispatch: AppDispatch) {
     this.dispatch = dispatch;
-    this.fiduAuthService = getFiduAuthCookieService();
+    this.fiduAuthService = getFiduAuthService();
   }
 
   /**

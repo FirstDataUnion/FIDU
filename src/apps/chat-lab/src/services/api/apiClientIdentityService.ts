@@ -79,8 +79,17 @@ class IdentityServiceAPIClient {
     );
   }
 
-  async fetchCurrentUser(): Promise<User> {
-    const response = await this.client.get('/user');
+  async fetchCurrentUser(token?: string): Promise<User> {
+    const config: Record<string, any> = {};
+    if (token) {
+      config.headers = {
+        ...(config.headers || {}),
+        Authorization: `Bearer ${token}`,
+      };
+      config.skipFiduAuthGuard = true;
+    }
+
+    const response = await this.client.get('/user', config);
     return createUserFromResponse(response.data);
   }
 
@@ -104,23 +113,7 @@ class IdentityServiceAPIClient {
 export const identityServiceAPIClient = new IdentityServiceAPIClient();
 
 export async function fetchCurrentUser(token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.fetchCurrentUser();
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
-  return await identityServiceAPIClient.fetchCurrentUser();
+  return await identityServiceAPIClient.fetchCurrentUser(token);
 }
 
 function createUserFromResponse(externalUser: any): User {

@@ -1,8 +1,8 @@
-import { getFiduAuthCookieService } from '../FiduAuthCookieService';
+import { getFiduAuthService } from '../FiduAuthService';
 
 // Mock the FIDU auth service
-jest.mock('../FiduAuthCookieService', () => ({
-  getFiduAuthCookieService: jest.fn(),
+jest.mock('../FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(),
 }));
 
 // Mock fetch globally
@@ -18,10 +18,10 @@ describe('FIDU + Google Drive Token Integration', () => {
     // Create mock FIDU auth service
     mockFiduAuthService = {
       hasRefreshToken: jest.fn(),
-      getAccessToken: jest.fn(),
+      ensureAccessToken: jest.fn(),
     };
     
-    (getFiduAuthCookieService as jest.Mock).mockReturnValue(mockFiduAuthService);
+    (getFiduAuthService as jest.Mock).mockReturnValue(mockFiduAuthService);
   });
 
   describe('FIDU token availability checks', () => {
@@ -39,7 +39,7 @@ describe('FIDU + Google Drive Token Integration', () => {
     it('should proceed with Google Drive operations when FIDU tokens exist', async () => {
       // Mock FIDU refresh token exists
       mockFiduAuthService.hasRefreshToken.mockResolvedValue(true);
-      mockFiduAuthService.getAccessToken.mockResolvedValue('fidu-access-token');
+      mockFiduAuthService.ensureAccessToken.mockResolvedValue('fidu-access-token');
 
       // Mock successful Google Drive token retrieval
       mockFetch.mockResolvedValueOnce({
@@ -54,7 +54,7 @@ describe('FIDU + Google Drive Token Integration', () => {
       const hasFiduToken = await mockFiduAuthService.hasRefreshToken();
       expect(hasFiduToken).toBe(true);
 
-      const fiduAccessToken = await mockFiduAuthService.getAccessToken();
+      const fiduAccessToken = await mockFiduAuthService.ensureAccessToken();
       expect(fiduAccessToken).toBe('fidu-access-token');
 
       // Simulate Google Drive API call with FIDU token
@@ -75,7 +75,7 @@ describe('FIDU + Google Drive Token Integration', () => {
     it('should handle FIDU auth token retrieval failure gracefully', async () => {
       // Mock FIDU refresh token exists but access token retrieval fails
       mockFiduAuthService.hasRefreshToken.mockResolvedValue(true);
-      mockFiduAuthService.getAccessToken.mockResolvedValue(null);
+      mockFiduAuthService.ensureAccessToken.mockResolvedValue(null);
 
       // Mock successful Google Drive token retrieval
       mockFetch.mockResolvedValueOnce({
@@ -90,7 +90,7 @@ describe('FIDU + Google Drive Token Integration', () => {
       const hasFiduToken = await mockFiduAuthService.hasRefreshToken();
       expect(hasFiduToken).toBe(true);
 
-      const fiduAccessToken = await mockFiduAuthService.getAccessToken();
+      const fiduAccessToken = await mockFiduAuthService.ensureAccessToken();
       expect(fiduAccessToken).toBeNull();
 
       // Simulate Google Drive API call without FIDU token
@@ -138,7 +138,7 @@ describe('FIDU + Google Drive Token Integration', () => {
     it('should proceed with token refresh when FIDU tokens exist', async () => {
       // Mock FIDU refresh token exists
       mockFiduAuthService.hasRefreshToken.mockResolvedValue(true);
-      mockFiduAuthService.getAccessToken.mockResolvedValue('fidu-access-token');
+      mockFiduAuthService.ensureAccessToken.mockResolvedValue('fidu-access-token');
 
       // Mock successful token refresh
       mockFetch.mockResolvedValueOnce({
@@ -153,7 +153,7 @@ describe('FIDU + Google Drive Token Integration', () => {
       const hasFiduToken = await mockFiduAuthService.hasRefreshToken();
       expect(hasFiduToken).toBe(true);
 
-      const fiduAccessToken = await mockFiduAuthService.getAccessToken();
+      const fiduAccessToken = await mockFiduAuthService.ensureAccessToken();
       expect(fiduAccessToken).toBe('fidu-access-token');
 
       // Simulate Google Drive token refresh API call

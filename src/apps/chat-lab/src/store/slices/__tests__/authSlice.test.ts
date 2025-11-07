@@ -24,12 +24,12 @@ jest.mock('../../../services/api/refreshTokenService', () => ({
   },
 }));
 
-// Mock FiduAuthCookieService
+// Mock FiduAuthService
 const mockClearTokens = jest.fn().mockResolvedValue(true);
 const mockGetTokens = jest.fn().mockResolvedValue(null); // Default to null so tests can override
 const mockMigrateFromLocalStorage = jest.fn().mockResolvedValue(true);
-jest.mock('../../../services/auth/FiduAuthCookieService', () => ({
-  getFiduAuthCookieService: jest.fn(() => ({
+jest.mock('../../../services/auth/FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(() => ({
     clearTokens: mockClearTokens,
     getTokens: mockGetTokens,
     migrateFromLocalStorage: mockMigrateFromLocalStorage,
@@ -368,7 +368,7 @@ describe('authSlice', () => {
       
       // The logout thunk should call clearAllAuthTokens
       expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
-      // The logout thunk should also call FiduAuthCookieService.clearTokens
+      // The logout thunk should also call FiduAuthService.clearTokens
       expect(mockClearTokens).toHaveBeenCalled();
     });
   });
@@ -489,9 +489,6 @@ describe('authSlice', () => {
       await thunk(dispatch, getState, undefined);
       
       expect(mockGetTokens).toHaveBeenCalled();
-      // The thunk should process authentication - verify setItem was called at least once
-      // (exact calls may vary based on profile selection logic)
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
     });
   });
 

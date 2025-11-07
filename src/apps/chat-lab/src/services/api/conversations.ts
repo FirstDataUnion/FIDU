@@ -18,8 +18,8 @@ export interface ConversationResponse {
 
 // Transform API data packet to local Conversation type
 const transformDataPacketToConversation = (packet: ConversationDataPacket): Conversation => {
-  // Add validation to ensure required fields exist
-  if (!packet.data?.interactions?.length) {
+  // Add validation to ensure data object exists
+  if (!packet.data || typeof packet.data !== 'object') {
     return {
       id: packet.id,
       title: "Error: Could not parse data packet as conversation",
@@ -36,6 +36,10 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
       modelsUsed: []
     };
   }
+  
+  // Allow conversations with no messages yet (newly created conversations)
+  // Just use empty array for interactions if not present
+  const interactions = packet.data.interactions || [];
 
   // Transform original prompt data if it exists
   let originalPrompt: Conversation['originalPrompt'] | undefined;
@@ -106,16 +110,16 @@ const transformDataPacketToConversation = (packet: ConversationDataPacket): Conv
   // This saves computation for conversations that already have it stored
   const modelsUsed = packet.data.modelsUsed && Array.isArray(packet.data.modelsUsed)
     ? packet.data.modelsUsed
-    : extractUniqueModels(packet.data.interactions || []);
+    : extractUniqueModels(interactions);
 
   return {
     id: packet.id,
-    title: packet.data.conversationTitle || packet.data.conversationUrl,
-    platform: packet.data.sourceChatbot.toLowerCase() as "chatgpt" | "claude" | "gemini" | "other",
+    title: packet.data.conversationTitle || packet.data.conversationUrl || 'Untitled Conversation',
+    platform: (packet.data.sourceChatbot?.toLowerCase() || 'other') as "chatgpt" | "claude" | "gemini" | "other",
     createdAt: packet.create_timestamp, // Store as ISO string
     updatedAt: packet.update_timestamp, // Store as ISO string
-    lastMessage: packet.data.interactions[packet.data.interactions.length - 1].content,
-    messageCount: packet.data.interactions.length,
+    lastMessage: interactions.length > 0 ? interactions[interactions.length - 1].content : '',
+    messageCount: interactions.length,
     tags: packet.tags || [],
     isArchived: packet.data.isArchived || false,
     isFavorite: packet.data.isFavorite || false,
@@ -189,9 +193,12 @@ const transformConversationToDataPacketUpdate = (conversation: Partial<Conversat
   const existingModelsUsed = conversation.modelsUsed || [];
   const mergedModelsUsed = [...new Set([...existingModelsUsed, ...computedModelsUsed])];
 
+  const additionalTags = (conversation.tags || []).filter((tag) => !PROTECTED_TAGS.includes(tag as any));
+  const mergedTags = Array.from(new Set([...PROTECTED_TAGS, ...additionalTags]));
+
   return {
     id: conversation.id,
-    tags: conversation.tags || [], // Preserve existing tags for updates
+    tags: mergedTags, // Always include protected tags for updates
     data: {
       sourceChatbot: (conversation.platform || 'other').toUpperCase(),
       interactions: messages.map((message) => ({

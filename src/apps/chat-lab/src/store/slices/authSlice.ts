@@ -2,7 +2,8 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '../../services/api/auth';
 import { refreshTokenService } from '../../services/api/refreshTokenService';
-import { getFiduAuthCookieService } from '../../services/auth/FiduAuthCookieService';
+import { getFiduAuthService } from '../../services/auth/FiduAuthService';
+import { beginLogout, completeLogout, currentLogoutSource, markAuthenticated } from '../../services/auth/logoutCoordinator';
 import type { 
   AuthState, 
   Profile, 
@@ -66,10 +67,22 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { dispatch, rejectWithValue }) => {
     try {
-      console.log('🧹 Starting logout process...');
+      const started = beginLogout('manual');
+      const source = currentLogoutSource();
+
+      if (!started && source === 'manual') {
+        console.log('🔁 Logout already in progress, skipping manual logout request');
+        return true;
+      }
+
+      const logContext = source === 'auto' && !started
+        ? 'auto-triggered'
+        : 'manual';
+
+      console.log(`🧹 Starting logout process (${logContext})...`);
       
       // Clear HTTP-only cookies via backend (FIDU auth)
-      const fiduAuthService = getFiduAuthCookieService();
+      const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
       console.log('✅ FIDU auth cookies cleared');
       
@@ -92,6 +105,16 @@ export const logout = createAsyncThunk(
       localStorage.removeItem('google_drive_tokens');
       localStorage.removeItem('google_drive_user');
       
+      // Clear cached FIDU SDK instance to force reinitialization on next login
+      // This ensures the login widget appears properly after logout
+      if ((window as any).__fiduAuthInstance) {
+        delete (window as any).__fiduAuthInstance;
+        console.log('✅ FIDU SDK instance cleared');
+      }
+      
+      // Mark logout as complete to clear timeout and prevent loops
+      completeLogout();
+      
       return true;
     } catch (error: any) {
       console.error('❌ Logout failed:', error);
@@ -99,6 +122,15 @@ export const logout = createAsyncThunk(
       refreshTokenService.clearAllAuthTokens();
       localStorage.removeItem('google_drive_tokens');
       localStorage.removeItem('google_drive_user');
+      
+      // Clear cached FIDU SDK instance even on error
+      if ((window as any).__fiduAuthInstance) {
+        delete (window as any).__fiduAuthInstance;
+      }
+      
+      // Still mark logout as complete even on failure to prevent infinite loops
+      completeLogout();
+      
       return rejectWithValue(error.message || 'Failed to logout completely');
     }
   }
@@ -108,7 +140,7 @@ export const initializeAuth = createAsyncThunk(
   'auth/initializeAuth',
   async (_, { dispatch, rejectWithValue }) => {
     try {
-      const fiduAuthService = getFiduAuthCookieService();
+      const fiduAuthService = getFiduAuthService();
       
       // First try to get tokens from HTTP-only cookies
       let token: string | null = null;
@@ -137,6 +169,7 @@ export const initializeAuth = createAsyncThunk(
       }
       
       if (token && user) {
+        markAuthenticated();
         // Parse user if it's a string
         if (typeof user === 'string') {
           user = JSON.parse(user);
@@ -185,7 +218,7 @@ export const initializeAuth = createAsyncThunk(
       return null;
     } catch (error: any) {
       // Clear invalid auth data
-      const fiduAuthService = getFiduAuthCookieService();
+      const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
       refreshTokenService.clearAllAuthTokens();
       return rejectWithValue(error.message || 'Failed to initialize auth');

@@ -2090,10 +2090,23 @@ export default function PromptLabPage() {
     try {
       // Use override ID if provided (from handleSendMessage), otherwise use currentConversation
       const conversationId = conversationIdOverride || currentConversation?.id;
-      const conversationToSave = currentConversation || (conversationId ? { id: conversationId } as Partial<Conversation> : null);
       
       // Update existing conversation (it should always have an ID now since we generate it on first message)
-      if (conversationToSave && conversationId) {
+      if (conversationId) {
+        // Fetch the existing conversation from storage to ensure we have all properties (especially title)
+        // This prevents accidentally overwriting the title with "Untitled Conversation"
+        let existingConversation: Partial<Conversation> | null = null;
+        try {
+          existingConversation = await conversationsService.getById(conversationId);
+        } catch (error) {
+          // If conversation doesn't exist yet (race condition), use currentConversation
+          console.log('Conversation not found in storage yet, using current state:', error);
+          existingConversation = currentConversation;
+        }
+        
+        // Merge existing conversation with any updates, ensuring we preserve the title
+        const conversationToSave = existingConversation || currentConversation || { id: conversationId };
+        
         // Update existing conversation using Redux action
         const updatedConversation = await dispatch(updateConversationWithMessages({
           conversation: { ...conversationToSave, id: conversationId },

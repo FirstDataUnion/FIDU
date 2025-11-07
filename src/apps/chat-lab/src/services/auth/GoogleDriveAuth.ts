@@ -3,7 +3,11 @@
  * Handles OAuth 2.0 flow for Google Drive access
  */
 
-import { getFiduAuthCookieService } from './FiduAuthCookieService';
+import {
+  getFiduAuthService,
+  AuthenticationRequiredError,
+  TokenAcquisitionTimeoutError,
+} from './FiduAuthService';
 import { detectRuntimeEnvironment } from '../../utils/environment';
 
 // Custom error for insufficient OAuth scopes
@@ -200,6 +204,31 @@ export class GoogleDriveAuthService {
     
     this.isAuthenticating = true;
     try {
+      const fiduTokenService = getFiduAuthService();
+      try {
+        await fiduTokenService.ensureAccessToken({
+          onWait: () => console.log('🔐 Ensuring FIDU session before starting Google OAuth flow...'),
+        });
+      } catch (error) {
+        if (error instanceof AuthenticationRequiredError) {
+          await fiduTokenService.clearTokens();
+          try {
+            const [{ store }, { logout }] = await Promise.all([
+              import('../../store'),
+              import('../../store/slices/authSlice'),
+            ]);
+            store.dispatch(logout());
+          } catch (dispatchError) {
+            console.warn('Failed to dispatch logout after auth loss:', dispatchError);
+          }
+          throw new Error('FIDU authentication required before connecting Google Drive. Please log in again.');
+        }
+        if (error instanceof TokenAcquisitionTimeoutError) {
+          throw new Error('Timed out while preparing authentication. Please try again.');
+        }
+        throw error;
+      }
+
       // Check if we need to force consent (when we don't have a refresh token)
       const needsRefreshToken = forceReauth || !(await this.hasStoredRefreshToken());
       
@@ -406,20 +435,28 @@ export class GoogleDriveAuthService {
       : '';
     
     try {
-      // Get FIDU auth token for secure token exchange
-      const fiduAuthService = getFiduAuthCookieService();
-      const fiduAuthToken = await fiduAuthService.getAccessToken();
-      
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
       
-      // Include FIDU auth token if available
+      let fiduAuthToken: string | null = null;
+      try {
+        fiduAuthToken = await getFiduAuthService().ensureAccessToken({
+          onWait: () => console.log('🔐 Ensuring FIDU auth before exchanging OAuth code...'),
+        });
+      } catch (error) {
+        if (error instanceof AuthenticationRequiredError) {
+          throw new Error('FIDU authentication expired before completing Google Drive setup. Please log in again.');
+        }
+        if (error instanceof TokenAcquisitionTimeoutError) {
+          throw new Error('Timed out while preparing FIDU authentication for Google Drive. Please try again.');
+        }
+        throw error;
+      }
+
       if (fiduAuthToken) {
         headers['Authorization'] = `Bearer ${fiduAuthToken}`;
         console.log('🔑 Including FIDU auth token in OAuth exchange request');
-      } else {
-        console.warn('⚠️ No FIDU auth token available for OAuth exchange');
       }
       
       const response = await fetch(`${basePath}/api/oauth/exchange-code`, {
@@ -631,17 +668,29 @@ export class GoogleDriveAuthService {
     const environment = detectRuntimeEnvironment();
     
     try {
-      // Get FIDU auth token for secure token refresh
-      const fiduAuthService = getFiduAuthCookieService();
+      const fiduTokenService = getFiduAuthService();
       
       // Check if we have a FIDU refresh token before attempting to get access token
-      const hasFiduRefreshToken = await fiduAuthService.hasRefreshToken();
+      const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
       if (!hasFiduRefreshToken) {
         console.log('ℹ️ No FIDU refresh token available - skipping secure token refresh');
         throw new Error('No FIDU refresh token available for secure token refresh');
       }
       
-      const fiduAuthToken = await fiduAuthService.getAccessToken();
+      let fiduAuthToken: string | null = null;
+      try {
+        fiduAuthToken = await fiduTokenService.ensureAccessToken({
+          onWait: () => console.log('🔐 Ensuring FIDU auth before Google token refresh...'),
+        });
+      } catch (error) {
+        if (error instanceof AuthenticationRequiredError) {
+          throw new Error('FIDU authentication expired before refreshing Google Drive tokens. Please log in again.');
+        }
+        if (error instanceof TokenAcquisitionTimeoutError) {
+          throw new Error('Timed out while preparing FIDU auth for Google Drive token refresh. Please try again.');
+        }
+        throw error;
+      }
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -651,8 +700,6 @@ export class GoogleDriveAuthService {
       if (fiduAuthToken) {
         headers['Authorization'] = `Bearer ${fiduAuthToken}`;
         console.log('🔑 Including FIDU auth token in token refresh request');
-      } else {
-        console.warn('⚠️ No FIDU auth token available for token refresh');
       }
       
       const response = await fetch(`${basePath}/api/oauth/refresh-token?env=${environment}`, {
@@ -877,17 +924,31 @@ export class GoogleDriveAuthService {
       // Detect environment for cookie isolation using shared utility
       const environment = detectRuntimeEnvironment();
       
-      // Get FIDU auth token for secure token retrieval
-      const fiduAuthService = getFiduAuthCookieService();
+      const fiduTokenService = getFiduAuthService();
       
       // Check if we have a FIDU refresh token before attempting to get access token
-      const hasFiduRefreshToken = await fiduAuthService.hasRefreshToken();
+      const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
       if (!hasFiduRefreshToken) {
         console.log('ℹ️ No FIDU refresh token available - skipping secure token retrieval');
         return null;
       }
       
-      const fiduAuthToken = await fiduAuthService.getAccessToken();
+      let fiduAuthToken: string | null = null;
+      try {
+        fiduAuthToken = await fiduTokenService.ensureAccessToken({
+          onWait: () => console.log('🔐 Ensuring FIDU auth before retrieving Google Drive tokens...'),
+        });
+      } catch (error) {
+        if (error instanceof AuthenticationRequiredError) {
+          console.warn('FIDU authentication required before restoring Google Drive tokens.');
+          return null;
+        }
+        if (error instanceof TokenAcquisitionTimeoutError) {
+          console.warn('Timed out while preparing FIDU authentication for Google Drive token retrieval.');
+          return null;
+        }
+        throw error;
+      }
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -897,8 +958,6 @@ export class GoogleDriveAuthService {
       if (fiduAuthToken) {
         headers['Authorization'] = `Bearer ${fiduAuthToken}`;
         console.log('🔑 Including FIDU auth token in token retrieval request');
-      } else {
-        console.warn('⚠️ No FIDU auth token available for token retrieval');
       }
       
       const response = await fetch(`${basePath}/api/oauth/get-tokens?env=${environment}`, {

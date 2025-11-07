@@ -4,12 +4,22 @@
  */
 
 import type { UserSettings } from '../../types';
-import { getFiduAuthCookieService } from '../auth/FiduAuthCookieService';
+import {
+  getFiduAuthService,
+  AuthenticationRequiredError,
+  TokenAcquisitionTimeoutError,
+} from '../auth/FiduAuthService';
 import { detectRuntimeEnvironment } from '../../utils/environment';
 
 export interface CookieSettingsResponse {
   settings?: UserSettings;
 }
+
+export type CookieSettingsMutationResult =
+  | { success: true }
+  | { success: false; reason: 'auth_unavailable' }
+  | { success: false; reason: 'request_failed'; status: number }
+  | { success: false; reason: 'unexpected_error'; error: unknown };
 
 export class CookieSettingsService {
   private basePath: string;
@@ -35,7 +45,7 @@ export class CookieSettingsService {
    * Store user settings in HTTP-only cookie
    * Requires authentication for security
    */
-  async setSettings(settings: UserSettings): Promise<boolean> {
+  async setSettings(settings: UserSettings): Promise<CookieSettingsMutationResult> {
     try {
       console.log(`🔄 Storing user settings in HTTP-only cookie for ${this.environment} environment...`);
       
@@ -43,7 +53,7 @@ export class CookieSettingsService {
       const authToken = await this.getAuthToken();
       if (!authToken) {
         console.warn('⚠️ No auth token available - cannot store settings securely');
-        return false;
+        return { success: false, reason: 'auth_unavailable' };
       }
       
       // Add environment information to settings
@@ -68,14 +78,14 @@ export class CookieSettingsService {
 
       if (response.ok) {
         console.log('✅ User settings stored in HTTP-only cookie');
-        return true;
+        return { success: true };
       } else {
         console.error('❌ Failed to store settings in cookie:', response.status);
-        return false;
+        return { success: false, reason: 'request_failed', status: response.status };
       }
     } catch (error) {
       console.error('❌ Error storing settings in cookie:', error);
-      return false;
+      return { success: false, reason: 'unexpected_error', error };
     }
   }
 
@@ -177,9 +187,19 @@ export class CookieSettingsService {
    */
   private async getAuthToken(): Promise<string | null> {
     try {
-      const fiduAuthService = getFiduAuthCookieService();
-      return await fiduAuthService.getAccessToken();
+      const fiduTokenService = getFiduAuthService();
+      return await fiduTokenService.ensureAccessToken({
+        onWait: () => console.log('🔐 Ensuring FIDU auth before fetching settings...'),
+      });
     } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        console.warn('FIDU authentication required before fetching settings');
+        return null;
+      }
+      if (error instanceof TokenAcquisitionTimeoutError) {
+        console.warn('Timed out waiting for FIDU auth while fetching settings');
+        return null;
+      }
       console.warn('Failed to get auth token:', error);
       return null;
     }

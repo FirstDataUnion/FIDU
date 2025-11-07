@@ -11,14 +11,14 @@
 
 import { AuthManager, getAuthManager, resetAuthManager } from '../AuthManager';
 import { GoogleDriveAuthService } from '../GoogleDriveAuth';
-import { getFiduAuthCookieService } from '../FiduAuthCookieService';
-import type { FiduAuthCookieService } from '../FiduAuthCookieService';
+import { getFiduAuthService } from '../FiduAuthService';
+
+type MockFiduAuthService = ReturnType<typeof getFiduAuthService>;
 
 // Mock dependencies
 jest.mock('../GoogleDriveAuth');
-jest.mock('../FiduAuthCookieService', () => ({
-  getFiduAuthCookieService: jest.fn(),
-  FiduAuthCookieService: jest.fn(),
+jest.mock('../FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(),
 }));
 
 // Mock Redux actions
@@ -42,7 +42,7 @@ jest.mock('../../../store/slices/unifiedStorageSlice', () => ({
 describe('AuthManager', () => {
   let mockDispatch: jest.Mock;
   let mockGoogleDriveAuthService: jest.Mocked<GoogleDriveAuthService>;
-  let mockFiduAuthService: jest.Mocked<FiduAuthCookieService>;
+  let mockFiduAuthService: jest.Mocked<MockFiduAuthService>;
   let authManager: AuthManager;
 
   beforeEach(() => {
@@ -62,8 +62,8 @@ describe('AuthManager', () => {
       clearTokens: jest.fn().mockResolvedValue(true),
     } as any;
 
-    // Mock getFiduAuthCookieService
-    (getFiduAuthCookieService as jest.Mock).mockReturnValue(mockFiduAuthService);
+    // Mock getFiduAuthService
+    (getFiduAuthService as jest.Mock).mockReturnValue(mockFiduAuthService);
 
     // Create mock Google Drive auth service
     mockGoogleDriveAuthService = {
