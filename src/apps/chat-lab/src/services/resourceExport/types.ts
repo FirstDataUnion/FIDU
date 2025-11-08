@@ -3,9 +3,6 @@
  * Defines the structure for exporting and importing resources
  */
 
-import type { SystemPrompt, Context, Conversation, Message } from '../../types';
-import type { BackgroundAgent } from '../api/backgroundAgents';
-
 /**
  * Format version for compatibility checking
  */

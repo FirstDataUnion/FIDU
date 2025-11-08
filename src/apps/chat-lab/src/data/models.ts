@@ -844,6 +844,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     executionPath: 'direct',
     providerKey: 'openai'
   },
+
   // Alibaba Cloud Models (OpenRouter)
   'qwen3-next-80B-A3B-instruct': {
     id: 'qwen3-next-80B-A3B-instruct',
@@ -1756,7 +1757,125 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     speed: 'medium',
     executionPath: 'direct',
     providerKey: 'openai'
-  }
+  },
+
+  // Alibaba Cloud Models (OpenRouter)
+  'qwen3-next-80B-A3B-instruct': {
+    id: 'qwen3-next-80B-A3B-instruct',
+    name: 'Qwen3 Next 80B A3B Instruct',
+    provider: 'Alibaba Cloud',
+    agentId: 'agent-1762599658652780256',
+    maxTokens: 128000,
+    description: 'Qwen3 Next 80B A3B Instruct',
+    capabilities: ['instruction-following', 'text-generation', 'general-purpose'],
+    category: 'general',
+    costTier: 'low',
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'alibaba-cloud'
+  },
+  'qwen3-next-80B-A3B-thinking': {
+    id: 'qwen3-next-80B-A3B-thinking',
+    name: 'Qwen3 Next 80B A3V Instruct',
+    provider: 'Alibaba Cloud',
+    agentId: 'agent-1762599692059454106',
+    maxTokens: 128000,
+    description: 'Qwen3 Next 80B A3B Thinking',
+    capabilities: ['reasoning', 'chain-of-thought', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'low',
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'alibaba-cloud'
+  },
+  'qwen3-VL-235B-A22B': {
+    id: 'qwen3-VL-235B-A22B',
+    name: 'Qwen3 VL 235B A22B',
+    provider: 'Alibaba Cloud',
+    agentId: 'agent-1762599725104019305',
+    maxTokens: 128000,
+    description: 'Qwen3 VL 235B A22B',
+    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    category: 'multimodal',
+    costTier: 'low',
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'alibaba-cloud'
+  },
+  'qwen3-VL-30B-A3B': {
+    id: 'qwen3-VL-30B-A3B',
+    name: 'Qwen3 VL 30B A3B',
+    provider: 'Alibaba Cloud',
+    agentId: 'agent-1762599763855951645',
+    maxTokens: 128000,
+    description: 'Qwen3 VL 30B A3B',
+    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    category: 'multimodal',
+    costTier: 'low',
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'alibaba-cloud'
+  },
+  'qwen3-max': {
+    id: 'qwen3-max',
+    name: 'Qwen3 Max',
+    provider: 'Alibaba Cloud',
+    agentId: 'agent-1762599800313248888',
+    maxTokens: 128000,
+    description: 'Qwen3 Max',
+    capabilities: ['advanced-reasoning', 'complex-analysis', 'maximum-capabilities'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'alibaba-cloud'
+  },
+
+  // Moonshot Models (OpenRouter)
+  'kimi-k2-0905': {
+    id: 'kimi-k2-0905',
+    name: 'Kimi K2 0905',
+    provider: 'Moonshot',
+    agentId: 'agent-1762599858585070370',
+    maxTokens: 128000,
+    description: 'Kimi K2 0905',
+    capabilities: ['reasoning', 'long-context', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'low',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'moonshot'
+  },
+
+  // DeepSeek Models (OpenRouter)
+  'deepseek-v3.2-exp': {
+    id: 'deepseek-v3.2-exp',
+    name: 'DeepSeek V3.2 Exp',
+    provider: 'DeepSeek',
+    agentId: 'agent-1762599891628347335',
+    maxTokens: 128000,
+    description: 'DeepSeek V3.2 Exp',
+    capabilities: ['reasoning', 'experimental-features', 'advanced-capabilities'],
+    category: 'reasoning',
+    costTier: 'low',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'deepseek'
+  },
+  'deepseek-r1': {
+    id: 'deepseek-r1',
+    name: 'DeepSeek R1',
+    provider: 'DeepSeek',
+    agentId: 'agent-1762599921505493914',
+    maxTokens: 128000,
+    description: 'DeepSeek R1',
+    capabilities: ['reasoning', 'chain-of-thought', 'mathematics', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'low',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'deepseek'
+  },
 };
 
 /**

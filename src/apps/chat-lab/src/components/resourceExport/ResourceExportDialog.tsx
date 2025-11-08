@@ -13,14 +13,9 @@ import {
   Box,
   Typography,
   Checkbox,
-  FormControlLabel,
-  FormGroup,
-  Divider,
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
-  TextField,
   Alert,
   CircularProgress,
   Accordion,
@@ -81,23 +76,37 @@ export default function ResourceExportDialog({
 
   // Load available resources
   useEffect(() => {
-    if (open && profileId) {
-      loadResources();
+    if (!open || !profileId) {
+      return;
     }
-  }, [open, profileId]);
 
-  const loadResources = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const resources = await exportService.getAvailableResources(profileId);
-      setAvailableResources(resources);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load resources');
-    } finally {
-      setLoading(false);
-    }
-  };
+    let isActive = true;
+
+    const fetchResources = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const resources = await exportService.getAvailableResources(profileId);
+        if (isActive) {
+          setAvailableResources(resources);
+        }
+      } catch (err: any) {
+        if (isActive) {
+          setError(err.message || 'Failed to load resources');
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchResources();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, profileId, exportService]);
 
   const handleToggleResource = useCallback((
     type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations',

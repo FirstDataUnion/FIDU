@@ -150,7 +150,8 @@ const transformConversationToDataPacket = (profile_id: string, conversation: Par
         content: message.content,
         attachments: message.attachments?.map(att => att.url || att.toString()) || [],
         // Store the model that generated this specific message
-        model: message.platform || conversation.platform || 'unknown'
+        model: message.platform || conversation.platform || 'unknown',
+        metadata: message.metadata || undefined
       })),
       targetModelRequested: conversation.platform || 'other',
       conversationUrl: 'FIDU_Chat_Lab',

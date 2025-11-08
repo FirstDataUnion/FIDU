@@ -12,6 +12,26 @@ import {
 } from '../auth/FiduAuthService';
 import { beginLogout, completeLogout, currentLogoutSource } from '../auth/logoutCoordinator';
 
+type StoreModule = typeof import('../../store');
+type AuthSliceModule = typeof import('../../store/slices/authSlice');
+
+let storeModulePromise: Promise<StoreModule> | null = null;
+let authSliceModulePromise: Promise<AuthSliceModule> | null = null;
+
+function loadStoreModule() {
+  if (!storeModulePromise) {
+    storeModulePromise = import('../../store');
+  }
+  return storeModulePromise;
+}
+
+function loadAuthSliceModule() {
+  if (!authSliceModulePromise) {
+    authSliceModulePromise = import('../../store/slices/authSlice');
+  }
+  return authSliceModulePromise;
+}
+
 export interface TokenRefreshResponse {
   access_token: string;
   expires_in: number;
@@ -211,7 +231,7 @@ class RefreshTokenService {
           this.clearAllAuthTokens();
           
           // Dispatch logout action to update Redux state
-          this.dispatchLogout();
+          await this.dispatchLogout();
           
           throw new Error('Authentication required. Please log in again.');
         }
@@ -243,44 +263,22 @@ class RefreshTokenService {
    * Dispatch logout action to update Redux state
    * This ensures the UI properly reflects the authentication state change
    */
-  private dispatchLogout(): void {
+  private async dispatchLogout(): Promise<void> {
+    const started = beginLogout('auto');
+
+    if (!started) {
+      const source = currentLogoutSource();
+      console.log('🔁 Logout already in progress, skipping duplicate auto-dispatch', { source });
+      return;
+    }
+
     try {
-      const started = beginLogout('auto');
-      if (!started) {
-        const source = currentLogoutSource();
-        console.log('🔁 Logout already in progress, skipping duplicate auto-dispatch', { source });
-        return;
-      }
-      // Import the store dynamically to avoid circular dependencies
-      import('../../store').then(({ store }) => {
-        // Import the logout action dynamically
-        import('../../store/slices/authSlice').then(({ logout }) => {
-          store.dispatch(logout()).catch((error) => {
-            console.error('Logout dispatch failed:', error);
-            // Ensure logout coordinator is reset even if dispatch fails
-            completeLogout();
-            // Fallback to page reload if logout fails
-            window.location.reload();
-          });
-        }).catch((error) => {
-          console.warn('Failed to import logout action:', error);
-          // Ensure logout coordinator is reset
-          completeLogout();
-          // Fallback to page reload if Redux dispatch fails
-          window.location.reload();
-        });
-      }).catch((error) => {
-        console.warn('Failed to import store:', error);
-        // Ensure logout coordinator is reset
-        completeLogout();
-        // Fallback to page reload if Redux dispatch fails
-        window.location.reload();
-      });
+      const { store } = await loadStoreModule();
+      const { logout } = await loadAuthSliceModule();
+      await store.dispatch(logout());
     } catch (error) {
-      console.warn('Failed to dispatch logout action:', error);
-      // Ensure logout coordinator is reset
+      console.error('Logout dispatch failed:', error);
       completeLogout();
-      // Fallback to page reload if Redux dispatch fails
       window.location.reload();
     }
   }
@@ -311,7 +309,7 @@ class RefreshTokenService {
         } catch (error) {
           if (error instanceof AuthenticationRequiredError) {
             this.clearAllAuthTokens();
-            this.dispatchLogout();
+            await this.dispatchLogout();
             return Promise.reject(error);
           }
 
@@ -357,7 +355,7 @@ class RefreshTokenService {
             this.clearAllAuthTokens();
             
             // Dispatch logout action to update Redux state
-            this.dispatchLogout();
+            await this.dispatchLogout();
             
             return Promise.reject(new Error('Authentication required. Please log in again.'));
           }

@@ -934,7 +934,7 @@ const SystemPromptsPage = React.memo(() => {
             display: 'flex', 
             flexDirection: 'column', 
             gap: 2, 
-            flex: { xs: 'none', lg: '0 0 30%' }, 
+            flex: { xs: 'none', lg: '0 0 37%' }, 
             minWidth: { xs: '100%', lg: '300px' },
             width: { xs: '100%', lg: 'auto' }
           }}>

@@ -437,13 +437,19 @@ export default function ContextsPage() {
             </Box>
             {/* Only show Add Context button on desktop */}
             {!isMobile && (
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleCreateContext}
                   disabled={isDirectoryRequired}
-                  sx={{ borderRadius: 2 }}
+                  sx={{ 
+                    borderRadius: 2,
+                    flex: 1,
+                    minWidth: { xs: '100%', sm: '200px' },
+                    py: { xs: 1.5, sm: 1 },
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                  }}
                 >
                   Add Context
                 </Button>
@@ -452,7 +458,13 @@ export default function ContextsPage() {
                   startIcon={<ImportIcon />}
                   onClick={() => setShowImportDialog(true)}
                   disabled={isDirectoryRequired}
-                  sx={{ borderRadius: 2 }}
+                  sx={{ 
+                    borderRadius: 2,
+                    flex: 1,
+                    minWidth: { xs: '100%', sm: '200px' },
+                    py: { xs: 1.5, sm: 1 },
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                  }}
                 >
                   Import
                 </Button>

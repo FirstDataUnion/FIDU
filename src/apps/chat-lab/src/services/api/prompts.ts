@@ -142,7 +142,9 @@ export const createPromptsApi = () => {
         BACKOFF_THRESHOLD_MS
       )
       
-      const chatResponse = response.outputs.results[0]?.output?.result;
+      const resultBlock = response.outputs?.results?.[0];
+      const chatResponse = resultBlock?.output?.result;
+      const actualModel = typeof resultBlock?.actualModel === 'string' ? resultBlock.actualModel : undefined;
       
       return {
         id: `exec-${Date.now()}`,
@@ -150,6 +152,7 @@ export const createPromptsApi = () => {
         responses: {
           modelId: selectedModel,
           content: chatResponse,
+          actualModel,
         },
         timestamp: new Date().toISOString()
       };

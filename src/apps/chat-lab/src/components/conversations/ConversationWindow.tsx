@@ -20,6 +20,7 @@ import {
   Minimize as MinimizeIcon
 } from '@mui/icons-material';
 import EnhancedMarkdown from '../common/EnhancedMarkdown';
+import { parseActualModelInfo, type ActualModelInfo } from '../../utils/conversationUtils';
 
 // Conversation input component with internal state management
 const ConversationInput = ({ 
@@ -89,6 +90,7 @@ interface ConversationMessage {
   content: string;
   timestamp: string;
   model?: string;
+  metadata?: Record<string, any>;
 }
 
 interface ConversationWindowProps {
@@ -232,79 +234,130 @@ export const ConversationWindow: React.FC<ConversationWindowProps> = ({
           }}
         >
           <Stack spacing={2}>
-            {messages.map((message, index) => (
-              <Box
-                key={message.id}
-                sx={{
-                  display: 'flex',
-                  justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
-                  mb: 2,
-                  animation: index === messages.length - 1 ? 'fadeInUp 0.3s ease-out' : 'none',
-                  '@keyframes fadeInUp': {
-                    '0%': {
-                      opacity: 0,
-                      transform: 'translateY(10px)'
-                    },
-                    '100%': {
-                      opacity: 1,
-                      transform: 'translateY(0)'
-                    }
+            {messages.map((message, index) => {
+              let assistantLabel = message.model || 'Assistant';
+
+              if (message.role === 'assistant') {
+                const metadata = message.metadata as Record<string, any> | undefined;
+                const actualModelRaw = typeof metadata?.actualModel === 'string' ? metadata.actualModel : undefined;
+                let actualModelInfo: ActualModelInfo | null = parseActualModelInfo(actualModelRaw);
+
+                if (actualModelInfo) {
+                  const providerDisplay = typeof metadata?.actualModelProviderDisplay === 'string' ? metadata.actualModelProviderDisplay.trim() : '';
+                  const modelDisplay = typeof metadata?.actualModelNameDisplay === 'string' ? metadata.actualModelNameDisplay.trim() : '';
+
+                  if (providerDisplay) {
+                    actualModelInfo = {
+                      ...actualModelInfo,
+                      providerDisplay
+                    };
                   }
-                }}
-              >
+
+                  if (modelDisplay) {
+                    actualModelInfo = {
+                      ...actualModelInfo,
+                      modelDisplay
+                    };
+                  }
+                } else if (
+                  typeof metadata?.actualModelProviderDisplay === 'string' ||
+                  typeof metadata?.actualModelNameDisplay === 'string'
+                ) {
+                  actualModelInfo = {
+                    raw: actualModelRaw ?? '',
+                    providerRaw: typeof metadata?.actualModelProvider === 'string' ? metadata.actualModelProvider : '',
+                    modelRaw: typeof metadata?.actualModelName === 'string' ? metadata.actualModelName : '',
+                    providerDisplay: typeof metadata?.actualModelProviderDisplay === 'string' ? metadata.actualModelProviderDisplay : '',
+                    modelDisplay: typeof metadata?.actualModelNameDisplay === 'string' ? metadata.actualModelNameDisplay : ''
+                  };
+                }
+
+                if (actualModelInfo) {
+                  const displayModel = actualModelInfo.modelDisplay?.trim() || assistantLabel;
+                  const displayProvider = actualModelInfo.providerDisplay?.trim();
+
+                  assistantLabel = displayModel || assistantLabel;
+
+                  if (displayProvider && displayProvider.toLowerCase() !== 'unknown') {
+                    assistantLabel = `${assistantLabel} · ${displayProvider}`;
+                  }
+                }
+              }
+
+              return (
                 <Box
+                  key={message.id}
                   sx={{
-                    maxWidth: '80%',
-                    backgroundColor: message.role === 'user' 
-                      ? 'primary.main' 
-                      : 'background.paper',
-                    color: message.role === 'user' 
-                      ? 'primary.contrastText' 
-                      : 'text.primary',
-                    borderRadius: 2,
-                    p: 2,
-                    boxShadow: 1,
-                    position: 'relative'
+                    display: 'flex',
+                    justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                    mb: 2,
+                    animation: index === messages.length - 1 ? 'fadeInUp 0.3s ease-out' : 'none',
+                    '@keyframes fadeInUp': {
+                      '0%': {
+                        opacity: 0,
+                        transform: 'translateY(10px)'
+                      },
+                      '100%': {
+                        opacity: 1,
+                        transform: 'translateY(0)'
+                      }
+                    }
                   }}
                 >
-                  {/* Message Header */}
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 1, 
-                    mb: 1,
-                    opacity: 0.8
-                  }}>
-                    {message.role === 'user' ? (
-                      <>
-                        <UserIcon fontSize="small" />
-                        <Typography variant="caption">You</Typography>
-                      </>
-                    ) : (
-                      <>
-                        <BotIcon fontSize="small" />
-                        <Typography variant="caption">{message.model || 'Assistant'}</Typography>
-                      </>
-                    )}
-                    <Typography variant="caption" sx={{ ml: 'auto' }}>
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </Typography>
-                  </Box>
-
-                  {/* Message Content */}
-                  <EnhancedMarkdown 
-                    content={message.content}
-                    enableSyntaxHighlighting={true}
-                    showCopyButtons={true}
-                    preprocess={true}
+                  <Box
                     sx={{
-                      // Let EnhancedMarkdown handle paragraph spacing
-                      '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '4px', marginBottom: '4px' },
+                      maxWidth: '80%',
+                      backgroundColor: message.role === 'user' 
+                        ? 'primary.main' 
+                        : 'background.paper',
+                      color: message.role === 'user' 
+                        ? 'primary.contrastText' 
+                        : 'text.primary',
+                      borderRadius: 2,
+                      p: 2,
+                      boxShadow: 1,
+                      position: 'relative'
                     }}
-                  />
+                  >
+                    {/* Message Header */}
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1, 
+                      mb: 1,
+                      opacity: 0.8
+                    }}>
+                      {message.role === 'user' ? (
+                        <>
+                          <UserIcon fontSize="small" />
+                          <Typography variant="caption">You</Typography>
+                        </>
+                      ) : (
+                        <>
+                          <BotIcon fontSize="small" />
+                          <Typography variant="caption">{assistantLabel}</Typography>
+                        </>
+                      )}
+                      <Typography variant="caption" sx={{ ml: 'auto' }}>
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </Typography>
+                    </Box>
+
+                    {/* Message Content */}
+                    <EnhancedMarkdown 
+                      content={message.content}
+                      enableSyntaxHighlighting={true}
+                      showCopyButtons={true}
+                      preprocess={true}
+                      sx={{
+                        // Let EnhancedMarkdown handle paragraph spacing
+                        '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '4px', marginBottom: '4px' },
+                      }}
+                    />
+                  </Box>
                 </Box>
-              </Box>
-            ))}
+              );
+            })}
 
             {isSendingFollowUp && (
               <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>

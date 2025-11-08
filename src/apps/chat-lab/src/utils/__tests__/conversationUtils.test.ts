@@ -11,6 +11,7 @@ import {
   calculatePrimaryModelsDisplay,
   calculatePrimaryModelsFromInteractions,
   calculatePrimaryModelsFromMessages,
+  parseActualModelInfo,
 } from '../conversationUtils';
 
 describe('conversationUtils', () => {
@@ -274,6 +275,33 @@ describe('conversationUtils', () => {
     it('should format unknown model IDs with capitalization', () => {
       expect(getModelDisplayName('custom-model-name')).toBe('Custom Model Name');
       expect(getModelDisplayName('my_custom_model')).toBe('My Custom Model');
+    });
+  });
+
+  describe('parseActualModelInfo', () => {
+    it('should parse provider and model segments with formatting', () => {
+      const info = parseActualModelInfo('mistralai/mistral-nemo');
+      expect(info).not.toBeNull();
+      expect(info).toEqual({
+        raw: 'mistralai/mistral-nemo',
+        providerRaw: 'mistralai',
+        modelRaw: 'mistral-nemo',
+        providerDisplay: 'Mistral AI',
+        modelDisplay: 'Mistral Nemo'
+      });
+    });
+
+    it('should apply provider overrides when available', () => {
+      const info = parseActualModelInfo('openrouter/auto');
+      expect(info).not.toBeNull();
+      expect(info?.providerDisplay).toBe('OpenRouter');
+      expect(info?.modelDisplay).toBe('Auto');
+    });
+
+    it('should return null for invalid inputs', () => {
+      expect(parseActualModelInfo('')).toBeNull();
+      expect(parseActualModelInfo('invalid')).toBeNull();
+      expect(parseActualModelInfo(undefined)).toBeNull();
     });
   });
 

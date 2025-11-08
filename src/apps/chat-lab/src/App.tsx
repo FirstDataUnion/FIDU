@@ -45,6 +45,7 @@ const SystemPromptsPage = React.lazy(() => import('./pages/SystemPromptsPage'));
 const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const BackgroundAgentsPage = React.lazy(() => import('./pages/BackgroundAgentsPage'));
+const ImportExportPage = React.lazy(() => import('./pages/ImportExportPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
@@ -820,6 +821,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
                   <Route path="/background-agents" element={<BackgroundAgentsPage />} />
+                  <Route path="/import-export" element={<ImportExportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                   <Route path="/terms-of-use" element={<TermsOfUsePage />} />

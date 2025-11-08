@@ -116,6 +116,7 @@ const createPlainSettingsCopy = (settings: UserSettings): UserSettings => {
       syncSettings: { ...settings.syncSettings },
     };
   } catch (error) {
+    console.warn('structuredClone failed, attempting JSON fallback:', error);
     // If structuredClone fails, try JSON fallback as last resort
     // This should work if current() provides a readable snapshot
     try {

@@ -334,7 +334,7 @@ export class ResourceImportService {
     // Mark as unsynced if in cloud mode
     try {
       unsyncedDataManager.markAsUnsynced();
-    } catch (error) {
+    } catch {
       // Ignore if not in cloud mode
     }
 
@@ -353,7 +353,7 @@ export class ResourceImportService {
           const text = e.target?.result as string;
           const data = JSON.parse(text);
           resolve(data);
-        } catch (error) {
+        } catch {
           reject(new Error('Failed to parse JSON file'));
         }
       };

@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthErrorBoundary } from '../AuthErrorBoundary';
 import { refreshTokenService } from '../../../services/api/refreshTokenService';
 import * as logoutCoordinator from '../../../services/auth/logoutCoordinator';
@@ -151,7 +151,7 @@ describe('AuthErrorBoundary', () => {
    */
 
   it('should reset error count after 1 minute', () => {
-    const { rerender, unmount } = render(
+    const { unmount } = render(
       <AuthErrorBoundary>
         <ThrowError shouldThrow={true} errorMessage="Error 1" />
       </AuthErrorBoundary>

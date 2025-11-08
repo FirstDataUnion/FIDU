@@ -270,7 +270,8 @@ export const ConversationManager = React.memo<ConversationManagerProps>(({
             role: msg.role as 'user' | 'assistant',
             content: msg.content,
             timestamp: msg.timestamp,
-            model: msg.platform
+            model: msg.platform,
+            metadata: msg.metadata
           }))}
         selectedModel={activeConversation.model}
         isSendingFollowUp={isSendingFollowUp}
