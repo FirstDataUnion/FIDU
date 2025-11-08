@@ -31,6 +31,7 @@ import {
   Collapse,
   Link,
   Badge,
+  Slider,
 } from '@mui/material';
 import CategoryFilter from '../components/common/CategoryFilter';
 import {
@@ -82,6 +83,8 @@ import { analyzeRequestDuration, type LongRequestAnalysis } from '../utils/longR
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
+import { parseActualModelInfo, type ActualModelInfo } from '../utils/conversationUtils';
+import { DEFAULT_AGENT_CONFIG } from '../services/agents/agentConstants';
 
 // Safely import MetricsService - it may not be available in all environments (e.g., local dev)
 import { MetricsService } from '../services/metrics/MetricsService';
@@ -181,7 +184,15 @@ function BackgroundAgentDialogCard({
 }) {
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
-  const [localContextLastN, setLocalContextLastN] = useState(agent.contextParams?.lastN || 6);
+  const [localContextLastN, setLocalContextLastN] = useState(
+    agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
+  );
+  const [runEveryNTurnsInput, setRunEveryNTurnsInput] = useState(() => String(agent.runEveryNTurns));
+  const [contextLastNInput, setContextLastNInput] = useState(() =>
+    agent.contextWindowStrategy === 'lastNMessages'
+      ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
+      : ''
+  );
   const [alertsExpanded, setAlertsExpanded] = useState(false); // Always start collapsed
   const [expandedRawOutput, setExpandedRawOutput] = useState<Set<string>>(new Set());
   const [expandedExecStatus, setExpandedExecStatus] = useState<Set<string>>(new Set());
@@ -193,9 +204,112 @@ function BackgroundAgentDialogCard({
   useEffect(() => {
     setLocalRunEveryNTurns(agent.runEveryNTurns);
     setLocalVerbosityThreshold(agent.verbosityThreshold);
-    setLocalContextLastN(agent.contextParams?.lastN || 6);
-  }, [agent.runEveryNTurns, agent.verbosityThreshold, agent.contextParams?.lastN]);
+    setLocalContextLastN(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
+    setRunEveryNTurnsInput(String(agent.runEveryNTurns));
+    setContextLastNInput(
+      agent.contextWindowStrategy === 'lastNMessages'
+        ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
+        : ''
+    );
+  }, [agent.contextParams?.lastN, agent.contextWindowStrategy, agent.runEveryNTurns, agent.verbosityThreshold]);
 
+
+  const applyRunEveryNTurns = useCallback(
+    (value: number) => {
+      const clamped = Math.max(
+        DEFAULT_AGENT_CONFIG.MIN_TURNS,
+        Math.min(DEFAULT_AGENT_CONFIG.MAX_TURNS, value)
+      );
+      setRunEveryNTurnsInput(String(clamped));
+      if (clamped === localRunEveryNTurns) {
+        return;
+      }
+      setLocalRunEveryNTurns(clamped);
+      onUpdatePreference(agent.id, {
+        runEveryNTurns: clamped,
+        verbosityThreshold: localVerbosityThreshold,
+        contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
+      });
+    },
+    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+  );
+
+  const commitRunEveryNTurns = useCallback(() => {
+    if (runEveryNTurnsInput.trim() === '') {
+      setRunEveryNTurnsInput(String(localRunEveryNTurns));
+      return;
+    }
+
+    const parsed = Number.parseInt(runEveryNTurnsInput, 10);
+    if (Number.isNaN(parsed)) {
+      setRunEveryNTurnsInput(String(localRunEveryNTurns));
+      return;
+    }
+
+    applyRunEveryNTurns(parsed);
+  }, [applyRunEveryNTurns, localRunEveryNTurns, runEveryNTurnsInput]);
+
+  const applyVerbosityThreshold = useCallback(
+    (value: number) => {
+      const clamped = Math.max(
+        DEFAULT_AGENT_CONFIG.MIN_THRESHOLD,
+        Math.min(DEFAULT_AGENT_CONFIG.MAX_THRESHOLD, value)
+      );
+      setLocalVerbosityThreshold(clamped);
+      if (clamped === localVerbosityThreshold) {
+        return;
+      }
+      onUpdatePreference(agent.id, {
+        runEveryNTurns: localRunEveryNTurns,
+        verbosityThreshold: clamped,
+        contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
+      });
+    },
+    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+  );
+
+  const applyContextLastN = useCallback(
+    (value: number) => {
+      if (agent.contextWindowStrategy !== 'lastNMessages') {
+        return;
+      }
+
+      const clamped = Math.max(
+        DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
+        Math.min(DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES, value)
+      );
+      setContextLastNInput(String(clamped));
+      if (clamped === localContextLastN) {
+        return;
+      }
+      setLocalContextLastN(clamped);
+      onUpdatePreference(agent.id, {
+        runEveryNTurns: localRunEveryNTurns,
+        verbosityThreshold: localVerbosityThreshold,
+        contextLastN: clamped,
+      });
+    },
+    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+  );
+
+  const commitContextLastN = useCallback(() => {
+    if (agent.contextWindowStrategy !== 'lastNMessages') {
+      return;
+    }
+
+    if (contextLastNInput.trim() === '') {
+      setContextLastNInput(String(localContextLastN));
+      return;
+    }
+
+    const parsed = Number.parseInt(contextLastNInput, 10);
+    if (Number.isNaN(parsed)) {
+      setContextLastNInput(String(localContextLastN));
+      return;
+    }
+
+    applyContextLastN(parsed);
+  }, [agent.contextWindowStrategy, applyContextLastN, contextLastNInput, localContextLastN]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -287,19 +401,26 @@ function BackgroundAgentDialogCard({
           </Typography>
           <TextField
             type="number"
-            value={localRunEveryNTurns}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 6;
-              setLocalRunEveryNTurns(value);
-              onUpdatePreference(agent.id, {
-                runEveryNTurns: value,
-                verbosityThreshold: localVerbosityThreshold,
-                contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
-              });
+            value={runEveryNTurnsInput}
+            onChange={(e) => setRunEveryNTurnsInput(e.target.value)}
+            onBlur={commitRunEveryNTurns}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitRunEveryNTurns();
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setRunEveryNTurnsInput(String(localRunEveryNTurns));
+                e.currentTarget.blur();
+              }
             }}
             size="small"
             variant="outlined"
-            inputProps={{ min: 1, max: 100 }}
+            inputProps={{
+              min: DEFAULT_AGENT_CONFIG.MIN_TURNS,
+              max: DEFAULT_AGENT_CONFIG.MAX_TURNS,
+            }}
             sx={{
               width: '80px',
               '& .MuiOutlinedInput-root': {
@@ -323,30 +444,30 @@ function BackgroundAgentDialogCard({
               <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
             </Tooltip>
           </Box>
-          <TextField
-            type="number"
-            value={localVerbosityThreshold}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 40;
-              setLocalVerbosityThreshold(value);
-              onUpdatePreference(agent.id, {
-                runEveryNTurns: localRunEveryNTurns,
-                verbosityThreshold: value,
-                contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
-              });
-            }}
-            size="small"
-            variant="outlined"
-            inputProps={{ min: 0, max: 100 }}
-            sx={{
-              width: '80px',
-              '& .MuiOutlinedInput-root': {
-                height: '32px',
-                fontSize: '0.875rem',
-              }
-            }}
-          />
-          <Typography variant="body2">/100</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '220px' }, maxWidth: 320 }}>
+            <Slider
+              value={localVerbosityThreshold}
+              onChange={(_, value) => {
+                if (typeof value === 'number') {
+                  setLocalVerbosityThreshold(value);
+                }
+              }}
+              onChangeCommitted={(_, value) => {
+                if (typeof value === 'number') {
+                  applyVerbosityThreshold(value);
+                }
+              }}
+              min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+              max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+              step={1}
+              valueLabelDisplay="auto"
+              aria-label="Verbosity threshold"
+              sx={{ flexGrow: 1 }}
+            />
+            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content' }}>
+              {localVerbosityThreshold}/100
+            </Typography>
+          </Box>
         </Box>
         {agent.contextWindowStrategy === 'lastNMessages' && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -364,19 +485,26 @@ function BackgroundAgentDialogCard({
             </Box>
             <TextField
               type="number"
-              value={localContextLastN}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 6;
-                setLocalContextLastN(value);
-                onUpdatePreference(agent.id, {
-                  runEveryNTurns: localRunEveryNTurns,
-                  verbosityThreshold: localVerbosityThreshold,
-                  contextLastN: value,
-                });
+              value={contextLastNInput}
+              onChange={(e) => setContextLastNInput(e.target.value)}
+              onBlur={commitContextLastN}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitContextLastN();
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setContextLastNInput(String(localContextLastN));
+                  e.currentTarget.blur();
+                }
               }}
               size="small"
               variant="outlined"
-              inputProps={{ min: 1, max: 100 }}
+              inputProps={{
+                min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
+                max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES,
+              }}
               sx={{
                 width: '80px',
                 '& .MuiOutlinedInput-root': {
@@ -1427,6 +1555,8 @@ export default function PromptLabPage() {
   const [unreadAlertCount, setUnreadAlertCount] = useState(0);
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
   const [backgroundAgentsEvaluating, setBackgroundAgentsEvaluating] = useState(false);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(() => loadFromSession(STORAGE_KEYS.conversation) || null);
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
 
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
@@ -1490,7 +1620,7 @@ export default function PromptLabPage() {
       };
       void loadAgents();
     }
-  }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion]);
+  }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion, currentConversation?.id]);
 
   const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
     // Find the agent to determine if it's built-in or custom
@@ -1696,7 +1826,7 @@ export default function PromptLabPage() {
   }, [messages, scrollToBottom, isAtBottom]);
 
   // Get model-specific colors and display names
-  const getModelInfo = (modelId: string) => {
+  const getModelInfo = (modelId: string, actualModelInfo?: ActualModelInfo | null) => {
     const modelMap: Record<string, { name: string; color: string; provider: string }> = {
       // Auto Router
       'auto-router': { name: 'Auto Router', color: '#6366f1', provider: 'NLP Workbench' },
@@ -1791,28 +1921,42 @@ export default function PromptLabPage() {
 
     // If modelId is missing or unknown, fall back to primary colors
     if (!modelId || modelId === 'unknown' || modelId === 'other') {
-      return { 
+      const fallback = { 
         name: 'AI Assistant', 
         color: 'primary.dark', 
         provider: 'Unknown' 
       };
+      if (actualModelInfo) {
+        return {
+          ...fallback,
+          name: actualModelInfo.modelDisplay?.trim() || fallback.name,
+          provider: actualModelInfo.providerDisplay?.trim() || fallback.provider
+        };
+      }
+      return fallback;
     }
 
-    return modelMap[modelId] || { 
+    const baseInfo = modelMap[modelId] || { 
       name: modelId, 
       color: 'primary.dark', // Fallback to primary color for unknown models
       provider: 'Unknown' 
     };
+
+    if (actualModelInfo) {
+      return {
+        ...baseInfo,
+        name: actualModelInfo.modelDisplay?.trim() || baseInfo.name,
+        provider: actualModelInfo.providerDisplay?.trim() || baseInfo.provider
+      };
+    }
+
+    return baseInfo;
   };
 
   // State for the right sidebar
   const [conversationsDrawerOpen, setConversationsDrawerOpen] = useState(false);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
-
-  // Conversation state - initialize from sessionStorage
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(() => loadFromSession(STORAGE_KEYS.conversation) || null);
-  const [isSavingConversation, setIsSavingConversation] = useState(false);
 
   // Modal states
   const [modelModalOpen, setModelModalOpen] = useState(false);
@@ -2178,7 +2322,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, dispatch]);
+  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, selectedModel, dispatch]);
 
   // Handle sending a message
   const handleSendMessage = async () => {
@@ -2307,6 +2451,7 @@ export default function PromptLabPage() {
 
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
+        const actualModelInfo = parseActualModelInfo(response.responses?.actualModel);
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
@@ -2315,7 +2460,14 @@ export default function PromptLabPage() {
           role: 'assistant',
           timestamp: new Date().toISOString(),
           platform: selectedModel, // Store the selected model ID for AI responses
-          isEdited: false
+          isEdited: false,
+          metadata: actualModelInfo ? {
+            actualModel: actualModelInfo.raw,
+            actualModelProvider: actualModelInfo.providerRaw,
+            actualModelProviderDisplay: actualModelInfo.providerDisplay,
+            actualModelName: actualModelInfo.modelRaw,
+            actualModelNameDisplay: actualModelInfo.modelDisplay
+          } : undefined
         };
         setMessages(prev => [...prev, aiMessage]);
         
@@ -2481,7 +2633,7 @@ export default function PromptLabPage() {
     setMessages(prev => [...prev, cancelMessage]);
     
     showToast('Request cancelled');
-  }, [selectedModel, showToast]);
+  }, [selectedModel, showToast, currentConversation?.id]);
 
   // Wizard handlers
   const handleOpenWizard = () => {
@@ -2957,6 +3109,7 @@ export default function PromptLabPage() {
 
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
+        const actualModelInfo = parseActualModelInfo(response.responses?.actualModel);
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}-ai`,
@@ -2965,7 +3118,14 @@ export default function PromptLabPage() {
           role: 'assistant',
           timestamp: new Date().toISOString(),
           platform: selectedModel,
-          isEdited: false
+          isEdited: false,
+          metadata: actualModelInfo ? {
+            actualModel: actualModelInfo.raw,
+            actualModelProvider: actualModelInfo.providerRaw,
+            actualModelProviderDisplay: actualModelInfo.providerDisplay,
+            actualModelName: actualModelInfo.modelRaw,
+            actualModelNameDisplay: actualModelInfo.modelDisplay
+          } : undefined
         };
         
         setMessages(prev => [...prev, aiMessage]);
@@ -3015,7 +3175,7 @@ export default function PromptLabPage() {
       setIsLoading(false);
       setCurrentMessage(''); // Clear the input after retry
     }
-  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast]);
+  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast, currentConversation?.id]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
@@ -3197,7 +3357,41 @@ export default function PromptLabPage() {
           ) : (
             <>
               {messages.map((message, messageIndex) => {
-                const modelInfo = getModelInfo(message.platform);
+                const metadata = message.metadata as Record<string, any> | undefined;
+                const actualModelRaw = typeof metadata?.actualModel === 'string' ? metadata.actualModel : undefined;
+                let actualModelInfo: ActualModelInfo | null = parseActualModelInfo(actualModelRaw);
+
+                if (actualModelInfo) {
+                  const providerDisplay = typeof metadata?.actualModelProviderDisplay === 'string' ? metadata.actualModelProviderDisplay.trim() : '';
+                  const modelDisplay = typeof metadata?.actualModelNameDisplay === 'string' ? metadata.actualModelNameDisplay.trim() : '';
+
+                  if (providerDisplay) {
+                    actualModelInfo = {
+                      ...actualModelInfo,
+                      providerDisplay
+                    };
+                  }
+
+                  if (modelDisplay) {
+                    actualModelInfo = {
+                      ...actualModelInfo,
+                      modelDisplay
+                    };
+                  }
+                } else if (
+                  typeof metadata?.actualModelProviderDisplay === 'string' ||
+                  typeof metadata?.actualModelNameDisplay === 'string'
+                ) {
+                  actualModelInfo = {
+                    raw: actualModelRaw ?? '',
+                    providerRaw: typeof metadata?.actualModelProvider === 'string' ? metadata.actualModelProvider : '',
+                    modelRaw: typeof metadata?.actualModelName === 'string' ? metadata.actualModelName : '',
+                    providerDisplay: typeof metadata?.actualModelProviderDisplay === 'string' ? metadata.actualModelProviderDisplay : '',
+                    modelDisplay: typeof metadata?.actualModelNameDisplay === 'string' ? metadata.actualModelNameDisplay : ''
+                  };
+                }
+
+                const modelInfo = getModelInfo(message.platform, actualModelInfo);
                 return (
               <Box
                 key={message.id}
@@ -4247,7 +4441,7 @@ export default function PromptLabPage() {
                   {messages.length > 0 && (
                     <Box sx={{
                       position: 'absolute',
-                      left: '25%',
+                      left: '20%',
                       transform: 'translateX(-50%)',
                     }}>
                       <Button
@@ -4751,7 +4945,7 @@ export default function PromptLabPage() {
         <Box
           sx={{
             position: 'fixed',
-            bottom: isMobile ? 80 : 100,
+            bottom: isMobile ? 16 : 100,
             right: isMobile ? 16 : 24,
             zIndex: 1000,
           }}

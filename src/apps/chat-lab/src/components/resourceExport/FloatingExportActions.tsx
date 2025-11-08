@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Box, Fab, Button, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Fab, useTheme, useMediaQuery } from '@mui/material';
 import {
   FileUpload as ExportIcon,
   Close as CancelIcon,

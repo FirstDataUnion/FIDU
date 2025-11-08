@@ -30,7 +30,6 @@ export function useFiduSDK(): UseFiduSDKReturn {
 
   useEffect(() => {
     cancelledRef.current = false;
-    let loadingTimeout: number | undefined;
 
     // Check if script is already loaded
     if (document.getElementById(FIDU_SDK_ID)) {
@@ -41,7 +40,7 @@ export function useFiduSDK(): UseFiduSDKReturn {
     }
 
     // Set timeout for SDK loading
-    loadingTimeout = window.setTimeout(() => {
+    const loadingTimeout = window.setTimeout(() => {
       if (!cancelledRef.current) {
         console.warn('🔑 FIDU SDK loading timeout - taking longer than expected');
         setError('Authentication system is taking longer than expected to load. Please wait or try refreshing the page.');
@@ -76,21 +75,23 @@ export function useFiduSDK(): UseFiduSDKReturn {
 
     return () => {
       cancelledRef.current = true;
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
+      clearTimeout(loadingTimeout);
       // Don't remove script on unmount to avoid double-loading
     };
   }, []);
 
   // Check on mount if SDK instance needs reinitialization (e.g., after logout)
   useEffect(() => {
-    if (isReady && !window.__fiduAuthInstance && sdk) {
+    if (!isReady || !sdk) {
+      return;
+    }
+
+    if (!window.__fiduAuthInstance) {
       console.log('🔄 SDK instance was cleared, triggering reinitialization');
       setSdk(null);
       setSdkVersion(v => v + 1); // Force re-initialization
     }
-  }, []); // Run only on mount
+  }, [isReady, sdk]);
 
   // Wait for window.FIDUAuth to become available and initialize/reinitialize SDK
   useEffect(() => {

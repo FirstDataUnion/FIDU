@@ -10,7 +10,6 @@ import { ConversationHandler } from './handlers/conversationHandler';
 import type {
   ResourceExport,
   ExportSelection,
-  ExportableResource,
   SystemPromptExport,
   ContextExport,
   BackgroundAgentExport,
@@ -18,7 +17,6 @@ import type {
 } from './types';
 import { RESOURCE_EXPORT_VERSION } from './types';
 import { APP_VERSION } from '../../utils/version';
-import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
 import type { SystemPrompt, Context } from '../../types';
 import type { BackgroundAgent } from '../api/backgroundAgents';
 
@@ -39,7 +37,6 @@ export class ResourceExportService {
     profileId: string,
     userEmail?: string
   ): Promise<ResourceExport> {
-    const storage = getUnifiedStorageService();
     const resources: ResourceExport['resources'] = {};
 
     // Export system prompts

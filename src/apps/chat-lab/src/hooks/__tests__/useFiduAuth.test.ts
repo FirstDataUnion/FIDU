@@ -7,11 +7,9 @@
 
 import { renderHook, waitFor } from '@testing-library/react';
 import { useFiduAuth } from '../useFiduAuth';
-import { getFiduAuthService } from '../../services/auth/FiduAuthService';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
 import { refreshTokenService } from '../../services/api/refreshTokenService';
 import * as logoutCoordinator from '../../services/auth/logoutCoordinator';
-import { useAppDispatch } from '../../hooks/redux';
 
 // Minimal mocks - only what's necessary
 // Use factory functions to avoid hoisting issues

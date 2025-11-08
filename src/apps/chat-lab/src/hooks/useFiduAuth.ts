@@ -19,6 +19,131 @@ import { getEnvironmentInfo } from '../utils/environment';
 
 const AUTH_RESTORE_TIMEOUT_MS = 6000;
 
+interface NormalizedTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+function normalizeAuthTokens(
+  token: string | { access_token?: string; refresh_token?: string } | null,
+  providedRefreshToken?: string
+): NormalizedTokens {
+  if (token && typeof token === 'object' && token.access_token) {
+    return {
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token || token.access_token,
+    };
+  }
+
+  const accessToken = typeof token === 'string' ? token : '';
+  let refreshToken = providedRefreshToken?.trim() || '';
+
+  if (!refreshToken) {
+    refreshToken = localStorage.getItem('fiduRefreshToken') || accessToken;
+  }
+
+  return {
+    accessToken,
+    refreshToken: refreshToken || accessToken,
+  };
+}
+
+async function enforceEmailAllowlist(
+  user: any,
+  onError: (message: string) => void,
+  fiduAuthService: ReturnType<typeof getFiduAuthService>
+): Promise<boolean> {
+  if (isEmailAllowed(user.email)) {
+    return true;
+  }
+
+  await fiduAuthService.clearTokens();
+  refreshTokenService.clearAllAuthTokens();
+
+  const allowedEmails = getAllowedEmails();
+  const emailListStr = allowedEmails ? allowedEmails.join(', ') : 'configured list';
+
+  onError(
+    `Access restricted. Your email (${user.email}) is not authorized for this development environment. ` +
+    `Authorized emails: ${emailListStr}. Please contact an administrator for access.`
+  );
+
+  return false;
+}
+
+async function persistAuthenticatedSession(
+  fiduAuthService: ReturnType<typeof getFiduAuthService>,
+  user: any,
+  tokens: NormalizedTokens
+): Promise<void> {
+  const success = await fiduAuthService.setTokens(tokens.accessToken, tokens.refreshToken, user);
+
+  if (!success) {
+    throw new Error('Failed to store auth tokens in HTTP-only cookies');
+  }
+
+  markAuthenticated();
+
+  localStorage.setItem('auth_token', tokens.accessToken);
+  localStorage.setItem('user', JSON.stringify(user));
+
+  document.cookie = `auth_token=${tokens.accessToken}; path=/; max-age=3600; samesite=lax`;
+}
+
+async function attemptCloudStorageRestoration(): Promise<boolean> {
+  const envInfo = getEnvironmentInfo();
+
+  if (envInfo.storageMode !== 'cloud') {
+    return false;
+  }
+
+  try {
+    const { getAuthManager } = await import('../services/auth/AuthManager');
+    const { store } = await import('../store');
+    const authManager = getAuthManager(store.dispatch);
+
+    let restored = await authManager.checkAndRestore();
+
+    if (!restored && authManager.isOperationInProgress()) {
+      restored = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        let unsubscribeRestored: (() => void) | null = null;
+        let unsubscribeLost: (() => void) | null = null;
+        let timeoutId: number | null = null;
+
+        const finish = (value: boolean) => {
+          if (settled) return;
+          settled = true;
+          if (timeoutId !== null) window.clearTimeout(timeoutId);
+          if (unsubscribeRestored) unsubscribeRestored();
+          if (unsubscribeLost) unsubscribeLost();
+          resolve(value);
+        };
+
+        unsubscribeRestored = authManager.subscribe('auth-restored', () => finish(true));
+        unsubscribeLost = authManager.subscribe('auth-lost', () => finish(false));
+        timeoutId = window.setTimeout(() => finish(false), AUTH_RESTORE_TIMEOUT_MS);
+      });
+    }
+
+    if (restored) {
+      try {
+        const { getUnifiedStorageService } = await import('../services/storage/UnifiedStorageService');
+        const storageService = getUnifiedStorageService();
+        await storageService.reinitialize();
+        return false;
+      } catch (storageError) {
+        console.warn('Failed to reinitialize storage, will redirect to OAuth:', storageError);
+        return true;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to restore Google Drive authentication:', error);
+  }
+
+  return false;
+}
+
 interface UseFiduAuthReturn {
   handleAuthSuccess: (user: any, token: string | any, portalUrl: any, refreshToken?: string) => Promise<void>;
   handleAuthError: (err: any) => void;
@@ -37,112 +162,18 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
   ) => {
     try {
       const fiduAuthService = getFiduAuthService();
-      
-      // Extract access token and refresh token
-      let accessToken: string;
-      let refreshTokenValue: string;
-      
-      if (typeof token === 'object' && token !== null && token.access_token) {
-        // New format: token is an object
-        accessToken = token.access_token;
-        refreshTokenValue = token.refresh_token || token.access_token;
-      } else {
-        // Standard format: token is a string
-        accessToken = token as string;
-        
-        // Use the refresh token parameter if provided
-        if (refreshToken && refreshToken.trim() !== '') {
-          refreshTokenValue = refreshToken;
-        } else {
-          // Fallback: Get from localStorage
-          refreshTokenValue = localStorage.getItem('fiduRefreshToken') || accessToken;
-        }
-      }
-      
-      // Fetch user info from identity service
-      const user = await fetchCurrentUser(accessToken);
-      
-      // Check email allowlist (development only)
-      if (!isEmailAllowed(user.email)) {
-        await fiduAuthService.clearTokens();
-        refreshTokenService.clearAllAuthTokens();
-        
-        const allowedEmails = getAllowedEmails();
-        const emailListStr = allowedEmails ? allowedEmails.join(', ') : 'configured list';
-        onError(
-          `Access restricted. Your email (${user.email}) is not authorized for this development environment. ` +
-          `Authorized emails: ${emailListStr}. Please contact an administrator for access.`
-        );
+      const tokens = normalizeAuthTokens(token, refreshToken);
+
+      const user = await fetchCurrentUser(tokens.accessToken);
+
+      const isAllowed = await enforceEmailAllowlist(user, onError, fiduAuthService);
+      if (!isAllowed) {
         return;
       }
-      
-      // Store tokens in HTTP-only cookies
-      const success = await fiduAuthService.setTokens(accessToken, refreshTokenValue, user);
-      
-      if (!success) {
-        throw new Error('Failed to store auth tokens in HTTP-only cookies');
-      }
 
-      markAuthenticated();
-      
-      // Keep localStorage as fallback for backward compatibility
-      localStorage.setItem('auth_token', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      // Set auth_token cookie for backend compatibility
-      document.cookie = `auth_token=${accessToken}; path=/; max-age=3600; samesite=lax`;
-      
-      // Handle Google Drive authentication in cloud mode
-      const envInfo = getEnvironmentInfo();
-      let requireOAuthRedirect = false;
-      
-      if (envInfo.storageMode === 'cloud') {
-        try {
-          const { getAuthManager } = await import('../services/auth/AuthManager');
-          const { store } = await import('../store');
-          const authManager = getAuthManager(store.dispatch);
-          
-          // Check and restore Google Drive authentication
-          let restored = await authManager.checkAndRestore();
+      await persistAuthenticatedSession(fiduAuthService, user, tokens);
 
-          // If not restored but operation is in progress, wait for completion
-          if (!restored && authManager.isOperationInProgress()) {
-            restored = await new Promise<boolean>((resolve) => {
-              let settled = false;
-              let unsubscribeRestored: (() => void) | null = null;
-              let unsubscribeLost: (() => void) | null = null;
-              let timeoutId: number | null = null;
-
-              const finish = (value: boolean) => {
-                if (settled) return;
-                settled = true;
-                if (timeoutId !== null) window.clearTimeout(timeoutId);
-                if (unsubscribeRestored) unsubscribeRestored();
-                if (unsubscribeLost) unsubscribeLost();
-                resolve(value);
-              };
-
-              unsubscribeRestored = authManager.subscribe('auth-restored', () => finish(true));
-              unsubscribeLost = authManager.subscribe('auth-lost', () => finish(false));
-              timeoutId = window.setTimeout(() => finish(false), AUTH_RESTORE_TIMEOUT_MS);
-            });
-          }
-
-          // Try to reinitialize storage if restored
-          if (restored) {
-            try {
-              const { getUnifiedStorageService } = await import('../services/storage/UnifiedStorageService');
-              const storageService = getUnifiedStorageService();
-              await storageService.reinitialize();
-            } catch (storageError) {
-              console.warn('Failed to reinitialize storage, will redirect to OAuth:', storageError);
-              requireOAuthRedirect = true;
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to restore Google Drive authentication:', error);
-        }
-      }
+      const requireOAuthRedirect = await attemptCloudStorageRestoration();
 
       // Re-initialize Redux auth state
       await dispatch(initializeAuth());

@@ -65,21 +65,21 @@ export const deleteProfile = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (_, { dispatch, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const started = beginLogout('manual');
       const source = currentLogoutSource();
 
-      if (!started && source === 'manual') {
-        console.log('🔁 Logout already in progress, skipping manual logout request');
-        return true;
+      if (!started) {
+        if (source === 'manual') {
+          console.log('🔁 Logout already in progress, skipping manual logout request');
+          return true;
+        }
+
+        console.log('🧹 Continuing existing auto logout cleanup...');
+      } else {
+        console.log('🧹 Starting logout process (manual)...');
       }
-
-      const logContext = source === 'auto' && !started
-        ? 'auto-triggered'
-        : 'manual';
-
-      console.log(`🧹 Starting logout process (${logContext})...`);
       
       // Clear HTTP-only cookies via backend (FIDU auth)
       const fiduAuthService = getFiduAuthService();

@@ -12,7 +12,7 @@ import type {
   MessageExport,
   ResourceType,
 } from '../types';
-import type { Conversation, Message } from '../../../types';
+import type { Conversation } from '../../../types';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ConversationHandler implements ResourceHandler<Conversation> {
@@ -108,36 +108,6 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
     if (idMapping) {
       idMapping[exportData.id] = newConversationId;
     }
-
-    // Map message IDs and update conversationId references
-    const importedMessages: Message[] = exportData.messages.map((msg, index) => {
-      const newMessageId = `${newConversationId}-msg-${index}`;
-      return {
-        id: newMessageId,
-        conversationId: newConversationId,
-        content: msg.content,
-        role: msg.role,
-        timestamp: msg.timestamp,
-        platform: msg.platform || exportData.platform || 'other',
-        attachments: msg.attachments?.map((att, attIndex) => {
-          // Convert 'other' type to 'file' for compatibility
-          let attachmentType: 'file' | 'image' | 'link' | 'code' = 'file';
-          if (att.type === 'image') attachmentType = 'image';
-          else if (att.type === 'link') attachmentType = 'link';
-          else if (att.type === 'code') attachmentType = 'code';
-          // 'other' and anything else defaults to 'file'
-          
-          return {
-            id: `${newMessageId}-att-${attIndex}`,
-            name: att.name,
-            type: attachmentType,
-            url: att.url,
-          };
-        }),
-        metadata: msg.metadata,
-        isEdited: msg.isEdited || false,
-      };
-    });
 
     // Map original prompt IDs if they were imported
     let mappedOriginalPrompt: Conversation['originalPrompt'] | undefined;

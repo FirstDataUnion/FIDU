@@ -76,13 +76,25 @@ const BackgroundAgentCard = React.memo<{
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
   const [localContextLastN, setLocalContextLastN] = useState(agent.contextParams?.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
+  const [runEveryNTurnsInput, setRunEveryNTurnsInput] = useState(() => String(agent.runEveryNTurns));
+  const [contextLastNInput, setContextLastNInput] = useState(() =>
+    agent.contextWindowStrategy === 'lastNMessages'
+      ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
+      : ''
+  );
 
   // Update local state when agent changes
   useEffect(() => {
     setLocalRunEveryNTurns(agent.runEveryNTurns);
     setLocalVerbosityThreshold(agent.verbosityThreshold);
     setLocalContextLastN(agent.contextParams?.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
-  }, [agent.runEveryNTurns, agent.verbosityThreshold, agent.contextParams?.lastN]);
+    setRunEveryNTurnsInput(String(agent.runEveryNTurns));
+    setContextLastNInput(
+      agent.contextWindowStrategy === 'lastNMessages'
+        ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
+        : ''
+    );
+  }, [agent.contextParams?.lastN, agent.contextWindowStrategy, agent.runEveryNTurns, agent.verbosityThreshold]);
 
   const handleViewEdit = useCallback(() => {
     if (!isSelectionMode) {
@@ -113,6 +125,7 @@ const BackgroundAgentCard = React.memo<{
   const handleRunEveryNTurnsChange = useCallback(async (value: number) => {
     const clampedValue = Math.max(DEFAULT_AGENT_CONFIG.MIN_TURNS, Math.min(DEFAULT_AGENT_CONFIG.MAX_TURNS, value));
     setLocalRunEveryNTurns(clampedValue);
+    setRunEveryNTurnsInput(String(clampedValue));
     
     if (agent.isSystem && onUpdatePreferences) {
       // Built-in agents: save to localStorage
@@ -163,6 +176,7 @@ const BackgroundAgentCard = React.memo<{
   const handleContextLastNChange = useCallback(async (value: number) => {
     const clampedValue = Math.max(DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES, Math.min(DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES, value));
     setLocalContextLastN(clampedValue);
+    setContextLastNInput(String(clampedValue));
     
     // Only apply if strategy is 'lastNMessages'
     if (agent.contextWindowStrategy !== 'lastNMessages') {
@@ -186,6 +200,50 @@ const BackgroundAgentCard = React.memo<{
       await onUpdateAgent(updatedAgent);
     }
   }, [agent, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreferences, onUpdateAgent]);
+
+  const commitRunEveryNTurns = useCallback(async () => {
+    if (runEveryNTurnsInput.trim() === '') {
+      setRunEveryNTurnsInput(String(localRunEveryNTurns));
+      return;
+    }
+
+    const parsed = Number.parseInt(runEveryNTurnsInput, 10);
+    if (Number.isNaN(parsed)) {
+      setRunEveryNTurnsInput(String(localRunEveryNTurns));
+      return;
+    }
+
+    if (parsed === localRunEveryNTurns) {
+      setRunEveryNTurnsInput(String(localRunEveryNTurns));
+      return;
+    }
+
+    await handleRunEveryNTurnsChange(parsed);
+  }, [handleRunEveryNTurnsChange, localRunEveryNTurns, runEveryNTurnsInput]);
+
+  const commitContextLastN = useCallback(async () => {
+    if (agent.contextWindowStrategy !== 'lastNMessages') {
+      return;
+    }
+
+    if (contextLastNInput.trim() === '') {
+      setContextLastNInput(String(localContextLastN));
+      return;
+    }
+
+    const parsed = Number.parseInt(contextLastNInput, 10);
+    if (Number.isNaN(parsed)) {
+      setContextLastNInput(String(localContextLastN));
+      return;
+    }
+
+    if (parsed === localContextLastN) {
+      setContextLastNInput(String(localContextLastN));
+      return;
+    }
+
+    await handleContextLastNChange(parsed);
+  }, [agent.contextWindowStrategy, contextLastNInput, handleContextLastNChange, localContextLastN]);
 
   return (
     <Card
@@ -372,8 +430,20 @@ const BackgroundAgentCard = React.memo<{
             </Box>
             <TextField
               type="number"
-              value={localRunEveryNTurns}
-              onChange={(e) => handleRunEveryNTurnsChange(parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS)}
+              value={runEveryNTurnsInput}
+              onChange={(e) => setRunEveryNTurnsInput(e.target.value)}
+              onBlur={commitRunEveryNTurns}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitRunEveryNTurns();
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setRunEveryNTurnsInput(String(localRunEveryNTurns));
+                  e.currentTarget.blur();
+                }
+              }}
               size="small"
               variant="outlined"
               inputProps={{ 
@@ -399,7 +469,7 @@ const BackgroundAgentCard = React.memo<{
             />
             <Typography component="span" sx={{ fontSize: 'inherit' }}>turns</Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', width: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
                 Threshold:
@@ -412,34 +482,30 @@ const BackgroundAgentCard = React.memo<{
                 <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
               </Tooltip>
             </Box>
-            <TextField
-              type="number"
-              value={localVerbosityThreshold}
-              onChange={(e) => handleVerbosityThresholdChange(parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD)}
-              size="small"
-              variant="outlined"
-              inputProps={{ 
-                min: DEFAULT_AGENT_CONFIG.MIN_THRESHOLD, 
-                max: DEFAULT_AGENT_CONFIG.MAX_THRESHOLD,
-                style: { 
-                  padding: '2px 4px',
-                  fontSize: '0.75rem',
-                  textAlign: 'center',
-                  width: '45px'
-                }
-              }}
-              sx={{
-                width: '60px',
-                '& .MuiOutlinedInput-root': {
-                  height: '26px',
-                  fontSize: '0.75rem',
-                  '& input': {
-                    padding: '2px 4px',
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '200px' }, maxWidth: 280 }}>
+              <Slider
+                value={localVerbosityThreshold}
+                onChange={(_, value) => {
+                  if (typeof value === 'number') {
+                    setLocalVerbosityThreshold(value);
                   }
-                }
-              }}
-            />
-            <Typography component="span" sx={{ fontSize: 'inherit' }}>/100</Typography>
+                }}
+                onChangeCommitted={(_, value) => {
+                  if (typeof value === 'number') {
+                    void handleVerbosityThresholdChange(value);
+                  }
+                }}
+                min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                step={1}
+                valueLabelDisplay="auto"
+                aria-label="Verbosity threshold"
+                sx={{ flexGrow: 1 }}
+              />
+              <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
+                {localVerbosityThreshold}/100
+              </Typography>
+            </Box>
           </Box>
           {agent.contextWindowStrategy === 'lastNMessages' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -457,8 +523,20 @@ const BackgroundAgentCard = React.memo<{
               </Box>
               <TextField
                 type="number"
-                value={localContextLastN}
-                onChange={(e) => handleContextLastNChange(parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)}
+                value={contextLastNInput}
+                onChange={(e) => setContextLastNInput(e.target.value)}
+                onBlur={commitContextLastN}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitContextLastN();
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setContextLastNInput(String(localContextLastN));
+                    e.currentTarget.blur();
+                  }
+                }}
                 size="small"
                 variant="outlined"
                 inputProps={{ 
@@ -1086,7 +1164,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
               display: 'flex',
               flexDirection: 'column',
               gap: 2,
-              flex: { xs: 'none', lg: '0 0 30%' },
+              flex: { xs: 'none', lg: '0 0 37%' },
               minWidth: { xs: '100%', lg: '300px' },
               width: { xs: '100%', lg: 'auto' }
             }}>

@@ -10,7 +10,6 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Chat as ChatIcon,
   Favorite as FavoriteIcon,
   Archive as ArchiveIcon,
   Check as CheckIcon,

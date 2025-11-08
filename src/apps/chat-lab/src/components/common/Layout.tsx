@@ -42,6 +42,7 @@ import {
   PrivacyTip as PrivacyIcon,
   NewReleases as WhatsNewIcon,
   SmartToy as SmartToyIcon,
+  ImportExport as ImportExportIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -218,6 +219,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
+    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 

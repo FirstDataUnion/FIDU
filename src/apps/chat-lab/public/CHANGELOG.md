@@ -5,8 +5,18 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.8] - - 2025-11-08
+## [Unreleased]
 
+### Added
+- **Import & Export hub**: Dedicated navigation page that surfaces mass resource backup and restore actions in a single place, moving the controls out of the general settings area.
+
+### Fixed
+- **Background agent configuration inputs**: Debounced numeric inputs so background agents no longer refresh on every keystroke and replaced verbosity fields with sliders for smoother adjustments across the app.
+
+## [0.1.8] - 2025-11-08
+
+### Changed
+- **Model display**: Assistant message badges now show the actual provider and model returned by executions (including auto-router selections) with graceful fallbacks to the requested model when routing details are unavailable.
 
 ### Fixed
 - **Conversation storage tags**: Ensure updates always retain required protected tags so newly created chats stay visible on the conversations page and sync correctly to Google Drive, fixing bug that caused conversations to not be saved. 

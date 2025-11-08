@@ -173,6 +173,101 @@ export const getModelDisplayName = (modelId: string): string => {
     .join(' ');
 };
 
+const PROVIDER_DISPLAY_OVERRIDES: Record<string, string> = {
+  openai: 'OpenAI',
+  mistralai: 'Mistral AI',
+  mistral: 'Mistral',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  openrouter: 'OpenRouter',
+  microsoft: 'Microsoft',
+  xai: 'xAI',
+  perplexity: 'Perplexity',
+  meta: 'Meta',
+  'meta-llama': 'Meta Llama',
+  amazon: 'Amazon',
+  bedrock: 'Amazon Bedrock',
+  alephalpha: 'Aleph Alpha',
+  cohere: 'Cohere'
+};
+
+const formatActualModelSegment = (segment: string): string => {
+  const tokens = segment.split(/[-_]/).filter(Boolean);
+  if (tokens.length === 0) {
+    return segment;
+  }
+
+  return tokens.map((token) => {
+    if (!token) {
+      return token;
+    }
+
+    if (/^[a-z]+$/.test(token) && token.length <= 3) {
+      return token.toUpperCase();
+    }
+
+    if (/^[a-z0-9]+$/i.test(token)) {
+      if (token.length <= 3 || /^[0-9]/.test(token)) {
+        return token.toUpperCase();
+      }
+
+      return token.charAt(0).toUpperCase() + token.slice(1);
+    }
+
+    return token;
+  }).join(' ');
+};
+
+export interface ActualModelInfo {
+  raw: string;
+  providerRaw: string;
+  modelRaw: string;
+  providerDisplay: string;
+  modelDisplay: string;
+}
+
+export const parseActualModelInfo = (actualModel?: string | null): ActualModelInfo | null => {
+  if (!actualModel || typeof actualModel !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = actualModel.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const parts = trimmedValue.split('/').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const [providerRaw, ...modelParts] = parts;
+  const modelRaw = modelParts.join('/');
+
+  if (!providerRaw || !modelRaw) {
+    return null;
+  }
+
+  const providerDisplay =
+    PROVIDER_DISPLAY_OVERRIDES[providerRaw.toLowerCase()] ?? formatActualModelSegment(providerRaw);
+
+  const formattedModelDisplay = (() => {
+    const display = getModelDisplayName(modelRaw);
+    if (display && display !== 'Unknown') {
+      return display;
+    }
+    return formatActualModelSegment(modelRaw);
+  })();
+
+  return {
+    raw: trimmedValue,
+    providerRaw,
+    modelRaw,
+    providerDisplay,
+    modelDisplay: formattedModelDisplay
+  };
+};
+
 /**
  * Calculate primary models display string from message models
  * @param models Array of model IDs from messages
