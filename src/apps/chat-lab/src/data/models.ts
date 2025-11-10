@@ -932,6 +932,20 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'moonshot'
   },
+  'kimi-k2-thinking': {
+    id: 'kimi-k2-thinking',
+    name: 'Kimi K2 Thinking',
+    provider: 'Moonshot',
+    agentId: 'agent-1762786362617224021',
+    maxTokens: 262000,
+    description: 'Kimi K2 Thinking',
+    capabilities: ['reasoning', 'chain-of-thought', 'long-context', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'medium',
+    speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'moonshot'
+  },
 
   // DeepSeek Models (OpenRouter)
   'deepseek-v3.2-exp': {
@@ -1843,6 +1857,20 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     category: 'reasoning',
     costTier: 'low',
     speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'moonshot'
+  },
+  'kimi-k2-thinking': {
+    id: 'kimi-k2-thinking',
+    name: 'Kimi K2 Thinking',
+    provider: 'Moonshot',
+    agentId: 'agent-1762786530690992203',
+    maxTokens: 262000,
+    description: 'Kimi K2 Thinking',
+    capabilities: ['reasoning', 'chain-of-thought', 'long-context', 'complex-problem-solving'],
+    category: 'reasoning',
+    costTier: 'medium',
+    speed: 'medium',
     executionPath: 'openrouter',
     providerKey: 'moonshot'
   },
