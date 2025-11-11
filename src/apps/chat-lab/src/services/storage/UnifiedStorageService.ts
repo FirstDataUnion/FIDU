@@ -210,6 +210,32 @@ export class UnifiedStorageService {
     return await (adapter as any).deleteBackgroundAgent(agentId);
   }
 
+  // Document operations
+  async getDocuments(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getDocuments(queryParams, page, limit, profileId);
+  }
+
+  async getDocumentById(documentId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getDocumentById(documentId);
+  }
+
+  async createDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createDocument(document, profileId);
+  }
+
+  async updateDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateDocument(document, profileId);
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteDocument(documentId);
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     const adapter = this.storageService.getAdapter();

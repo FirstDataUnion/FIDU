@@ -7,6 +7,7 @@ import { SystemPromptHandler } from './handlers/systemPromptHandler';
 import { ContextHandler } from './handlers/contextHandler';
 import { BackgroundAgentHandler } from './handlers/backgroundAgentHandler';
 import { ConversationHandler } from './handlers/conversationHandler';
+import { DocumentHandler } from './handlers/documentHandler';
 import type {
   ResourceExport,
   ImportResult,
@@ -27,6 +28,7 @@ export class ResourceImportService {
   private contextHandler = new ContextHandler();
   private backgroundAgentHandler = new BackgroundAgentHandler();
   private conversationHandler = new ConversationHandler();
+  private documentHandler = new DocumentHandler();
 
   /**
    * Validate import file format
@@ -73,6 +75,7 @@ export class ResourceImportService {
         contexts: 0,
         backgroundAgents: 0,
         conversations: 0,
+        documents: 0,
       },
       errors: [],
       warnings: [],
@@ -326,6 +329,63 @@ export class ResourceImportService {
             resourceType: 'conversation',
             resourceName: exportedConversation.title || 'Unknown',
             error: error.message || 'Failed to import conversation',
+          });
+        }
+      }
+    }
+
+    // 5. Import documents
+    if (exportData.resources.documents && exportData.resources.documents.length > 0) {
+      for (const exportedDocument of exportData.resources.documents) {
+        try {
+          // Validate
+          if (!this.documentHandler.validateImport(exportedDocument)) {
+            result.errors.push({
+              resourceType: 'document',
+              resourceName: exportedDocument.title || 'Unknown',
+              error: 'Invalid document data',
+            });
+            continue;
+          }
+
+          // Check for duplicates if needed
+          if (options?.skipDuplicates) {
+            const existing = await storage.getDocuments(undefined, 1, 1000, profileId);
+            const exists = existing.documents?.some(
+              (doc: Document) => doc.title === exportedDocument.title
+            );
+            if (exists) {
+              result.warnings.push({
+                resourceType: 'document',
+                resourceName: exportedDocument.title,
+                warning: 'Skipped duplicate document',
+              });
+              continue;
+            }
+          }
+
+          // Import document
+          const exportable = {
+            originalId: exportedDocument.id,
+            resourceType: 'document' as ResourceType,
+            data: exportedDocument,
+          };
+          const imported = await this.documentHandler.importResource(
+            exportable,
+            profileId,
+            userId,
+            idMapping
+          );
+
+          // Save to storage
+          await storage.createDocument(imported, profileId);
+          result.imported.documents++;
+        } catch (error: any) {
+          result.success = false;
+          result.errors.push({
+            resourceType: 'document',
+            resourceName: exportedDocument.title || 'Unknown',
+            error: error.message || 'Failed to import document',
           });
         }
       }

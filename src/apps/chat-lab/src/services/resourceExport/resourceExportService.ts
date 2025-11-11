@@ -7,6 +7,7 @@ import { SystemPromptHandler } from './handlers/systemPromptHandler';
 import { ContextHandler } from './handlers/contextHandler';
 import { BackgroundAgentHandler } from './handlers/backgroundAgentHandler';
 import { ConversationHandler } from './handlers/conversationHandler';
+import { DocumentHandler } from './handlers/documentHandler';
 import type {
   ResourceExport,
   ExportSelection,
@@ -14,10 +15,11 @@ import type {
   ContextExport,
   BackgroundAgentExport,
   ConversationExport,
+  DocumentExport,
 } from './types';
 import { RESOURCE_EXPORT_VERSION } from './types';
 import { APP_VERSION } from '../../utils/version';
-import type { SystemPrompt, Context } from '../../types';
+import type { SystemPrompt, Context, Conversation, Document } from '../../types';
 import type { BackgroundAgent } from '../api/backgroundAgents';
 
 /**
@@ -28,6 +30,7 @@ export class ResourceExportService {
   private contextHandler = new ContextHandler();
   private backgroundAgentHandler = new BackgroundAgentHandler();
   private conversationHandler = new ConversationHandler();
+  private documentHandler = new DocumentHandler();
 
   /**
    * Export selected resources to JSON format
@@ -107,6 +110,23 @@ export class ResourceExportService {
       }
     }
 
+    // Export documents
+    if (selection.documentIds && selection.documentIds.length > 0) {
+      const allDocuments = await this.documentHandler.getAllResources(profileId);
+      const selectedDocuments = allDocuments.filter(doc => 
+        selection.documentIds!.includes(doc.id)
+      );
+      
+      const exportedDocuments: DocumentExport[] = [];
+      for (const document of selectedDocuments) {
+        const exported = await this.documentHandler.exportResource(document, profileId);
+        exportedDocuments.push(exported.data as DocumentExport);
+      }
+      if (exportedDocuments.length > 0) {
+        resources.documents = exportedDocuments;
+      }
+    }
+
     // Build export object
     const exportData: ResourceExport = {
       version: RESOURCE_EXPORT_VERSION,
@@ -144,18 +164,21 @@ export class ResourceExportService {
     systemPrompts: SystemPrompt[];
     contexts: Context[];
     backgroundAgents: BackgroundAgent[];
-    conversations: any[];
+    conversations: Conversation[];
+    documents: Document[];
   }> {
     const systemPrompts = await this.systemPromptHandler.getAllResources(profileId);
     const contexts = await this.contextHandler.getAllResources(profileId);
     const backgroundAgents = await this.backgroundAgentHandler.getAllResources(profileId);
     const conversations = await this.conversationHandler.getAllResources(profileId);
+    const documents = await this.documentHandler.getAllResources(profileId);
 
     return {
       systemPrompts: systemPrompts.filter(sp => !sp.isBuiltIn),
       contexts: contexts.filter(ctx => !ctx.isBuiltIn),
       backgroundAgents: backgroundAgents.filter(agent => !agent.isSystem),
       conversations: conversations,
+      documents: documents,
     };
   }
 }
