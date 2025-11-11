@@ -1,8 +1,98 @@
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
-import type { Conversation, FilterOptions, DataPacketQueryParams, ConversationDataPacket, Message, ConversationDataPacketUpdate, SystemPrompt } from '../../types';
+import type { Conversation, FilterOptions, DataPacketQueryParams, Message, SystemPrompt, BackgroundAgentAlertMetadata } from '../../types';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../constants/protectedTags';
 import { extractUniqueModels } from '../../utils/conversationUtils';
+
+export interface ConversationDataPacket {
+  id: string;
+  profile_id: string;
+  create_timestamp: string;
+  update_timestamp: string;
+  tags: string[];
+  data: {
+    sourceChatbot: string;
+    interactions: Array<{
+      actor: string;
+      timestamp: string;
+      content: string;
+      attachments: string[];
+      model?: string; // Model that generated this specific message
+      metadata?: {
+        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
+        [key: string]: any; // Allow other metadata fields
+      };
+    }>;
+    targetModelRequested: string;
+    conversationUrl: string;
+    conversationTitle: string;
+    isArchived: boolean;
+    isFavorite: boolean;
+    participants: string[];
+    status: 'active' | 'archived' | 'deleted';
+    // List of unique models used in this conversation (computed and stored for performance)
+    modelsUsed?: string[];
+    // Original prompt information for conversation restart
+    originalPrompt?: {
+      promptText: string;
+      contextId?: string;
+      contextTitle?: string;
+      contextDescription?: string;
+      systemPromptIds: string[]; // Support multiple system prompts
+      systemPromptContents: string[]; // Store all system prompt contents
+      systemPromptNames: string[]; // Store all system prompt names
+      systemPromptId?: string; // Keep for backward compatibility
+      systemPromptContent?: string; // Keep for backward compatibility
+      systemPromptName?: string; // Keep for backward compatibility
+      embellishmentIds?: string[]; // Store selected embellishment IDs
+      estimatedTokens: number;
+    };
+  };
+}
+
+export interface ConversationDataPacketUpdate {
+  id: string;
+  tags: string[];
+  data: {
+    sourceChatbot: string;
+    interactions: Array<{
+      actor: string;
+      timestamp: string;
+      content: string;
+      attachments: string[];
+      model?: string; // Model that generated this specific message
+      metadata?: {
+        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
+        [key: string]: any; // Allow other metadata fields
+      };
+    }>;
+    targetModelRequested: string;
+    conversationUrl: string;
+    conversationTitle: string;
+    isArchived: boolean;
+    isFavorite: boolean;
+    participants: string[];
+    status: 'active' | 'archived' | 'deleted';
+    // List of unique models used in this conversation (computed and stored for performance)
+    modelsUsed?: string[];
+    // Original prompt information for conversation restart
+    originalPrompt?: {
+      promptText: string;
+      contextId?: string;
+      contextTitle?: string;
+      contextDescription?: string;
+      systemPromptIds: string[]; // Support multiple system prompts
+      systemPromptContents: string[]; // Store all system prompt contents
+      systemPromptNames: string[]; // Store all system prompt names
+      systemPromptId?: string; // Keep for backward compatibility
+      systemPromptContent?: string; // Keep for backward compatibility
+      systemPromptName?: string; // Keep for backward compatibility
+      embellishmentIds?: string[]; // Store selected embellishment IDs
+      estimatedTokens: number;
+    };
+  };
+}
+
 
 
 export interface ConversationsResponse {
