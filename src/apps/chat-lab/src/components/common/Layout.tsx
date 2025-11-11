@@ -43,6 +43,7 @@ import {
   NewReleases as WhatsNewIcon,
   SmartToy as SmartToyIcon,
   ImportExport as ImportExportIcon,
+  Description as DocumentIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -211,6 +212,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
     { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
     { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents' },
+    { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
   ];
 
 
