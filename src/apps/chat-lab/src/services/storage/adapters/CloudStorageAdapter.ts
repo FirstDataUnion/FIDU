@@ -8,7 +8,7 @@ import type {
   ConversationsResponse, 
   StorageConfig 
 } from '../types';
-import type { Conversation, Message, FilterOptions } from '../../../types';
+import type { Conversation, Message, FilterOptions, Document } from '../../../types';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { GoogleDriveAuthService, getGoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../drive/GoogleDriveService';
@@ -819,6 +819,91 @@ export class CloudStorageAdapter implements StorageAdapter {
     };
   }
 
+  // Document operations - implemented using data packets
+  async getDocuments(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    if (!this.isInitialized()) {
+      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+    }
+    if (!this.isAuthenticated()) {
+      throw new Error('User must authenticate with Google Drive first. Please connect your Google Drive account.');
+    }
+    await this.ensureFullyReady();
+
+    const documentQueryParams = {
+      user_id: this.ensureUserId(),
+      profile_id: profileId,
+      tags: ['FIDU-CHAT-LAB-Document'],
+      limit: limit,
+      offset: (page - 1) * limit,
+      sort_order: 'desc'
+    };
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(documentQueryParams);
+      const documents = dataPackets.map((packet: any) => this.transformDataPacketToDocument(packet));
+      return { documents, total: documents.length, page, limit };
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      throw error;
+    }
+  }
+
+  async getDocumentById(documentId: string): Promise<any> {
+    await this.ensureAuthenticated();
+    try {
+      const dataPacket = await this.dbManager!.getDataPacketById(documentId);
+      return this.transformDataPacketToDocument(dataPacket);
+    } catch (error) {
+      console.error('Error fetching document:', error);
+      throw error;
+    }
+  }
+
+  async createDocument(document: any, profileId: string): Promise<any> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformDocumentToDataPacket(document, profileId);
+    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
+      unsyncedDataManager.markAsUnsynced();
+      const finalStoredData = (storedPacket?.id !== undefined && storedPacket?.data) ? storedPacket : dataPacket;
+      return this.transformDataPacketToDocument(finalStoredData);
+    } catch (error) {
+      console.error('Error creating document:', error);
+      throw error;
+    }
+  }
+
+  async updateDocument(document: any, profileId: string): Promise<any> {
+    await this.ensureAuthenticated();
+
+    if (!document.id) {
+      throw new Error('Document ID is required to update document');
+    }
+
+    const dataPacket = this.transformDocumentToDataPacketUpdate(document, profileId);
+    const requestId = this.generateRequestId();
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
+      unsyncedDataManager.markAsUnsynced();
+      const finalUpdatedData = (updatedPacket?.id !== undefined && updatedPacket?.data) ? updatedPacket : dataPacket;
+      return this.transformDataPacketToDocument(finalUpdatedData);
+    } catch (error) {
+      console.error('Error updating document:', error);
+      throw error;
+    }
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.ensureAuthenticated();
+    try {
+      await this.dbManager!.deleteDataPacket(documentId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      throw error;
+    }
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     await this.ensureAuthenticated();
@@ -1340,6 +1425,57 @@ export class CloudStorageAdapter implements StorageAdapter {
       categories: (packet.tags || []).filter((tag: string) => tag !== 'FIDU-CHAT-LAB-SystemPrompt'),
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp
+    };
+  }
+
+    // Document transformation methods
+  private transformDocumentToDataPacket(document: any, profileId: string): any {
+    return {
+      id: document.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
+      data: {
+        title: document.title || 'Untitled Document',
+        content: document.body || ''
+      }
+    };
+  }
+
+  private transformDocumentToDataPacketUpdate(document: any, profileId: string): any {
+    return {
+      id: document.id,
+      user_id: this.ensureUserId(),
+      tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
+      data: {
+        title: document.title || 'Untitled Document',
+        content: document.body || '',
+      }
+    };
+  }
+
+  private transformDataPacketToDocument(packet: any): Document {
+    const data = packet.data || {};
+    let parsedData = data;
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch (error) {
+        console.warn('Failed to parse document data as JSON string:', error);
+        parsedData = {};
+      }
+    }
+    const finalData = parsedData || {};
+    
+    return {
+      id: packet.id,
+      title: finalData.title || 'Untitled Document',
+      content: finalData.content || '',
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      tags: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-Document')
     };
   }
 }

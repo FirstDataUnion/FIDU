@@ -20,7 +20,7 @@ export interface ExportableResource {
 /**
  * Supported resource types
  */
-export type ResourceType = 'systemPrompt' | 'context' | 'backgroundAgent' | 'conversation';
+export type ResourceType = 'systemPrompt' | 'context' | 'backgroundAgent' | 'conversation' | 'document';
 
 /**
  * Main export format structure
@@ -34,6 +34,7 @@ export interface ResourceExport {
     contexts?: ContextExport[];
     backgroundAgents?: BackgroundAgentExport[];
     conversations?: ConversationExport[];
+    documents?: DocumentExport[];
   };
   metadata?: {
     appVersion?: string;
@@ -77,6 +78,13 @@ export interface ContextExport {
     lastAddedAt: string;
     platforms: string[];
   };
+}
+
+export interface DocumentExport {
+  id: string; // Original ID preserved for reference resolution
+  title: string;
+  content: string;
+  tags: string[];
 }
 
 export interface BackgroundAgentExport {
@@ -192,6 +200,7 @@ export interface ImportResult {
     contexts: number;
     backgroundAgents: number;
     conversations: number;
+    documents: number;
   };
   errors: Array<{
     resourceType: ResourceType;
@@ -213,5 +222,6 @@ export interface ExportSelection {
   contextIds?: string[];
   backgroundAgentIds?: string[];
   conversationIds?: string[];
+  documentIds?: string[];
 }
 

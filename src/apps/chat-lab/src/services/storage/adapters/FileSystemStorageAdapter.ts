@@ -9,12 +9,13 @@ import type {
   ConversationsResponse, 
   StorageConfig 
 } from '../types';
-import type { Conversation, Message, FilterOptions } from '../../../types';
+import type { Conversation, Message, FilterOptions, Document } from '../../../types';
 import { FileSystemService } from '../filesystem/FileSystemService';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import { extractUniqueModels } from '../../../utils/conversationUtils';
+import type { DocumentDataPacket, DocumentDataPacketUpdate } from '../../api/documents';
 
 // File names for our SQLite databases (matching Google Drive naming convention)
 const CONVERSATIONS_DB_FILE = 'fidu_conversations_v1.db';
@@ -795,98 +796,6 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
   }
 
-  // Background Agent operations - Direct file operations
-  async getBackgroundAgents(_queryParams?: any, _page = 1, _limit = 20, _profileId?: string): Promise<any> {
-    if (!this.isDirectoryAccessible()) {
-      throw new Error('No directory access. Please select a directory first.');
-    }
-    try {
-      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
-      const agentPackets = (allDataPackets || []).filter((packet: any) =>
-        packet.tags && packet.tags.includes('FIDU-CHAT-LAB-BackgroundAgent')
-      );
-      const startIndex = (_page - 1) * _limit;
-      const endIndex = startIndex + _limit;
-      const paginatedPackets = agentPackets.slice(startIndex, endIndex);
-      const backgroundAgents = paginatedPackets
-        .filter((packet: any) => packet && packet.id)
-        .map((packet: any) => {
-          try {
-            return this.transformDataPacketToBackgroundAgent(packet);
-          } catch (error) {
-            console.warn('Failed to transform background agent data packet:', error, packet);
-            return null;
-          }
-        })
-        .filter((a: any) => a !== null);
-      return { backgroundAgents, total: agentPackets.length, page: _page, limit: _limit };
-    } catch (error) {
-      console.error('Error loading background agents:', error);
-      return { backgroundAgents: [], total: 0, page: _page, limit: _limit };
-    }
-  }
-
-  async getBackgroundAgentById(agentId: string): Promise<any> {
-    if (!this.isDirectoryAccessible()) {
-      throw new Error('No directory access. Please select a directory first.');
-    }
-    try {
-      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
-      const packet = allDataPackets.find((p: any) => p.id === agentId && p.tags && p.tags.includes('FIDU-CHAT-LAB-BackgroundAgent'));
-      if (!packet) {
-        throw new Error(`Background agent with ID ${agentId} not found`);
-      }
-      return this.transformDataPacketToBackgroundAgent(packet);
-    } catch (error) {
-      console.error('Error loading background agent:', error);
-      throw error;
-    }
-  }
-
-  async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
-    if (!this.isDirectoryAccessible()) {
-      throw new Error('No directory access. Please select a directory first.');
-    }
-    try {
-      const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
-      await this.storeDataPacketDirectly(dataPacket);
-      return this.transformDataPacketToBackgroundAgent(dataPacket);
-    } catch (error) {
-      console.error('Error creating background agent:', error);
-      throw error;
-    }
-  }
-
-  async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
-    if (!this.isDirectoryAccessible()) {
-      throw new Error('No directory access. Please select a directory first.');
-    }
-    if (!agent.id) {
-      throw new Error('Background agent ID is required to update');
-    }
-    try {
-      const dataPacket = this.transformBackgroundAgentToDataPacketUpdate(agent, profileId);
-      const updatedPacket = await this.updateDataPacketDirectly(dataPacket);
-      return this.transformDataPacketToBackgroundAgent(updatedPacket);
-    } catch (error) {
-      console.error('Error updating background agent:', error);
-      throw error;
-    }
-  }
-
-  async deleteBackgroundAgent(agentId: string): Promise<string> {
-    if (!this.isDirectoryAccessible()) {
-      throw new Error('No directory access. Please select a directory first.');
-    }
-    try {
-      await this.deleteDataPacketDirectly(agentId);
-      return agentId;
-    } catch (error) {
-      console.error('Error deleting background agent:', error);
-      throw error;
-    }
-  }
-
   async getSystemPromptById(systemPromptId: string): Promise<any> {
     if (!this.isDirectoryAccessible()) {
       throw new Error('No directory access. Please select a directory first.');
@@ -999,6 +908,195 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       return systemPromptId;
     } catch (error) {
       console.error('Error deleting system prompt:', error);
+      throw error;
+    }
+  }
+
+  // Background Agent operations - Direct file operations
+  async getBackgroundAgents(_queryParams?: any, _page = 1, _limit = 20, _profileId?: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const agentPackets = (allDataPackets || []).filter((packet: any) =>
+        packet.tags && packet.tags.includes('FIDU-CHAT-LAB-BackgroundAgent')
+      );
+      const startIndex = (_page - 1) * _limit;
+      const endIndex = startIndex + _limit;
+      const paginatedPackets = agentPackets.slice(startIndex, endIndex);
+      const backgroundAgents = paginatedPackets
+        .filter((packet: any) => packet && packet.id)
+        .map((packet: any) => {
+          try {
+            return this.transformDataPacketToBackgroundAgent(packet);
+          } catch (error) {
+            console.warn('Failed to transform background agent data packet:', error, packet);
+            return null;
+          }
+        })
+        .filter((a: any) => a !== null);
+      return { backgroundAgents, total: agentPackets.length, page: _page, limit: _limit };
+    } catch (error) {
+      console.error('Error loading background agents:', error);
+      return { backgroundAgents: [], total: 0, page: _page, limit: _limit };
+    }
+  }
+
+  async getBackgroundAgentById(agentId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const packet = allDataPackets.find((p: any) => p.id === agentId && p.tags && p.tags.includes('FIDU-CHAT-LAB-BackgroundAgent'));
+      if (!packet) {
+        throw new Error(`Background agent with ID ${agentId} not found`);
+      }
+      return this.transformDataPacketToBackgroundAgent(packet);
+    } catch (error) {
+      console.error('Error loading background agent:', error);
+      throw error;
+    }
+  }
+
+  async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
+      await this.storeDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToBackgroundAgent(dataPacket);
+    } catch (error) {
+      console.error('Error creating background agent:', error);
+      throw error;
+    }
+  }
+
+  async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    if (!agent.id) {
+      throw new Error('Background agent ID is required to update');
+    }
+    try {
+      const dataPacket = this.transformBackgroundAgentToDataPacketUpdate(agent, profileId);
+      const updatedPacket = await this.updateDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToBackgroundAgent(updatedPacket);
+    } catch (error) {
+      console.error('Error updating background agent:', error);
+      throw error;
+    }
+  }
+
+  async deleteBackgroundAgent(agentId: string): Promise<string> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      await this.deleteDataPacketDirectly(agentId);
+      return agentId;
+    } catch (error) {
+      console.error('Error deleting background agent:', error);
+      throw error;
+    }
+  }
+
+  // Document operations - Direct file operations
+  async getDocuments(_queryParams?: any, _page = 1, _limit = 20, _profileId?: string): Promise<any> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const documentPackets = (allDataPackets || []).filter((packet: any) =>
+        packet.tags && packet.tags.includes('FIDU-CHAT-LAB-Document')
+      );
+      const startIndex = (_page - 1) * _limit;
+      const endIndex = startIndex + _limit;
+      const paginatedPackets = documentPackets.slice(startIndex, endIndex);
+      const documents = paginatedPackets
+        .filter((packet: any) => packet && packet.id)
+        .map((packet: any) => {
+          try {
+            return this.transformDataPacketToDocument(packet);
+          } catch (error) {
+            console.warn('Failed to transform document data packet:', error, packet);
+            return null;
+          }
+        })
+        .filter((document: any) => document !== null);
+      return { documents, total: documentPackets.length, page: _page, limit: _limit };
+    } catch (error) {
+      console.error('Error loading documents:', error);
+      return { documents: [], total: 0, page: _page, limit: _limit };
+    }
+  }
+
+  async getDocumentById(documentId: string): Promise<Document> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const allDataPackets = await this.readDataPacketsFromFile(this.ensureUserId());
+      const packet = allDataPackets.find((p: any) => p.id === documentId && p.tags && p.tags.includes('FIDU-CHAT-LAB-Document'));
+      if (!packet) {
+        throw new Error(`Document with ID ${documentId} not found`);
+      }
+      return this.transformDataPacketToDocument(packet);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      throw error;
+    }
+  }
+
+  async createDocument(document: Document, profileId: string): Promise<Document> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      const dataPacket = this.transformDocumentToDataPacket(document, profileId);
+
+      console.log('Creating document with direct file operations:', dataPacket.id);
+      console.log('Data packet user_id:', dataPacket.user_id);
+      console.log('Data packet profile_id:', dataPacket.profile_id);
+      
+      await this.storeDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToDocument(dataPacket);
+    } catch (error) {
+      console.error('Error creating document:', error);
+      throw error;
+    }
+  }
+
+  async updateDocument(document: Document, profileId: string): Promise<Document> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    if (!document.id) {
+      throw new Error('Document ID is required to update');
+    }
+    try {
+      const dataPacket = this.transformDocumentToDataPacketUpdate(document, profileId);
+      const updatedPacket = await this.updateDataPacketDirectly(dataPacket);
+      return this.transformDataPacketToDocument(updatedPacket);
+    } catch (error) {
+      console.error('Error updating document:', error);
+      throw error;
+    }
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    if (!this.isDirectoryAccessible()) {
+      throw new Error('No directory access. Please select a directory first.');
+    }
+    try {
+      await this.deleteDataPacketDirectly(documentId);
+    } catch (error) {
+      console.error('Error deleting document:', error);
       throw error;
     }
   }
@@ -2036,6 +2134,57 @@ export class FileSystemStorageAdapter implements StorageAdapter {
       version: finalData.version,
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp
+    };
+  }
+
+  // Document transformation methods
+  private transformDocumentToDataPacket(document: any, profileId: string): any {
+    return {
+      id: document.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
+      data: {
+        title: document.title || 'Untitled Document',
+        content: document.body || ''
+      }
+    };
+  }
+
+  private transformDocumentToDataPacketUpdate(document: any, profileId: string): any {
+    return {
+      id: document.id,
+      user_id: this.ensureUserId(),
+      tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
+      data: {
+        title: document.title || 'Untitled Document',
+        content: document.body || '',
+      }
+    };
+  }
+
+  private transformDataPacketToDocument(packet: any): Document {
+    const data = packet.data || {};
+    let parsedData = data;
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch (error) {
+        console.warn('Failed to parse document data as JSON string:', error);
+        parsedData = {};
+      }
+    }
+    const finalData = parsedData || {};
+    
+    return {
+      id: packet.id,
+      title: finalData.title || 'Untitled Document',
+      content: finalData.content || '',
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      tags: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-Document')
     };
   }
 
