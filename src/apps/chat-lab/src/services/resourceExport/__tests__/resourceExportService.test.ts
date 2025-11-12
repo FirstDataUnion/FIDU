@@ -202,6 +202,7 @@ describe('ResourceExportService', () => {
       expect(result.resources.contexts).toBeUndefined();
       expect(result.resources.backgroundAgents).toBeUndefined();
       expect(result.resources.conversations).toBeUndefined();
+      expect(result.resources.documents).toBeUndefined();
     });
 
     it('should include metadata in export', async () => {
@@ -281,12 +282,18 @@ describe('ResourceExportService', () => {
         { id: 'conv-1' } as any,
       ]);
 
+      const handlerDoc = service['documentHandler'] as jest.Mocked<DocumentHandler>;
+      handlerDoc.getAllResources = jest.fn().mockResolvedValue([
+        { id: 'doc-1' } as any,
+      ]);
+
       const result = await service.getAvailableResources(mockProfileId);
 
       expect(result.systemPrompts.length).toBe(1);
       expect(result.contexts.length).toBe(1);
       expect(result.backgroundAgents.length).toBe(1);
       expect(result.conversations.length).toBe(1);
+      expect(result.documents.length).toBe(1);
     });
   });
 });
