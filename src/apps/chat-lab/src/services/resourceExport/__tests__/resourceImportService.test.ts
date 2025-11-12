@@ -8,9 +8,9 @@ import { SystemPromptHandler } from '../handlers/systemPromptHandler';
 import { ContextHandler } from '../handlers/contextHandler';
 import { BackgroundAgentHandler } from '../handlers/backgroundAgentHandler';
 import { ConversationHandler } from '../handlers/conversationHandler';
+import { DocumentHandler } from '../handlers/documentHandler';
 import { RESOURCE_EXPORT_VERSION } from '../types';
 import type { ResourceExport } from '../types';
-import { DocumentHandler } from '../handlers/documentHandler';
 
 // Mock handlers
 jest.mock('../handlers/systemPromptHandler');
