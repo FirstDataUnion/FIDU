@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
-  Card,
   Typography,
   TextField,
   InputAdornment,
@@ -21,7 +20,6 @@ import {
   Link,
   useMediaQuery,
   useTheme,
-  CardContent
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,6 +43,7 @@ import { useMultiSelect } from '../hooks/useMultiSelect';
 import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
+import { DocumentCard } from '../components/documents/DocumentCard';
 import type { ExportSelection } from '../services/resourceExport/types';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 import type { Document } from '../types';
@@ -55,6 +54,7 @@ export default function DocumentsPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
     const unifiedStorage = useUnifiedStorage();
     const isDirectoryRequired = useFilesystemDirectoryRequired();
     const [showImportDialog, setShowImportDialog] = useState(false);
@@ -67,22 +67,21 @@ export default function DocumentsPage() {
     }, [documents, searchQuery]);
 
     const handleCreateDocument = () => {
-        console.log('Create document');
-        const storage = getUnifiedStorageService();
-        const createDocument = async () => {
-            const nextDocumentNum = documents.length + 1;
-            const document = await storage.createDocument({
-                title: 'New Document ' + nextDocumentNum,
-                content: 'New Document Content',
-            }, currentProfile?.id);
-            setDocuments([...documents, document]);
-        };
-        void createDocument();
+      if (!currentProfile?.id) return;
+      setIsCreating(true);
+      // TODO: Implement create document functionality
+      console.log('Create document');
     };
 
     const handleImportDocument = () => {
+      // TODO: Implement import document functionality
         console.log('Import document');
     };
+
+    const handleViewEditDocument = useCallback((document: Document) => {
+        // TODO: Implement view/edit functionality for documents
+        console.log('View/Edit document:', document);
+    }, []);
 
     useEffect(() => {
         const storage = getUnifiedStorageService();
@@ -228,17 +227,11 @@ export default function DocumentsPage() {
                 gap: 3 
                 }}>
                 {filteredDocuments.map((document, index) => (
-                    // <DocumentCard 
-                    //     key={document.id || `document-${index}`} 
-                    //     document={document} 
-                    // />
-                    <Card>
-                        <p>{document.title}</p>
-                        <p>{document.content}</p>
-                        <p>{document.createdAt}</p>
-                        <p>{document.updatedAt}</p>
-                        <p>{document.tags.join(', ')}</p>
-                    </Card>    
+                    <DocumentCard 
+                        key={document.id || `document-${index}`} 
+                        document={document}
+                        onViewEdit={handleViewEditDocument}
+                    />
                 ))}
                 </Box>
             )}
