@@ -10,12 +10,14 @@ import { BackgroundAgentHandler } from '../handlers/backgroundAgentHandler';
 import { ConversationHandler } from '../handlers/conversationHandler';
 import { RESOURCE_EXPORT_VERSION } from '../types';
 import type { ResourceExport } from '../types';
+import { DocumentHandler } from '../handlers/documentHandler';
 
 // Mock handlers
 jest.mock('../handlers/systemPromptHandler');
 jest.mock('../handlers/contextHandler');
 jest.mock('../handlers/backgroundAgentHandler');
 jest.mock('../handlers/conversationHandler');
+jest.mock('../handlers/documentHandler');
 
 // Mock UnifiedStorageService
 const mockCreateSystemPrompt = jest.fn();
@@ -26,6 +28,7 @@ const mockEnsureUserId = jest.fn();
 const mockGetSystemPrompts = jest.fn();
 const mockGetContexts = jest.fn();
 const mockGetBackgroundAgents = jest.fn();
+const mockGetDocuments = jest.fn();
 
 jest.mock('../../storage/UnifiedStorageService', () => ({
   getUnifiedStorageService: jest.fn(() => ({
@@ -36,6 +39,7 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
     createContext: (...args: any[]) => mockCreateContext(...args),
     createBackgroundAgent: (...args: any[]) => mockCreateBackgroundAgent(...args),
     createConversation: (...args: any[]) => mockCreateConversation(...args),
+    getDocuments: (...args: any[]) => mockGetDocuments(...args),
     getAdapter: jest.fn(() => ({
       ensureUserId: mockEnsureUserId,
     })),
@@ -60,12 +64,14 @@ describe('ResourceImportService', () => {
     mockGetSystemPrompts.mockResolvedValue({ systemPrompts: [] });
     mockGetContexts.mockResolvedValue({ contexts: [] });
     mockGetBackgroundAgents.mockResolvedValue({ backgroundAgents: [] });
+    mockGetDocuments.mockResolvedValue({ documents: [] });
 
     // Setup handler mocks
     const mockSystemPromptHandler = new SystemPromptHandler();
     const mockContextHandler = new ContextHandler();
     const mockBackgroundAgentHandler = new BackgroundAgentHandler();
     const mockConversationHandler = new ConversationHandler();
+    const mockDocumentHandler = new DocumentHandler();
 
     (SystemPromptHandler as jest.MockedClass<typeof SystemPromptHandler>).mockImplementation(
       () => mockSystemPromptHandler
@@ -78,6 +84,9 @@ describe('ResourceImportService', () => {
     );
     (ConversationHandler as jest.MockedClass<typeof ConversationHandler>).mockImplementation(
       () => mockConversationHandler
+    );
+    (DocumentHandler as jest.MockedClass<typeof DocumentHandler>).mockImplementation(
+      () => mockDocumentHandler
     );
   });
 
