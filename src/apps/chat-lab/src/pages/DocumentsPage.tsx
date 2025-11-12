@@ -5,40 +5,18 @@ import {
   TextField,
   InputAdornment,
   Paper,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Alert,
   CircularProgress,
   Button,
-  Link,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  FolderOutlined as FolderIcon,
-  HelpOutline as HelpOutlineIcon,
   FileDownload as ImportIcon,
 } from '@mui/icons-material';
-import { useAppSelector, useAppDispatch } from '../store';
+import { useAppSelector } from '../store';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
-import { fetchContexts, createContext, updateContext, deleteContext } from '../store/slices/contextsSlice';
-import { fetchConversationMessages } from '../store/slices/conversationsSlice';
-import { ContextCard } from '../components/contexts/ContextCard';
-import { ConversationSelectionList } from '../components/contexts/ConversationSelectionList';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
-import ContextHelpModal from '../components/help/ContextHelpModal';
 import { useMultiSelect } from '../hooks/useMultiSelect';
 import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
@@ -46,7 +24,6 @@ import ResourceImportDialog from '../components/resourceExport/ResourceImportDia
 import { DocumentCard } from '../components/documents/DocumentCard';
 import DocumentEditDialog from '../components/documents/DocumentEditDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
-import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 import type { MarkdownDocument } from '../types';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 
@@ -61,6 +38,11 @@ export default function DocumentsPage() {
     const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
     const [initialDocument, setInitialDocument] = useState<{ id?: string; title: string; content: string } | undefined>(undefined);
     const currentProfile = useAppSelector((state) => state.auth.currentProfile);
+    const user = useAppSelector((state) => state.auth.user);
+    
+    // Multi-select export state
+    const multiSelect = useMultiSelect();
+    const [isExporting, setIsExporting] = useState(false);
 
     const filteredDocuments = useMemo(() => {
         return documents.filter((document) => {
@@ -137,6 +119,33 @@ export default function DocumentsPage() {
         void loadDocuments();
     }, [loadDocuments]);
 
+    const handleExportSelected = useCallback(async () => {
+        if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+        setIsExporting(true);
+        try {
+            const exportService = getResourceExportService();
+            const selection: ExportSelection = {
+                documentIds: Array.from(multiSelect.selectedIds),
+            };
+            const exportData = await exportService.exportResources(
+                selection,
+                currentProfile.id,
+                user?.email
+            );
+            exportService.downloadExport(exportData);
+            multiSelect.exitSelectionMode();
+        } catch (error) {
+            console.error('Export failed:', error);
+            // Could add error snackbar here
+        } finally {
+            setIsExporting(false);
+        }
+    }, [currentProfile?.id, multiSelect, user?.email]);
+
+    const handleCancelExport = useCallback(() => {
+        multiSelect.exitSelectionMode();
+    }, [multiSelect]);
+
     useEffect(() => {
         void loadDocuments();
     }, [loadDocuments]);
@@ -150,7 +159,7 @@ export default function DocumentsPage() {
         overflow: 'hidden'
       }}>
         {/* Storage Directory Banner */}
-        <StorageDirectoryBanner pageType="background-agents" />
+        <StorageDirectoryBanner pageType="documents" />
   
         {/* Scrollable Content Area */}
         <Box sx={{
@@ -279,6 +288,10 @@ export default function DocumentsPage() {
                         key={document.id || `document-${index}`} 
                         document={document}
                         onViewEdit={handleViewEditDocument}
+                        isSelectionMode={multiSelect.isSelectionMode}
+                        isSelected={multiSelect.isSelected(document.id)}
+                        onToggleSelection={multiSelect.toggleSelection}
+                        onEnterSelectionMode={multiSelect.enterSelectionMode}
                     />
                 ))}
                 </Box>
@@ -293,6 +306,26 @@ export default function DocumentsPage() {
         onCreate={handleCreateDocument}
         onUpdate={handleUpdateDocument}
         onDelete={handleDeleteDocument}
+      />
+
+      {/* Floating Export Actions */}
+      {multiSelect.isSelectionMode && (
+        <FloatingExportActions
+          selectionCount={multiSelect.selectionCount}
+          onExport={handleExportSelected}
+          onCancel={handleCancelExport}
+          disabled={isExporting}
+        />
+      )}
+
+      {/* Resource Import Dialog */}
+      <ResourceImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          // Refresh documents after import
+          void loadDocuments();
+        }}
       />
       </Box>
   );
