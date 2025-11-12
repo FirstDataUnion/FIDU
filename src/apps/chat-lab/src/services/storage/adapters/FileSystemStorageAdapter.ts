@@ -15,7 +15,6 @@ import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import { extractUniqueModels } from '../../../utils/conversationUtils';
-import type { DocumentDataPacket, DocumentDataPacketUpdate } from '../../api/documents';
 
 // File names for our SQLite databases (matching Google Drive naming convention)
 const CONVERSATIONS_DB_FILE = 'fidu_conversations_v1.db';
@@ -2156,6 +2155,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
   private transformDocumentToDataPacketUpdate(document: any, profileId: string): any {
     return {
       id: document.id,
+      profile_id: profileId,
       user_id: this.ensureUserId(),
       tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
       data: {

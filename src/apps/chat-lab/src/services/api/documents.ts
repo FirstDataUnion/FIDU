@@ -33,7 +33,8 @@ const transformDataPacketToDocument = (packet: DocumentDataPacket): MarkdownDocu
   };
 }
 
-const transformDocumentToDataPacket = (document: MarkdownDocument, profileId: string): DocumentDataPacket => {
+// TODO: Decide whether the LocalStorageAdapter is staying (and therefore needs this method)
+const _transformDocumentToDataPacket = (document: MarkdownDocument, profileId: string): DocumentDataPacket => {
   return {
     id: document.id,
     profile_id: profileId,
