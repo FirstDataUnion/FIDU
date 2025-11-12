@@ -70,7 +70,8 @@ export interface SystemPrompt {
 }
 
 // Document interface
-export interface Document {
+// Not named Document to avoid shadowing the Document type from the browser
+export interface MarkdownDocument {
   id: string;
   title: string;
   content: string;

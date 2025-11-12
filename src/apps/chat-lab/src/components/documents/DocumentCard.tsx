@@ -9,11 +9,11 @@ import {
   Button,
 } from '@mui/material';
 import { formatDate, getTagColor } from '../../utils/conversationUtils';
-import type { Document } from '../../types';
+import type { MarkdownDocument } from '../../types';
 
 interface DocumentCardProps {
-  document: Document;
-  onViewEdit: (document: Document) => void;
+  document: MarkdownDocument;
+  onViewEdit: (document: MarkdownDocument) => void;
 }
 
 export const DocumentCard = React.memo<DocumentCardProps>(({ 

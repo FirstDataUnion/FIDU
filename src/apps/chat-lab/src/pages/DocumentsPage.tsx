@@ -46,12 +46,12 @@ import ResourceImportDialog from '../components/resourceExport/ResourceImportDia
 import { DocumentCard } from '../components/documents/DocumentCard';
 import type { ExportSelection } from '../services/resourceExport/types';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
-import type { Document } from '../types';
+import type { MarkdownDocument } from '../types';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 
 
 export default function DocumentsPage() {
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [documents, setDocuments] = useState<MarkdownDocument[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -78,7 +78,7 @@ export default function DocumentsPage() {
         console.log('Import document');
     };
 
-    const handleViewEditDocument = useCallback((document: Document) => {
+    const handleViewEditDocument = useCallback((document: MarkdownDocument) => {
         // TODO: Implement view/edit functionality for documents
         console.log('View/Edit document:', document);
     }, []);

@@ -1,4 +1,4 @@
-import type { Document } from '../../types';
+import type { MarkdownDocument } from '../../types';
 import { fiduVaultAPIClient } from './apiClientFIDUVault';
 
 export interface DocumentDataPacket {
@@ -22,7 +22,7 @@ export interface DocumentDataPacketUpdate {
   };
 }
 
-const transformDataPacketToDocument = (packet: DocumentDataPacket): Document => {
+const transformDataPacketToDocument = (packet: DocumentDataPacket): MarkdownDocument => {
   return {
     id: packet.id,
     title: packet.data.title,
@@ -33,7 +33,7 @@ const transformDataPacketToDocument = (packet: DocumentDataPacket): Document => 
   };
 }
 
-const transformDocumentToDataPacket = (document: Document, profileId: string): DocumentDataPacket => {
+const transformDocumentToDataPacket = (document: MarkdownDocument, profileId: string): DocumentDataPacket => {
   return {
     id: document.id,
     profile_id: profileId,

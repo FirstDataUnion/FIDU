@@ -1,20 +1,20 @@
 import { getUnifiedStorageService } from "../../storage/UnifiedStorageService";
 import type { ExportableResource, DocumentExport, ResourceHandler, ResourceType, IdMapping } from "../types";
-import type { Document } from "../../../types";
+import type { MarkdownDocument } from "../../../types";
 import { v4 as uuidv4 } from 'uuid';
 
-export class DocumentHandler implements ResourceHandler<Document> {
+export class DocumentHandler implements ResourceHandler<MarkdownDocument> {
   getResourceType(): ResourceType {
     return 'document';
   }
 
-  async getAllResources(profileId: string): Promise<Document[]> {
+  async getAllResources(profileId: string): Promise<MarkdownDocument[]> {
     const storage = getUnifiedStorageService();
     const response = await storage.getDocuments(undefined, 1, 1000, profileId);
     return response.documents || [];
   }
 
-  async exportResource(resource: Document, _profileId: string): Promise<ExportableResource> {
+  async exportResource(resource: MarkdownDocument, _profileId: string): Promise<ExportableResource> {
     const exportData: DocumentExport = {
         id: resource.id, // Preserve original ID for reference resolution
         title: resource.title,
@@ -29,7 +29,7 @@ export class DocumentHandler implements ResourceHandler<Document> {
     }
   }
 
-  async importResource(exportable: ExportableResource, _profileId: string, _userId: string, idMapping?: IdMapping): Promise<Document> {
+  async importResource(exportable: ExportableResource, _profileId: string, _userId: string, idMapping?: IdMapping): Promise<MarkdownDocument> {
     const exportData = exportable.data as DocumentExport;
 
     // Generate new ID
@@ -42,7 +42,7 @@ export class DocumentHandler implements ResourceHandler<Document> {
 
     // Re-hydrate document with new ownership
     const now = new Date().toISOString();
-    const imported: Document = {
+    const imported: MarkdownDocument = {
         id: newId,
         title: exportData.title,
         content: exportData.content,

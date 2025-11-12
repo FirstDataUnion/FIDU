@@ -9,7 +9,7 @@ import type {
   ConversationsResponse, 
   StorageConfig 
 } from '../types';
-import type { Conversation, Message, FilterOptions, Document } from '../../../types';
+import type { Conversation, Message, FilterOptions, MarkdownDocument } from '../../../types';
 import { FileSystemService } from '../filesystem/FileSystemService';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
@@ -1036,7 +1036,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getDocumentById(documentId: string): Promise<Document> {
+  async getDocumentById(documentId: string): Promise<MarkdownDocument> {
     if (!this.isDirectoryAccessible()) {
       throw new Error('No directory access. Please select a directory first.');
     }
@@ -1053,7 +1053,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
   }
 
-  async createDocument(document: Document, profileId: string): Promise<Document> {
+  async createDocument(document: MarkdownDocument, profileId: string): Promise<MarkdownDocument> {
     if (!this.isDirectoryAccessible()) {
       throw new Error('No directory access. Please select a directory first.');
     }
@@ -1072,7 +1072,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     }
   }
 
-  async updateDocument(document: Document, profileId: string): Promise<Document> {
+  async updateDocument(document: MarkdownDocument, profileId: string): Promise<MarkdownDocument> {
     if (!this.isDirectoryAccessible()) {
       throw new Error('No directory access. Please select a directory first.');
     }
@@ -2165,7 +2165,7 @@ export class FileSystemStorageAdapter implements StorageAdapter {
     };
   }
 
-  private transformDataPacketToDocument(packet: any): Document {
+  private transformDataPacketToDocument(packet: any): MarkdownDocument {
     const data = packet.data || {};
     let parsedData = data;
     if (typeof data === 'string') {

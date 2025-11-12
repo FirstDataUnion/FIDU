@@ -19,7 +19,7 @@ import type {
 } from './types';
 import { RESOURCE_EXPORT_VERSION } from './types';
 import { APP_VERSION } from '../../utils/version';
-import type { SystemPrompt, Context, Conversation, Document } from '../../types';
+import type { SystemPrompt, Context, Conversation, MarkdownDocument } from '../../types';
 import type { BackgroundAgent } from '../api/backgroundAgents';
 
 /**
@@ -165,7 +165,7 @@ export class ResourceExportService {
     contexts: Context[];
     backgroundAgents: BackgroundAgent[];
     conversations: Conversation[];
-    documents: Document[];
+    documents: MarkdownDocument[];
   }> {
     const systemPrompts = await this.systemPromptHandler.getAllResources(profileId);
     const contexts = await this.contextHandler.getAllResources(profileId);
