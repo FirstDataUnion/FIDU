@@ -1439,7 +1439,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
       data: {
         title: document.title || 'Untitled Document',
-        content: document.body || ''
+        content: document.content || ''
       }
     };
   }
@@ -1451,7 +1451,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
       data: {
         title: document.title || 'Untitled Document',
-        content: document.body || '',
+        content: document.content || '',
       }
     };
   }
