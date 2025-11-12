@@ -8,7 +8,7 @@ import type {
   ConversationsResponse, 
   StorageConfig 
 } from '../types';
-import type { Conversation, Message, FilterOptions, Document } from '../../../types';
+import type { Conversation, Message, FilterOptions, MarkdownDocument } from '../../../types';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { GoogleDriveAuthService, getGoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../drive/GoogleDriveService';
@@ -1456,7 +1456,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     };
   }
 
-  private transformDataPacketToDocument(packet: any): Document {
+  private transformDataPacketToDocument(packet: any): MarkdownDocument {
     const data = packet.data || {};
     let parsedData = data;
     if (typeof data === 'string') {

@@ -28,7 +28,7 @@ import {
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
 } from '@mui/icons-material';
 import { getResourceExportService } from '../../services/resourceExport/resourceExportService';
-import type { SystemPrompt, Context, Conversation, Document } from '../../types';
+import type { SystemPrompt, Context, Conversation, MarkdownDocument } from '../../types';
 import type { BackgroundAgent } from '../../services/api/backgroundAgents';
 
 interface ResourceExportDialogProps {
@@ -53,7 +53,7 @@ export default function ResourceExportDialog({
     contexts: Context[];
     backgroundAgents: BackgroundAgent[];
     conversations: Conversation[];
-    documents: Document[];
+    documents: MarkdownDocument[];
   }>({
     systemPrompts: [],
     contexts: [],
