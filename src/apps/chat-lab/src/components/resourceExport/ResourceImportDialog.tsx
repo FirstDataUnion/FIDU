@@ -181,6 +181,7 @@ export default function ResourceImportDialog({
     contexts: data.resources.contexts?.length || 0,
     backgroundAgents: data.resources.backgroundAgents?.length || 0,
     conversations: data.resources.conversations?.length || 0,
+    documents: data.resources.documents?.length || 0,
   });
 
   return (
@@ -322,6 +323,16 @@ export default function ResourceImportDialog({
                   />
                 </ListItem>
               )}
+              {getResourceCounts(previewData).documents > 0 && (
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={`Documents: ${getResourceCounts(previewData).documents}`}
+                  />
+                </ListItem>
+              )}
             </List>
 
             {error && (
@@ -364,6 +375,11 @@ export default function ResourceImportDialog({
               />
               <Chip
                 label={`Conversations: ${importResult.imported.conversations}`}
+                color="primary"
+                sx={{ mr: 1, mb: 1 }}
+              />
+              <Chip
+                label={`Documents: ${importResult.imported.documents}`}
                 color="primary"
                 sx={{ mr: 1, mb: 1 }}
               />
