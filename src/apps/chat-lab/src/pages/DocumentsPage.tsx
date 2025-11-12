@@ -112,7 +112,7 @@ export default function DocumentsPage() {
         await storage.deleteDocument(documentId);
     }, []);
 
-    const handleDialogClose = useCallback((document?: { id: string; title: string; content: string }) => {
+    const handleDialogClose = useCallback((_?: { id: string; title: string; content: string }) => {
         setDocumentDialogOpen(false);
         setInitialDocument(undefined);
         // Refresh documents list when dialog closes (handles create/update/delete cases)

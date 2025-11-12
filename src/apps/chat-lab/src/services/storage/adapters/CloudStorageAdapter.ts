@@ -1447,6 +1447,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   private transformDocumentToDataPacketUpdate(document: any, profileId: string): any {
     return {
       id: document.id,
+      profile_id: profileId,
       user_id: this.ensureUserId(),
       tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
       data: {
