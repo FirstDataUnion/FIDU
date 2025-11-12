@@ -44,6 +44,7 @@ import { FloatingExportActions } from '../components/resourceExport/FloatingExpo
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import { DocumentCard } from '../components/documents/DocumentCard';
+import DocumentEditDialog from '../components/documents/DocumentEditDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
 import type { MarkdownDocument } from '../types';
@@ -54,10 +55,11 @@ export default function DocumentsPage() {
     const [documents, setDocuments] = useState<MarkdownDocument[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isCreating, setIsCreating] = useState(false);
     const unifiedStorage = useUnifiedStorage();
     const isDirectoryRequired = useFilesystemDirectoryRequired();
     const [showImportDialog, setShowImportDialog] = useState(false);
+    const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+    const [initialDocument, setInitialDocument] = useState<{ id?: string; title: string; content: string } | undefined>(undefined);
     const currentProfile = useAppSelector((state) => state.auth.currentProfile);
 
     const filteredDocuments = useMemo(() => {
@@ -66,32 +68,78 @@ export default function DocumentsPage() {
         });
     }, [documents, searchQuery]);
 
-    const handleCreateDocument = () => {
-      if (!currentProfile?.id) return;
-      setIsCreating(true);
-      // TODO: Implement create document functionality
-      console.log('Create document');
-    };
+    const loadDocuments = useCallback(async () => {
+        if (!currentProfile?.id) return;
+        const storage = getUnifiedStorageService();
+        try {
+            const result = await storage.getDocuments(undefined, 1, 1000, currentProfile.id);
+            setDocuments(result.documents || []);
+        } catch (error) {
+            console.error('Error loading documents:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentProfile?.id]);
 
-    const handleImportDocument = () => {
-      // TODO: Implement import document functionality
-        console.log('Import document');
-    };
+    const handleCreateDocumentClick = useCallback(() => {
+        if (!currentProfile?.id) return;
+        setInitialDocument(undefined);
+        setDocumentDialogOpen(true);
+    }, [currentProfile?.id]);
 
     const handleViewEditDocument = useCallback((document: MarkdownDocument) => {
-        // TODO: Implement view/edit functionality for documents
-        console.log('View/Edit document:', document);
+        setInitialDocument({
+            id: document.id,
+            title: document.title,
+            content: document.content,
+        });
+        setDocumentDialogOpen(true);
     }, []);
 
-    useEffect(() => {
+    const handleCreateDocument = useCallback(async (
+        document: { title: string; content: string }
+    ): Promise<{ id: string; title: string; content: string }> => {
+        if (!currentProfile?.id) {
+            throw new Error('No profile ID available');
+        }
         const storage = getUnifiedStorageService();
-        const loadDocuments = async () => {
-            const documents = await storage.getDocuments(undefined, 1, 1000, currentProfile?.id);
-            setDocuments(documents.documents || []);
-            setLoading(false);
-        };
-        void loadDocuments();
+        const created = await storage.createDocument(
+            { title: document.title, content: document.content, tags: [] },
+            currentProfile.id
+        );
+        return { id: created.id, title: created.title, content: created.content };
     }, [currentProfile?.id]);
+
+    const handleUpdateDocument = useCallback(async (
+        documentId: string,
+        document: { title: string; content: string }
+    ): Promise<{ id: string; title: string; content: string }> => {
+        if (!currentProfile?.id) {
+            throw new Error('No profile ID available');
+        }
+        const storage = getUnifiedStorageService();
+        const updated = await storage.updateDocument(
+            { id: documentId, title: document.title, content: document.content },
+            currentProfile.id
+        );
+        return { id: updated.id, title: updated.title, content: updated.content };
+    }, [currentProfile?.id]);
+
+    const handleDeleteDocument = useCallback(async (documentId: string) => {
+        const storage = getUnifiedStorageService();
+        await storage.deleteDocument(documentId);
+    }, []);
+
+    const handleDialogClose = useCallback((document?: { id: string; title: string; content: string }) => {
+        setDocumentDialogOpen(false);
+        setInitialDocument(undefined);
+        // Refresh documents list when dialog closes (handles create/update/delete cases)
+        void loadDocuments();
+    }, [loadDocuments]);
+
+    useEffect(() => {
+        void loadDocuments();
+    }, [loadDocuments]);
 
   return (
     <Box sx={{
@@ -156,7 +204,7 @@ export default function DocumentsPage() {
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={handleCreateDocument}
+                    onClick={handleCreateDocumentClick}
                     disabled={isDirectoryRequired}
                     sx={{
                       borderRadius: 2,
@@ -236,6 +284,16 @@ export default function DocumentsPage() {
                 </Box>
             )}
             </Box>
+
+      {/* Document Edit Dialog */}
+      <DocumentEditDialog
+        open={documentDialogOpen}
+        onClose={handleDialogClose}
+        initialDocument={initialDocument}
+        onCreate={handleCreateDocument}
+        onUpdate={handleUpdateDocument}
+        onDelete={handleDeleteDocument}
+      />
       </Box>
   );
 }

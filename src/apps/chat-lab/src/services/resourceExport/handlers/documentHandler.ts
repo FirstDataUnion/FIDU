@@ -66,10 +66,10 @@ export class DocumentHandler implements ResourceHandler<MarkdownDocument> {
       }
   
       // Validate types
-      if (typeof data.name !== 'string' || typeof data.content !== 'string') {
+      if (typeof data.title !== 'string' || typeof data.content !== 'string') {
         return false;
       }
   
       return true;
   }
-}   
+}
