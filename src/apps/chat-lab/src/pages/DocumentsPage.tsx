@@ -306,6 +306,7 @@ export default function DocumentsPage() {
         onCreate={handleCreateDocument}
         onUpdate={handleUpdateDocument}
         onDelete={handleDeleteDocument}
+        // TODO: decide which flow closeOnSave={true}
       />
 
       {/* Floating Export Actions */}
