@@ -33,6 +33,7 @@ import { serverLogger } from './utils/serverLogger';
 import { initializeErrorTracking } from './utils/errorTracking';
 import { MetricsService } from './services/metrics/MetricsService';
 import { CookieBanner } from './components/common/CookieBanner';
+import { WelcomeLandingPage } from './components/common/WelcomeLandingPage';
 import { getGoogleDriveAuthService } from './services/auth/GoogleDriveAuth';
 import { getAuthManager } from './services/auth/AuthManager';
 import LoadingProgress from './components/common/LoadingProgress';
@@ -123,6 +124,9 @@ const ConditionalModals: React.FC<{
     <>
       {/* Cookie Consent Banner */}
       <CookieBanner />
+      
+      {/* Welcome Landing Page - Show when user is authenticated */}
+      <WelcomeLandingPage />
       
       {/* Storage Selection Modal - Priority over Google Drive auth modal */}
       <StorageSelectionModal
