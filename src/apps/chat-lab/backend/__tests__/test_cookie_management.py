@@ -160,12 +160,15 @@ class TestOAuthEndpoints:
                 )
 
                 # Mock encryption service methods
-                with patch(
-                    "server.encryption_service.get_user_encryption_key",
-                    new_callable=AsyncMock,
-                ) as mock_get_key, patch(
-                    "server.encryption_service.encrypt_refresh_token"
-                ) as mock_encrypt_token:
+                with (
+                    patch(
+                        "server.encryption_service.get_user_encryption_key",
+                        new_callable=AsyncMock,
+                    ) as mock_get_key,
+                    patch(
+                        "server.encryption_service.encrypt_refresh_token"
+                    ) as mock_encrypt_token,
+                ):
                     mock_get_key.return_value = "test_encryption_key"
                     mock_encrypt_token.return_value = "encrypted_refresh_token"
 
@@ -217,11 +220,12 @@ class TestOAuthEndpoints:
                 )
 
                 # Mock decryption
-                with patch(
-                    "server.decrypt_refresh_token", new_callable=AsyncMock
-                ) as mock_decrypt, patch(
-                    "server.httpx.AsyncClient"
-                ) as mock_fidu_client:
+                with (
+                    patch(
+                        "server.decrypt_refresh_token", new_callable=AsyncMock
+                    ) as mock_decrypt,
+                    patch("server.httpx.AsyncClient") as mock_fidu_client,
+                ):
                     mock_decrypt.return_value = "original_refresh_token"
 
                     # Mock FIDU identity service response
