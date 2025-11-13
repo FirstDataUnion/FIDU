@@ -19,6 +19,7 @@ export interface DocumentEditDialogProps {
   onCreate: (document: { title: string; content: string }) => Promise<{ id: string; title: string; content: string }>;
   onUpdate: (documentId: string, document: { title: string; content: string }) => Promise<{ id: string; title: string; content: string }>;
   onDelete?: (documentId: string) => Promise<void>;
+  closeOnSave?: boolean;
 }
 
 export default function DocumentEditDialog({
@@ -28,6 +29,7 @@ export default function DocumentEditDialog({
   onCreate,
   onUpdate,
   onDelete,
+  closeOnSave = false,
 }: DocumentEditDialogProps) {
   // Internal state for document ID (manages create-to-edit transition)
   const [documentId, setDocumentId] = useState<string | undefined>(initialDocument?.id);
@@ -80,6 +82,9 @@ export default function DocumentEditDialog({
     } finally {
       setIsSaving(false);
       setIsSaved(true);
+      if (closeOnSave) {
+        onClose();
+      }
     }
   };
 
