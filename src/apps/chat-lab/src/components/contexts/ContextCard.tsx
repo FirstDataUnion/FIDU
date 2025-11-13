@@ -16,6 +16,8 @@ import {
 } from '@mui/icons-material';
 
 import type { Context } from '../../types/contexts';
+import { truncateTitle } from '../../utils/stringUtils';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
 interface ContextCardProps {
   context: Context;
@@ -166,8 +168,9 @@ export const ContextCard = React.memo<ContextCardProps>(({
             wordBreak: 'break-word', // Allow long words to break
             overflowWrap: 'break-word' // Modern CSS for better word breaking
           }}
+          title={context.title || 'Untitled Context'}
         >
-          {context.title || 'Untitled Context'}
+          {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
         </Typography>
         <Typography 
           variant="body2" 

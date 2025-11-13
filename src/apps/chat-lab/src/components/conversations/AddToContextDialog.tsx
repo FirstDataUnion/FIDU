@@ -14,6 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 import type { Conversation, Context } from '../../types';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
+import { truncateTitle } from '../../utils/stringUtils';
 
 interface AddToContextDialogProps {
   open: boolean;
@@ -41,6 +43,7 @@ const AddToContextDialog: React.FC<AddToContextDialogProps> = React.memo(({
   onSubmit,
 }) => {
   if (!selectedConversation) return null;
+  newContextTitle = truncateTitle(newContextTitle, RESOURCE_TITLE_MAX_LENGTH);
 
   return (
     <Dialog
@@ -73,7 +76,7 @@ const AddToContextDialog: React.FC<AddToContextDialogProps> = React.memo(({
               </MenuItem>
               {contexts.map((context) => (
                 <MenuItem key={context.id} value={context.id}>
-                  {context.title}
+                  {truncateTitle(context.title, RESOURCE_TITLE_MAX_LENGTH)}
                 </MenuItem>
               ))}
             </Select>
@@ -101,6 +104,8 @@ const AddToContextDialog: React.FC<AddToContextDialogProps> = React.memo(({
                 value={newContextTitle}
                 onChange={(e) => onNewContextTitleChange(e.target.value)}
                 placeholder="Enter context title"
+                slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+                helperText={`${newContextTitle.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
                 sx={{ mb: 2 }}
               />
               <Typography variant="body2" color="text.secondary">

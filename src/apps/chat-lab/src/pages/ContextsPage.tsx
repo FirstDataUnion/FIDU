@@ -43,6 +43,7 @@ import { getResourceExportService } from '../services/resourceExport/resourceExp
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
 import type { Context, ContextFormData, ViewEditFormData, ContextMenuPosition, Conversation } from '../types/contexts';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 
 export default function ContextsPage() {
   const theme = useTheme();
@@ -578,6 +579,8 @@ export default function ContextsPage() {
               label="Context Title"
               value={contextForm.title}
               onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
             <TextField
@@ -629,6 +632,8 @@ export default function ContextsPage() {
               label="Context Title"
               value={contextForm.title}
               onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
             <TextField
@@ -669,6 +674,8 @@ export default function ContextsPage() {
               label="Context Title"
               value={viewEditForm.title}
               onChange={(e) => setViewEditForm(prev => ({ ...prev, title: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${viewEditForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               disabled={selectedContext?.isBuiltIn}
               sx={{ mb: 2 }}
             />
