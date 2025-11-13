@@ -38,6 +38,8 @@ import { getGoogleDriveAuthService } from './services/auth/GoogleDriveAuth';
 import { getAuthManager } from './services/auth/AuthManager';
 import LoadingProgress from './components/common/LoadingProgress';
 import type { LoadingStep } from './components/common/LoadingProgress';
+import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
+import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -825,8 +827,28 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/conversations" element={<ConversationsPage />} />
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
-                  <Route path="/background-agents" element={<BackgroundAgentsPage />} />
-                  <Route path="/documents" element={<DocumentsPage />} />
+                  <Route 
+                    path="/background-agents" 
+                    element={
+                      <StorageFeatureGuard
+                        featureName="Background Agents"
+                        checkFeature={supportsBackgroundAgents}
+                      >
+                        <BackgroundAgentsPage />
+                      </StorageFeatureGuard>
+                    } 
+                  />
+                  <Route 
+                    path="/documents" 
+                    element={
+                      <StorageFeatureGuard
+                        featureName="Documents"
+                        checkFeature={supportsDocuments}
+                      >
+                        <DocumentsPage />
+                      </StorageFeatureGuard>
+                    } 
+                  />
                   <Route path="/import-export" element={<ImportExportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
