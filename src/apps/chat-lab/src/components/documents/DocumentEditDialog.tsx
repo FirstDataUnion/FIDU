@@ -39,6 +39,7 @@ export default function DocumentEditDialog({
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -49,8 +50,13 @@ export default function DocumentEditDialog({
       setDocumentId(initialDocument?.id);
       setTitle(initialDocument?.title || '');
       setContent(initialDocument?.content || '');
+      setIsSaved(false);
     }
   }, [open, initialDocument]);
+
+  useEffect(() => {
+    setIsSaved(false);
+  }, [title, content]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -73,6 +79,7 @@ export default function DocumentEditDialog({
       console.error('Error saving document:', error);
     } finally {
       setIsSaving(false);
+      setIsSaved(true);
     }
   };
 
@@ -107,7 +114,9 @@ export default function DocumentEditDialog({
     <>
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
         <DialogTitle>
-          {dialogTitle}
+          {dialogTitle} {isSaved && (
+              <Box component="span" sx={{ color: "warning.main" }}>- Saved!</Box>
+          )}
           {isEditMode && (
             <Typography variant="body2" color="text.secondary">
               {title}
