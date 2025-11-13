@@ -74,13 +74,6 @@ export interface StorageAdapter {
   createSystemPrompt(systemPrompt: any, profileId: string): Promise<any>;
   updateSystemPrompt(systemPrompt: any, profileId: string): Promise<any>;
   deleteSystemPrompt(systemPromptId: string): Promise<string>;
-
-  // Document operations
-  getDocuments(queryParams?: any, page?: number, limit?: number, profileId?: string): Promise<any>;
-  getDocumentById(documentId: string): Promise<any>;
-  createDocument(document: any, profileId: string): Promise<any>;
-  updateDocument(document: any, profileId: string): Promise<any>;
-  deleteDocument(documentId: string): Promise<void>;
   
   // Sync operations
   sync(): Promise<void>;
