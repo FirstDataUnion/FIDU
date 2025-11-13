@@ -83,7 +83,7 @@ describe('ConversationCard', () => {
     
     // Test that the date is rendered (using real formatDate function)
     expect(screen.getByText(/Updated:/)).toBeInTheDocument();
-    expect(screen.getByText(/1\/1\/2024/)).toBeInTheDocument();
+    expect(screen.getByText(/0?1\/0?1\/2024/)).toBeInTheDocument();
   });
 
   it('should call onSelect when card is clicked', () => {

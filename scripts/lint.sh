@@ -41,4 +41,23 @@ mypy src/
 echo "🧪 Running pytest with coverage..."
 pytest --cov=src
 
-echo "✅ All checks completed successfully!" 
+
+# Run eslint in chat-lab
+echo "🧹 Running eslint in chat-lab"
+pushd src/apps/chat-lab
+npm run lint
+popd
+
+# Run jest in chat-lab with coverage
+echo "🔬 Running jest in chat-lab"
+pushd src/apps/chat-lab
+npm test -- --passWithNoTests --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov
+popd
+
+# Build chat-lab
+echo "🛠️ Building chat-lab"
+pushd src/apps/chat-lab
+npm run build
+popd
+
+echo "✅ All checks completed successfully!"
