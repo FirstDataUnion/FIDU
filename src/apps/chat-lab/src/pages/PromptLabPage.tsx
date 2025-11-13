@@ -88,6 +88,8 @@ import { DEFAULT_AGENT_CONFIG } from '../services/agents/agentConstants';
 
 // Safely import MetricsService - it may not be available in all environments (e.g., local dev)
 import { MetricsService } from '../services/metrics/MetricsService';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import { truncateTitle } from '../utils/stringUtils';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
@@ -1024,8 +1026,13 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                   }}
                 >
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
-                      {context.title || 'Untitled Context'}
+                    <Typography
+                      variant="body1"
+                      component="div"
+                      sx={{ fontWeight: 500, mb: 1 }}
+                      title={context.title || 'Untitled Context'}
+                      >
+                      {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {context.body ? (
@@ -4787,6 +4794,8 @@ export default function PromptLabPage() {
               label="Context Title"
               value={contextForm.title}
               onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
             <TextField

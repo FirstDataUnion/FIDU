@@ -16,6 +16,8 @@ import {
 } from '@mui/icons-material';
 import { formatDate, getTagColor } from '../../utils/conversationUtils';
 import type { MarkdownDocument } from '../../types';
+import { truncateTitle } from '../../utils/stringUtils';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
 interface DocumentCardProps {
   document: MarkdownDocument;
@@ -143,8 +145,9 @@ export const DocumentCard = React.memo<DocumentCardProps>(({
             wordBreak: 'break-word',
             overflowWrap: 'break-word'
           }}
+          title={document.title || 'Untitled Document'}
         >
-          {document.title || 'Untitled Document'}
+          {truncateTitle(document.title || 'Untitled Document', RESOURCE_TITLE_MAX_LENGTH)}
         </Typography>
         
         {/* Content preview */}

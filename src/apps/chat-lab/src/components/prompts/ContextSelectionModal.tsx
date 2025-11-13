@@ -24,6 +24,8 @@ import {
   Check as CheckIcon,
   Add as AddIcon
 } from '@mui/icons-material';
+import { truncateTitle } from '../../utils/stringUtils';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
 interface Context {
   id: string;
@@ -237,8 +239,8 @@ export default function ContextSelectionModal({
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                          {context.title}
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }} title={context.title}>
+                          {truncateTitle(context.title, RESOURCE_TITLE_MAX_LENGTH)}
                         </Typography>
                         {selectedContext?.id === context.id && (
                           <CheckIcon color="primary" fontSize="small" />

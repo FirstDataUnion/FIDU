@@ -10,6 +10,7 @@ import {
   Button,
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
 export interface DocumentEditDialogProps {
   open: boolean;
@@ -120,6 +121,8 @@ export default function DocumentEditDialog({
               label="Document Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
             <TextField
