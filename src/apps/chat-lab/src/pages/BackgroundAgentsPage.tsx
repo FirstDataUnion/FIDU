@@ -60,6 +60,7 @@ import {
 } from '../services/agents/agentPreferences';
 import { transformBuiltInAgentsWithPreferences } from '../services/agents/agentTransformers';
 import { DEFAULT_AGENT_CONFIG, THRESHOLD_PRESETS } from '../services/agents/agentConstants';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
@@ -1373,6 +1374,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 value={viewEditForm.name}
                 onChange={(e) => setViewEditForm(prev => ({ ...prev, name: e.target.value }))}
                 disabled={selectedAgent?.isSystem}
+                slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+                helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
                 sx={{
                   '& .MuiInputBase-root': {
                     fontSize: { xs: '0.875rem', sm: '1rem' }
@@ -1667,6 +1670,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 value={createForm.name}
                 onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
                 required
+                slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+                helperText={`${createForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
                 sx={{
                   '& .MuiInputBase-root': {
                     fontSize: { xs: '0.875rem', sm: '1rem' }
