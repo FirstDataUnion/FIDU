@@ -4,10 +4,10 @@ import { getEnvironmentInfo } from '../../utils/environment';
 import { getCookieSettingsService } from '../../services/settings/CookieSettingsService';
 
 // Get default storage mode based on environment
-const getDefaultStorageMode = (): 'local' | 'cloud' | 'filesystem' => {
+const getDefaultStorageMode = (): 'local' | 'cloud' => {
   const envInfo = getEnvironmentInfo();
   // Always use environment storage mode if specified
-  return envInfo.storageMode as 'local' | 'cloud' | 'filesystem' || 'local';
+  return envInfo.storageMode as 'local' | 'cloud' || 'local';
 };
 
 // Simplified settings - only theme is needed

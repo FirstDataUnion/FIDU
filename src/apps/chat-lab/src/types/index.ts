@@ -313,7 +313,7 @@ export interface UserSettings {
   defaultPlatform?: string;
   exportFormat: 'json' | 'markdown' | 'csv';
   lastUsedModel?: string; // Store the last used model for persistence across tab switches
-  storageMode: 'local' | 'cloud' | 'filesystem'; // Storage mode preference
+  storageMode: 'local' | 'cloud'; // Storage mode preference
   storageConfigured: boolean; // Whether user has completed initial storage setup
   userSelectedStorageMode: boolean; // Whether user has made a selection from settings page
   apiKeys: {
@@ -541,7 +541,7 @@ export interface PromptLabState {
 
 export interface UnifiedStorageState {
   // Core storage configuration
-  mode: 'local' | 'cloud' | 'filesystem';
+  mode: 'local' | 'cloud';
   status: 'unconfigured' | 'configuring' | 'configured' | 'error';
   userSelectedMode: boolean; // Whether user has made a selection from settings page
   
@@ -553,13 +553,6 @@ export interface UnifiedStorageState {
     error: string | null;
     showAuthModal: boolean;
     expiresAt: number | null;
-  };
-  
-  // File system specific state
-  filesystem: {
-    isAccessible: boolean;
-    directoryName: string | null;
-    permissionState: 'granted' | 'denied' | 'prompt' | 'checking';
   };
   
   // Error handling

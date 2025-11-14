@@ -205,7 +205,7 @@ export const WelcomeLandingPage: React.FC = () => {
             ChatLab is a web application that brings together the world's leading AI models 
             (ChatGPT, Claude, Gemini, and more) in one simple interface. Unlike other platforms, 
             you maintain complete control over your data – all your conversations, custom prompts, 
-            and contexts are stored either on your Google Drive or locally on your device, never on our servers.
+            and contexts are stored on your Google Drive, never on our servers.
           </Typography>
 
           <Divider sx={{ my: 3 }} />

@@ -7,7 +7,7 @@ import type { GoogleDriveUser } from '../../types';
 // Unified storage state interface
 export interface UnifiedStorageState {
   // Core storage configuration
-  mode: 'local' | 'cloud' | 'filesystem';
+  mode: 'local' | 'cloud';
   status: 'unconfigured' | 'configuring' | 'configured' | 'error';
   userSelectedMode: boolean; // Whether user has made a selection from settings page
   
@@ -21,23 +21,16 @@ export interface UnifiedStorageState {
     expiresAt: number | null;
   };
   
-  // File system specific state
-  filesystem: {
-    isAccessible: boolean;
-    directoryName: string | null;
-    permissionState: 'granted' | 'denied' | 'prompt' | 'checking';
-  };
-  
   // General state
   isLoading: boolean;
   error: string | null;
 }
 
 // Get default storage mode based on environment
-const getDefaultStorageMode = (): 'local' | 'cloud' | 'filesystem' => {
+const getDefaultStorageMode = (): 'local' | 'cloud' => {
   const envInfo = getEnvironmentInfo();
   // Always use environment storage mode if specified
-  return envInfo.storageMode as 'local' | 'cloud' | 'filesystem' || 'local';
+  return envInfo.storageMode as 'local' | 'cloud' || 'local';
 };
 
 // Load settings from localStorage for backward compatibility
@@ -110,11 +103,6 @@ const initialState: UnifiedStorageState = {
     error: null,
     showAuthModal: false,
     expiresAt: null,
-  },
-  filesystem: {
-    isAccessible: false,
-    directoryName: null,
-    permissionState: 'checking',
   },
   isLoading: false,
   error: null,
@@ -229,7 +217,7 @@ const unifiedStorageSlice = createSlice({
   initialState,
   reducers: {
     // Storage mode management
-    updateStorageMode: (state, action: PayloadAction<'local' | 'cloud' | 'filesystem'>) => {
+    updateStorageMode: (state, action: PayloadAction<'local' | 'cloud'>) => {
       state.mode = action.payload;
       state.userSelectedMode = true; // Mark that user has made a selection
       
@@ -276,21 +264,6 @@ const unifiedStorageSlice = createSlice({
       state.googleDrive.isLoading = action.payload;
     },
     
-    // File system management
-    updateFilesystemStatus: (state, action: PayloadAction<{
-      isAccessible: boolean;
-      directoryName?: string;
-      permissionState?: 'granted' | 'denied' | 'prompt' | 'checking';
-    }>) => {
-      state.filesystem.isAccessible = action.payload.isAccessible;
-      if (action.payload.directoryName !== undefined) {
-        state.filesystem.directoryName = action.payload.directoryName;
-      }
-      if (action.payload.permissionState !== undefined) {
-        state.filesystem.permissionState = action.payload.permissionState;
-      }
-    },
-    
     // General state management
     clearError: (state) => {
       state.error = null;
@@ -298,7 +271,7 @@ const unifiedStorageSlice = createSlice({
     
     resetToDefaults: (state) => {
       const envInfo = getEnvironmentInfo();
-      state.mode = envInfo.storageMode as 'local' | 'cloud' | 'filesystem' || 'local';
+      state.mode = envInfo.storageMode as 'local' | 'cloud' || 'local';
       state.status = 'unconfigured';
       state.userSelectedMode = false;
       state.googleDrive = {
@@ -308,11 +281,6 @@ const unifiedStorageSlice = createSlice({
         error: null,
         showAuthModal: false,
         expiresAt: null,
-      };
-      state.filesystem = {
-        isAccessible: false,
-        directoryName: null,
-        permissionState: 'checking',
       };
       state.error = null;
       
@@ -407,7 +375,6 @@ export const {
   setShowAuthModal,
   clearGoogleDriveError,
   setGoogleDriveLoading,
-  updateFilesystemStatus,
   clearError,
   resetToDefaults,
 } = unifiedStorageSlice.actions;

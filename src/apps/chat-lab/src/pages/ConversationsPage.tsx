@@ -44,7 +44,6 @@ import { FloatingExportActions } from '../components/resourceExport/FloatingExpo
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import {
   selectConversationsLoading,
   selectConversationsError,
@@ -427,15 +426,12 @@ const ConversationsPage: React.FC = React.memo(() => {
   }
 
   if (error) {
-    // Check if this is a directory access error for filesystem storage
-    const isDirectoryAccessError = error.includes('No directory access') || error.includes('Please select a directory first');
-    
     // Check if this is a Google Drive authentication error or storage not configured
     const isGoogleDriveAuthError = error.includes('User must authenticate with Google Drive first') || 
                                   error.includes('Please connect your Google Drive account');
     const isStorageNotConfigured = unifiedStorage.status !== 'configured';
     
-    if (isDirectoryAccessError || isGoogleDriveAuthError || isStorageNotConfigured) {
+    if (isGoogleDriveAuthError || isStorageNotConfigured) {
       // Show the page with our banner instead of the raw error
       return (
         <Box sx={{ 
@@ -446,9 +442,6 @@ const ConversationsPage: React.FC = React.memo(() => {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          {/* Storage Directory Banner */}
-          <StorageDirectoryBanner pageType="conversations" />
-          
           {/* Empty state with message */}
           <Box sx={{ 
             flex: 1, 
@@ -501,9 +494,6 @@ const ConversationsPage: React.FC = React.memo(() => {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* Storage Directory Banner */}
-        <StorageDirectoryBanner pageType="conversations" />
-        
         {mobileView === 'list' ? (
           // Mobile Conversations List View
           <>
@@ -735,9 +725,6 @@ const ConversationsPage: React.FC = React.memo(() => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Storage Directory Banner */}
-      <StorageDirectoryBanner pageType="conversations" />
-      
       {/* Header with Search and Actions */}
       <Box sx={{ mb: 3, flexShrink: 0 }} component="header">
         <Box sx={{ 

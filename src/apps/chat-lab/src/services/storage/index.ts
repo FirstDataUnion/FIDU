@@ -8,4 +8,3 @@ export * from './StorageService';
 export * from './UnifiedStorageService';
 export * from './adapters/LocalStorageAdapter';
 export * from './adapters/CloudStorageAdapter';
-export * from './adapters/FileSystemStorageAdapter';

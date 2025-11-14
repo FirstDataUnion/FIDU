@@ -6,8 +6,7 @@ import type { Conversation, Message, FilterOptions } from '../../types';
 
 export const StorageMode = {
   LOCAL: 'local',
-  CLOUD: 'cloud',
-  FILESYSTEM: 'filesystem'
+  CLOUD: 'cloud'
 } as const;
 
 export type StorageMode = typeof StorageMode[keyof typeof StorageMode];

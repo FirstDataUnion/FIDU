@@ -5,13 +5,11 @@ import {
   CircularProgress
 } from '@mui/material';
 import {
-  CloudUpload as CloudIcon, FolderOpen as FileSystemIcon,
-  ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, Close as CloseIcon,
-  Warning as WarningIcon
+  CloudUpload as CloudIcon,
+  ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, Close as CloseIcon
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { updateStorageMode, markStorageConfigured, authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
-import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { updateStorageMode, authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 
 interface StorageSelectionModalProps {
   open: boolean;
@@ -20,7 +18,7 @@ interface StorageSelectionModalProps {
 }
 
 export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
-  open, onClose, onStorageConfigured
+  open, onClose, onStorageConfigured: _onStorageConfigured
 }) => {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
@@ -29,9 +27,7 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
   const isDarkMode = settings.theme === 'dark' || (settings.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isSelectingDirectory, setIsSelectingDirectory] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
-  const [showAboutChatLab, setShowAboutChatLab] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleDriveAuth = async () => {
@@ -53,47 +49,8 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
     }
   };
 
-  const handleSelectDirectory = async () => {
-    setIsSelectingDirectory(true);
-    setError(null);
-    
-    try {
-      const storageService = getUnifiedStorageService();
-      
-      // First switch the storage service to filesystem mode
-      await storageService.switchMode('filesystem');
-      
-      // Then get the adapter (which should now be FileSystemStorageAdapter)
-      const adapter = storageService.getAdapter();
-      
-      if (!adapter) {
-        throw new Error('Local storage adapter not available');
-      }
-
-      // Request directory access - use the correct method signature
-      const result = await (adapter as any).requestDirectoryAccessWithHints();
-
-      if (result && result.success) {
-        dispatch(updateStorageMode('filesystem'));
-        dispatch(markStorageConfigured());
-        onStorageConfigured();
-        onClose();
-      } else {
-        throw new Error(result?.error || 'Failed to access directory');
-      }
-    } catch (error: any) {
-      setError(error.message || 'Failed to select directory');
-    } finally {
-      setIsSelectingDirectory(false);
-    }
-  };
-
   const handleDismiss = () => {
     onClose();
-  };
-
-  const isLocalSupported = () => {
-    return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
   };
 
   return (
@@ -102,7 +59,7 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
       onClose={onClose} 
       maxWidth="md" 
       fullWidth
-      disableEscapeKeyDown={isAuthenticating || isSelectingDirectory}
+      disableEscapeKeyDown={isAuthenticating}
       PaperProps={{
         sx: { 
           borderRadius: 2,
@@ -120,7 +77,7 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
         </Typography>
         <IconButton 
           onClick={handleDismiss}
-          disabled={isAuthenticating || isSelectingDirectory}
+          disabled={isAuthenticating}
           size="small"
           sx={{
             position: 'absolute',
@@ -138,44 +95,9 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
       
       <DialogContent sx={{ backgroundColor: isDarkMode ? '#1E1E1E' : '#F8F9FA', color: isDarkMode ? '#FFFFFF' : '#212121' }}>
         {/* What is the Chat-Lab? Dropdown */}
-        <Box sx={{ mb: 3, border: 1, borderColor: isDarkMode ? '#404040' : '#E0E0E0', borderRadius: 1, overflow: 'hidden' }}>
-          <Box
-            onClick={() => setShowAboutChatLab(!showAboutChatLab)}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              p: 2,
-              cursor: 'pointer',
-              backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
-              '&:hover': {
-                backgroundColor: isDarkMode ? '#333333' : '#F5F5F5'
-              },
-              transition: 'background-color 0.2s ease'
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: isDarkMode ? '#FFFFFF' : '#212121' }}>
-              What is the Chat-Lab?
-            </Typography>
-            {showAboutChatLab ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </Box>
-          <Collapse in={showAboutChatLab}>
-            <Box sx={{ p: 2, pt: 1, backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }}>
-              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                The Chat Lab is our first foray into an application that could benefit from the personal data store FIDU aims to enable. It is an LLM interface web-app, allowing conversations with a range of leading chatbot models from major providers. It does so with a focus on data control, demonstrating our goal for FIDU backed apps.
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                The core concept is that all your conversation data is saved and can be used to assist in different conversations and tasks across all LLM providers. Create contexts for conversations you can re-use for frequently asked topics, system prompts to control the model output can be created and saved, or browse a curated list of open source prompts from other projects.
-              </Typography>
-              <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                The app is still in early phases, so changes will be happening very frequently, and new features are being added constantly. For up to date info, check out the What's New page on the Chat-Lab itself.
-              </Typography>
-            </Box>
-          </Collapse>
-        </Box>
 
         <Typography variant="body1" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', mb: 3 }}>
-          Before you get started, you need to tell us where you'd like to store your chat data:
+          Before you get started, connect your Google Drive to store your chat data:
         </Typography>
 
         {error && (
@@ -208,38 +130,6 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
               </Button>
             </CardActions>
           </Card>
-
-          {/* Local Storage Option */}
-          <Card variant="outlined" sx={{ p: 0, backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF', borderColor: isDarkMode ? '#404040' : '#E0E0E0' }}>
-            <CardContent sx={{ pb: 1, backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <FileSystemIcon sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6" sx={{ color: isDarkMode ? '#FFFFFF' : '#212121' }}>Locally On My Machine:</Typography>
-              </Box>
-              <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', ml: 4 }}>
-                Keeps all your data on your machine only, never stored online. Will NOT be synced across multiple devices.
-              </Typography>
-              {!isLocalSupported() && (
-                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, ml: 4 }}>
-                  <WarningIcon sx={{ mr: 1, color: 'warning.main', fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', fontStyle: 'italic' }}>
-                    NOTE: Unavailable on Firefox and Safari
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-            <CardActions sx={{ px: 2, pb: 2, backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }}>
-              <Button
-                variant="contained"
-                onClick={handleSelectDirectory}
-                disabled={isSelectingDirectory || !isLocalSupported()}
-                startIcon={isSelectingDirectory ? <CircularProgress size={20} /> : <FileSystemIcon />}
-                sx={{ minWidth: 180 }}
-              >
-                {isSelectingDirectory ? 'Selecting Directory...' : 'Select Directory'}
-              </Button>
-            </CardActions>
-          </Card>
         </Box>
 
         <Box sx={{ mt: 3, mb: 2 }}>
@@ -260,30 +150,13 @@ export const StorageSelectionModal: React.FC<StorageSelectionModalProps> = ({
               <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
                 We store your conversations, contexts and custom system prompts and stored API keys in the AppData folder of your Google Drive. When you launch this app, it is fetched and stored temporarily in your browser for the app to use, and regularly synced back to your google drive. All the data is encrypted at rest, and your personal encryption key is stored separately with your user account on our servers, completely separate from the data itself.
               </Typography>
-              <Typography variant="body2" sx={{ mb: 3, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
                 We hold none of your data, we can only read from the FIDU AppData folder in your drive, and no one else can read the data without the encryption key.
-              </Typography>
-              
-              <Typography variant="h6" gutterBottom sx={{ color: isDarkMode ? '#FFFFFF' : '#212121' }}>
-                Local File System:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                NOTE: Unavailable on Firefox and Safari
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                We store your conversations, contexts and custom system prompts and stored API keys in files in the directory on your computer that you choose. All the data is encrypted at rest, and your personal encryption key is stored separately with your user account on our servers, completely separate from the data itself.
-              </Typography>
-              <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575' }}>
-                All your data is stored on your own computer only, we hold none of it. No other malicious apps can read the data without the encryption key.
               </Typography>
             </Box>
           </Collapse>
         </Box>
 
-        <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', textAlign: 'center', mt: 2 }}>
-          You can change your selection anytime in the Settings page.
-        </Typography>
-        
         <Typography variant="body2" sx={{ color: isDarkMode ? '#B0B0B0' : '#757575', textAlign: 'center', mt: 1 }}>
           This is an early version of our offerings, so there may be some bugs and features missing.
         </Typography>

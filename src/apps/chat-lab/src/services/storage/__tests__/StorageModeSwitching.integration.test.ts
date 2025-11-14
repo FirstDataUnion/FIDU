@@ -94,7 +94,7 @@ describe('Storage Mode Switching Integration Tests', () => {
     });
 
     it('should handle multiple mode switches', async () => {
-      const modes: ('local' | 'cloud' | 'filesystem')[] = ['local', 'cloud', 'local'];
+      const modes: ('local' | 'cloud')[] = ['local', 'cloud', 'local'];
       
       for (const mode of modes) {
         // Create a fresh service instance for each mode
@@ -149,7 +149,7 @@ describe('Storage Mode Switching Integration Tests', () => {
 
   describe('Performance and Reliability', () => {
     it('should handle rapid mode switches', async () => {
-      const modes: ('local' | 'cloud' | 'filesystem')[] = ['local', 'cloud', 'local', 'cloud'];
+      const modes: ('local' | 'cloud')[] = ['local', 'cloud', 'local', 'cloud'];
       
       for (const mode of modes) {
         // Create a fresh service instance for each mode

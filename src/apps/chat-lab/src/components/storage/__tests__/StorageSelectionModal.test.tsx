@@ -52,11 +52,6 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock window.showDirectoryPicker for filesystem support detection
-Object.defineProperty(window, 'showDirectoryPicker', {
-  writable: true,
-  value: jest.fn(),
-});
 
 // Create a theme for testing
 const theme = createTheme();
@@ -75,11 +70,6 @@ const createMockStore = (initialState: any = {}) => {
         error: null,
         showAuthModal: false,
         expiresAt: null,
-      },
-      filesystem: {
-        isAccessible: false,
-        directoryName: null,
-        permissionState: 'checking',
       },
       isLoading: false,
       error: null,
@@ -163,38 +153,6 @@ describe('StorageSelectionModal', () => {
     expect(screen.getByText('Allows you to access your data across multiple devices')).toBeInTheDocument();
   });
 
-  it('should render Local Storage option', () => {
-    renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
-      />
-    );
-
-    expect(screen.getByText('Locally On My Machine:')).toBeInTheDocument();
-    expect(screen.getByText('Select Directory')).toBeInTheDocument();
-    expect(screen.getByText('Keeps all your data on your machine only, never stored online. Will NOT be synced across multiple devices.')).toBeInTheDocument();
-  });
-
-  it('should show browser compatibility warning for local storage when not supported', () => {
-    // Mock that showDirectoryPicker is not available
-    Object.defineProperty(window, 'showDirectoryPicker', {
-      writable: true,
-      value: undefined,
-    });
-
-    renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
-      />
-    );
-
-    expect(screen.getByText('NOTE: Unavailable on Firefox and Safari')).toBeInTheDocument();
-  });
-
   it('should handle close button click', () => {
     renderWithProviders(
       <StorageSelectionModal 
@@ -228,7 +186,6 @@ describe('StorageSelectionModal', () => {
 
     // After clicking, there should be 2 instances of "Google Drive:" (main + learn more)
     expect(screen.getAllByText('Google Drive:')).toHaveLength(2);
-    expect(screen.getByText('Local File System:')).toBeInTheDocument();
   });
 
   it('should disable escape key when authenticating', () => {
@@ -261,22 +218,6 @@ describe('StorageSelectionModal', () => {
     expect(googleDriveButton).toBeInTheDocument();
   });
 
-  it('should show loading state for directory selection', () => {
-    renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
-      />
-    );
-
-    const selectDirectoryButton = screen.getByText('Select Directory');
-    fireEvent.click(selectDirectoryButton);
-
-    // The button should show loading state (tested through component behavior)
-    expect(selectDirectoryButton).toBeInTheDocument();
-  });
-
   it('should display error messages when authentication fails', async () => {
     renderWithProviders(
       <StorageSelectionModal 
@@ -293,7 +234,7 @@ describe('StorageSelectionModal', () => {
     expect(googleDriveButton).toBeInTheDocument();
   });
 
-  it('should show settings redirect message', () => {
+  it('should show contact information message', () => {
     renderWithProviders(
       <StorageSelectionModal 
         open={true} 
@@ -302,7 +243,7 @@ describe('StorageSelectionModal', () => {
       />
     );
 
-    expect(screen.getByText('You can change your selection anytime in the Settings page.')).toBeInTheDocument();
-    expect(screen.getByText('Found an issue? Got a feature you\'d love us to add? let us know! hello@firstdataunion.org')).toBeInTheDocument();
+    expect(screen.getByText(/Found an issue\? Got a feature you'd love us to add\?/)).toBeInTheDocument();
+    expect(screen.getByText(/hello@firstdataunion.org/)).toBeInTheDocument();
   });
 });

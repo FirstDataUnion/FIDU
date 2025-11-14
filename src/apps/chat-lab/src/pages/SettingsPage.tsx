@@ -33,7 +33,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { updateTheme, updateShareAnalytics } from '../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
-import { StorageModeSelector, SyncSettings, APIKeyManager } from '../components/settings';
+import { SyncSettings, APIKeyManager } from '../components/settings';
 import { getEnvironmentInfo } from '../utils/environment';
 
 const SettingsPage: React.FC = () => {
@@ -196,9 +196,6 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Data Storage Options */}
-      <StorageModeSelector />
-
       {/* Learn More About Data Storage */}
       <Card sx={{ mt: 3 }}>
         <CardContent>
@@ -219,21 +216,8 @@ const SettingsPage: React.FC = () => {
               <Typography variant="body2" sx={{ mb: 2 }}>
                 We store your conversations, contexts and custom system prompts and stored API keys in the AppData folder of your Google Drive. When you launch this app, it is fetched and stored temporarily in your browser for the app to use, and regularly synced back to your google drive. All the data is encrypted at rest, and your personal encryption key is stored separately with your user account on our servers, completely separate from the data itself.
               </Typography>
-              <Typography variant="body2" sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 We hold none of your data, we can only read from the FIDU AppData folder in your drive, and no one else can read the data without the encryption key.
-              </Typography>
-              
-              <Typography variant="h6" gutterBottom>
-                Local File System:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                NOTE: Unavailable on Firefox and Safari
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                We store your conversations, contexts and custom system prompts and stored API keys in files in the directory on your computer that you choose. All the data is encrypted at rest, and your personal encryption key is stored separately with your user account on our servers, completely separate from the data itself.
-              </Typography>
-              <Typography variant="body2">
-                All your data is stored on your own computer only, we hold none of it. No other malicious apps can read the data without the encryption key.
               </Typography>
             </Box>
           </Collapse>

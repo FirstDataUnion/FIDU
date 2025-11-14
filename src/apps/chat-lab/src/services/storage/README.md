@@ -20,9 +20,9 @@ The storage system uses an **Adapter Pattern** to provide a consistent interface
 - **Data Location**: Local FIDU Vault database
 
 ### 2. Cloud Mode (`cloud`)
-Cloud mode supports two storage options:
+Cloud mode uses Google Drive for storage:
 
-#### 2a. Google Drive Storage (`cloud` → Google Drive)
+#### Google Drive Storage (`cloud` → Google Drive)
 - **Purpose**: Cloud-based storage with Google Drive integration
 - **Backend**: Google Drive API with local caching for performance
 - **Use Case**: Multi-device access, cloud backup, collaboration
@@ -31,19 +31,6 @@ Cloud mode supports two storage options:
   - Automatic sync across devices
   - Offline capability with local caching
   - Google Drive authentication required
-
-#### 2b. Local File System Storage (`filesystem`)
-- **Purpose**: Local file system storage using browser File System Access API
-- **Backend**: Direct file operations on user-selected directory
-- **Use Case**: Users who want local control without cloud dependencies
-- **Data Location**: User-selected local directory
-- **Features**:
-  - Full user control over data location
-  - No cloud dependencies
-  - Browser security requires directory re-selection on page reload
-  - SQLite databases stored as files
-
-**Note** filesystem mode is imcompativle with Firefox and Safari browsers (yet to be fully tested)
 
 ## Key Components
 
@@ -58,21 +45,13 @@ Each adapter implements the `StorageAdapter` interface and handles:
 ### Adapter Implementations
 - **LocalStorageAdapter**: Connects to local FIDU Vault API
 - **CloudStorageAdapter**: Google Drive integration with local caching
-- **FileSystemStorageAdapter**: Direct file system operations
 
 ### Supporting Services
 - **GoogleDriveService**: Handles Google Drive API interactions
-- **FileSystemService**: Manages File System Access API operations
 - **BrowserSQLiteManager**: In-memory SQLite database management
 - **SyncService**: Handles data synchronization between local and cloud storage
 
 ## User Experience Features
-
-### Directory Selection (FileSystem Mode)
-- **Banner System**: Contextual banners inform users when directory access is required
-- **Smart Error Handling**: Different messaging for different page types
-- **Disabled Operations**: Create buttons are disabled when directory access is missing
-- **Easy Recovery**: Direct navigation to Settings for directory selection
 
 ### Storage Mode Switching
 - **Runtime Switching**: Users can change storage modes without restart
@@ -80,11 +59,6 @@ Each adapter implements the `StorageAdapter` interface and handles:
 - **Settings Persistence**: Storage mode preference saved in localStorage
 
 ## Browser Compatibility
-
-### File System Access API
-- **Supported**: Chrome 86+, Edge 86+, Opera 72+
-- **Not Supported**: Firefox, Safari (as of 2024)
-- **Fallback**: Graceful degradation with appropriate messaging
 
 ### Google Drive API
 - **Requirements**: Modern browsers with JavaScript enabled
@@ -116,11 +90,6 @@ Each adapter implements the `StorageAdapter` interface and handles:
 - API keys encrypted and stored securely
 - No API keys logged or exposed in error messages
 - Secure key rotation support
-
-### File System Access
-- User must explicitly grant directory access
-- Access permissions verified before operations
-- Directory handles not persisted between sessions (browser security)
 
 ### Google Drive Integration
 - OAuth 2.0 authentication required

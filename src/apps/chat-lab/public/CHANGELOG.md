@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Clear Context Button**: Added a button to clear the current context on the chat page. 
 - **Disable ethics monitor**: Added ability to disable the ethics background agent
-- **Background Agent UI**: Alerts to longer appear within messages, instead the chat bubble interface has been improved, and the alert bubbles are now clickable taking you to an expanded view. 
+- **Background Agent UI**: Alerts to longer appear within messages, instead the chat bubble interface has been improved, and the alert bubbles are now clickable taking you to an expanded view.
+- **Storage Mode Simplification**: Removed LocalFileSystem storage support from cloud deployments. Now exclusively uses Google Drive storage, streamlining the setup process and simplifying the app.
+
 
 ### Fixed
 - **Background Agent Verbosity**: Fixed issue that meant verbosity threshold changes in Chat page weren't persisted correctly. 

@@ -16,8 +16,8 @@ import {
 interface MigrationWizardProps {
   open: boolean;
   onClose: () => void;
-  fromMode: 'local' | 'cloud' | 'filesystem';
-  toMode: 'local' | 'cloud' | 'filesystem';
+  fromMode: 'local' | 'cloud';
+  toMode: 'local' | 'cloud';
   onMigrationComplete?: () => void;
 }
 

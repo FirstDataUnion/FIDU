@@ -12,20 +12,20 @@ export class StorageService {
   private config: StorageConfig | null = null;
   private initialized = false;
 
-  async initialize(storageMode?: 'local' | 'cloud' | 'filesystem'): Promise<void> {
+  async initialize(storageMode?: 'local' | 'cloud'): Promise<void> {
     if (this.initialized) {
       return;
     }
 
     // Get storage mode from parameter, settings, or environment
-    let mode: 'local' | 'cloud' | 'filesystem' = 'local'; // default
+    let mode: 'local' | 'cloud' = 'local'; // default
     
     if (storageMode) {
       mode = storageMode;
     } else {
       // Check environment variable for deployment type
       const envInfo = getEnvironmentInfo();
-      const envMode = envInfo.storageMode as 'local' | 'cloud' | 'filesystem';
+      const envMode = envInfo.storageMode as 'local' | 'cloud';
       
       // For local deployment, always use local mode (FIDU Vault API)
       if (envMode === 'local') {
@@ -84,7 +84,7 @@ export class StorageService {
     this.initialized = true;
   }
 
-  async switchMode(newMode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
+  async switchMode(newMode: 'local' | 'cloud'): Promise<void> {
     if (this.config?.mode === newMode) {
       return;
     }

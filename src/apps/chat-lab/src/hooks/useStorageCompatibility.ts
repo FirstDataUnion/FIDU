@@ -54,22 +54,22 @@ export const useUnifiedStorage = () => {
   const envInfo = getEnvironmentInfo();
   
   // Apply environment-based restrictions
-  const getAvailableModes = (): Array<'local' | 'cloud' | 'filesystem'> => {
+  const getAvailableModes = (): Array<'local' | 'cloud'> => {
     if (envInfo.storageMode === 'local') {
       // In local app mode, only FIDU Vault API is available
       return ['local'];
     } else {
-      // In cloud hosted mode, both Google Drive and Local File System are available
-      return ['cloud', 'filesystem'];
+      // In cloud hosted mode, only Google Drive is available
+      return ['cloud'];
     }
   };
   
-  const isModeAvailable = (mode: 'local' | 'cloud' | 'filesystem'): boolean => {
+  const isModeAvailable = (mode: 'local' | 'cloud'): boolean => {
     return getAvailableModes().includes(mode);
   };
   
-  const getCurrentEnvironmentMode = (): 'local' | 'cloud' | 'filesystem' => {
-    return envInfo.storageMode as 'local' | 'cloud' | 'filesystem';
+  const getCurrentEnvironmentMode = (): 'local' | 'cloud' => {
+    return envInfo.storageMode as 'local' | 'cloud';
   };
   
   return {

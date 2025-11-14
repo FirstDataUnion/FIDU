@@ -25,7 +25,6 @@ import {
 import {
   Storage as LocalStorageIcon,
   Cloud as CloudIcon,
-  FolderOpen as FileSystemIcon,
   Info as InfoIcon,
   Warning as WarningIcon,
   Storage as StorageIcon,
@@ -36,17 +35,14 @@ import {
   updateStorageMode, 
   markStorageConfigured, 
   resetStorageConfiguration,
-  setShowAuthModal,
-  updateFilesystemStatus
+  setShowAuthModal
 } from '../../store/slices/unifiedStorageSlice';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
-import { FileSystemService } from '../../services/storage/filesystem/FileSystemService';
-import { FileSystemDirectoryManager } from './FileSystemDirectoryManager';
 import { StorageMigrationWizard } from './StorageMigrationWizard';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 
 interface StorageModeInfo {
-  id: 'local' | 'cloud' | 'filesystem';
+  id: 'local' | 'cloud';
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -62,8 +58,6 @@ export const StorageModeSelector: React.FC = () => {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
   const [pendingMode, setPendingMode] = useState<string | null>(null);
-
-  const fileSystemSupported = FileSystemService.isSupported();
 
   const storageModes: StorageModeInfo[] = [
     {
@@ -81,23 +75,11 @@ export const StorageModeSelector: React.FC = () => {
       icon: <CloudIcon />,
       supported: unifiedStorage.isModeAvailable('cloud'),
       warning: unifiedStorage.isModeAvailable('cloud') ? undefined : 'Only available in cloud hosted mode'
-    },
-    {
-      id: 'filesystem' as const,
-      label: 'Local File System',
-      description: 'Store data in a local directory on your computer. Full control over your data location and backup.',
-      icon: <FileSystemIcon />,
-      supported: unifiedStorage.isModeAvailable('filesystem') && fileSystemSupported,
-      warning: !unifiedStorage.isModeAvailable('filesystem') 
-        ? 'Only available in cloud hosted mode'
-        : !fileSystemSupported 
-        ? 'Requires Chrome, Edge, or other Chromium-based browsers' 
-        : undefined
     }
   ].filter(mode => unifiedStorage.isModeAvailable(mode.id)); // Filter out unavailable modes completely
 
   const handleModeChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newMode = event.target.value as 'local' | 'cloud' | 'filesystem';
+    const newMode = event.target.value as 'local' | 'cloud';
     
     // If storage is not configured, handle initialization
     if (unifiedStorage.status !== 'configured') {
@@ -108,19 +90,6 @@ export const StorageModeSelector: React.FC = () => {
         setTimeout(() => {
           dispatch(setShowAuthModal(true));
         }, 100);
-      } else if (newMode === 'filesystem') {
-        // For filesystem, update the mode and switch the storage service
-        dispatch(updateStorageMode('filesystem'));
-        
-        // Switch the storage service to filesystem adapter
-        try {
-          const storageService = getUnifiedStorageService();
-          await storageService.switchMode('filesystem');
-        } catch (error) {
-          console.error('Failed to switch storage service to filesystem mode:', error);
-        }
-        
-        // The FileSystemDirectoryManager will be shown below and handle directory selection
       }
     } else {
       // If storage is configured and switching modes, show migration dialog
@@ -141,10 +110,10 @@ export const StorageModeSelector: React.FC = () => {
       const storageService = getUnifiedStorageService();
       
       // Switch to the new storage mode
-      await storageService.switchMode(pendingMode as 'local' | 'cloud' | 'filesystem');
+      await storageService.switchMode(pendingMode as 'local' | 'cloud');
       
       // Update the settings
-      dispatch(updateStorageMode(pendingMode as 'local' | 'cloud' | 'filesystem'));
+      dispatch(updateStorageMode(pendingMode as 'local' | 'cloud'));
       
       // Handle specific mode requirements after switching
       if (pendingMode === 'cloud') {
@@ -155,18 +124,6 @@ export const StorageModeSelector: React.FC = () => {
         setTimeout(() => {
           dispatch(setShowAuthModal(true));
         }, 100);
-      } else if (pendingMode === 'filesystem') {
-        // If switching to filesystem mode, check if directory access is needed
-        const adapter = storageService.getAdapter();
-        if ('requiresDirectoryAccessAfterMigration' in adapter && 
-            typeof adapter.requiresDirectoryAccessAfterMigration === 'function' &&
-            adapter.requiresDirectoryAccessAfterMigration()) {
-          // Directory access is required after migration
-          // The user will need to select a directory when they try to use the app
-          console.log('Directory access required after migration to filesystem mode');
-        }
-        // Mark storage as configured since filesystem mode doesn't require OAuth
-        dispatch(markStorageConfigured());
       } else {
         // For other modes (like local), mark as configured
         dispatch(markStorageConfigured());
@@ -197,8 +154,6 @@ export const StorageModeSelector: React.FC = () => {
           : 'Data is stored in your local FIDU Vault instance running at http://127.0.0.1:4000/api/v1';
       case 'cloud':
         return 'Data is synced with Google Drive and accessible from multiple devices with local caching for performance.';
-      case 'filesystem':
-        return 'Data is stored in a local directory on your computer that you control.';
       default:
         return '';
     }
@@ -264,28 +219,6 @@ export const StorageModeSelector: React.FC = () => {
                       {mode.warning}
                     </Typography>
                   </Alert>
-                )}
-                
-                {mode.id === 'filesystem' && unifiedStorage.mode === 'filesystem' && (
-                  <Box sx={{ ml: 4, mt: 2 }}>
-                    <FileSystemDirectoryManager
-                      onDirectoryChange={(isAccessible, directoryName) => {
-                        // Update filesystem status in unified state
-                        dispatch(updateFilesystemStatus({
-                          isAccessible,
-                          directoryName: directoryName || undefined,
-                          permissionState: isAccessible ? 'granted' : 'denied'
-                        }));
-                        
-                        // When directory is successfully selected, mark storage as configured
-                        if (isAccessible) {
-                          dispatch(markStorageConfigured());
-                        }
-                      }}
-                      showTitle={false}
-                      compact
-                    />
-                  </Box>
                 )}
               </Box>
             ))}
@@ -430,7 +363,7 @@ export const StorageModeSelector: React.FC = () => {
         open={showMigrationWizard}
         onClose={() => setShowMigrationWizard(false)}
         fromMode={unifiedStorage.mode}
-        toMode={pendingMode as 'local' | 'cloud' | 'filesystem'}
+        toMode={pendingMode as 'local' | 'cloud'}
         onMigrationComplete={() => {
           setShowMigrationWizard(false);
           handleConfirmMigration();

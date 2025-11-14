@@ -38,8 +38,7 @@ Your conversations and application data include:
 - **Application settings** (theme preferences, storage mode, etc.)
 
 **How we store this:**
-- **File System Mode**: All conversation data is encrypted and stored on your local file system in a directory of your choosing. The File System API of your browser allows the Chat Lab app to read and write only to the chosen directory, no others. Your personal encryption key is stored separately on our Identity server, and is always encrypted in transport via HTTPS and secured at rest via file system level encryption. 
-- **Google Drive Sync Mode**: If you enable Google Drive sync, your encrypted conversation data is stored in your personal Google Drive within the hidden AppData folder. The ChatLab app has access only to the FIDU folder in your AppData folder, and cannot read or write data anywhere else in your Google Drive. This access can be revoked at any time. Your personal encryption key is stored separately on our Identity server, and is always encrypted in transport via HTTPS and secured at rest via file system level encryption. 
+- **Google Drive Sync Mode**: Your encrypted conversation data is stored in your personal Google Drive within the hidden AppData folder. The ChatLab app has access only to the FIDU folder in your AppData folder, and cannot read or write data anywhere else in your Google Drive. This access can be revoked at any time. Your personal encryption key is stored separately on our Identity server, and is always encrypted in transport via HTTPS and secured at rest via file system level encryption. 
 
 ### 2.3. Technical & Usage Data
 
@@ -310,9 +309,7 @@ By using Chat Lab, you confirm that you are at least 13 years old (or 16 in the 
 
 ## 10. International Data Transfers
 
-FIDU is based in the United Kingdom. However, your conversation data is stored either:
-- **Locally on your device** (File System Mode), or
-- **In your personal Google Drive account** (Cloud Mode)
+FIDU is based in the United Kingdom. However, your conversation data is stored in your personal Google Drive account (Cloud Mode).
 
 **Account Information:**
 Your account information (name, email) is stored on FIDU servers located in the UK. If you access Chat Lab from outside the UK, your account data will be transferred to and processed in the UK under UK GDPR standards.

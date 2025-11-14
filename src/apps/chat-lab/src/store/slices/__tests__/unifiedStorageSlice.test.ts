@@ -5,7 +5,6 @@ import unifiedStorageSlice, {
   setShowAuthModal,
   clearGoogleDriveError,
   setGoogleDriveLoading,
-  updateFilesystemStatus,
   clearError,
   resetToDefaults,
   initializeGoogleDriveAuth,
@@ -66,11 +65,6 @@ const initialState: UnifiedStorageState = {
     showAuthModal: false,
     expiresAt: null,
   },
-  filesystem: {
-    isAccessible: false,
-    directoryName: null,
-    permissionState: 'checking',
-  },
   isLoading: false,
   error: null,
 };
@@ -82,10 +76,10 @@ describe('unifiedStorageSlice', () => {
 
   describe('reducers', () => {
     it('should handle updateStorageMode', () => {
-      const action = updateStorageMode('filesystem');
+      const action = updateStorageMode('cloud');
       const state = unifiedStorageSlice(initialState, action);
       
-      expect(state.mode).toBe('filesystem');
+      expect(state.mode).toBe('cloud');
       expect(state.userSelectedMode).toBe(true);
       expect(state.status).toBe('unconfigured'); // Should reset when changing modes
     });
@@ -138,19 +132,6 @@ describe('unifiedStorageSlice', () => {
       expect(state.googleDrive.isLoading).toBe(true);
     });
 
-    it('should handle updateFilesystemStatus', () => {
-      const action = updateFilesystemStatus({
-        isAccessible: true,
-        directoryName: 'Test Directory',
-        permissionState: 'granted',
-      });
-      const state = unifiedStorageSlice(initialState, action);
-      
-      expect(state.filesystem.isAccessible).toBe(true);
-      expect(state.filesystem.directoryName).toBe('Test Directory');
-      expect(state.filesystem.permissionState).toBe('granted');
-    });
-
     it('should handle clearError', () => {
       const stateWithError = {
         ...initialState,
@@ -166,18 +147,13 @@ describe('unifiedStorageSlice', () => {
     it('should handle resetToDefaults', () => {
       const stateWithData: UnifiedStorageState = {
         ...initialState,
-        mode: 'filesystem' as const,
+        mode: 'cloud' as const,
         status: 'configured' as const,
         userSelectedMode: true,
         googleDrive: {
           ...initialState.googleDrive,
           isAuthenticated: true,
           user: { id: 'test', name: 'Test User', email: 'test@example.com' },
-        },
-        filesystem: {
-          isAccessible: true,
-          directoryName: 'Test',
-          permissionState: 'granted' as const,
         },
       };
       
@@ -189,9 +165,6 @@ describe('unifiedStorageSlice', () => {
       expect(state.userSelectedMode).toBe(false);
       expect(state.googleDrive.isAuthenticated).toBe(false);
       expect(state.googleDrive.user).toBeNull();
-      expect(state.filesystem.isAccessible).toBe(false);
-      expect(state.filesystem.directoryName).toBeNull();
-      expect(state.filesystem.permissionState).toBe('checking');
     });
   });
 
@@ -354,12 +327,12 @@ describe('unifiedStorageSlice', () => {
 
   describe('localStorage integration', () => {
     it('should save state to localStorage when updating storage mode', () => {
-      const action = updateStorageMode('filesystem');
+      const action = updateStorageMode('cloud');
       unifiedStorageSlice(initialState, action);
       
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'fidu-chat-lab-settings',
-        expect.stringContaining('"storageMode":"filesystem"')
+        expect.stringContaining('"storageMode":"cloud"')
       );
     });
 

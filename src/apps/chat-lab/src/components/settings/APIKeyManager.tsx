@@ -73,7 +73,7 @@ export const APIKeyManager: React.FC = () => {
   const { isInitialized, storageMode } = useStorage();
   
   // Only hide the component if we're in local deployment mode AND using local storage mode
-  // This allows API key management when using filesystem storage in local deployment
+  // This allows API key management in all storage modes
   const isLocalDeployment = envInfo.storageMode === 'local';
   const isLocalStorageMode = storageMode === 'local';
   const shouldHideComponent = isLocalDeployment && isLocalStorageMode;

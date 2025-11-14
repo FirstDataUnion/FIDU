@@ -11,7 +11,6 @@ import { initializeAuth } from './store/slices/authSlice';
 import { 
   markStorageConfigured,
   resetStorageConfiguration,
-  updateFilesystemStatus,
   checkGoogleDriveAuthStatus
 } from './store/slices/unifiedStorageSlice';
 import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
@@ -474,7 +473,7 @@ const AppContent: React.FC<AppContentProps> = () => {
             // User needs to authenticate, storage will be configured after OAuth
           }
         } else {
-          // Local/filesystem mode - skip Google Drive and sync steps
+          // Local mode - skip Google Drive and sync steps
           updateLoadingStep('google-drive', 'completed');
           updateLoadingStep('data-sync', 'completed');
         }
@@ -483,11 +482,11 @@ const AppContent: React.FC<AppContentProps> = () => {
         setStorageInitialized(true);
         setStorageError(null);
         
-        // Mark storage as configured in cloud mode (auth status already updated earlier)
-        if (storageMode === 'cloud') {
-          dispatch(markStorageConfigured());
-          console.log('✅ Storage marked as configured');
-        }
+        // Mark storage as configured after successful initialization
+        // For cloud mode, auth status was already updated earlier
+        // For local mode, storage is ready after successful initialization
+        dispatch(markStorageConfigured());
+        console.log('✅ Storage marked as configured');
       } catch (error: any) {
         console.error('❌ Failed to initialize storage service:', error);
         updateLoadingStep('storage', 'error', error.message || 'Storage initialization failed');
@@ -552,31 +551,6 @@ const AppContent: React.FC<AppContentProps> = () => {
     
     checkAndCompleteInitialization();
   }, [unifiedStorage.googleDrive.isAuthenticated, storageInitialized]);
-
-  // Sync filesystem status from adapter to unified state
-  useEffect(() => {
-    if (unifiedStorage.mode === 'filesystem' && storageInitialized) {
-      try {
-        const storageService = getUnifiedStorageService();
-        const adapter = storageService.getAdapter();
-        
-        // Check if this is a filesystem adapter
-        if ('isDirectoryAccessible' in adapter && 'hasDirectoryMetadata' in adapter) {
-          const isAccessible = (adapter as any).isDirectoryAccessible();
-          const hasMetadata = (adapter as any).hasDirectoryMetadata();
-          const directoryName = hasMetadata ? 'FIDU-Data' : null; // We use a consistent name
-          
-          dispatch(updateFilesystemStatus({
-            isAccessible,
-            directoryName: directoryName || undefined,
-            permissionState: isAccessible ? 'granted' : (hasMetadata ? 'denied' : 'prompt')
-          }));
-        }
-      } catch (error) {
-        console.error('Error syncing filesystem status:', error);
-      }
-    }
-  }, [unifiedStorage.mode, storageInitialized, dispatch]);
 
   useEffect(() => {
     const envInfo = getEnvironmentInfo();
@@ -805,8 +779,9 @@ const AppContent: React.FC<AppContentProps> = () => {
   };
 
   // Check if we should show the storage configuration banner
+  // Show when in cloud mode and Google Drive is not authenticated
   const shouldShowStorageBanner = envInfo.storageMode === 'cloud' && 
-    unifiedStorage.status !== 'configured' && 
+    !unifiedStorage.googleDrive.isAuthenticated && 
     !showStorageSelectionModal;
 
   const mainAppContent = (

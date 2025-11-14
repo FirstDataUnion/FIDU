@@ -24,7 +24,7 @@ const { conversations } = useAppSelector(state => state.conversations);
 
 **Key Features:**
 - Automatic storage service initialization
-- Storage mode detection (local/cloud/filesystem)
+- Storage mode detection (local/cloud)
 - Online/offline status tracking
 - Complete CRUD operations for all data types
 
@@ -127,26 +127,6 @@ const {
   debounceMs: 300,
   onDebouncedChange: handlePromptChange
 });
-```
-
-### 📁 File System (`useFilesystemDirectoryRequired.ts`)
-
-**Purpose**: Detects when filesystem storage requires directory access
-
-**Key Features:**
-- Storage mode awareness
-- Directory accessibility checking
-- Error handling for storage service failures
-- Memoized results for performance
-
-**Usage:**
-```typescript
-const isDirectoryRequired = useFilesystemDirectoryRequired();
-
-// Use to disable create buttons when directory access is missing
-<Button disabled={isDirectoryRequired}>
-  Create Conversation
-</Button>
 ```
 
 ### 📊 Performance Monitoring (`usePerformanceMonitor.ts`)

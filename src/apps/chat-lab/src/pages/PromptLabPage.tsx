@@ -68,7 +68,6 @@ import { BUILT_IN_BACKGROUND_AGENTS } from '../data/backgroundAgents';
 import type { BackgroundAgent } from '../services/api/backgroundAgents';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { ApiError } from '../services/api/apiClients';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
@@ -3335,8 +3334,6 @@ export default function PromptLabPage() {
       })
     }}>
       {/* Storage Directory Banner */}
-      <StorageDirectoryBanner pageType="prompt-lab" />
-      
       {/* Main Chat Area */}
       <Box sx={{ 
         flex: 1, 

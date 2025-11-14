@@ -15,8 +15,7 @@ FIDU Chat Lab is an **open source**, web-based application that provides:
 - A data-control-focused interface for interacting with AI language models
 - Storage for conversations, contexts, and system prompts
 - Integration with third-party AI services
-- Optional cloud storage via Google Drive
-- Optional local file system storage
+- Cloud storage via Google Drive
 
 The Service is designed to give you control over your data while providing a powerful AI interaction platform.
 
@@ -101,13 +100,12 @@ When using AI models through the Service:
 
 ### 6.1. Your Data
 - You retain all ownership rights to your conversations, contexts, and content
-- Your data is stored according to your chosen storage mode (local file system or Google Drive)
+- Your data is stored in your personal Google Drive account
 - We do not claim ownership of your data
 - We do not access, read, or analyze your conversation content
 
-### 6.2. Storage Modes
-- **File System Mode:** Data stored locally on your device in encrypted form
-- **Google Drive Mode:** Data stored in your personal Google Drive in encrypted form
+### 6.2. Storage Mode
+- **Google Drive Mode:** Data stored in your personal Google Drive account in encrypted form
 - You are responsible for backing up your data if desired
 - We are not responsible for data loss due to device failure, browser issues, or Google Drive issues
 

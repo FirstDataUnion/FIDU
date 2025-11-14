@@ -43,7 +43,6 @@ Reusable UI components used throughout the application.
 - **`Layout.tsx`** - Main application layout with sidebar and navigation
 - **`ErrorBoundary.tsx`** - Error boundary for graceful error handling
 - **`PerformanceMonitor.tsx`** - Development-only performance monitoring
-- **`StorageDirectoryBanner.tsx`** - Contextual banners for storage requirements
 - **`UniversalSearch.tsx`** - Global search functionality
 - **`UnsyncedDataIndicator.tsx`** - Visual indicator for unsynced data
 - **`VirtualList.tsx`** - Virtualized list for large datasets
@@ -124,8 +123,7 @@ Components for prompt input, management, and system prompt selection.
 Configuration and settings management components.
 
 **Key Components:**
-- **`StorageModeSelector.tsx`** - Storage mode selection (local/cloud/filesystem)
-- **`FileSystemDirectoryManager.tsx`** - File system directory management
+- **`StorageModeSelector.tsx`** - Storage mode selection (local/cloud)
 - **`StorageMigrationWizard.tsx`** - Data migration between storage modes
 - **`DirectoryPickerButton.tsx`** - Directory selection interface
 - **`DirectoryPathDisplay.tsx`** - Display of selected directory path

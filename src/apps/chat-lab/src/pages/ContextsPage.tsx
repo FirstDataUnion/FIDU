@@ -36,8 +36,6 @@ import { fetchContexts, createContext, updateContext, deleteContext } from '../s
 import { fetchConversationMessages } from '../store/slices/conversationsSlice';
 import { ContextCard } from '../components/contexts/ContextCard';
 import { ConversationSelectionList } from '../components/contexts/ConversationSelectionList';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
-import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 import ContextHelpModal from '../components/help/ContextHelpModal';
 import { useMultiSelect } from '../hooks/useMultiSelect';
 import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
@@ -54,7 +52,6 @@ export default function ContextsPage() {
   const { currentProfile, user } = useAppSelector((state) => state.auth);
   const { items: contexts, loading, error } = useAppSelector((state) => state.contexts);
   const unifiedStorage = useUnifiedStorage();
-  const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -352,9 +349,6 @@ export default function ContextsPage() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* Storage Directory Banner */}
-        <StorageDirectoryBanner pageType="contexts" />
-        
         {/* Empty state with message */}
         <Box sx={{ 
           flex: 1, 
@@ -391,9 +385,6 @@ export default function ContextsPage() {
       position: 'relative',
       overflow: 'hidden' // Prevent outer page scrolling
     }}>
-      {/* Storage Directory Banner */}
-      <StorageDirectoryBanner pageType="contexts" />
-      
       {/* Scrollable Content Area */}
       <Box sx={{ 
         flex: 1, 
@@ -442,7 +433,6 @@ export default function ContextsPage() {
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleCreateContext}
-                  disabled={isDirectoryRequired}
                   sx={{ 
                     borderRadius: 2,
                     flex: 1,
@@ -457,7 +447,6 @@ export default function ContextsPage() {
                   variant="outlined"
                   startIcon={<ImportIcon />}
                   onClick={() => setShowImportDialog(true)}
-                  disabled={isDirectoryRequired}
                   sx={{ 
                     borderRadius: 2,
                     flex: 1,
@@ -546,7 +535,7 @@ export default function ContextsPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
           </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext} disabled={isDirectoryRequired}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
             Create Context
           </Button>
         </Box>

@@ -26,7 +26,7 @@ export class UnifiedStorageService {
     }
   }
 
-  async switchMode(mode: 'local' | 'cloud' | 'filesystem'): Promise<void> {
+  async switchMode(mode: 'local' | 'cloud'): Promise<void> {
     await this.storageService.switchMode(mode);
   }
 

@@ -36,11 +36,6 @@ const createMockStore = (initialState: any = {}) => {
         showAuthModal: false,
         expiresAt: 1234567890,
       },
-      filesystem: {
-        isAccessible: false,
-        directoryName: null,
-        permissionState: 'checking',
-      },
       isLoading: false,
       error: null,
     },
@@ -221,10 +216,9 @@ describe('useStorageCompatibility', () => {
 
       const { result } = renderHook(() => useUnifiedStorage(), { wrapper });
 
-      // In cloud mode, both cloud and filesystem should be available
-      expect(result.current.availableModes).toEqual(['cloud', 'filesystem']);
+      // In cloud mode, only cloud should be available
+      expect(result.current.availableModes).toEqual(['cloud']);
       expect(result.current.isModeAvailable('cloud')).toBe(true);
-      expect(result.current.isModeAvailable('filesystem')).toBe(true);
       expect(result.current.isModeAvailable('local')).toBe(false);
     });
 
@@ -263,7 +257,7 @@ describe('useStorageCompatibility', () => {
       expect(result.current.environmentMode).toBe('cloud');
       expect(result.current.isLocalAppMode).toBe(false);
       expect(result.current.isCloudHostedMode).toBe(true);
-      expect(result.current.availableModes).toEqual(['cloud', 'filesystem']);
+      expect(result.current.availableModes).toEqual(['cloud']);
       expect(result.current.isModeAvailable('local')).toBe(false);
       expect(result.current.isModeAvailable('cloud')).toBe(true);
     });
@@ -279,7 +273,6 @@ describe('useStorageCompatibility', () => {
       expect(result.current).toHaveProperty('status');
       expect(result.current).toHaveProperty('userSelectedMode');
       expect(result.current).toHaveProperty('googleDrive');
-      expect(result.current).toHaveProperty('filesystem');
       expect(result.current).toHaveProperty('isLoading');
       expect(result.current).toHaveProperty('error');
       

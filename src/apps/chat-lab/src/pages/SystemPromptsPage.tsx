@@ -51,8 +51,6 @@ import {
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
-import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { 
   fetchSystemPrompts, 
@@ -448,7 +446,6 @@ const SystemPromptsPage = React.memo(() => {
   const { currentProfile, user } = useAppSelector((state) => state.auth);
   const { items: systemPrompts, loading } = useAppSelector((state) => state.systemPrompts);
   const unifiedStorage = useUnifiedStorage();
-  const isDirectoryRequired = useFilesystemDirectoryRequired();
   
   // Helper function to normalize category tags - capitalize first letter, lowercase the rest, and deduplicate
   const normalizeCategories = (categoriesString: string): string[] => {
@@ -851,9 +848,6 @@ const SystemPromptsPage = React.memo(() => {
       position: 'relative',
       overflow: 'hidden' // Prevent outer page scrolling
     }}>
-      {/* Storage Directory Banner */}
-      <StorageDirectoryBanner pageType="system-prompts" />
-      
       {/* Scrollable Content Area */}
       <Box sx={{ 
         flex: 1, 
@@ -943,7 +937,6 @@ const SystemPromptsPage = React.memo(() => {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleCreateSystemPrompt}
-                disabled={isDirectoryRequired}
                 sx={{ 
                   borderRadius: 2, 
                   flex: 1,
@@ -958,7 +951,6 @@ const SystemPromptsPage = React.memo(() => {
                 variant="outlined"
                 startIcon={<ImportIcon />}
                 onClick={() => setShowImportDialog(true)}
-                disabled={isDirectoryRequired}
                 sx={{ 
                   borderRadius: 2, 
                   flex: 1,
@@ -1155,7 +1147,7 @@ const SystemPromptsPage = React.memo(() => {
              'Try adjusting your search or switching to a different tab'}
           </Typography>
           {activeTab === 4 && unifiedStorage.status === 'configured' && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt} disabled={isDirectoryRequired}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateSystemPrompt} disabled={false}>
               Create System Prompt
             </Button>
           )}

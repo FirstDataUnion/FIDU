@@ -68,7 +68,6 @@ pages/
 **Key Components Used:**
 - `ContextCard` - Context display cards
 - `ConversationSelectionList` - Add conversations to contexts
-- `StorageDirectoryBanner` - Directory access notifications
 
 **State Management:**
 - Redux integration for context data
@@ -111,7 +110,7 @@ pages/
 **Purpose**: Application configuration and user preferences
 
 **Key Features:**
-- **Storage Mode Selection**: Choose between local, cloud, and filesystem storage
+- **Storage Mode Selection**: Choose between local and cloud storage
 - **Theme Management**: Light, dark, and auto theme options
 - **Data Management**: Clear cloud data and manage storage
 - **Environment Detection**: Automatic deployment type detection
@@ -126,7 +125,6 @@ pages/
 
 **Key Components Used:**
 - `StorageModeSelector` - Storage mode configuration
-- `FileSystemDirectoryManager` - Directory management
 - `StorageMigrationWizard` - Data migration tools
 
 **State Management:**
@@ -156,7 +154,6 @@ pages/
 **Key Components Used:**
 - `SystemPromptModal` - Prompt creation and editing
 - `CategoryFilter` - Prompt categorization
-- `StorageDirectoryBanner` - Directory access notifications
 
 **State Management:**
 - Redux integration for system prompts
@@ -184,7 +181,6 @@ pages/
 
 **Key Components Used:**
 - `MigrationService` - Core migration logic
-- `StorageDirectoryBanner` - Directory access notifications
 - File upload with drag-and-drop support
 
 **State Management:**

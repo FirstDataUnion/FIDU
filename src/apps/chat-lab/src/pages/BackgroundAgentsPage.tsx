@@ -45,9 +45,7 @@ import {
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { useAppSelector } from '../hooks/redux';
 import { useAppSelector as useAppSelectorFull } from '../store';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
-import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 import { useMultiSelect } from '../hooks/useMultiSelect';
 import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
@@ -708,7 +706,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const currentProfile = useAppSelector((state) => state.auth.currentProfile);
   const { user } = useAppSelectorFull((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
-  const isDirectoryRequired = useFilesystemDirectoryRequired();
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1137,9 +1134,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Storage Directory Banner */}
-      <StorageDirectoryBanner pageType="background-agents" />
-
       {/* Scrollable Content Area */}
       <Box sx={{
         flex: 1,
@@ -1193,7 +1187,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleCreateAgent}
-                  disabled={isDirectoryRequired}
                   sx={{
                     borderRadius: 2,
                     flex: 1,
@@ -1208,7 +1201,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   variant="outlined"
                   startIcon={<ImportIcon />}
                   onClick={() => setShowImportDialog(true)}
-                  disabled={isDirectoryRequired}
                   sx={{
                     borderRadius: 2,
                     flex: 1,
@@ -1350,7 +1342,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleCreateAgent}
-                disabled={isDirectoryRequired}
+                disabled={false}
               >
                 Create New Agent
               </Button>
