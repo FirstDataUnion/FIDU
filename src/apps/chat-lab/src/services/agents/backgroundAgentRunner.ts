@@ -199,7 +199,7 @@ export async function maybeEvaluateBackgroundAgents(
     }
     
     // Validate actionType is set - this is critical for agent execution
-    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_context')) {
+    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_context' && a.actionType !== 'update_document')) {
       console.warn(`🤖 [BackgroundAgents] Agent "${a.name || a.id}" is enabled but has invalid or missing actionType: "${a.actionType}". Skipping this agent - please fix the agent configuration.`);
       // Skip this agent - user should fix the agent configuration
       return false;
@@ -280,7 +280,7 @@ export async function maybeEvaluateBackgroundAgents(
           message: result.message,
         });
         
-        if (shouldNotify) {
+        if (shouldNotify || result.actionType === 'update_document') {
           console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - 🚨 Triggering action: ${result.actionType} (rating ${result.rating} <= threshold ${threshold})`);
           
           // Dispatch based on action type
@@ -317,6 +317,33 @@ export async function maybeEvaluateBackgroundAgents(
               console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'update_context' not yet implemented`);
               // TODO: Implement context update logic
               // applyContextUpdates(result.contextUpdates);
+              return null;
+            }
+            case 'update_document': {
+              if (!agent.outputDocumentId) {
+                console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'update_document' requires outputDocumentId but it was not provided`);
+                return null;
+              }
+              
+              try {
+                const storage = getUnifiedStorageService();
+                const textToAppend = JSON.stringify({
+                  background_agent: agent.id,
+                  background_agent_name: agent.name,
+                  appended_at: new Date().toISOString(),
+                  conversation_id: conversationId,
+                  message_id: messageId,
+                  short_message: result.message,
+                  description: result.description,
+                  rating: result.rating,
+                }, null, 2);
+                
+                await storage.appendTextToDocument(agent.outputDocumentId, textToAppend, profileId);
+                console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ✅ Successfully appended text to document ${agent.outputDocumentId}`);
+              } catch (error: any) {
+                console.error(`🤖 [BackgroundAgents] Agent "${agent.name}" - ❌ Failed to append text to document:`, error?.message || error);
+              }
+              
               return null;
             }
             default: {

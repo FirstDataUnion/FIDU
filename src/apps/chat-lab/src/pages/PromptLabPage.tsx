@@ -166,7 +166,7 @@ function BackgroundAgentDialogCard({
   onJumpToMessage,
 }: {
   agent: BackgroundAgent;
-  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
+  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => void;
   alerts?: Array<{ 
     id: string; 
     createdAt: string; 
@@ -231,6 +231,7 @@ function BackgroundAgentDialogCard({
         runEveryNTurns: clamped,
         verbosityThreshold: localVerbosityThreshold,
         contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
+        outputDocumentId: agent.outputDocumentId,
       });
     },
     [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
@@ -1629,7 +1630,7 @@ export default function PromptLabPage() {
     }
   }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion, currentConversation?.id]);
 
-  const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+  const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => {
     // Find the agent to determine if it's built-in or custom
     const agent = backgroundAgents.find(a => a.id === agentId);
     
