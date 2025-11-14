@@ -23,6 +23,22 @@ export class InsufficientScopesError extends Error {
   }
 }
 
+// Custom error for backend configuration issues (non-recoverable)
+export class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigurationError';
+  }
+}
+
+// Custom error for temporary service unavailable (may be recoverable with retry)
+export class ServiceUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ServiceUnavailableError';
+  }
+}
+
 export interface GoogleDriveAuthConfig {
   clientId: string;
   redirectUri: string;
@@ -724,12 +740,13 @@ export class GoogleDriveAuthService {
         return data.access_token;
       }
       
-      // Backend returned error (400/500) - don't fall back
+      // Backend returned error (400/500) - check error type
       if (response.status >= 400) {
         const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || errorData.error || 'Unknown error';
         
         // Check if this is a refresh token expiration/revocation error
-        if (response.status === 401 && errorData.error?.includes('expired')) {
+        if (response.status === 401 && (errorMessage.includes('expired') || errorMessage.includes('revoked'))) {
           console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
           this.clearStoredTokens();
           this.tokens = null;
@@ -737,9 +754,35 @@ export class GoogleDriveAuthService {
           throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
         }
         
-        throw new Error(`Backend token refresh error (${response.status}): ${errorData.error || 'Unknown error'}`);
+        // Handle 503 Service Unavailable errors
+        if (response.status === 503) {
+          // Check if it's a configuration error (non-recoverable)
+          if (errorMessage.includes('not configured') || errorMessage.includes('OAuth not configured')) {
+            console.error('❌ Backend OAuth not configured. Cannot refresh token.');
+            // Don't clear tokens - this is a backend configuration issue, not an auth issue
+            // Throw a specific error that can be caught upstream
+            throw new ConfigurationError('Backend OAuth not configured. Please contact support.');
+          }
+          
+          // Generic 503 - might be temporary, allow retry
+          console.warn('⚠️ Backend service unavailable (503). This may be temporary.');
+          throw new ServiceUnavailableError(`Backend service unavailable: ${errorMessage}`);
+        }
+        
+        // Other 4xx/5xx errors - don't fall back to direct OAuth
+        throw new Error(`Backend token refresh error (${response.status}): ${errorMessage}`);
       }
     } catch (error: any) {
+      // Don't fall back on configuration errors - these are permanent
+      if (error instanceof ConfigurationError) {
+        throw error;
+      }
+      
+      // Don't fall back on service unavailable errors - let caller decide on retry
+      if (error instanceof ServiceUnavailableError) {
+        throw error;
+      }
+      
       // Only fall back on network/timeout errors
       if (error.name === 'AbortError' || error.name === 'TypeError' ||
           error.message?.includes('fetch') || error.message?.includes('network')) {
@@ -747,7 +790,7 @@ export class GoogleDriveAuthService {
         return this.refreshTokenDirect();
       }
       
-      // Propagate backend errors
+      // Propagate other backend errors
       throw error;
     }
 
@@ -1069,11 +1112,34 @@ export class GoogleDriveAuthService {
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       } catch (error) {
+        // Check if this is a non-retryable error (configuration issue)
+        if (error instanceof ConfigurationError) {
+          console.error('❌ Configuration error - cannot retry:', error.message);
+          return false;
+        }
+        
+        // Check if this is a service unavailable error that might be temporary
+        if (error instanceof ServiceUnavailableError && attempt < maxRetries) {
+          console.warn(`⚠️ Service unavailable (attempt ${attempt}/${maxRetries}):`, error.message);
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
         console.warn(`❌ Cookie restoration attempt ${attempt} failed:`, error);
         
-        if (attempt === maxRetries) {
+        // If this is the last attempt or a non-retryable error, fail
+        if (attempt === maxRetries || error instanceof ConfigurationError) {
           console.error('❌ All cookie restoration attempts failed');
           return false;
+        }
+        
+        // Wait before next retry
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }

@@ -799,9 +799,26 @@ async def refresh_oauth_token(request: Request):
             logger.error("Failed to decrypt refresh token: %s", e)
             raise HTTPException(status_code=401, detail="Invalid refresh token") from e
 
-        if not chatlab_secrets or not chatlab_secrets.google_client_secret:
+        if not chatlab_secrets:
+            logger.error(
+                "chatlab_secrets not loaded - OAuth configuration missing. "
+                "Check OpenBao connection and secret configuration."
+            )
             raise HTTPException(
-                status_code=503, detail="OAuth not configured on server"
+                status_code=503,
+                detail="OAuth not configured on server: secrets not loaded. "
+                "Please contact support.",
+            )
+
+        if not chatlab_secrets.google_client_secret:
+            logger.error(
+                "Google OAuth client secret not found in chatlab_secrets. "
+                "Missing google_client_secret in OpenBao configuration."
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="OAuth not configured on server: Google client secret "
+                "missing. Please contact support.",
             )
 
         logger.info("Refreshing OAuth access token...")
