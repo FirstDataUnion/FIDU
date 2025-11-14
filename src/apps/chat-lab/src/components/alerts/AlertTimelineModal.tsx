@@ -255,6 +255,8 @@ export default function AlertTimelineModal({
   const handleClearAll = useCallback(() => {
     if (window.confirm('Are you sure you want to clear all alert history? This cannot be undone.')) {
       clearAlertHistory();
+      // Force refresh by incrementing refreshKey to reload alerts from storage
+      setRefreshKey(prev => prev + 1);
       handleRefresh();
       setAnchorEl(null);
     }

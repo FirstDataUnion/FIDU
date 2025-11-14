@@ -45,7 +45,7 @@ export const THRESHOLD_PRESETS = {
 /**
  * Alert auto-hide duration in milliseconds
  */
-export const ALERT_AUTO_HIDE_DURATION = 5000;
+export const ALERT_AUTO_HIDE_DURATION = 10000; // 10 seconds
 
 /**
  * LocalStorage key for background agent preferences

@@ -54,6 +54,7 @@ import {
   CheckCircle as CheckCircleIcon,
   SmartToy as SmartToyIcon,
   ArrowUpward as ArrowUpwardIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -77,7 +78,6 @@ import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { subscribeToAgentAlerts, getUnreadAlertCount, markAlertAsRead } from '../services/agents/agentAlerts';
 import { getFilteredAlerts } from '../services/agents/agentAlertHistory';
-import InlineAgentResults from '../components/alerts/InlineAgentResults';
 import AlertTimelineModal from '../components/alerts/AlertTimelineModal';
 import { analyzeRequestDuration, type LongRequestAnalysis } from '../utils/longRequestDetection';
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
@@ -85,6 +85,7 @@ import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
 import { parseActualModelInfo, type ActualModelInfo } from '../utils/conversationUtils';
 import { DEFAULT_AGENT_CONFIG } from '../services/agents/agentConstants';
+import { useAlertClick } from '../contexts/AlertClickContext';
 
 // Safely import MetricsService - it may not be available in all environments (e.g., local dev)
 import { MetricsService } from '../services/metrics/MetricsService';
@@ -108,6 +109,8 @@ interface BackgroundAgentPreferences {
   runEveryNTurns: number;
   verbosityThreshold: number;
   contextLastN?: number; // For 'lastNMessages' strategy
+  enabled?: boolean; // Optional: allows disabling built-in agents (defaults to true)
+  modelId?: string; // Optional: model ID to use for evaluation (defaults to 'gpt-oss-120b')
 }
 
 interface AllAgentPreferences {
@@ -127,12 +130,37 @@ const loadAgentPreferences = (): AllAgentPreferences => {
 
 const setAgentPreference = (agentId: string, prefs: Partial<BackgroundAgentPreferences>): void => {
   const allPrefs = loadAgentPreferences();
-  allPrefs[agentId] = {
-    ...(allPrefs[agentId] || {}),
-    ...prefs,
+  const existingPrefs = allPrefs[agentId] || {};
+  // Merge preferences, ensuring required fields are preserved
+  // Always use the new value if provided, otherwise fall back to existing, then default
+  const mergedPrefs: BackgroundAgentPreferences = {
+    runEveryNTurns: prefs.runEveryNTurns !== undefined ? prefs.runEveryNTurns : (existingPrefs.runEveryNTurns ?? DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS),
+    verbosityThreshold: prefs.verbosityThreshold !== undefined ? prefs.verbosityThreshold : (existingPrefs.verbosityThreshold ?? DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD),
   };
+  
+  // Add optional fields if they exist in either new or existing prefs
+  if (prefs.contextLastN !== undefined || existingPrefs.contextLastN !== undefined) {
+    mergedPrefs.contextLastN = prefs.contextLastN !== undefined ? prefs.contextLastN : existingPrefs.contextLastN;
+  }
+  if (prefs.enabled !== undefined || existingPrefs.enabled !== undefined) {
+    mergedPrefs.enabled = prefs.enabled !== undefined ? prefs.enabled : existingPrefs.enabled;
+  }
+  if (prefs.modelId !== undefined || existingPrefs.modelId !== undefined) {
+    mergedPrefs.modelId = prefs.modelId !== undefined ? prefs.modelId : existingPrefs.modelId;
+  }
+  
+  allPrefs[agentId] = mergedPrefs;
   try {
-    localStorage.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(allPrefs));
+    const serialized = JSON.stringify(allPrefs);
+    localStorage.setItem(BACKGROUND_AGENT_PREFS_KEY, serialized);
+    // Verify the save worked
+    const verify = localStorage.getItem(BACKGROUND_AGENT_PREFS_KEY);
+    if (verify) {
+      const parsed = JSON.parse(verify);
+      if (parsed[agentId]?.verbosityThreshold !== mergedPrefs.verbosityThreshold) {
+        console.warn(`Failed to save verbosityThreshold for ${agentId}. Expected ${mergedPrefs.verbosityThreshold}, got ${parsed[agentId]?.verbosityThreshold}`);
+      }
+    }
   } catch (error) {
     console.warn('Failed to save background agent preferences:', error);
   }
@@ -160,8 +188,10 @@ function BackgroundAgentDialogCard({
   onUpdatePreference,
   alerts = [],
   autoExpand: _autoExpand = false,
+  alertIdToExpand,
   onAlertsChanged,
   onJumpToMessage,
+  onAlertExpanded,
 }: {
   agent: BackgroundAgent;
   onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
@@ -179,8 +209,10 @@ function BackgroundAgentDialogCard({
     messageId?: string; // ID of the message that triggered this alert
   }>;
   autoExpand?: boolean;
+  alertIdToExpand?: string; // Specific alert ID to expand
   onAlertsChanged?: () => void;
   onJumpToMessage?: (messageId: string) => void; // Callback to scroll to message and close modal
+  onAlertExpanded?: () => void; // Callback when alert has been expanded and scrolled to
 }) {
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
@@ -193,12 +225,45 @@ function BackgroundAgentDialogCard({
       ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
       : ''
   );
-  const [alertsExpanded, setAlertsExpanded] = useState(false); // Always start collapsed
+  const [alertsExpanded, setAlertsExpanded] = useState(_autoExpand || false); // Start expanded if autoExpand is true
   const [expandedRawOutput, setExpandedRawOutput] = useState<Set<string>>(new Set());
   const [expandedExecStatus, setExpandedExecStatus] = useState<Set<string>>(new Set());
   
+  // Auto-expand the specific alert if alertIdToExpand is provided
+  useEffect(() => {
+    if (alertIdToExpand && alerts.some(alert => alert.id === alertIdToExpand)) {
+      setAlertsExpanded(true);
+      // Also expand the raw output for this specific alert
+      setExpandedRawOutput(prev => new Set(prev).add(alertIdToExpand));
+      // Scroll the alert into view after a short delay to ensure DOM is updated
+      // Use requestAnimationFrame to ensure DOM is ready, then scroll without blocking
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const alertElement = document.getElementById(`alert-${alertIdToExpand}`);
+          if (alertElement) {
+            // Use scrollIntoView with smooth behavior, but don't block
+            alertElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Notify parent that scroll has started so it can clear the state and release scroll lock
+            // Use a timeout to ensure scroll animation has started before releasing
+            setTimeout(() => {
+              onAlertExpanded?.();
+            }, 500);
+          } else {
+            // If element not found, notify immediately
+            onAlertExpanded?.();
+          }
+        }, 150);
+      });
+    }
+  }, [alertIdToExpand, alerts, onAlertExpanded]);
+  
   const unreadCount = alerts.filter(a => !a.read).length;
   const recentAlerts = alerts.slice(0, 5); // Show last 5 alerts
+
+  // Track the original agent values to detect actual changes
+  const originalVerbosityThreshold = useRef(agent.verbosityThreshold);
+  const originalRunEveryNTurns = useRef(agent.runEveryNTurns);
+  const originalContextLastN = useRef(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
 
   // Update local state when agent changes
   useEffect(() => {
@@ -211,6 +276,10 @@ function BackgroundAgentDialogCard({
         ? String(agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES)
         : ''
     );
+    // Update refs to track original values
+    originalVerbosityThreshold.current = agent.verbosityThreshold;
+    originalRunEveryNTurns.current = agent.runEveryNTurns;
+    originalContextLastN.current = agent.contextParams?.lastN ?? DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES;
   }, [agent.contextParams?.lastN, agent.contextWindowStrategy, agent.runEveryNTurns, agent.verbosityThreshold]);
 
 
@@ -255,17 +324,19 @@ function BackgroundAgentDialogCard({
         DEFAULT_AGENT_CONFIG.MIN_THRESHOLD,
         Math.min(DEFAULT_AGENT_CONFIG.MAX_THRESHOLD, value)
       );
-      setLocalVerbosityThreshold(clamped);
-      if (clamped === localVerbosityThreshold) {
+      // Check if value actually changed from the original (not the local state which may have been updated by onChange)
+      if (clamped === originalVerbosityThreshold.current) {
         return;
       }
+      setLocalVerbosityThreshold(clamped);
+      originalVerbosityThreshold.current = clamped; // Update the ref to track the new value
       onUpdatePreference(agent.id, {
         runEveryNTurns: localRunEveryNTurns,
         verbosityThreshold: clamped,
         contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
       });
     },
-    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, onUpdatePreference]
   );
 
   const applyContextLastN = useCallback(
@@ -533,16 +604,23 @@ function BackgroundAgentDialogCard({
                 const showRawOutput = expandedRawOutput.has(alert.id);
                 const showExecStatus = expandedExecStatus.has(alert.id);
                 
+                const isExpandedAlert = alert.id === alertIdToExpand;
+                
                 return (
                   <Paper
                     key={alert.id}
+                    id={`alert-${alert.id}`}
                     variant="outlined"
                     sx={{
                       p: 1.5,
                       backgroundColor: colors.bg,
                       borderColor: hasParseError ? 'error.main' : colors.border,
-                      borderWidth: alert.read ? 1 : 2,
+                      borderWidth: isExpandedAlert ? 3 : (alert.read ? 1 : 2),
                       opacity: alert.read ? 0.7 : 1,
+                      ...(isExpandedAlert && {
+                        boxShadow: 4,
+                        borderColor: colors.border,
+                      }),
                     }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
@@ -906,9 +984,10 @@ interface ContextSelectionModalProps {
   loading: boolean;
   error: string | null;
   onCreateNewContext: () => void;
+  onClearContext?: () => void;
 }
 
-function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext }: ContextSelectionModalProps) {
+function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext, onClearContext }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent-desc' | 'recent-asc' | 'alpha-asc' | 'alpha-desc'>('recent-desc');
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -1067,22 +1146,45 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
         </Stack>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
-        <Button 
-          variant="outlined" 
-          startIcon={<AddIcon />}
-          onClick={onCreateNewContext}
-          sx={{
-            borderColor: 'primary.dark',
-            color: 'primary.dark',
-            '&:hover': {
-              backgroundColor: 'primary.main',
-              color: 'white',
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="outlined" 
+            startIcon={<AddIcon />}
+            onClick={onCreateNewContext}
+            sx={{
               borderColor: 'primary.dark',
-            }
-          }}
-        >
-          Create New Context
-        </Button>
+              color: 'primary.dark',
+              '&:hover': {
+                backgroundColor: 'primary.main',
+                color: 'white',
+                borderColor: 'primary.dark',
+              }
+            }}
+          >
+            Create New Context
+          </Button>
+          {onClearContext && (
+            <Button 
+              variant="outlined" 
+              startIcon={<ClearIcon />}
+              onClick={() => {
+                onClearContext();
+                onClose();
+              }}
+              sx={{
+                borderColor: 'error.main',
+                color: 'error.main',
+                '&:hover': {
+                  backgroundColor: 'error.light',
+                  color: 'white',
+                  borderColor: 'error.dark',
+                }
+              }}
+            >
+              Clear Context
+            </Button>
+          )}
+        </Box>
         <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
       </DialogActions>
 
@@ -1553,8 +1655,26 @@ export default function PromptLabPage() {
   const [backgroundAgentsLoading, setBackgroundAgentsLoading] = useState(false);
   const [backgroundAgentsPrefsVersion, setBackgroundAgentsPrefsVersion] = useState(0);
   const [unreadAlertCount, setUnreadAlertCount] = useState(0);
+  const [alertToExpand, setAlertToExpand] = useState<string | null>(null); // Alert ID to auto-expand when modal opens
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
   const [backgroundAgentsEvaluating, setBackgroundAgentsEvaluating] = useState(false);
+  
+  // Set up alert click handler for the toaster
+  const alertClickContext = useAlertClick();
+  useEffect(() => {
+    if (alertClickContext?.setOnAlertClick) {
+      alertClickContext.setOnAlertClick((alertId: string) => {
+        setAlertToExpand(alertId);
+        setBackgroundAgentsDialogOpen(true);
+      });
+    }
+    // Cleanup: clear the handler when component unmounts
+    return () => {
+      if (alertClickContext?.setOnAlertClick) {
+        alertClickContext.setOnAlertClick(null);
+      }
+    };
+  }, [alertClickContext]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(() => loadFromSession(STORAGE_KEYS.conversation) || null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
 
@@ -1587,7 +1707,8 @@ export default function PromptLabPage() {
               id: agentId,
               name: template.name,
               description: template.description,
-              enabled: true,
+              enabled: userPrefs?.enabled ?? true,
+              actionType: template.actionType,
               promptTemplate: template.promptTemplate,
               runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
               verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
@@ -1598,6 +1719,7 @@ export default function PromptLabPage() {
               outputSchemaName: template.outputSchemaName,
               customOutputSchema: template.customOutputSchema,
               notifyChannel: template.notifyChannel,
+              modelId: userPrefs?.modelId ?? template.modelId ?? 'gpt-oss-120b',
               isSystem: true,
               categories: template.categories || [],
               version: template.version,
@@ -1692,7 +1814,8 @@ export default function PromptLabPage() {
             id: agentId,
             name: template.name,
             description: template.description,
-            enabled: true,
+            enabled: userPrefs?.enabled ?? true,
+            actionType: template.actionType,
             promptTemplate: template.promptTemplate,
             runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
             verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
@@ -1703,6 +1826,7 @@ export default function PromptLabPage() {
             outputSchemaName: template.outputSchemaName,
             customOutputSchema: template.customOutputSchema,
             notifyChannel: template.notifyChannel,
+            modelId: userPrefs?.modelId ?? template.modelId ?? 'gpt-oss-120b',
             isSystem: true,
             categories: template.categories || [],
             version: template.version,
@@ -2086,6 +2210,13 @@ export default function PromptLabPage() {
   useEffect(() => {
     if (selectedContext) {
       saveToSession(STORAGE_KEYS.context, selectedContext);
+    } else {
+      // Clear context from sessionStorage when context is cleared
+      try {
+        sessionStorage.removeItem(STORAGE_KEYS.context);
+      } catch (error) {
+        console.warn('Failed to clear context from sessionStorage:', error);
+      }
     }
   }, [selectedContext, saveToSession, STORAGE_KEYS.context]);
 
@@ -3009,6 +3140,8 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
+    // Clear selected context
+    setSelectedContext(null);
     // Clear persisted conversation state
     clearSession();
     // Reset unread alert count (no conversation = no alerts)
@@ -3690,28 +3823,6 @@ export default function PromptLabPage() {
                       </IconButton>
                     </Tooltip>
                   )}
-                  {/* Show agent results for this assistant message */}
-                  {message.role === 'assistant' && (() => {
-                    // Get alerts that are specifically linked to this message ID
-                    const relevantAlerts = getFilteredAlerts({ 
-                      conversationId: currentConversationId,
-                      messageId: message.id, // Only show alerts for this specific message
-                    });
-                    
-                    // Create agent name map from loaded background agents
-                    const agentNameMap = backgroundAgents.reduce((acc, agent) => {
-                      acc[agent.id] = agent.name;
-                      return acc;
-                    }, {} as Record<string, string>);
-                    
-                    return relevantAlerts.length > 0 ? (
-                      <InlineAgentResults
-                        alerts={relevantAlerts}
-                        conversationId={currentConversationId}
-                        agentNameMap={agentNameMap}
-                      />
-                    ) : null;
-                  })()}
                 </Paper>
               </Box>
                 );
@@ -4775,6 +4886,9 @@ export default function PromptLabPage() {
         loading={contextsLoading}
         error={contextsError}
         onCreateNewContext={() => setCreateContextModalOpen(true)}
+        onClearContext={() => {
+          setSelectedContext(null);
+        }}
       />
 
       {/* Create Context Modal */}
@@ -5015,7 +5129,10 @@ export default function PromptLabPage() {
       {/* Background Agents Dialog */}
       <Dialog
         open={backgroundAgentsDialogOpen}
-        onClose={() => setBackgroundAgentsDialogOpen(false)}
+        onClose={() => {
+          setBackgroundAgentsDialogOpen(false);
+          setAlertToExpand(null); // Clear the alert to expand when closing
+        }}
         maxWidth="sm"
         fullWidth
         sx={{
@@ -5091,12 +5208,17 @@ export default function PromptLabPage() {
                     agent={agent}
                     onUpdatePreference={handleUpdateBackgroundAgentPreference}
                     alerts={allAlerts}
-                    autoExpand={false}
+                    autoExpand={allAlerts.some(alert => alert.id === alertToExpand)}
+                    alertIdToExpand={alertToExpand || undefined}
                     onAlertsChanged={() => {
                       // Refresh unread counts when alerts are marked as read (filtered by current conversation)
                       setUnreadAlertCount(currentConversationId ? getUnreadAlertCount(currentConversationId) : 0);
                     }}
                     onJumpToMessage={handleJumpToMessage}
+                    onAlertExpanded={() => {
+                      // Clear the alertToExpand state to release scroll lock
+                      setAlertToExpand(null);
+                    }}
                   />
                 );
               })}

@@ -323,9 +323,8 @@ export async function evaluateBackgroundAgent(
   console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - Prompt length: ${prompt.length} chars`);
   console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - Prompt template preview: ${(agent.promptTemplate || '').substring(0, 100)}...`);
 
-  // Model selection - currently defaults to gpt-oss-120b
-  // TODO: Add model selection capability to agent configuration
-  const selectedModel = 'gpt-oss-120b';
+  // Model selection - use agent's configured modelId, defaulting to gpt-oss-120b
+  const selectedModel = agent.modelId ?? 'gpt-oss-120b';
   let execStatus;
   try {
     const apiCallStartTime = Date.now();

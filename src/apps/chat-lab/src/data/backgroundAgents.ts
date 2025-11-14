@@ -1,7 +1,7 @@
 import type { BackgroundAgent } from '../services/api/backgroundAgents';
 
 // Built-in Background Agent templates (read-only). Clone to user DataPackets to customize.
-export const BUILT_IN_BACKGROUND_AGENTS: Array<Pick<BackgroundAgent, 'name' | 'description' | 'actionType' | 'promptTemplate' | 'runEveryNTurns' | 'verbosityThreshold' | 'contextWindowStrategy' | 'contextParams' | 'outputSchemaName' | 'customOutputSchema' | 'notifyChannel' | 'isSystem' | 'categories' | 'version'>> = [
+export const BUILT_IN_BACKGROUND_AGENTS: Array<Pick<BackgroundAgent, 'name' | 'description' | 'actionType' | 'promptTemplate' | 'runEveryNTurns' | 'verbosityThreshold' | 'contextWindowStrategy' | 'contextParams' | 'outputSchemaName' | 'customOutputSchema' | 'notifyChannel' | 'modelId' | 'isSystem' | 'categories' | 'version'>> = [
   {
     name: 'Ethics Monitor',
     description: 'Analyze ongoing conversation for potential ethical concerns and surface actionable warnings.',
@@ -195,13 +195,14 @@ Delete or recall any drafts or posts. Ask moderators or IT to remove any mirrors
 					
 Act next only after verifying each step against official policy. If needed, prepare a short anonymised incident note for internal review, with no personal identifiers and only one brief evidence quote if helpful.
     `.trim(),
-    runEveryNTurns: 6,
+    runEveryNTurns: 1,
     verbosityThreshold: 40,
     contextWindowStrategy: 'lastNMessages',
-    contextParams: { lastN: 6 },
+    contextParams: { lastN: 3 },
     outputSchemaName: 'default',
     customOutputSchema: null,
     notifyChannel: 'inline',
+    modelId: 'gpt-oss-120b', // Default model for ethics agent
     isSystem: true,
     categories: ['built-in', 'ethics'],
     version: 'v0',

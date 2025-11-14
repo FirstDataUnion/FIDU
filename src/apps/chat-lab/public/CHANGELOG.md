@@ -5,6 +5,19 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - UNRELEASED
+
+### Added
+- **Background Agent Model Selection**: Allow a model used by background agents to be manually chosen. 
+
+### Changed
+- **Clear Context Button**: Added a button to clear the current context on the chat page. 
+- **Disable ethics monitor**: Added ability to disable the ethics background agent
+- **Background Agent UI**: Alerts to longer appear within messages, instead the chat bubble interface has been improved, and the alert bubbles are now clickable taking you to an expanded view. 
+
+### Fixed
+- **Background Agent Verbosity**: Fixed issue that meant verbosity threshold changes in Chat page weren't persisted correctly. 
+- **Context Clearing**: Contexts now reset when starting a new conversation.
 
 ## [0.1.8] - 2025-11-08
 

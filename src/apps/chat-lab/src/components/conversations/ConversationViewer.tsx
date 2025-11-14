@@ -28,7 +28,6 @@ import { useAppSelector } from '../../hooks/redux';
 import type { Conversation, BackgroundAgentAlertMetadata } from '../../types';
 import { getPlatformColor, calculatePrimaryModelsDisplay, calculatePrimaryModelsFromMessages, getModelDisplayName } from '../../utils/conversationUtils';
 import EnhancedMarkdown from '../common/EnhancedMarkdown';
-import InlineAgentResults from '../alerts/InlineAgentResults';
 
 interface ConversationViewerProps {
   conversation: Conversation;
@@ -368,33 +367,6 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({ conversation })
                       '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '8px', marginBottom: '8px' },
                     }}
                   />
-                  
-                  {/* Show inline background agent alerts at bottom of message */}
-                  {message.metadata?.backgroundAgentAlerts && message.metadata.backgroundAgentAlerts.length > 0 && (
-                    <InlineAgentResults
-                      alerts={message.metadata.backgroundAgentAlerts.map((alert: BackgroundAgentAlertMetadata) => ({
-                        id: `${alert.agentId}-${alert.createdAt}`,
-                        agentId: alert.agentId,
-                        createdAt: alert.createdAt,
-                        rating: alert.rating,
-                        severity: alert.severity,
-                        message: alert.shortMessage || alert.message || '',
-                        shortMessage: alert.shortMessage,
-                        description: alert.description,
-                        details: alert.details,
-                        read: true, // In conversation viewer, all are considered "read"
-                        conversationId: conversation.id,
-                        messageId: message.id,
-                      }))}
-                      conversationId={conversation.id}
-                      agentNameMap={message.metadata.backgroundAgentAlerts.reduce((acc: Record<string, string>, alert: BackgroundAgentAlertMetadata) => {
-                        if (alert.agentName) {
-                          acc[alert.agentId] = alert.agentName;
-                        }
-                        return acc;
-                      }, {})}
-                    />
-                  )}
                   
                   {/* Expandable detailed view of alerts */}
                   {message.metadata?.backgroundAgentAlerts && message.metadata.backgroundAgentAlerts.length > 0 && (() => {

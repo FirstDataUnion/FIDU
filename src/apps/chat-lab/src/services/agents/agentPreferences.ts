@@ -8,6 +8,8 @@ export interface BackgroundAgentPreferences {
   runEveryNTurns: number;
   verbosityThreshold: number;
   contextLastN?: number; // For 'lastNMessages' strategy
+  enabled?: boolean; // Optional: allows disabling built-in agents (defaults to true)
+  modelId?: string; // Optional: model ID to use for evaluation (defaults to 'gpt-oss-120b')
 }
 
 export interface AllAgentPreferences {

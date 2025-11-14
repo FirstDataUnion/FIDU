@@ -26,7 +26,7 @@ export function transformBuiltInAgentsWithPreferences(
       id: agentId,
       name: template.name,
       description: template.description,
-      enabled: true,
+      enabled: userPrefs?.enabled ?? true, // Default to enabled, but allow user to disable
       actionType: template.actionType,
       promptTemplate: template.promptTemplate,
       runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
@@ -36,6 +36,7 @@ export function transformBuiltInAgentsWithPreferences(
       outputSchemaName: template.outputSchemaName,
       customOutputSchema: template.customOutputSchema,
       notifyChannel: template.notifyChannel,
+      modelId: userPrefs?.modelId ?? template.modelId ?? 'gpt-oss-120b', // Use preference, then template default, then fallback
       isSystem: true,
       categories: template.categories || [],
       version: template.version,

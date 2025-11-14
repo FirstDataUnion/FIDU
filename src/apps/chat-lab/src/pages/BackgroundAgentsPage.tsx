@@ -60,6 +60,7 @@ import {
 } from '../services/agents/agentPreferences';
 import { transformBuiltInAgentsWithPreferences } from '../services/agents/agentTransformers';
 import { DEFAULT_AGENT_CONFIG, THRESHOLD_PRESETS } from '../services/agents/agentConstants';
+import { getAllModels } from '../data/models';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
@@ -358,7 +359,6 @@ const BackgroundAgentCard = React.memo<{
             <Switch
               checked={agent.enabled}
               onChange={handleToggleEnabled}
-              disabled={agent.isSystem}
               size="small"
               sx={{
                 '& .MuiSwitch-switchBase.Mui-checked': {
@@ -731,6 +731,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
+    modelId: string;
   }>({
     name: '',
     description: '',
@@ -742,6 +743,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages',
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
+    modelId: 'gpt-oss-120b',
   });
 
   useEffect(() => {
@@ -835,6 +837,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
+    modelId: string;
   }>({
     name: '',
     description: '',
@@ -846,6 +849,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages',
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
+    modelId: 'gpt-oss-120b',
   });
 
   const handleCreateAgent = useCallback(() => {
@@ -860,6 +864,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       contextWindowStrategy: 'lastNMessages',
       contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
       notifyChannel: 'inline',
+      modelId: 'gpt-oss-120b',
     });
     setCreateDialogOpen(true);
   }, []);
@@ -923,6 +928,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         outputSchemaName: 'default',
         customOutputSchema: null,
         notifyChannel: createForm.notifyChannel,
+        modelId: createForm.modelId,
         isSystem: false,
         categories: [],
         createdAt: new Date().toISOString(),
@@ -937,10 +943,20 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   }, [createForm, currentProfile?.id]);
 
   const handleToggleEnabled = async (agent: BackgroundAgent) => {
-    // Built-in agents cannot be toggled
+    // For built-in agents, save enabled state to localStorage
     if (agent.isSystem) {
+      const newEnabledState = !agent.enabled;
+      setAgentPreference(agent.id, {
+        runEveryNTurns: agent.runEveryNTurns,
+        verbosityThreshold: agent.verbosityThreshold,
+        contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? agent.contextParams?.lastN : undefined,
+        enabled: newEnabledState,
+      });
+      // Trigger re-computation of built-in agents with new preferences
+      setPrefsVersion((prev) => prev + 1);
       return;
     }
+    // For custom agents, update in storage
     try {
       const storage = getUnifiedStorageService();
       const profileId = currentProfile?.id;
@@ -965,7 +981,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     }
   };
 
-  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number; enabled?: boolean; modelId?: string }) => {
     // Save to localStorage
     setAgentPreference(agentId, prefs);
     // Trigger re-computation of built-in agents with new preferences
@@ -1012,6 +1028,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       contextWindowStrategy: agent.contextWindowStrategy,
       contextParams: agent.contextParams || { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
       notifyChannel: agent.notifyChannel,
+      modelId: agent.modelId ?? 'gpt-oss-120b',
     });
     setViewEditDialogOpen(true);
   }, []);
@@ -1061,6 +1078,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           runEveryNTurns: viewEditForm.runEveryNTurns,
           verbosityThreshold: viewEditForm.verbosityThreshold,
           contextLastN: viewEditForm.contextWindowStrategy === 'lastNMessages' ? viewEditForm.contextParams.lastN : undefined,
+          enabled: viewEditForm.enabled,
+          modelId: viewEditForm.modelId,
         });
         // Trigger re-computation of built-in agents with new preferences
         setPrefsVersion((prev) => prev + 1);
@@ -1083,6 +1102,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         ...selectedAgent,
         ...viewEditForm,
         actionType: actionType, // Override with validated actionType
+        modelId: viewEditForm.modelId,
         updatedAt: new Date().toISOString()
       };
       const saved = await storage.updateBackgroundAgent(updated, currentProfile.id);
@@ -1417,17 +1437,42 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   </MenuItem>
                 </Select>
               </FormControl>
-              {!selectedAgent?.isSystem && (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={viewEditForm.enabled}
-                      onChange={(e) => setViewEditForm(prev => ({ ...prev, enabled: e.target.checked }))}
-                    />
-                  }
-                  label="Enabled"
-                />
-              )}
+              <FormControl fullWidth>
+                <InputLabel id="view-edit-model-label">Model</InputLabel>
+                <Select
+                  labelId="view-edit-model-label"
+                  value={viewEditForm.modelId}
+                  label="Model"
+                  onChange={(e) => setViewEditForm(prev => ({ ...prev, modelId: e.target.value }))}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                >
+                  {getAllModels().map((model) => (
+                    <MenuItem key={model.id} value={model.id}>
+                      <Box>
+                        <Typography variant="body1">{model.name}</Typography>
+                        {model.description && (
+                          <Typography variant="caption" color="text.secondary">
+                            {model.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={viewEditForm.enabled}
+                    onChange={(e) => setViewEditForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                  />
+                }
+                label="Enabled"
+              />
               <Divider />
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
                 <TextField
@@ -1708,6 +1753,33 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel id="create-model-label">Model</InputLabel>
+                <Select
+                  labelId="create-model-label"
+                  value={createForm.modelId}
+                  label="Model"
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, modelId: e.target.value }))}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                >
+                  {getAllModels().map((model) => (
+                    <MenuItem key={model.id} value={model.id}>
+                      <Box>
+                        <Typography variant="body1">{model.name}</Typography>
+                        {model.description && (
+                          <Typography variant="caption" color="text.secondary">
+                            {model.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
               <FormControlLabel

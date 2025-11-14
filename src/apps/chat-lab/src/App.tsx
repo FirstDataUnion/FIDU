@@ -38,6 +38,7 @@ import { getGoogleDriveAuthService } from './services/auth/GoogleDriveAuth';
 import { getAuthManager } from './services/auth/AuthManager';
 import LoadingProgress from './components/common/LoadingProgress';
 import type { LoadingStep } from './components/common/LoadingProgress';
+import { AlertClickProvider } from './contexts/AlertClickContext';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -816,6 +817,7 @@ const AppContent: React.FC<AppContentProps> = () => {
         <ErrorBoundary>
           <AuthErrorBoundary>
             <AuthWrapper>
+            <AlertClickProvider>
             <ConditionalLayout banner={shouldShowStorageBanner ? <StorageConfigurationBanner /> : undefined}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <Routes>
@@ -835,6 +837,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                 </Routes>
               </Suspense>
             </ConditionalLayout>
+            </AlertClickProvider>
           </AuthWrapper>
           </AuthErrorBoundary>
         </ErrorBoundary>

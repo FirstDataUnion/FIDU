@@ -28,6 +28,7 @@ export interface BackgroundAgentDataPacket {
     output_schema_name?: 'default' | 'custom';
     custom_output_schema?: Record<string, any> | null;
     notify_channel: 'inline' | 'toast' | 'panel' | 'all';
+    model_id?: string; // Model ID to use for evaluation (defaults to 'gpt-oss-120b')
     is_system?: boolean; // built-in template indicator
     categories?: string[];
     version?: string;
@@ -51,6 +52,7 @@ export interface BackgroundAgent {
   outputSchemaName?: 'default' | 'custom';
   customOutputSchema?: Record<string, any> | null;
   notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
+  modelId?: string; // Model ID to use for evaluation (defaults to 'gpt-oss-120b')
   isSystem?: boolean;
   categories?: string[];
   version?: string;
@@ -84,6 +86,7 @@ const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket)
     outputSchemaName: packet.data.output_schema_name,
     customOutputSchema: packet.data.custom_output_schema ?? null,
     notifyChannel: packet.data.notify_channel,
+    modelId: packet.data.model_id ?? 'gpt-oss-120b', // Default to gpt-oss-120b if not set
     isSystem: packet.data.is_system ?? false,
     categories: packet.data.categories ?? [],
     version: packet.data.version,
@@ -122,6 +125,7 @@ const transformBackgroundAgentToDataPacket = (
       output_schema_name: agent.outputSchemaName,
       custom_output_schema: agent.customOutputSchema ?? null,
       notify_channel: agent.notifyChannel,
+      model_id: agent.modelId ?? 'gpt-oss-120b', // Default to gpt-oss-120b if not set
       is_system: agent.isSystem ?? false,
       categories: agent.categories ?? [],
       version: agent.version,
