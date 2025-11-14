@@ -32,7 +32,7 @@ interface StorageDirectoryBannerProps {
    * The type of page this banner is displayed on
    * Determines the severity and messaging
    */
-  pageType?: 'prompt-lab' | 'conversations' | 'system-prompts' | 'contexts' | 'background-agents';
+  pageType?: 'prompt-lab' | 'conversations' | 'system-prompts' | 'contexts' | 'background-agents' | 'documents';
 }
 
 /**

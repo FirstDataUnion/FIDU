@@ -65,6 +65,7 @@ import { FloatingExportActions } from '../components/resourceExport/FloatingExpo
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{ 
@@ -1216,6 +1217,8 @@ const SystemPromptsPage = React.memo(() => {
               label="System Prompt Name"
               value={systemPromptForm.name}
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ 
                 mb: 2,
                 '& .MuiInputBase-root': {
@@ -1320,6 +1323,8 @@ const SystemPromptsPage = React.memo(() => {
               label="System Prompt Name"
               value={systemPromptForm.name}
               onChange={(e) => setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ 
                 mb: 2,
                 '& .MuiInputBase-root': {
@@ -1427,6 +1432,8 @@ const SystemPromptsPage = React.memo(() => {
               value={viewEditForm.name}
               onChange={(e) => setViewEditForm(prev => ({ ...prev, name: e.target.value }))}
               disabled={selectedSystemPrompt?.isBuiltIn}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ 
                 mb: 2,
                 '& .MuiInputBase-root': {

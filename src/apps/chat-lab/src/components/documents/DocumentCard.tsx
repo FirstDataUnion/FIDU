@@ -14,51 +14,49 @@ import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
-
-import type { Context } from '../../types/contexts';
+import { formatDate, getTagColor } from '../../utils/conversationUtils';
+import type { MarkdownDocument } from '../../types';
 import { truncateTitle } from '../../utils/stringUtils';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
-interface ContextCardProps {
-  context: Context;
-  onViewEdit: (context: Context) => void;
+interface DocumentCardProps {
+  document: MarkdownDocument;
+  onViewEdit: (document: MarkdownDocument) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: (id: string) => void;
   onEnterSelectionMode?: () => void;
 }
 
-export const ContextCard = React.memo<ContextCardProps>(({ 
-  context, 
+export const DocumentCard = React.memo<DocumentCardProps>(({ 
+  document, 
   onViewEdit,
   isSelectionMode = false,
   isSelected = false,
   onToggleSelection,
   onEnterSelectionMode,
 }) => {
-  const isBuiltIn = context.isBuiltIn || false;
-  
   const handleViewEdit = React.useCallback(() => {
     if (!isSelectionMode) {
-      onViewEdit(context);
+      onViewEdit(document);
     }
-  }, [context, onViewEdit, isSelectionMode]);
+  }, [document, onViewEdit, isSelectionMode]);
 
   const handleCardClick = React.useCallback(() => {
-    if (isSelectionMode && onToggleSelection && !isBuiltIn) {
-      onToggleSelection(context.id);
+    if (isSelectionMode && onToggleSelection) {
+      onToggleSelection(document.id);
     }
-  }, [isSelectionMode, onToggleSelection, context.id, isBuiltIn]);
+  }, [isSelectionMode, onToggleSelection, document.id]);
 
   const handleExportClick = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (onEnterSelectionMode) {
       onEnterSelectionMode();
-      if (onToggleSelection && !isBuiltIn) {
-        onToggleSelection(context.id);
+      if (onToggleSelection) {
+        onToggleSelection(document.id);
       }
     }
-  }, [onEnterSelectionMode, onToggleSelection, context.id, isBuiltIn]);
+  }, [onEnterSelectionMode, onToggleSelection, document.id]);
   
   return (
     <Card 
@@ -68,7 +66,7 @@ export const ContextCard = React.memo<ContextCardProps>(({
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        cursor: isSelectionMode && !isBuiltIn ? 'pointer' : 'default',
+        cursor: isSelectionMode ? 'pointer' : 'default',
         border: isSelected ? 2 : 1,
         borderColor: isSelected ? 'primary.main' : 'divider',
         backgroundColor: isSelected ? 'action.selected' : 'background.paper',
@@ -80,7 +78,7 @@ export const ContextCard = React.memo<ContextCardProps>(({
       }}
     >
       {/* Selection checkbox */}
-      {isSelectionMode && !isBuiltIn && (
+      {isSelectionMode && (
         <Box
           sx={{
             position: 'absolute',
@@ -93,7 +91,7 @@ export const ContextCard = React.memo<ContextCardProps>(({
             size="small"
             onClick={(e) => {
               e.stopPropagation();
-              onToggleSelection?.(context.id);
+              onToggleSelection?.(document.id);
             }}
             sx={{
               backgroundColor: 'background.paper',
@@ -112,7 +110,7 @@ export const ContextCard = React.memo<ContextCardProps>(({
       )}
 
       {/* Export button */}
-      {!isSelectionMode && !isBuiltIn && (
+      {!isSelectionMode && (
         <IconButton
           size="small"
           onClick={handleExportClick}
@@ -128,50 +126,31 @@ export const ContextCard = React.memo<ContextCardProps>(({
             width: 28,
             height: 28,
           }}
-          aria-label="Export this context"
+          aria-label="Export this document"
         >
           <ExportIcon fontSize="small" />
         </IconButton>
       )}
 
-      {/* Built-in indicator */}
-      {isBuiltIn && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            color: 'white',
-            px: 1,
-            py: 0.5,
-            borderRadius: 1,
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            zIndex: 2
-          }}
-        >
-          Built-in
-        </Box>
-      )}
-
-      <CardContent sx={{ flexGrow: 1, pb: 1, pt: isBuiltIn ? 4 : 2 }}>
-        {/* Title and body */}
+      <CardContent sx={{ flexGrow: 1, pb: 1, pt: 2 }}>
+        {/* Title */}
         <Typography 
           variant="h6" 
           sx={{ 
             mb: 1, 
             fontWeight: 600, 
             lineHeight: 1.2,
-            pr: isSelectionMode && !isBuiltIn ? 5 : (!isSelectionMode && !isBuiltIn ? 8 : 0),
-            pl: isSelectionMode && !isBuiltIn ? 5 : 0,
-            wordBreak: 'break-word', // Allow long words to break
-            overflowWrap: 'break-word' // Modern CSS for better word breaking
+            pr: isSelectionMode ? 5 : 8,
+            pl: isSelectionMode ? 5 : 0,
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word'
           }}
-          title={context.title || 'Untitled Context'}
+          title={document.title || 'Untitled Document'}
         >
-          {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
+          {truncateTitle(document.title || 'Untitled Document', RESOURCE_TITLE_MAX_LENGTH)}
         </Typography>
+        
+        {/* Content preview */}
         <Typography 
           variant="body2" 
           color="text.secondary" 
@@ -183,12 +162,12 @@ export const ContextCard = React.memo<ContextCardProps>(({
             overflow: 'hidden'
           }}
         >
-          {context.body || 'No content available'}
+          {document.content || 'No content available'}
         </Typography>
 
         {/* Tags */}
         <Box sx={{ mb: 2 }}>
-          {(context.tags || []).map((tag: string) => (
+          {(document.tags || []).map((tag: string) => (
             <Chip
               key={tag}
               label={tag}
@@ -197,24 +176,17 @@ export const ContextCard = React.memo<ContextCardProps>(({
                 mr: 0.5, 
                 mb: 0.5, 
                 fontSize: '0.7rem',
-                backgroundColor: 'secondary.main',
+                backgroundColor: getTagColor(tag),
                 color: 'white'
               }}
             />
           ))}
         </Box>
-
-        {/* Stats */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 1, fontSize: '0.8rem', color: 'text.secondary' }}>
-          <Box>
-            {(context.tokenCount || 0).toLocaleString()} tokens
-          </Box>
-        </Box>
       </CardContent>
 
       <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
         <Typography variant="caption" color="text.secondary">
-          {!isBuiltIn && context.updatedAt && `Updated ${new Date(context.updatedAt).toLocaleDateString()}`}
+          {document.updatedAt && `Updated ${formatDate(new Date(document.updatedAt))}`}
         </Typography>
         <Box>
           <Button 
@@ -223,7 +195,7 @@ export const ContextCard = React.memo<ContextCardProps>(({
             onClick={handleViewEdit}
             sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
           >
-            {isBuiltIn ? 'View' : 'View/Edit'}
+            View/Edit
           </Button>
         </Box>
       </CardActions>
@@ -231,4 +203,5 @@ export const ContextCard = React.memo<ContextCardProps>(({
   );
 });
 
-ContextCard.displayName = 'ContextCard';
+DocumentCard.displayName = 'DocumentCard';
+

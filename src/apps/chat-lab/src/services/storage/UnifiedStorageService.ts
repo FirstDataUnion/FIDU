@@ -210,6 +210,47 @@ export class UnifiedStorageService {
     return await (adapter as any).deleteBackgroundAgent(agentId);
   }
 
+  // Document operations
+  async getDocuments(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getDocuments !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getDocuments(queryParams, page, limit, profileId);
+  }
+
+  async getDocumentById(documentId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getDocumentById !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getDocumentById(documentId);
+  }
+
+  async createDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).createDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).createDocument(document, profileId);
+  }
+
+  async updateDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).updateDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).updateDocument(document, profileId);
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).deleteDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).deleteDocument(documentId);
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     const adapter = this.storageService.getAdapter();
