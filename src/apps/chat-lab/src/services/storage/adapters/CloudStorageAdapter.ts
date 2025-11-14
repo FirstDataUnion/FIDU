@@ -763,6 +763,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         prompt_template: agent.promptTemplate || '',
         cadence: { run_every_n_turns: agent.runEveryNTurns ?? 6 },
         verbosity_threshold: agent.verbosityThreshold ?? 50,
+        output_document_id: agent.outputDocumentId,
         context_window_strategy: agent.contextWindowStrategy || 'lastNMessages',
         context_params: agent.contextParams
           ? { lastN: agent.contextParams.lastN, token_limit: agent.contextParams.tokenLimit }
@@ -791,7 +792,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     
     // Validate actionType - ensure it's always set and valid
     const actionType = 
-      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_context'))
+      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_context' || finalData.action_type === 'update_document'))
         ? finalData.action_type
         : 'alert'; // Default to 'alert' for backward compatibility and safety
     
@@ -804,6 +805,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       promptTemplate: finalData.prompt_template || '',
       runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
       verbosityThreshold: finalData.verbosity_threshold ?? 50,
+      outputDocumentId: finalData.output_document_id,
       contextWindowStrategy: finalData.context_window_strategy || 'lastNMessages',
       contextParams: finalData.context_params
         ? { lastN: finalData.context_params.lastN, tokenLimit: finalData.context_params.token_limit }

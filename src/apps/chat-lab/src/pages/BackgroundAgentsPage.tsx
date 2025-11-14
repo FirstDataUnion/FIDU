@@ -1050,6 +1050,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       promptTemplate: agent.promptTemplate,
       runEveryNTurns: agent.runEveryNTurns,
       verbosityThreshold: agent.verbosityThreshold,
+      outputDocumentId: agent.outputDocumentId,
       contextWindowStrategy: agent.contextWindowStrategy,
       contextParams: agent.contextParams || { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
       notifyChannel: agent.notifyChannel,
@@ -1448,11 +1449,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 }}
               />
               <FormControl fullWidth disabled={selectedAgent?.isSystem} required>
-                <InputLabel id="view-edit-action-type-label">Action Type *</InputLabel>
+                <InputLabel id="view-edit-action-type-label">Action Type</InputLabel>
                 <Select
                   labelId="view-edit-action-type-label"
                   value={viewEditForm.actionType || 'alert'}
-                  label="Action Type *"
+                  label="Action Type"
                   required
                   onChange={(e) => setViewEditForm(prev => ({ ...prev, actionType: e.target.value as AgentActionType }))}
                   sx={{
@@ -1466,6 +1467,14 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       <Typography variant="body1">Alert</Typography>
                       <Typography variant="caption" color="text.secondary">
                         Creates alerts and notifications based on analysis
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="update_document">
+                    <Box>
+                      <Typography variant="body1">Update Document</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Updates a document based on analysis
                       </Typography>
                     </Box>
                   </MenuItem>
@@ -1523,44 +1532,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     }
                   }}
                 />
-                <Box>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    Alert Sensitivity
-                    <Tooltip
-                      title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
-                      arrow
-                      placement="top"
-                    >
-                      <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
-                    </Tooltip>
-                  </Typography>
-                  <Box sx={{ px: 1, pt: 1 }}>
-                    <Slider
-                      value={viewEditForm.verbosityThreshold}
-                      onChange={(_, value) => setViewEditForm(prev => ({ ...prev, verbosityThreshold: value as number }))}
-                      min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-                      max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-                      step={5}
-                      marks={[
-                        { value: THRESHOLD_PRESETS.CRITICAL_ONLY, label: 'Critical' },
-                        { value: THRESHOLD_PRESETS.BALANCED, label: 'Balanced' },
-                        { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
-                      ]}
-                      valueLabelDisplay="on"
-                      valueLabelFormat={(value) => `${value}/100`}
-                      sx={{
-                        '& .MuiSlider-markLabel': {
-                          fontSize: '0.75rem',
-                        },
-                      }}
-                    />
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    {`Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
-                  </Typography>
-                </Box>
-              </Box>
-              {viewEditForm.contextWindowStrategy === 'lastNMessages' && (
+                {viewEditForm.contextWindowStrategy === 'lastNMessages' && (
                 <TextField
                   fullWidth
                   label="Context Messages"
@@ -1597,6 +1569,68 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     }
                   }}
                 />
+              )}
+              </Box>
+              {viewEditForm.actionType === 'alert' && <Box>
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    Alert Sensitivity
+                    <Tooltip
+                      title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
+                      arrow
+                      placement="top"
+                    >
+                      <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Typography>
+                  <Box sx={{ px: 1, pt: 1 }}>
+                    <Slider
+                      value={viewEditForm.verbosityThreshold}
+                      onChange={(_, value) => setViewEditForm(prev => ({ ...prev, verbosityThreshold: value as number }))}
+                      min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                      max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                      step={5}
+                      marks={[
+                        { value: THRESHOLD_PRESETS.CRITICAL_ONLY, label: 'Critical' },
+                        { value: THRESHOLD_PRESETS.BALANCED, label: 'Balanced' },
+                        { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
+                      ]}
+                      valueLabelDisplay="on"
+                      valueLabelFormat={(value) => `${value}/100`}
+                      sx={{
+                        '& .MuiSlider-markLabel': {
+                          fontSize: '0.75rem',
+                        },
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    {`Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
+                  </Typography>
+                </Box>
+              }
+              {viewEditForm.actionType === 'update_document' && (
+                <FormControl fullWidth required>
+                  <InputLabel id="view-edit-output-document-label">Output Document</InputLabel>
+                  <Select
+                    labelId="view-edit-output-document-label"
+                    value={viewEditForm.outputDocumentId || ''}
+                    label="Output Document"
+                    required
+                    onChange={(e) => setViewEditForm(prev => ({ ...prev, outputDocumentId: e.target.value }))}
+                  >
+                    {documents && documents.length > 0 ? (
+                      documents.map((doc: any) => (
+                        <MenuItem key={doc.id} value={doc.id}>
+                          {doc.title || `Untitled (${doc.id})`}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value="" disabled>
+                        No documents found
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
               )}
               <TextField
                 fullWidth
@@ -1850,6 +1884,42 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   }
                 }}
               />
+              <TextField
+                  fullWidth
+                  label="Context Messages"
+                  type="number"
+                  value={viewEditForm.contextParams.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES}
+                  onChange={(e) => setViewEditForm(prev => ({
+                    ...prev,
+                    contextParams: {
+                      ...prev.contextParams,
+                      lastN: parseInt(e.target.value) || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
+                    }
+                  }))}
+                  helperText={
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography component="span" variant="caption">
+                        Number of recent messages to include when evaluating
+                      </Typography>
+                      <Tooltip
+                        title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
+                        arrow
+                        placement="top"
+                      >
+                        <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
+                      </Tooltip>
+                    </Box>
+                  }
+                  inputProps={{ 
+                    min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES, 
+                    max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES 
+                  }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                />
               {createForm.actionType === 'alert' && (
               <Box>
                 <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
