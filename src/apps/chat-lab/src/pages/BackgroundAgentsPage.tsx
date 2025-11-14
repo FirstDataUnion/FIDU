@@ -44,7 +44,7 @@ import {
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { useAppSelector } from '../hooks/redux';
-import { useAppSelector as useAppSelectorFull } from '../store';
+import { useAppDispatch, useAppSelector as useAppSelectorFull } from '../store';
 import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
@@ -61,13 +61,14 @@ import {
 import { transformBuiltInAgentsWithPreferences } from '../services/agents/agentTransformers';
 import { DEFAULT_AGENT_CONFIG, THRESHOLD_PRESETS } from '../services/agents/agentConstants';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import { fetchDocuments } from '../store/slices/documentsSlice';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
   agent: BackgroundAgent;
   onViewEdit: (agent: BackgroundAgent) => void;
   onToggleEnabled: (agent: BackgroundAgent) => void;
-  onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
+  onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number, outputDocumentId?: string }) => void;
   onUpdateAgent?: (agent: BackgroundAgent) => Promise<void>;
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -190,13 +191,14 @@ const BackgroundAgentCard = React.memo<{
         runEveryNTurns: localRunEveryNTurns,
         verbosityThreshold: localVerbosityThreshold,
         contextLastN: clampedValue,
+        outputDocumentId: agent.outputDocumentId,
       });
     } else if (!agent.isSystem && onUpdateAgent) {
       // Custom agents: save to storage
       const updatedAgent = { 
         ...agent, 
         contextParams: { ...agent.contextParams, lastN: clampedValue },
-        updatedAt: new Date().toISOString() 
+        updatedAt: new Date().toISOString()
       };
       await onUpdateAgent(updatedAgent);
     }
@@ -662,7 +664,7 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
   agents: BackgroundAgent[];
   onViewEdit: (agent: BackgroundAgent) => void;
   onToggleEnabled: (agent: BackgroundAgent) => void;
-  onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
+  onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => void;
   onUpdateAgent?: (agent: BackgroundAgent) => Promise<void>;
   isSelectionMode?: boolean;
   selectedIds?: Set<string>;
@@ -710,6 +712,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const { user } = useAppSelectorFull((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
   const isDirectoryRequired = useFilesystemDirectoryRequired();
+  const documents = useAppSelector((state) => state.documents.items);
+  const dispatch = useAppDispatch();
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -728,7 +732,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     actionType: AgentActionType;
     promptTemplate: string;
     runEveryNTurns: number;
-    verbosityThreshold: number;
+    verbosityThreshold?: number;
+    outputDocumentId?: string;
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
@@ -744,6 +749,14 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
   });
+
+  useEffect(() => {
+    if (currentProfile?.id) {
+      dispatch(fetchDocuments(currentProfile.id)).catch((error) => {
+        console.log('Initial fetch failed, will retry when auth completes:', error);
+      });
+    }
+  }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated]);
 
   useEffect(() => {
     const load = async () => {
@@ -832,7 +845,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     actionType: AgentActionType;
     promptTemplate: string;
     runEveryNTurns: number;
-    verbosityThreshold: number;
+    verbosityThreshold?: number;
+    outputDocumentId?: string;
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
@@ -844,6 +858,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     promptTemplate: '',
     runEveryNTurns: DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
     verbosityThreshold: DEFAULT_AGENT_CONFIG.VERBOSITY_THRESHOLD,
+    outputDocumentId: undefined,
     contextWindowStrategy: 'lastNMessages',
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
@@ -889,9 +904,21 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       setError('Action Type is required. Please select an action type.');
       return;
     }
-    if (createForm.verbosityThreshold < DEFAULT_AGENT_CONFIG.MIN_THRESHOLD || createForm.verbosityThreshold > DEFAULT_AGENT_CONFIG.MAX_THRESHOLD) {
-      setError(`Verbosity threshold must be between ${DEFAULT_AGENT_CONFIG.MIN_THRESHOLD} and ${DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}.`);
-      return;
+    if (createForm.actionType === 'alert'){
+      if (!createForm.verbosityThreshold) {
+        setError('Verbosity threshold is required for alert agents.');
+        return;
+      }
+      if (createForm.verbosityThreshold < DEFAULT_AGENT_CONFIG.MIN_THRESHOLD || createForm.verbosityThreshold > DEFAULT_AGENT_CONFIG.MAX_THRESHOLD) {
+        setError(`Verbosity threshold must be between ${DEFAULT_AGENT_CONFIG.MIN_THRESHOLD} and ${DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}.`);
+        return;
+      }
+    }
+    if (createForm.actionType === 'update_document'){
+      if (!createForm.outputDocumentId) {
+        setError('Output document is required for update document agents.');
+        return;
+      }
     }
     if (createForm.contextWindowStrategy === 'lastNMessages' && createForm.contextParams.lastN) {
       const lastN = createForm.contextParams.lastN;
@@ -919,6 +946,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         promptTemplate: createForm.promptTemplate.trim(),
         runEveryNTurns: createForm.runEveryNTurns,
         verbosityThreshold: createForm.verbosityThreshold,
+        outputDocumentId: createForm.outputDocumentId,
         contextWindowStrategy: createForm.contextWindowStrategy,
         contextParams: createForm.contextParams,
         outputSchemaName: 'default',
@@ -966,7 +994,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     }
   };
 
-  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => {
     // Save to localStorage
     setAgentPreference(agentId, prefs);
     // Trigger re-computation of built-in agents with new preferences
@@ -1043,9 +1071,21 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       setError(`Run every N turns must be between ${DEFAULT_AGENT_CONFIG.MIN_TURNS} and ${DEFAULT_AGENT_CONFIG.MAX_TURNS}.`);
       return;
     }
-    if (viewEditForm.verbosityThreshold < DEFAULT_AGENT_CONFIG.MIN_THRESHOLD || viewEditForm.verbosityThreshold > DEFAULT_AGENT_CONFIG.MAX_THRESHOLD) {
-      setError(`Verbosity threshold must be between ${DEFAULT_AGENT_CONFIG.MIN_THRESHOLD} and ${DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}.`);
-      return;
+    if (viewEditForm.actionType === 'alert'){
+      if (!viewEditForm.verbosityThreshold) {
+        setError('Verbosity threshold is required for alert agents.');
+        return;
+      }
+      if (viewEditForm.verbosityThreshold < DEFAULT_AGENT_CONFIG.MIN_THRESHOLD || viewEditForm.verbosityThreshold > DEFAULT_AGENT_CONFIG.MAX_THRESHOLD) {
+        setError(`Verbosity threshold must be between ${DEFAULT_AGENT_CONFIG.MIN_THRESHOLD} and ${DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}.`);
+        return;
+      }
+    }
+    if (viewEditForm.actionType === 'update_document'){
+      if (!viewEditForm.outputDocumentId) {
+        setError('Output document is required for update document agents.');
+        return;
+      }
     }
     if (viewEditForm.contextWindowStrategy === 'lastNMessages' && viewEditForm.contextParams.lastN) {
       const lastN = viewEditForm.contextParams.lastN;
@@ -1692,11 +1732,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 }}
               />
               <FormControl fullWidth required>
-                <InputLabel id="create-action-type-label">Action Type *</InputLabel>
+                <InputLabel id="create-action-type-label">Action Type</InputLabel>
                 <Select
                   labelId="create-action-type-label"
                   value={createForm.actionType || 'alert'}
-                  label="Action Type *"
+                  label="Action Type"
                   required
                   onChange={(e) => setCreateForm(prev => ({ ...prev, actionType: e.target.value as AgentActionType }))}
                   sx={{
@@ -1710,6 +1750,14 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       <Typography variant="body1">Alert</Typography>
                       <Typography variant="caption" color="text.secondary">
                         Creates alerts and notifications based on analysis
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="update_document">
+                    <Box>
+                      <Typography variant="body1">Update Document</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Updates a document based on analysis
                       </Typography>
                     </Box>
                   </MenuItem>
@@ -1739,6 +1787,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   }
                 }}
               />
+              {createForm.actionType === 'alert' && (
               <Box>
                 <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   Alert Sensitivity
@@ -1772,9 +1821,35 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   />
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Current: {createForm.verbosityThreshold}/100 - Alerts when rating ≤ {createForm.verbosityThreshold}
-                </Typography>
-              </Box>
+                    Current: {createForm.verbosityThreshold}/100 - Alerts when rating ≤ {createForm.verbosityThreshold}
+                  </Typography>
+                </Box>
+              )}
+              {createForm.actionType === 'update_document' && (
+                <FormControl fullWidth required>
+                  <InputLabel id="create-output-document-label">Output Document</InputLabel>
+                  <Select
+                    labelId="create-output-document-label"
+                    value={createForm.outputDocumentId || ''}
+                    label="Output Document"
+                    required
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, outputDocumentId: e.target.value }))}
+                  >
+                    {documents && documents.length > 0 ? (
+                      documents.map((doc: any) => (
+                        <MenuItem key={doc.id} value={doc.id}>
+                          {doc.title || `Untitled (${doc.id})`}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value="" disabled>
+                        No documents found
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+
+              )}
               <TextField
                 fullWidth
                 label="Prompt Template"

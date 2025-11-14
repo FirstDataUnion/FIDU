@@ -305,6 +305,7 @@ export interface RootState {
   settings: SettingsState;
   contexts: ContextsState;
   systemPrompts: SystemPromptsState;
+  documents: DocumentsState;
   promptLab: PromptLabState;
   search: SearchState;
   auth: AuthState;
@@ -416,6 +417,12 @@ export interface SystemPromptsState {
   loading: boolean;
   error: string | null;
   selectedSystemPrompt: SystemPrompt | null;
+}
+
+export interface DocumentsState {
+  items: MarkdownDocument[];
+  loading: boolean;
+  error: string | null;
 }
 
 export interface PromptLabState {
