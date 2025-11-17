@@ -1,5 +1,5 @@
-import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import type { DocumentsState, MarkdownDocument } from '../../types';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import type { DocumentsState } from '../../types';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
 export const fetchDocuments = createAsyncThunk(

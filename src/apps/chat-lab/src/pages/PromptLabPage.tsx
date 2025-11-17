@@ -302,7 +302,7 @@ function BackgroundAgentDialogCard({
         outputDocumentId: agent.outputDocumentId,
       });
     },
-    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+    [agent.contextWindowStrategy, agent.id, agent.outputDocumentId, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
   );
 
   const commitRunEveryNTurns = useCallback(() => {

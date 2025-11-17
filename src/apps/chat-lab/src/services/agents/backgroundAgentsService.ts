@@ -1,4 +1,4 @@
-import type { BackgroundAgent, AgentActionType } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../api/backgroundAgents';
 import { createNLPWorkbenchAPIClientWithSettings } from '../api/apiClientNLPWorkbench';
 
 export interface ConversationSliceMessage {
@@ -607,7 +607,6 @@ function summarizeObjectFields(obj: any): Record<string, any> {
       return value.length;
     }
     if (Array.isArray(value)) {
-      const sample = value.slice(0, 2).map(summarizeValue);
       return value.length;
     }
     if (typeof value === 'function') {
