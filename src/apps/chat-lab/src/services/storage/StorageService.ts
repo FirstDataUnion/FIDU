@@ -6,6 +6,8 @@
 import type { StorageAdapter, StorageConfig } from './types';
 import { createStorageAdapter } from './StorageFactory';
 import { getEnvironmentInfo } from '../../utils/environment';
+import { getWorkspaceRegistry } from '../workspace/WorkspaceRegistry';
+import { unsyncedDataManager } from './UnsyncedDataManager';
 
 export class StorageService {
   private adapter: StorageAdapter | null = null;
@@ -126,6 +128,75 @@ export class StorageService {
     if (this.adapter) {
       this.adapter.setUserId(userId);
     }
+  }
+
+  /**
+   * Switch to a different workspace
+   * Syncs current workspace, closes connections, and reinitializes with new workspace
+   */
+  async switchWorkspace(workspaceId: string): Promise<void> {
+    const workspaceRegistry = getWorkspaceRegistry();
+    const workspace = workspaceRegistry.getWorkspace(workspaceId);
+    
+    if (!workspace) {
+      throw new Error(`Workspace not found: ${workspaceId}`);
+    }
+
+    console.log(`🔄 [StorageService] Switching to workspace: ${workspace.name} (${workspaceId})`);
+
+    // 1. Sync current workspace if there are unsaved changes
+    if (this.adapter && unsyncedDataManager.hasUnsynced()) {
+      console.log('📤 [StorageService] Syncing current workspace before switch...');
+      try {
+        await this.adapter.sync();
+        unsyncedDataManager.markAsSynced();
+      } catch (error) {
+        console.error('Failed to sync before workspace switch:', error);
+        throw new Error('Failed to sync current workspace. Please try again.');
+      }
+    }
+
+    // 2. Close current adapter and cleanup
+    if (this.adapter && typeof (this.adapter as any).close === 'function') {
+      console.log('🔒 [StorageService] Closing current adapter...');
+      await (this.adapter as any).close();
+    }
+
+    // 3. Update config with new workspace context
+    if (!this.config) {
+      throw new Error('Storage service not configured');
+    }
+
+    this.config = {
+      ...this.config,
+      workspaceId: workspace.id,
+      workspaceType: workspace.type,
+      driveFolderId: workspace.driveFolderId,
+    };
+
+    console.log(`📦 [StorageService] Workspace config:`, {
+      workspaceId: this.config.workspaceId,
+      workspaceType: this.config.workspaceType,
+      driveFolderId: this.config.driveFolderId ? 'set' : 'AppData',
+    });
+
+    // 4. Create new adapter with updated config
+    this.initialized = false;
+    this.adapter = createStorageAdapter(this.config);
+    await this.adapter.initialize();
+    this.initialized = true;
+
+    // 5. Update workspace registry
+    workspaceRegistry.setActiveWorkspace(workspaceId);
+
+    console.log(`✅ [StorageService] Successfully switched to workspace: ${workspace.name}`);
+  }
+
+  /**
+   * Get current workspace ID from config
+   */
+  getCurrentWorkspaceId(): string | undefined {
+    return this.config?.workspaceId;
   }
 }
 

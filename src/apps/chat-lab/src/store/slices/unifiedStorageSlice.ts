@@ -2,7 +2,9 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import { getEnvironmentInfo } from '../../utils/environment';
-import type { GoogleDriveUser } from '../../types';
+import type { GoogleDriveUser, WorkspaceMetadata } from '../../types';
+import { getStorageService } from '../../services/storage/StorageService';
+import { getWorkspaceRegistry } from '../../services/workspace/WorkspaceRegistry';
 
 // Unified storage state interface
 export interface UnifiedStorageState {
@@ -10,6 +12,23 @@ export interface UnifiedStorageState {
   mode: 'local' | 'cloud';
   status: 'unconfigured' | 'configuring' | 'configured' | 'error';
   userSelectedMode: boolean; // Whether user has made a selection from settings page
+  
+  // Workspace state
+  activeWorkspace: {
+    id: string;
+    name: string;
+    type: 'personal' | 'shared';
+    driveFolderId?: string;
+  } | null;
+  availableWorkspaces: Array<{
+    id: string;
+    name: string;
+    type: 'personal' | 'shared';
+    role?: 'owner' | 'member';
+    lastAccessed?: string;
+  }>;
+  isSwitchingWorkspace: boolean;
+  switchError: string | null;
   
   // Google Drive specific state
   googleDrive: {
@@ -96,6 +115,10 @@ const initialState: UnifiedStorageState = {
   mode: getDefaultStorageMode(),
   status: 'unconfigured',
   userSelectedMode: false,
+  activeWorkspace: null,
+  availableWorkspaces: [],
+  isSwitchingWorkspace: false,
+  switchError: null,
   googleDrive: {
     isAuthenticated: false,
     user: null,
@@ -212,6 +235,54 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
   }
 );
 
+// Workspace management thunks
+export const loadWorkspaces = createAsyncThunk(
+  'unifiedStorage/loadWorkspaces',
+  async () => {
+    const workspaceRegistry = getWorkspaceRegistry();
+    const workspaces = workspaceRegistry.getWorkspaces();
+    const activeWorkspaceId = workspaceRegistry.getActiveWorkspaceId();
+    
+    return {
+      workspaces,
+      activeWorkspaceId
+    };
+  }
+);
+
+export const switchWorkspace = createAsyncThunk(
+  'unifiedStorage/switchWorkspace',
+  async (workspaceId: string, { rejectWithValue, dispatch }) => {
+    try {
+      const storageService = getStorageService();
+      const workspaceRegistry = getWorkspaceRegistry();
+      
+      // Get workspace metadata before switching
+      const workspace = workspaceRegistry.getWorkspace(workspaceId);
+      if (!workspace) {
+        throw new Error(`Workspace not found: ${workspaceId}`);
+      }
+      
+      // Perform the switch
+      await storageService.switchWorkspace(workspaceId);
+      
+      // Clear UI state (will be handled by components listening to this action)
+      // The components should refetch their data after workspace switch
+      
+      return {
+        workspace: {
+          id: workspace.id,
+          name: workspace.name,
+          type: workspace.type,
+          driveFolderId: workspace.driveFolderId
+        }
+      };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to switch workspace');
+    }
+  }
+);
+
 const unifiedStorageSlice = createSlice({
   name: 'unifiedStorage',
   initialState,
@@ -274,6 +345,10 @@ const unifiedStorageSlice = createSlice({
       state.mode = envInfo.storageMode as 'local' | 'cloud' || 'local';
       state.status = 'unconfigured';
       state.userSelectedMode = false;
+      state.activeWorkspace = null;
+      state.availableWorkspaces = [];
+      state.isSwitchingWorkspace = false;
+      state.switchError = null;
       state.googleDrive = {
         isAuthenticated: false,
         user: null,
@@ -285,6 +360,30 @@ const unifiedStorageSlice = createSlice({
       state.error = null;
       
       saveUnifiedStateToStorage(state);
+    },
+
+    // Workspace actions
+    setActiveWorkspace: (state, action: PayloadAction<WorkspaceMetadata>) => {
+      state.activeWorkspace = {
+        id: action.payload.id,
+        name: action.payload.name,
+        type: action.payload.type,
+        driveFolderId: action.payload.driveFolderId
+      };
+    },
+
+    setAvailableWorkspaces: (state, action: PayloadAction<WorkspaceMetadata[]>) => {
+      state.availableWorkspaces = action.payload.map(w => ({
+        id: w.id,
+        name: w.name,
+        type: w.type,
+        role: w.role,
+        lastAccessed: w.lastAccessed
+      }));
+    },
+
+    clearSwitchError: (state) => {
+      state.switchError = null;
     },
   },
   extraReducers: (builder) => {
@@ -363,6 +462,47 @@ const unifiedStorageSlice = createSlice({
       .addCase(revokeGoogleDriveAccess.rejected, (state, action) => {
         state.googleDrive.isLoading = false;
         state.googleDrive.error = action.payload as string;
+      })
+      
+      // Load Workspaces
+      .addCase(loadWorkspaces.fulfilled, (state, action) => {
+        state.availableWorkspaces = action.payload.workspaces.map(w => ({
+          id: w.id,
+          name: w.name,
+          type: w.type,
+          role: w.role,
+          lastAccessed: w.lastAccessed
+        }));
+        
+        // Set active workspace if we have one
+        if (action.payload.activeWorkspaceId) {
+          const activeWorkspace = action.payload.workspaces.find(
+            w => w.id === action.payload.activeWorkspaceId
+          );
+          if (activeWorkspace) {
+            state.activeWorkspace = {
+              id: activeWorkspace.id,
+              name: activeWorkspace.name,
+              type: activeWorkspace.type,
+              driveFolderId: activeWorkspace.driveFolderId
+            };
+          }
+        }
+      })
+      
+      // Switch Workspace
+      .addCase(switchWorkspace.pending, (state) => {
+        state.isSwitchingWorkspace = true;
+        state.switchError = null;
+      })
+      .addCase(switchWorkspace.fulfilled, (state, action) => {
+        state.isSwitchingWorkspace = false;
+        state.activeWorkspace = action.payload.workspace;
+        state.switchError = null;
+      })
+      .addCase(switchWorkspace.rejected, (state, action) => {
+        state.isSwitchingWorkspace = false;
+        state.switchError = action.payload as string;
       });
   },
 });
@@ -377,6 +517,9 @@ export const {
   setGoogleDriveLoading,
   clearError,
   resetToDefaults,
+  setActiveWorkspace,
+  setAvailableWorkspaces,
+  clearSwitchError,
 } = unifiedStorageSlice.actions;
 
 export default unifiedStorageSlice.reducer;

@@ -42,9 +42,11 @@ export interface UploadFileOptions {
 export class GoogleDriveService {
   private authService: GoogleDriveAuthService;
   private readonly APP_DATA_FOLDER = 'appDataFolder';
+  private driveFolderId?: string; // Optional folder ID for shared workspaces
 
-  constructor(authService: GoogleDriveAuthService) {
+  constructor(authService: GoogleDriveAuthService, driveFolderId?: string) {
     this.authService = authService;
+    this.driveFolderId = driveFolderId;
   }
 
   /**
@@ -105,18 +107,42 @@ export class GoogleDriveService {
   }
 
   /**
-   * List files in the app data folder
+   * Get the folder ID to use for operations
+   * Returns either the custom folder ID or AppData folder
+   */
+  private getFolderId(): string {
+    return this.driveFolderId || this.APP_DATA_FOLDER;
+  }
+
+  /**
+   * Check if we're using AppData folder
+   */
+  private isAppDataFolder(): boolean {
+    return !this.driveFolderId;
+  }
+
+  /**
+   * List files in the configured folder (AppData or custom folder)
    */
   async listFiles(): Promise<DriveFile[]> {
     return this.trackGoogleApiRequest('listFiles', async () => {
       const accessToken = await this.authService.getAccessToken();
       
       try {
-        const apiQuery = `parents in 'appDataFolder'`;
-        const andr = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=appDataFolder`;
+        const folderId = this.getFolderId();
+        const isAppData = this.isAppDataFolder();
+        
+        // Build query based on folder type
+        const apiQuery = isAppData 
+          ? `parents in 'appDataFolder'`
+          : `'${folderId}' in parents and trashed=false`;
+        
+        const spaces = isAppData ? 'appDataFolder' : 'drive';
+        
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=${spaces}`;
 
         const response = await fetch(
-          andr,
+          url,
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -160,9 +186,10 @@ export class GoogleDriveService {
       }
 
     // Create file metadata for new file
+    const folderId = this.getFolderId();
     const metadata = {
       name: fileName,
-      parents: [this.APP_DATA_FOLDER]
+      parents: [folderId]
     };
 
     // Create multipart request body manually but properly handling binary data

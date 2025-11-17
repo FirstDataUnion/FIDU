@@ -15,6 +15,9 @@ export interface StorageConfig {
   mode: StorageMode;
   baseURL?: string;
   userId?: string;
+  workspaceId?: string;        // Identifies active workspace
+  workspaceType?: 'personal' | 'shared';  // Affects Drive folder routing
+  driveFolderId?: string;      // For shared workspaces (non-AppData)
 }
 
 export interface ConversationsResponse {

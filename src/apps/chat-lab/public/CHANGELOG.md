@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.9] - 2025-12-04
 
 ### Added
-- **Background Agent Model Selection**: Allow a model used by background agents to be manually chosen. 
+- **Background Agent Model Selection**: Allow a model used by background agents to be manually chosen.
 - **Background Agent to Document**: Allow creation of a background agent which writes to a document instead of alerting.
 - **Welcome/Explainer page**: Help explain the site and onboard new users.
 - **Links to GitHub Issues**: In welcome page and sidebar - please let us know how things are going for you!

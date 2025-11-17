@@ -44,5 +44,9 @@ export class MetricsService {
   async flush(): Promise<void> {
     // Mock implementation - do nothing
   }
+
+  static recordGoogleApiRequest(_service: string, _operation: string, _status: string): void {
+    // Mock implementation - do nothing
+  }
 }
 

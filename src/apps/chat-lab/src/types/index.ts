@@ -84,6 +84,34 @@ export interface MarkdownDocument {
 }
 
 
+// Workspace Types
+export interface WorkspaceMetadata {
+  id: string;
+  name: string;
+  type: 'personal' | 'shared';
+  driveFolderId?: string;  // null/undefined for AppData (personal), folder ID for shared
+  
+  // File locations within the Drive folder
+  files?: {
+    conversationsDbId?: string;
+    apiKeysDbId?: string;
+    metadataJsonId?: string;
+  };
+  
+  // Membership (for shared workspaces)
+  role?: 'owner' | 'member';
+  members?: Array<{ email: string; role: 'owner' | 'member' }>;
+  
+  // Timestamps
+  createdAt: string;
+  lastAccessed: string;
+}
+
+export interface WorkspaceRegistry {
+  workspaces: WorkspaceMetadata[];
+  activeWorkspaceId: string | null;
+}
+
 // Authentication Types
 export interface User {
   id: string;

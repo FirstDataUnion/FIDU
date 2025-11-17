@@ -27,9 +27,10 @@ export class CloudStorageAdapter implements StorageAdapter {
   private syncService: SyncService | null = null;
   private smartAutoSyncService: SmartAutoSyncService | null = null;
   private userId: string | null = null;
+  private config: StorageConfig;
 
-  constructor(_config: StorageConfig) {
-    // Config not used in current implementation
+  constructor(config: StorageConfig) {
+    this.config = config;
   }
 
   async initialize(): Promise<void> {
@@ -82,8 +83,9 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     await this.dbManager.initialize();
 
-    // Initialize Google Drive service
-    this.driveService = new GoogleDriveService(this.authService!);
+    // Initialize Google Drive service with workspace folder if configured
+    const driveFolderId = this.config.driveFolderId;
+    this.driveService = new GoogleDriveService(this.authService!, driveFolderId);
     await this.driveService.initialize();
 
     // Initialize sync service
@@ -1430,7 +1432,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     };
   }
 
-    // Document transformation methods
+  // Document transformation methods
   private transformDocumentToDataPacket(document: any, profileId: string): any {
     return {
       id: document.id || crypto.randomUUID(),
@@ -1480,5 +1482,31 @@ export class CloudStorageAdapter implements StorageAdapter {
       updatedAt: packet.update_timestamp,
       tags: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-Document')
     };
+  }
+
+  /**
+   * Close and cleanup resources (for workspace switching)
+   */
+  async close(): Promise<void> {
+    // Stop auto-sync
+    if (this.smartAutoSyncService) {
+      this.smartAutoSyncService.disable();
+    }
+    
+    if (this.syncService) {
+      this.syncService.destroy();
+    }
+    
+    // Close database connections
+    if (this.dbManager) {
+      await this.dbManager.close();
+    }
+    
+    // Reset state
+    this.initialized = false;
+    this.dbManager = null;
+    this.driveService = null;
+    this.syncService = null;
+    this.smartAutoSyncService = null;
   }
 }
