@@ -244,7 +244,7 @@ function buildUpdateDocumentAgentPrompt(
     '    Make it unique and descriptive of the content of the section for this conversation.' +
     '    Users will later use it to find the section in the document.' +
     '2. content: The content of the response, which will be appended to a markdown document as a new section.' +
-    '    This must be formatted as markdown and must not include any top-level headings (#). Nested headings (##, ###, etc.) are allowed but should be used sparingly.' +
+    '    This must be formatted as markdown and must not include any top-level headings (#). Nested headings (##, ###, etc.) are allowed but should be used sparingly. Remember, the content will follow the heading, so you do not need to re-iterate the heading in the content.' +
     '    If no length information is given in the agent instructions, aim for one or two paragraphs.\n';
   
   const outputRequirements = 

@@ -319,12 +319,6 @@ export async function maybeEvaluateBackgroundAgents(
               }, null, 2) +
               '\n```\n\n' +
               result.response.content;
-
-              console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11");
-              console.log(result.response.content);
-              try {
-                console.log(JSON.parse(result.response.content));
-              } catch (e) {}
               
               await storage.appendTextToDocument(agent.outputDocumentId, textToAppend, profileId);
               console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ✅ Successfully appended text to document ${agent.outputDocumentId}`);
