@@ -2,7 +2,7 @@ import { fiduVaultAPIClient } from './apiClientFIDUVault';
 
 export const BACKGROUND_AGENT_TAG = 'FIDU-CHAT-LAB-BackgroundAgent';
 
-export type AgentActionType = 'alert' | 'update_context' | 'update_document';
+export type AgentActionType = 'alert' | 'update_document' | 'none';
 
 export interface BackgroundAgentDataPacket {
   id: string;
@@ -65,7 +65,7 @@ export interface BackgroundAgent {
 const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket): BackgroundAgent => {
   // Validate actionType - ensure it's always set and valid
   const actionType: AgentActionType = 
-    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_context' || packet.data.action_type === 'update_document'))
+    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_document'))
       ? packet.data.action_type
       : 'alert'; // Default to 'alert' for backward compatibility and safety
   
