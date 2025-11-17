@@ -194,7 +194,7 @@ function BackgroundAgentDialogCard({
   onJumpToMessage,
   onAlertExpanded,
 }: {
-  agent: BackgroundAgent;
+  agent: BackgroundAgent & { outputDocumentName?: string };
   onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => void;
   alerts?: Array<{ 
     id: string; 
@@ -504,44 +504,6 @@ function BackgroundAgentDialogCard({
           />
           <Typography variant="body2">turns</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
-              Verbosity threshold:
-            </Typography>
-            <Tooltip
-              title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
-              arrow
-              placement="top"
-            >
-              <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
-            </Tooltip>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '220px' }, maxWidth: 320 }}>
-            <Slider
-              value={localVerbosityThreshold}
-              onChange={(_, value) => {
-                if (typeof value === 'number') {
-                  setLocalVerbosityThreshold(value);
-                }
-              }}
-              onChangeCommitted={(_, value) => {
-                if (typeof value === 'number') {
-                  applyVerbosityThreshold(value);
-                }
-              }}
-              min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-              max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-              step={1}
-              valueLabelDisplay="auto"
-              aria-label="Verbosity threshold"
-              sx={{ flexGrow: 1 }}
-            />
-            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content' }}>
-              {localVerbosityThreshold}/100
-            </Typography>
-          </Box>
-        </Box>
         {agent.contextWindowStrategy === 'lastNMessages' && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -587,6 +549,69 @@ function BackgroundAgentDialogCard({
               }}
             />
             <Typography variant="body2">messages</Typography>
+          </Box>
+        )}
+        {agent.actionType === "alert" && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+                Verbosity threshold:
+              </Typography>
+              <Tooltip
+                title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
+                arrow
+                placement="top"
+              >
+                <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '220px' }, maxWidth: 320 }}>
+              <Slider
+                value={localVerbosityThreshold}
+                onChange={(_, value) => {
+                  if (typeof value === 'number') {
+                    setLocalVerbosityThreshold(value);
+                  }
+                }}
+                onChangeCommitted={(_, value) => {
+                  if (typeof value === 'number') {
+                    applyVerbosityThreshold(value);
+                  }
+                }}
+                min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                step={1}
+                valueLabelDisplay="auto"
+                aria-label="Verbosity threshold"
+                sx={{ flexGrow: 1 }}
+              />
+              <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content' }}>
+                {localVerbosityThreshold}/100
+              </Typography>
+            </Box>
+          </Box>
+        )}
+        {agent.actionType === "update_document" && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+                Output Document:
+              </Typography>
+              <Tooltip
+                title="The document to update with the agent's output. Go to Background Agents to select a different document."
+                arrow
+                placement="top"
+              >
+                <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <TextField
+              value={agent.outputDocumentName || agent.outputDocumentId}
+              disabled
+              size="small"
+              variant="outlined"
+              sx={{ flexGrow: 1 }}
+            />
           </Box>
         )}
       </Stack>
@@ -1591,6 +1616,7 @@ export default function PromptLabPage() {
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { settings } = useAppSelector((state) => state.settings);
+  const { items: documents } = useAppSelector((state) => state.documents);
   const unifiedStorage = useUnifiedStorage();
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
@@ -5209,10 +5235,14 @@ export default function PromptLabPage() {
                   agentId: agent.id,
                   conversationId: currentConversationId,
                 });
+                const namedAgent = {
+                  ...agent,
+                  outputDocumentName: documents.find(doc => doc.id === agent.outputDocumentId)?.title || agent.outputDocumentId,
+                };
                 return (
                   <BackgroundAgentDialogCard
                     key={agent.id}
-                    agent={agent}
+                    agent={namedAgent}
                     onUpdatePreference={handleUpdateBackgroundAgentPreference}
                     alerts={allAlerts}
                     autoExpand={allAlerts.some(alert => alert.id === alertToExpand)}

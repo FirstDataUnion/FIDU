@@ -61,10 +61,12 @@ import { DEFAULT_AGENT_CONFIG, THRESHOLD_PRESETS } from '../services/agents/agen
 import { getAllModels } from '../data/models';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { fetchDocuments } from '../store/slices/documentsSlice';
+import type { MarkdownDocument } from '../types';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
   agent: BackgroundAgent;
+  outputDocumentName?: string;
   onViewEdit: (agent: BackgroundAgent) => void;
   onToggleEnabled: (agent: BackgroundAgent) => void;
   onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number, outputDocumentId?: string }) => void;
@@ -73,7 +75,7 @@ const BackgroundAgentCard = React.memo<{
   isSelected?: boolean;
   onToggleSelection?: (id: string) => void;
   onEnterSelectionMode?: () => void;
-}>(({ agent, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, isSelected = false, onToggleSelection, onEnterSelectionMode }) => {
+}>(({ agent, outputDocumentName, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, isSelected = false, onToggleSelection, onEnterSelectionMode }) => {
   const [localRunEveryNTurns, setLocalRunEveryNTurns] = useState(agent.runEveryNTurns);
   const [localVerbosityThreshold, setLocalVerbosityThreshold] = useState(agent.verbosityThreshold);
   const [localContextLastN, setLocalContextLastN] = useState(agent.contextParams?.lastN || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES);
@@ -470,44 +472,6 @@ const BackgroundAgentCard = React.memo<{
             />
             <Typography component="span" sx={{ fontSize: 'inherit' }}>turns</Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', width: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
-                Threshold:
-              </Typography>
-              <Tooltip
-                title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
-                arrow
-                placement="top"
-              >
-                <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
-              </Tooltip>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '200px' }, maxWidth: 280 }}>
-              <Slider
-                value={localVerbosityThreshold}
-                onChange={(_, value) => {
-                  if (typeof value === 'number') {
-                    setLocalVerbosityThreshold(value);
-                  }
-                }}
-                onChangeCommitted={(_, value) => {
-                  if (typeof value === 'number') {
-                    void handleVerbosityThresholdChange(value);
-                  }
-                }}
-                min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-                max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-                step={1}
-                valueLabelDisplay="auto"
-                aria-label="Verbosity threshold"
-                sx={{ flexGrow: 1 }}
-              />
-              <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
-                {localVerbosityThreshold}/100
-              </Typography>
-            </Box>
-          </Box>
           {agent.contextWindowStrategy === 'lastNMessages' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -574,6 +538,75 @@ const BackgroundAgentCard = React.memo<{
                   ? 'Summarized'
                   : 'Full thread'}
               </Typography>
+            </Box>
+          )}
+          {agent.actionType === 'alert' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', width: '100%' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
+                  Threshold:
+                </Typography>
+                <Tooltip
+                  title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
+                  arrow
+                  placement="top"
+                >
+                  <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '200px' }, maxWidth: 280 }}>
+                <Slider
+                  value={localVerbosityThreshold}
+                  onChange={(_, value) => {
+                    if (typeof value === 'number') {
+                      setLocalVerbosityThreshold(value);
+                    }
+                  }}
+                  onChangeCommitted={(_, value) => {
+                    if (typeof value === 'number') {
+                      void handleVerbosityThresholdChange(value);
+                    }
+                  }}
+                  min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                  max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                  step={1}
+                  valueLabelDisplay="auto"
+                  aria-label="Verbosity threshold"
+                  sx={{ flexGrow: 1 }}
+                />
+                <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
+                  {localVerbosityThreshold}/100
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          {agent.actionType === 'update_document' && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', fontWeight: 600, minWidth: 'fit-content' }}>
+                  Output Document:
+                </Typography>
+                <Tooltip
+                  title="The document to update with the agent's output. Open view/edit to select a document."
+                  arrow
+                  placement="top"
+                >
+                  <HelpOutlineIcon sx={{ fontSize: '0.875rem', color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+              <TextField
+                value={outputDocumentName || agent.outputDocumentId}
+                disabled
+                size="small"
+                variant="outlined"
+                sx={{
+                  flexGrow: 1,
+                  '& .MuiOutlinedInput-root': {
+                    height: '26px',
+                    fontSize: '0.75rem',
+                  }
+                }}
+              />
             </Box>
           )}
         </Box>
@@ -660,6 +693,7 @@ BackgroundAgentCard.displayName = 'BackgroundAgentCard';
 // Optimized Grid Component
 const OptimizedBackgroundAgentsGrid = React.memo<{
   agents: BackgroundAgent[];
+  documents: MarkdownDocument[];
   onViewEdit: (agent: BackgroundAgent) => void;
   onToggleEnabled: (agent: BackgroundAgent) => void;
   onUpdatePreferences?: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => void;
@@ -668,7 +702,7 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
   onEnterSelectionMode?: () => void;
-}>(({ agents, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, selectedIds, onToggleSelection, onEnterSelectionMode }) => {
+}>(({ agents, documents, onViewEdit, onToggleEnabled, onUpdatePreferences, onUpdateAgent, isSelectionMode = false, selectedIds, onToggleSelection, onEnterSelectionMode }) => {
   return (
     <Box sx={{
       display: 'grid',
@@ -683,6 +717,7 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
         <BackgroundAgentCard
           key={agent.id}
           agent={agent}
+          outputDocumentName={documents.find(doc => doc.id === agent.outputDocumentId)?.title || agent.outputDocumentId}
           onViewEdit={onViewEdit}
           onToggleEnabled={onToggleEnabled}
           onUpdatePreferences={onUpdatePreferences}
@@ -1356,6 +1391,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         ) : filteredAgents.length > 0 ? (
           <OptimizedBackgroundAgentsGrid
             agents={filteredAgents}
+            documents={documents}
             onViewEdit={handleViewEditAgent}
             onToggleEnabled={handleToggleEnabled}
             onUpdatePreferences={handleUpdatePreferences}
