@@ -26,6 +26,15 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
   }
 
   async exportResource(resource: BackgroundAgent, _profileId: string): Promise<ExportableResource> {
+    let outputDocument: { id: string; title: string; } | undefined;
+    if (resource.outputDocumentId) {
+      const storage = getUnifiedStorageService();
+      const document = await storage.getDocumentById(resource.outputDocumentId);
+      outputDocument = {
+        id: document.id,
+        title: document.title,
+      };
+    }
     // Sanitize background agent - remove ownership IDs and timestamps
     const exportData: BackgroundAgentExport = {
       id: resource.id, // Preserve original ID for reference resolution
@@ -36,6 +45,7 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
       promptTemplate: resource.promptTemplate,
       runEveryNTurns: resource.runEveryNTurns,
       verbosityThreshold: resource.verbosityThreshold,
+      outputDocument: outputDocument,
       contextWindowStrategy: resource.contextWindowStrategy,
       contextParams: resource.contextParams,
       outputSchemaName: resource.outputSchemaName,
@@ -55,14 +65,14 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
 
   async importResource(
     exportable: ExportableResource,
-    _profileId: string,
+    profileId: string,
     _userId: string,
     idMapping?: IdMapping
   ): Promise<BackgroundAgent> {
     const exportData = exportable.data as BackgroundAgentExport;
     
     // Validate action type
-    if (exportData.actionType !== 'alert' && exportData.actionType !== 'update_context') {
+    if (exportData.actionType !== 'alert' && exportData.actionType !== 'update_document') {
       throw new Error(`Invalid action type: ${exportData.actionType}`);
     }
     
@@ -72,6 +82,27 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
     // Update ID mapping if provided
     if (idMapping) {
       idMapping[exportData.id] = newId;
+    }
+
+    
+    let outputDocumentId: string | undefined;
+    // If the agent has an output document
+    if (exportData.outputDocument) {
+      // Look up the document in the mapping in case it was already imported/created
+      outputDocumentId = idMapping?.[exportData.outputDocument.id];
+      // But if not, create a new document
+      if (!outputDocumentId) {
+        const storage = getUnifiedStorageService();
+        const created = await storage.createDocument({
+          title: exportData.outputDocument.title,
+          content: '',
+        }, profileId);
+        outputDocumentId = created.id;
+        // And store the new ID, in case it is needed for other agents
+        if (idMapping) {
+          idMapping[exportData.outputDocument.id] = created.id;
+        }
+      }
     }
 
     // Re-hydrate background agent with new ownership
@@ -85,6 +116,7 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
       promptTemplate: exportData.promptTemplate,
       runEveryNTurns: exportData.runEveryNTurns,
       verbosityThreshold: exportData.verbosityThreshold,
+      outputDocumentId: outputDocumentId,
       contextWindowStrategy: exportData.contextWindowStrategy,
       contextParams: exportData.contextParams,
       outputSchemaName: exportData.outputSchemaName || 'default',
@@ -113,7 +145,7 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
     }
 
     // Validate action type
-    if (data.actionType !== 'alert' && data.actionType !== 'update_context') {
+    if (data.actionType !== 'alert' && data.actionType !== 'update_document') {
       return false;
     }
 

@@ -92,10 +92,14 @@ export interface BackgroundAgentExport {
   name: string;
   description: string;
   enabled: boolean;
-  actionType: 'alert' | 'update_context';
+  actionType: 'alert' | 'update_document';
   promptTemplate: string;
   runEveryNTurns: number;
-  verbosityThreshold: number;
+  verbosityThreshold?: number;
+  outputDocument?: {
+    id: string;
+    title: string;
+  };
   contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
   contextParams?: {
     lastN?: number;
