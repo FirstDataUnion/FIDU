@@ -765,6 +765,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     runEveryNTurns: number;
     verbosityThreshold?: number;
     outputDocumentId?: string;
+    newOutputDocumentTitle?: string;
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
@@ -880,6 +881,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     runEveryNTurns: number;
     verbosityThreshold?: number;
     outputDocumentId?: string;
+    newOutputDocumentTitle?: string;
     contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     contextParams: { lastN?: number; tokenLimit?: number };
     notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
@@ -951,8 +953,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       }
     }
     if (createForm.actionType === 'update_document'){
-      if (!createForm.outputDocumentId) {
-        setError('Output document is required for update document agents.');
+      if (!createForm.outputDocumentId && !createForm.newOutputDocumentTitle) {
+        setError('Output document or new output document title is required for update document agents.');
         return;
       }
     }
@@ -970,6 +972,16 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       const profileId = currentProfile?.id;
       if (!profileId) throw new Error('No active profile.');
       
+      let outputDocumentId = createForm.outputDocumentId;
+      
+      if (createForm.actionType === 'update_document' && !outputDocumentId && createForm.newOutputDocumentTitle) {
+        const created = await storage.createDocument({
+          title: createForm.newOutputDocumentTitle,
+          content: '',
+        }, profileId);
+        outputDocumentId = created.id;
+      }
+      
       // Ensure actionType is set (default to 'alert' if somehow missing)
       const actionType: AgentActionType = createForm.actionType || 'alert';
       
@@ -982,7 +994,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         promptTemplate: createForm.promptTemplate.trim(),
         runEveryNTurns: createForm.runEveryNTurns,
         verbosityThreshold: createForm.verbosityThreshold,
-        outputDocumentId: createForm.outputDocumentId,
+        outputDocumentId: outputDocumentId,
         contextWindowStrategy: createForm.contextWindowStrategy,
         contextParams: createForm.contextParams,
         outputSchemaName: 'default',
@@ -1131,8 +1143,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       }
     }
     if (viewEditForm.actionType === 'update_document'){
-      if (!viewEditForm.outputDocumentId) {
-        setError('Output document is required for update document agents.');
+      if (!viewEditForm.outputDocumentId && !viewEditForm.newOutputDocumentTitle) {
+        setError('Output document or new output document title is required for update document agents.');
         return;
       }
     }
@@ -1166,8 +1178,17 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         setError('No active profile. Please select or create a profile.');
         return;
       }
-      
+
       const storage = getUnifiedStorageService();
+
+      if (viewEditForm.actionType === 'update_document' && !viewEditForm.outputDocumentId && viewEditForm.newOutputDocumentTitle) {
+        const created = await storage.createDocument({
+          title: viewEditForm.newOutputDocumentTitle,
+          content: '',
+        }, currentProfile.id);
+        viewEditForm.outputDocumentId = created.id;
+      }
+      
       // Ensure actionType is set (default to 'alert' if somehow missing)
       const actionType: AgentActionType = viewEditForm.actionType || 'alert';
       
@@ -1654,19 +1675,26 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     required
                     onChange={(e) => setViewEditForm(prev => ({ ...prev, outputDocumentId: e.target.value }))}
                   >
-                    {documents && documents.length > 0 ? (
+                    <MenuItem value="">Create New Document</MenuItem>
+                    {documents && documents.length > 0 && (
                       documents.map((doc: any) => (
                         <MenuItem key={doc.id} value={doc.id}>
                           {doc.title || `Untitled (${doc.id})`}
                         </MenuItem>
                       ))
-                    ) : (
-                      <MenuItem value="" disabled>
-                        No documents found
-                      </MenuItem>
                     )}
                   </Select>
                 </FormControl>
+              )}
+              {viewEditForm.actionType === 'update_document' && !viewEditForm.outputDocumentId && (
+                <TextField
+                  fullWidth
+                  label="New Output Document Title"
+                  value={viewEditForm.newOutputDocumentTitle || ''}
+                  onChange={(e) => setViewEditForm(prev => ({ ...prev, newOutputDocumentTitle: e.target.value }))}
+                  helperText={`Create a new document with this title. (${viewEditForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
+                  slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+                />
               )}
               <TextField
                 fullWidth
@@ -2004,20 +2032,26 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     required
                     onChange={(e) => setCreateForm(prev => ({ ...prev, outputDocumentId: e.target.value }))}
                   >
-                    {documents && documents.length > 0 ? (
+                    <MenuItem value="">Create New Document</MenuItem>
+                    {documents && documents.length > 0 && (
                       documents.map((doc: any) => (
                         <MenuItem key={doc.id} value={doc.id}>
                           {doc.title || `Untitled (${doc.id})`}
                         </MenuItem>
                       ))
-                    ) : (
-                      <MenuItem value="" disabled>
-                        No documents found
-                      </MenuItem>
                     )}
                   </Select>
                 </FormControl>
-
+              )}
+              {createForm.actionType === 'update_document' && !createForm.outputDocumentId && (
+                <TextField
+                  fullWidth
+                  label="New Output Document Title"
+                  value={createForm.newOutputDocumentTitle || ''}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, newOutputDocumentTitle: e.target.value }))}
+                  helperText={`Create a new document with this title. (${createForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
+                  slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+                />
               )}
               <TextField
                 fullWidth
