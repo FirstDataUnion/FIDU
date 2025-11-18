@@ -77,7 +77,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
       agentId: 'a1',
       response: {
         actionType: 'alert',
-        rating: 30,
+        rating: 30, // Below threshold of 50 to trigger alert
         severity: 'warn',
         notify: true,
         shortMessage: 'Test alert',

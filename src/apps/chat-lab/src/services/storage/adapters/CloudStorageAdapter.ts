@@ -792,7 +792,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     
     // Validate actionType - ensure it's always set and valid
     const actionType = 
-      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_context' || finalData.action_type === 'update_document'))
+      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_document'))
         ? finalData.action_type
         : 'alert'; // Default to 'alert' for backward compatibility and safety
     

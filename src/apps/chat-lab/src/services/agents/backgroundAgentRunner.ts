@@ -202,7 +202,7 @@ export async function maybeEvaluateBackgroundAgents(
     }
     
     // Validate actionType is set - this is critical for agent execution
-    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_context' && a.actionType !== 'update_document')) {
+    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_document')) {
       console.warn(`🤖 [BackgroundAgents] Agent "${a.name || a.id}" is enabled but has invalid or missing actionType: "${a.actionType}". Skipping this agent - please fix the agent configuration.`);
       // Skip this agent - user should fix the agent configuration
       return false;
@@ -321,7 +321,7 @@ export async function maybeEvaluateBackgroundAgents(
                 message_id: messageId,
                 content_length: result.response.content.length,
               }, null, 2) +
-              '\n```\n\n' +
+              '\n```\n' +
               result.response.content;
               
               await storage.appendTextToDocument(agent.outputDocumentId, textToAppend, profileId);

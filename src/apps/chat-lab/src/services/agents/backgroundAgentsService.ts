@@ -383,7 +383,7 @@ function validateAndNormalizeAlertResult(
       rating: 0,
       short_message: 'Evaluation failed - invalid response format',
       description: 'The background agent evaluation could not be completed due to an invalid response format from the model.',
-      severity: 'info' as ('info' | 'warn' | 'error'),
+      severity: 'info' as const,
       notify: false,
       details: {},
     };
@@ -400,7 +400,7 @@ function validateAndNormalizeAlertResult(
     description: String(description || 'No detailed description provided.'),
     severity: (['info', 'warn', 'error'].includes(parsed.severity) 
       ? parsed.severity 
-      : 'info') as 'info' | 'warn' | 'error',
+      : 'info') satisfies 'info' | 'warn' | 'error',
     notify: Boolean(parsed.notify ?? true),
     details: (typeof parsed.details === 'object' && parsed.details !== null 
       ? parsed.details 
@@ -415,12 +415,12 @@ function validateAndNormalizeUpdateDocumentResult(
   if (!parsed || typeof parsed !== 'object') {
     console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - Invalid parsed result, using defaults`);
     return {
-      heading: 'Background Agent Response',
+      heading: 'Background Agent Response: ' + agent.name,
       content: 'No response provided.',
     };
   }
   return {
-    heading: String(parsed.heading?.replace(/^#+\s*/, '').trim() || 'Background Agent Response'),
+    heading: String(parsed.heading?.replace(/^#+\s*/, '').trim() || 'Background Agent Response: ' + agent.name),
     content: String(parsed.content?.trim() || 'No response provided.'),
   };
 }
