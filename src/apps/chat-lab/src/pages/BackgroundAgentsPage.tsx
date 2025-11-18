@@ -744,7 +744,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const currentProfile = useAppSelector((state) => state.auth.currentProfile);
   const { user } = useAppSelectorFull((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
-  const isDirectoryRequired = useFilesystemDirectoryRequired();
+  const documents = useAppSelector((state) => state.documents.items);
+  const dispatch = useAppDispatch();
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1053,7 +1054,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     }
   };
 
-  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+  const handleUpdatePreferences = useCallback((agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string; enabled?: boolean; modelId?: string }) => {
     // Save to localStorage
     setAgentPreference(agentId, prefs);
     // Trigger re-computation of built-in agents with new preferences

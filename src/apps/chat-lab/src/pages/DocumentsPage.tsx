@@ -15,8 +15,6 @@ import {
 } from '@mui/icons-material';
 import { useAppSelector } from '../store';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
-import StorageDirectoryBanner from '../components/common/StorageDirectoryBanner';
-import { useFilesystemDirectoryRequired } from '../hooks/useFilesystemDirectoryRequired';
 import { useMultiSelect } from '../hooks/useMultiSelect';
 import { FloatingExportActions } from '../components/resourceExport/FloatingExportActions';
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
@@ -33,7 +31,6 @@ export default function DocumentsPage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState('');
     const unifiedStorage = useUnifiedStorage();
-    const isDirectoryRequired = useFilesystemDirectoryRequired();
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
     const [initialDocument, setInitialDocument] = useState<{ id?: string; title: string; content: string } | undefined>(undefined);
@@ -158,9 +155,6 @@ export default function DocumentsPage() {
         position: 'relative',
         overflow: 'hidden'
       }}>
-        {/* Storage Directory Banner */}
-        <StorageDirectoryBanner pageType="documents" />
-  
         {/* Scrollable Content Area */}
         <Box sx={{
           flex: 1,
@@ -214,7 +208,6 @@ export default function DocumentsPage() {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={handleCreateDocumentClick}
-                    disabled={isDirectoryRequired}
                     sx={{
                       borderRadius: 2,
                       flex: 1,
@@ -229,7 +222,6 @@ export default function DocumentsPage() {
                     variant="outlined"
                     startIcon={<ImportIcon />}
                     onClick={() => setShowImportDialog(true)}
-                    disabled={isDirectoryRequired}
                     sx={{
                       borderRadius: 2,
                       flex: 1,
