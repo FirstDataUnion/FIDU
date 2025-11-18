@@ -29,7 +29,7 @@ export default function DocumentEditDialog({
   onCreate,
   onUpdate,
   onDelete,
-  closeOnSave = false,
+  closeOnSave = true,
 }: DocumentEditDialogProps) {
   // Internal state for document ID (manages create-to-edit transition)
   const [documentId, setDocumentId] = useState<string | undefined>(initialDocument?.id);
