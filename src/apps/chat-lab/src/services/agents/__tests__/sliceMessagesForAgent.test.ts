@@ -7,7 +7,7 @@
 
 import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
-import type { ConversationSliceMessage } from '../backgroundAgentsService';
+import type { ConversationSliceMessage, EvaluationResult } from '../backgroundAgentsService';
 
 // Create mocks before using them in jest.mock
 const mockGetBackgroundAgents = jest.fn();
@@ -46,16 +46,20 @@ describe('Context Window Message Slicing', () => {
     
     mockLoadAgentPreferences.mockReturnValue({});
     mockTransformBuiltInAgents.mockReturnValue([]);
-    mockEvaluateBackgroundAgent.mockResolvedValue({
+      mockEvaluateBackgroundAgent.mockResolvedValue({
       agentId: 'agent-1',
-      rating: 50,
-      severity: 'warn',
-      notify: true,
-      message: 'Test',
-      details: {},
+      response: {
+        actionType: 'alert',
+        rating: 50,
+        severity: 'warn',
+        notify: true,
+        shortMessage: 'Test',
+        description: 'Test',
+        details: {},
+      },
       rawModelOutput: '',
       parsedResult: {},
-    });
+    } satisfies EvaluationResult);
   });
 
   const createMessages = (count: number): ConversationSliceMessage[] => {
@@ -73,6 +77,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         actionType: 'alert',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
@@ -113,6 +118,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',
@@ -147,6 +153,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',
@@ -181,6 +188,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',
@@ -214,6 +222,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',
@@ -254,6 +263,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',
@@ -288,6 +298,7 @@ describe('Context Window Message Slicing', () => {
         id: 'agent-1',
         name: 'Test Agent',
         enabled: true,
+        description: 'Test Description',
         runEveryNTurns: 1,
         verbosityThreshold: 50,
         actionType: 'alert',

@@ -2,7 +2,8 @@ import { conversationsApi } from '../conversations';
 import { fiduVaultAPIClient } from '../apiClientFIDUVault';
 import { refreshTokenService } from '../refreshTokenService';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
-import type { Message, ConversationDataPacket } from '../../../types';
+import type { Message } from '../../../types';
+import type { ConversationDataPacket } from '../conversations';
 
 // Mock the API client
 jest.mock('../apiClientFIDUVault', () => ({
@@ -397,7 +398,7 @@ describe('conversationsApi', () => {
           conversationId: '1',
           role: 'user',
           content: 'Hello',
-          timestamp: new Date('2024-01-01T00:00:00Z'),
+          timestamp: new Date('2024-01-01T00:00:00Z').toISOString(),
           platform: 'user',
           attachments: [],
           isEdited: false,
@@ -407,7 +408,7 @@ describe('conversationsApi', () => {
           conversationId: '1',
           role: 'assistant',
           content: 'Hi!',
-          timestamp: new Date('2024-01-01T00:01:00Z'),
+          timestamp: new Date('2024-01-01T00:01:00Z').toISOString(),
           platform: 'gpt-4o',
           attachments: [],
           isEdited: false,
@@ -417,7 +418,7 @@ describe('conversationsApi', () => {
           conversationId: '1',
           role: 'assistant',
           content: 'Another response',
-          timestamp: new Date('2024-01-01T00:02:00Z'),
+          timestamp: new Date('2024-01-01T00:02:00Z').toISOString(),
           platform: 'claude-3-5-sonnet',
           attachments: [],
           isEdited: false,
@@ -458,7 +459,7 @@ describe('conversationsApi', () => {
           conversationId: '1',
           role: 'assistant',
           content: 'New response',
-          timestamp: new Date('2024-01-01T00:03:00Z'),
+          timestamp: new Date('2024-01-01T00:03:00Z').toISOString(),
           platform: 'claude-3-5-sonnet', // New model
           attachments: [],
           isEdited: false,
@@ -639,7 +640,7 @@ describe('conversationsApi', () => {
     });
 
     it('should handle data packet with no interactions (new conversation)', async () => {
-      const emptyConversationPacket = {
+      const emptyConversationPacket: ConversationDataPacket = {
         ...mockConversationDataPacket,
         data: {
           ...mockConversationDataPacket.data,

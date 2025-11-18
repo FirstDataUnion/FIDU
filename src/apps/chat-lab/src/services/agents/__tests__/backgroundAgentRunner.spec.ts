@@ -1,6 +1,7 @@
 import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
-import { ConversationSliceMessage, EvaluationResult } from '../backgroundAgentsService';
+import type { ConversationSliceMessage, EvaluationResult } from '../backgroundAgentsService';
+import type { Message } from '../../../types';
 
 const mockGetConversationById = jest.fn();
 const mockGetMessages = jest.fn();
@@ -90,7 +91,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
     // Setup default storage mocks
     mockGetConversationById.mockResolvedValue({ id: 'c1', title: 'Test Conversation' });
     mockGetMessages.mockResolvedValue([
-      { id: 'test-msg-1', conversationId: 'c1', content: 'Hello', role: 'assistant', timestamp: new Date().toISOString(), platform: 'test' }
+      { id: 'test-msg-1', conversationId: 'c1', content: 'Hello', role: 'assistant', timestamp: new Date().toISOString(), platform: 'test', isEdited: false } satisfies Message
     ]);
     mockUpdateConversation.mockResolvedValue({ id: 'c1', title: 'Test Conversation' });
   });
@@ -390,12 +391,18 @@ describe('maybeEvaluateBackgroundAgents', () => {
     } as BackgroundAgent;
 
     // Patch storage mock to include the update_document agent
-    const storageModule = require('../../storage/UnifiedStorageService');
-    storageModule.getUnifiedStorageService().getBackgroundAgents.mockResolvedValue({
-      backgroundAgents: [
-        updateDocumentAgent
-      ]
-    });
+    jest.mock('../../storage/UnifiedStorageService', () => ({
+      getUnifiedStorageService: () => ({
+        getBackgroundAgents: jest.fn().mockResolvedValue({
+          backgroundAgents: [
+            updateDocumentAgent
+          ],
+        }),
+        getConversationById: mockGetConversationById,
+        getMessages: mockGetMessages,
+        updateConversation: mockUpdateConversation,
+      }),
+    }));
 
     mockEvaluateBackgroundAgent.mockResolvedValueOnce({
       agentId: 'a3',

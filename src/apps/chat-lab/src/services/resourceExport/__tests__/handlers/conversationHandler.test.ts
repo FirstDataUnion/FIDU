@@ -5,6 +5,7 @@
 
 import { ConversationHandler } from '../../handlers/conversationHandler';
 import type { Conversation, Message } from '../../../../types';
+import { ConversationExport, ExportableResource } from '../../types';
 
 const mockGetMessages = jest.fn();
 
@@ -118,9 +119,9 @@ describe('ConversationHandler', () => {
 
   describe('importResource', () => {
     it('should generate new IDs and map references', async () => {
-      const exportData = {
+      const exportData: ExportableResource = {
         originalId: 'conv-123',
-        resourceType: 'conversation' as const,
+        resourceType: 'conversation',
         data: {
           id: 'conv-123',
           title: 'Test Conversation',
@@ -152,7 +153,7 @@ describe('ConversationHandler', () => {
             systemPromptNames: ['Prompt 1'],
             estimatedTokens: 100,
           },
-        },
+        } satisfies ConversationExport,
       };
 
       const idMapping: Record<string, string> = {
@@ -177,9 +178,9 @@ describe('ConversationHandler', () => {
     });
 
     it('should handle missing platform in messages', async () => {
-      const exportData = {
+      const exportData: ExportableResource = {
         originalId: 'conv-123',
-        resourceType: 'conversation' as const,
+        resourceType: 'conversation',
         data: {
           id: 'conv-123',
           title: 'Test Conversation',
@@ -201,7 +202,7 @@ describe('ConversationHandler', () => {
               isEdited: false,
             },
           ],
-        },
+        } satisfies ConversationExport,
       };
 
       const result = await handler.importResource(

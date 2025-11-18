@@ -11,6 +11,7 @@ import { ConversationHandler } from '../handlers/conversationHandler';
 import { DocumentHandler } from '../handlers/documentHandler';
 import { RESOURCE_EXPORT_VERSION } from '../types';
 import type { ResourceExport } from '../types';
+import { Context, Conversation, SystemPrompt } from '../../../types';
 
 // Mock handlers
 jest.mock('../handlers/systemPromptHandler');
@@ -168,7 +169,7 @@ describe('ResourceImportService', () => {
         categories: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      } as any);
+      } satisfies SystemPrompt);
 
       mockCreateSystemPrompt.mockResolvedValue({ id: 'new-sp-1' });
 
@@ -312,7 +313,7 @@ describe('ResourceImportService', () => {
         isBuiltIn: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      } as any);
+      } satisfies Context);
 
       const handlerConv = service['conversationHandler'] as jest.Mocked<ConversationHandler>;
       handlerConv.validateImport = jest.fn().mockReturnValue(true);
@@ -329,7 +330,7 @@ describe('ResourceImportService', () => {
         isFavorite: false,
         participants: [],
         status: 'active',
-      } as any);
+      } satisfies Conversation);
 
       mockCreateContext.mockResolvedValue({ id: 'new-ctx-1' });
       mockCreateConversation.mockResolvedValue({ id: 'new-conv-1' });
