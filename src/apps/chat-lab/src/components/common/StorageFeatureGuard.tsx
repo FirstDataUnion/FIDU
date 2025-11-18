@@ -61,9 +61,6 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
       case 'cloud':
         adapterName = 'Cloud Storage';
         break;
-      case 'filesystem':
-        adapterName = 'File System Storage';
-        break;
       case 'local':
         adapterName = 'Local Storage';
         break;
