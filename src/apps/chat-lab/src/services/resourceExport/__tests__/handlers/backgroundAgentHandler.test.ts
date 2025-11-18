@@ -133,11 +133,11 @@ describe('BackgroundAgentHandler', () => {
       expect(handler.validateImport(validData)).toBe(true);
     });
 
-    it('should validate update_context action type', () => {
+    it('should validate update_document action type', () => {
       const validData = {
         id: 'agent-123',
         name: 'Test Agent',
-        actionType: 'update_context',
+        actionType: 'update_document',
         promptTemplate: 'Test Template',
       };
 

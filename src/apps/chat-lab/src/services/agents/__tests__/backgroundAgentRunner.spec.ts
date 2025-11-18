@@ -1,5 +1,6 @@
 import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
+import { ConversationSliceMessage, EvaluationResult } from '../backgroundAgentsService';
 
 const mockGetConversationById = jest.fn();
 const mockGetMessages = jest.fn();
@@ -35,17 +36,7 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
   }),
 }));
 
-const mockEvaluateBackgroundAgent = jest.fn().mockResolvedValue({
-  agentId: 'a1',
-  rating: 30, // Below threshold of 50 to trigger alert
-  severity: 'warn',
-  notify: true,
-  message: 'Test alert',
-  details: {},
-  rawModelOutput: '',
-  parsedResult: {},
-});
-
+const mockEvaluateBackgroundAgent = jest.fn();
 jest.mock('../backgroundAgentsService', () => ({
   evaluateBackgroundAgent: (...args: any[]) => mockEvaluateBackgroundAgent(...args),
 }));
@@ -70,7 +61,7 @@ describe('maybeEvaluateBackgroundAgents', () => {
     messages: [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'hello' },
-    ] as any,
+    ] satisfies ConversationSliceMessage[],
     turnCount: 0,
     messageId: 'test-msg-1', // Required parameter
   };
@@ -83,15 +74,18 @@ describe('maybeEvaluateBackgroundAgents', () => {
     // Reset to default mock that triggers alerts
     mockEvaluateBackgroundAgent.mockResolvedValue({
       agentId: 'a1',
-      actionType: 'alert',
-      rating: 30, // Below threshold of 50 to trigger alert
-      severity: 'warn',
-      notify: true,
-      message: 'Test alert',
-      details: {},
-      rawModelOutput: '{"rating": 30, "warning_message": "Test alert"}',
-      parsedResult: { rating: 30, warning_message: 'Test alert' },
-    });
+      response: {
+        actionType: 'alert',
+        rating: 30,
+        severity: 'warn',
+        notify: true,
+        shortMessage: 'Test alert',
+        description: 'Test alert',
+        details: {},
+      },
+      rawModelOutput: '',
+      parsedResult: {},
+    } satisfies EvaluationResult);
     
     // Setup default storage mocks
     mockGetConversationById.mockResolvedValue({ id: 'c1', title: 'Test Conversation' });
@@ -103,11 +97,12 @@ describe('maybeEvaluateBackgroundAgents', () => {
 
   it('does not trigger when cadence does not match', async () => {
     await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 1, messageId: 'test-msg-1' });
-    expect(addAgentAlertSpy).not.toHaveBeenCalled();
+    expect(mockEvaluateBackgroundAgent).not.toHaveBeenCalled();
   });
 
   it('triggers evaluation when cadence matches and emits alert above threshold', async () => {
     await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
+    expect(mockEvaluateBackgroundAgent).toHaveBeenCalledTimes(1);
     expect(addAgentAlertSpy).toHaveBeenCalledTimes(1);
     const alert = addAgentAlertSpy.mock.calls[0][0];
     expect(alert.agentId).toBe('a1');
@@ -328,15 +323,18 @@ describe('maybeEvaluateBackgroundAgents', () => {
   it('does not create alert when rating exceeds threshold', async () => {
     mockEvaluateBackgroundAgent.mockResolvedValueOnce({
       agentId: 'a1',
-      actionType: 'alert',
-      rating: 80, // Above threshold of 50
-      severity: 'info',
-      notify: true,
-      message: 'High rating',
-      details: {},
+      response: {
+        actionType: 'alert',
+        rating: 80, // Above threshold of 50
+        severity: 'info',
+        notify: true,
+        shortMessage: 'High rating',
+        description: 'High rating',
+        details: {},
+      },
       rawModelOutput: '',
       parsedResult: {},
-    });
+    } satisfies EvaluationResult);
 
     await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     
@@ -346,15 +344,18 @@ describe('maybeEvaluateBackgroundAgents', () => {
   it('does not create alert when notify is false', async () => {
     mockEvaluateBackgroundAgent.mockResolvedValueOnce({
       agentId: 'a1',
-      actionType: 'alert',
-      rating: 30, // Below threshold
-      severity: 'warn',
-      notify: false, // Should not notify
-      message: 'Test',
-      details: {},
+      response: {
+        actionType: 'alert',
+        rating: 30, // Below threshold
+        severity: 'warn',
+        notify: false, // Should not notify
+        shortMessage: 'Test',
+        description: 'Test',
+        details: {},
+      },
       rawModelOutput: '',
       parsedResult: {},
-    });
+    } satisfies EvaluationResult);
 
     await maybeEvaluateBackgroundAgents({ ...baseParams, turnCount: 2, messageId: 'test-msg-1' });
     
@@ -372,5 +373,48 @@ describe('maybeEvaluateBackgroundAgents', () => {
     expect(consoleSpy).toHaveBeenCalled();
     expect(addAgentAlertSpy).not.toHaveBeenCalled();
     consoleSpy.mockRestore();
+  });
+
+  it('evaluates update_document agent but does not create alert', async () => {
+    // Create an update_document agent mock (enabled, cadence matches)
+    const updateDocumentAgent = {
+      id: 'a3',
+      name: 'Agent 3',
+      enabled: true,
+      runEveryNTurns: 2,
+      actionType: 'update_document',
+      outputDocumentId: 'doc-123',
+      contextWindowStrategy: 'lastNMessages',
+      contextParams: { lastN: 6 },
+      verbosityThreshold: 0,
+    } as BackgroundAgent;
+
+    // Patch storage mock to include the update_document agent
+    const storageModule = require('../../storage/UnifiedStorageService');
+    storageModule.getUnifiedStorageService().getBackgroundAgents.mockResolvedValue({
+      backgroundAgents: [
+        updateDocumentAgent
+      ]
+    });
+
+    mockEvaluateBackgroundAgent.mockResolvedValueOnce({
+      agentId: 'a3',
+      response: {
+        actionType: 'update_document',
+        heading: 'Doc Heading',
+          content: 'This is the content to append.',
+      },
+      rawModelOutput: '',
+      parsedResult: {},
+    } satisfies EvaluationResult);
+
+    await maybeEvaluateBackgroundAgents({
+      ...baseParams,
+      turnCount: 2,
+      messageId: 'test-msg-2',
+    });
+
+    expect(mockEvaluateBackgroundAgent).toHaveBeenCalledTimes(1);
+    expect(addAgentAlertSpy).not.toHaveBeenCalled();
   });
 });

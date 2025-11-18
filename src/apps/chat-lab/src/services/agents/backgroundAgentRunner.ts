@@ -1,5 +1,5 @@
 import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
-import type { ConversationSliceMessage } from './backgroundAgentsService';
+import type { ConversationSliceMessage, EvaluationResult } from './backgroundAgentsService';
 import { evaluateBackgroundAgent } from './backgroundAgentsService';
 import { addAgentAlert } from './agentAlerts';
 import type { BackgroundAgent } from '../api/backgroundAgents';
@@ -103,20 +103,23 @@ function sliceMessagesForAgent(
  * Creates alert metadata from evaluation result and agent info
  */
 function createAlertMetadata(
-  result: any,
+  result: EvaluationResult,
   agent: BackgroundAgent
 ): BackgroundAgentAlertMetadata {
+  if (result.response.actionType !== 'alert') {
+    throw new Error(`🤖 [BackgroundAgents] createAlertMetadata: result.response.actionType is not 'alert': ${result.response.actionType}`);
+  }
   return {
     agentId: agent.id,
     agentName: agent.name,
     createdAt: new Date().toISOString(),
-    rating: Number(result.rating),
-    severity: result.severity,
-    message: result.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
-    shortMessage: result.shortMessage,
-    description: result.description,
+    rating: Number(result.response.rating),
+    severity: result.response.severity,
+    message: result.response.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
+    shortMessage: result.response.shortMessage,
+    description: result.response.description,
     details: {
-      ...result.details,
+      ...result.response.details,
       // Include parse error information in details for debugging
       parseError: result.parseError,
     },
@@ -269,7 +272,8 @@ export async function maybeEvaluateBackgroundAgents(
           // Dispatch based on action type
         switch (result.response.actionType) {
           case 'alert': {
-            if (result.response.notify) {
+            const shouldNotify = result.response.notify && result.response.rating <= agent.verbosityThreshold;
+            if (shouldNotify) {
               // Generate unique alert ID with timestamp and random suffix to prevent collisions
               const alertId = `${agent.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
               addAgentAlert({

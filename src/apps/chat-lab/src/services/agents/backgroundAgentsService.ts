@@ -531,17 +531,13 @@ export async function evaluateBackgroundAgent(
   let result: EvaluationResult;
   switch (normalized.actionType) {
     case 'alert': {
-      const verbosityThreshold = Number(agent.verbosityThreshold ?? 50);
-      // Alert when rating is <= threshold (lower rating = worse, so we want to alert on low scores)
-      const notify = normalized.notify && normalized.rating <= verbosityThreshold;
-
       result = {
         agentId: agent.id,
         response: {
           actionType: normalized.actionType,
           rating: normalized.rating,
           severity: normalized.severity,
-          notify,
+          notify: normalized.notify,
           shortMessage: normalized.short_message,
           description: normalized.description,
           details: normalized.details,
