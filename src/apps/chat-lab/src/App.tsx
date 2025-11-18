@@ -38,6 +38,8 @@ import { getAuthManager } from './services/auth/AuthManager';
 import LoadingProgress from './components/common/LoadingProgress';
 import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
+import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
+import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -51,6 +53,7 @@ const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
 const WhatsNewPage = React.lazy(() => import('./pages/WhatsNewPage'));
+const DocumentsPage = React.lazy(() => import('./pages/DocumentsPage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -801,7 +804,28 @@ const AppContent: React.FC<AppContentProps> = () => {
                   <Route path="/conversations" element={<ConversationsPage />} />
                   <Route path="/contexts" element={<ContextsPage />} />
                   <Route path="/system-prompts" element={<SystemPromptsPage />} />
-                  <Route path="/background-agents" element={<BackgroundAgentsPage />} />
+                  <Route 
+                    path="/background-agents" 
+                    element={
+                      <StorageFeatureGuard
+                        featureName="Background Agents"
+                        checkFeature={supportsBackgroundAgents}
+                      >
+                        <BackgroundAgentsPage />
+                      </StorageFeatureGuard>
+                    } 
+                  />
+                  <Route 
+                    path="/documents" 
+                    element={
+                      <StorageFeatureGuard
+                        featureName="Documents"
+                        checkFeature={supportsDocuments}
+                      >
+                        <DocumentsPage />
+                      </StorageFeatureGuard>
+                    } 
+                  />
                   <Route path="/import-export" element={<ImportExportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

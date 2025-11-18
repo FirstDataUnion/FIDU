@@ -4,7 +4,8 @@
  */
 
 import { BackgroundAgentHandler } from '../../handlers/backgroundAgentHandler';
-import type { BackgroundAgent } from '../../../../api/backgroundAgents';
+import type { BackgroundAgent } from '../../../api/backgroundAgents';
+import type { BackgroundAgentExport, ExportableResource } from '../../types';
 
 jest.mock('../../../storage/UnifiedStorageService', () => ({
   getUnifiedStorageService: jest.fn(() => ({
@@ -58,26 +59,26 @@ describe('BackgroundAgentHandler', () => {
 
   describe('importResource', () => {
     it('should generate new ID and reset ownership', async () => {
-      const exportData = {
+      const exportData: ExportableResource = {
         originalId: 'agent-123',
-        resourceType: 'backgroundAgent' as const,
+        resourceType: 'backgroundAgent',
         data: {
           id: 'agent-123',
           name: 'Test Agent',
           description: 'Test Description',
           enabled: true,
-          actionType: 'alert' as const,
+          actionType: 'alert',
           promptTemplate: 'Test Template',
           runEveryNTurns: 5,
           verbosityThreshold: 75,
-          contextWindowStrategy: 'lastNMessages' as const,
+          contextWindowStrategy: 'lastNMessages',
           contextParams: { lastN: 10 },
           outputSchemaName: 'default',
           customOutputSchema: null,
-          notifyChannel: 'inline' as const,
+          notifyChannel: 'inline',
           isSystem: false,
           categories: [],
-        },
+        } satisfies BackgroundAgentExport,
       };
 
       const idMapping: Record<string, string> = {};
@@ -98,9 +99,9 @@ describe('BackgroundAgentHandler', () => {
     });
 
     it('should validate action type', async () => {
-      const exportData = {
+      const exportData: ExportableResource = {
         originalId: 'agent-123',
-        resourceType: 'backgroundAgent' as const,
+        resourceType: 'backgroundAgent',
         data: {
           id: 'agent-123',
           name: 'Test Agent',
@@ -112,7 +113,7 @@ describe('BackgroundAgentHandler', () => {
           verbosityThreshold: 50,
           contextWindowStrategy: 'lastNMessages' as const,
           notifyChannel: 'inline' as const,
-        },
+        } satisfies BackgroundAgentExport,
       };
 
       await expect(
@@ -133,11 +134,11 @@ describe('BackgroundAgentHandler', () => {
       expect(handler.validateImport(validData)).toBe(true);
     });
 
-    it('should validate update_context action type', () => {
+    it('should validate update_document action type', () => {
       const validData = {
         id: 'agent-123',
         name: 'Test Agent',
-        actionType: 'update_context',
+        actionType: 'update_document',
         promptTemplate: 'Test Template',
       };
 

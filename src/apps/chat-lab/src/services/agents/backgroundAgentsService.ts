@@ -1,4 +1,4 @@
-import type { BackgroundAgent, AgentActionType } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../api/backgroundAgents';
 import { createNLPWorkbenchAPIClientWithSettings } from '../api/apiClientNLPWorkbench';
 
 export interface ConversationSliceMessage {
@@ -14,13 +14,22 @@ export interface ConversationSlice {
 
 export interface EvaluationResult {
   agentId: string;
-  actionType: AgentActionType;
-  rating: number;
-  severity: 'info' | 'warn' | 'error';
-  notify: boolean;
-  shortMessage: string; // Brief notification for toast/popup
-  description: string; // Detailed explanation for expanded view
-  details?: Record<string, any>;
+  response: {
+    actionType: 'alert';
+    rating: number;
+    severity: 'info' | 'warn' | 'error';
+    notify: boolean;
+    shortMessage: string; // Brief notification for toast/popup
+    description: string; // Detailed explanation for expanded view
+    details?: Record<string, any>;
+  } | {
+    actionType: 'update_document';
+    heading: string;
+    content: string;
+  } | {
+    actionType: 'none';
+    cancellationReason: string;
+  };
   rawModelOutput: string;
   parsedResult: Record<string, any>;
   // Legacy field for backward compatibility - will be removed in future
@@ -34,15 +43,26 @@ export interface EvaluationResult {
 }
 
 /**
- * Builds the output schema for alert-based agents.
- * This is the "Alert" schema used for action_type: 'alert' responses.
- * Supports both default and custom schemas.
+ * Builds the output schema for background agents based on the agent's configuration.
  */
 function buildOutputSchema(agent: BackgroundAgent): Record<string, any> {
   if (agent.outputSchemaName === 'custom' && agent.customOutputSchema) {
     return agent.customOutputSchema;
   }
-  
+  if (agent.actionType === 'alert') {
+    return buildAlertOutputSchema();
+  }
+  if (agent.actionType === 'update_document') {
+    return buildUpdateDocumentOutputSchema();
+  }
+  throw new Error(`Unsupported action type: ${agent.actionType}`);
+}
+
+/**
+ * Builds the output schema for alert-based agents.
+ * This is the "Alert" schema used for action_type: 'alert' responses if no custom schema is provided.
+ */
+function buildAlertOutputSchema(): Record<string, any> {
   // Alert schema - action_type is NOT included as it's determined by agent configuration
   return {
     type: 'object',
@@ -83,6 +103,27 @@ function buildOutputSchema(agent: BackgroundAgent): Record<string, any> {
 }
 
 /**
+ * Builds the output schema for update_document-based agents.
+ * This is the "Update Document" schema used for action_type: 'update_document' responses if no custom schema is provided.
+ */
+function buildUpdateDocumentOutputSchema(): Record<string, any> {
+  return {
+    type: 'object',
+    properties: {
+      heading: {
+        type: 'string',
+        description: 'A very brief message suitable for a heading in a markdown document. Specific to this analysis of this conversation.'
+      },
+      content: {
+        type: 'string',
+        description: 'The content of the response, which will be appended to a markdown document as a new section. This must be formatted as markdown and must not include any top-level headings (#). Unless the prompt says otherwise, aim for one or two paragraphs.'
+      },
+    },
+    additionalProperties: false,
+  };
+}
+
+/**
  * Formats conversation messages into a readable text block for the prompt.
  */
 function formatConversationMessages(messages: ConversationSliceMessage[]): string {
@@ -112,6 +153,21 @@ function formatConversationMessages(messages: ConversationSliceMessage[]): strin
  * 4. Output requirements (JSON-only, schema compliance)
  */
 function buildAgentPrompt(
+  agent: BackgroundAgent,
+  messages: ConversationSliceMessage[],
+  schema: Record<string, any>
+): string {
+  if (agent.actionType === 'alert') {
+    return buildAlertAgentPrompt(agent, messages, schema);
+  }
+  if (agent.actionType === 'update_document') {
+    return buildUpdateDocumentAgentPrompt(agent, messages, schema);
+  }
+  throw new Error(`Unsupported action type: ${agent.actionType}`);
+}
+
+
+function buildAlertAgentPrompt(
   agent: BackgroundAgent,
   messages: ConversationSliceMessage[],
   schema: Record<string, any>
@@ -160,6 +216,52 @@ function buildAgentPrompt(
     '\n--- CONVERSATION TO EVALUATE ---',
     conversationBlock,
     alertMessageGuidance,
+    outputRequirements,
+  ].join('\n\n');
+}
+
+function buildUpdateDocumentAgentPrompt(
+  agent: BackgroundAgent,
+  messages: ConversationSliceMessage[],
+  schema: Record<string, any>
+): string {
+  const systemInstructions = 
+    'You are a background analysis agent for document updates. Your task is to evaluate the conversation and respond with JSON only, ' +
+    'matching the required Update Document schema. Do not include any explanatory text, markdown, or prose outside of the JSON object.\n\n' +
+    `Required Update Document JSON Schema:\n${JSON.stringify(schema, null, 2)}`;
+  
+  const agentInstructions = agent.promptTemplate || 'Analyze the conversation and provide an evaluation.';
+  
+  const conversationBlock = formatConversationMessages(messages);
+
+  const updateDocumentGuidance = 
+    '\n\n--- UPDATE DOCUMENT GUIDANCE ---\n' +
+    'IMPORTANT: Provide both a heading and a content:\n\n' +
+    '1. heading: A very brief message suitable for a heading in a markdown document\n' +
+    '    This will be used as the heading of the new section in the markdown document.' +
+    '    Make it brief but descriptive of the content of the section for this conversation.' +
+    '    You many, over time, be asked to create many such sections from the same instructions but for a different conversation.' +
+    '    Make it unique and descriptive of the content of the section for this conversation.' +
+    '    Users will later use it to find the section in the document.' +
+    '2. content: The content of the response, which will be appended to a markdown document as a new section.' +
+    '    This must be formatted as markdown and must not include any top-level headings (#). Nested headings (##, ###, etc.) are allowed but should be used sparingly. Remember, the content will follow the heading, so you do not need to re-iterate the heading in the content.' +
+    '    If no length information is given in the agent instructions, aim for one or two paragraphs.\n';
+  
+  const outputRequirements = 
+    '\n\n--- OUTPUT REQUIREMENTS ---\n' +
+    '1. Return ONLY valid JSON matching the Update Document schema above\n' +
+    '2. Do not include any text before or after the JSON\n' +
+    '3. Ensure all required fields are present (heading, content)\n' +
+    '4. Use proper JSON formatting (quoted strings, proper number types)\n' +
+    '5. Provide both heading and content as specified above';
+  
+  return [
+    systemInstructions,
+    '\n--- AGENT INSTRUCTIONS ---',
+    agentInstructions,
+    '\n--- CONVERSATION TO EVALUATE ---',
+    conversationBlock,
+    updateDocumentGuidance,
     outputRequirements,
   ].join('\n\n');
 }
@@ -261,19 +363,32 @@ function parseJsonWithRepair(rawOutput: string, agentName: string): Record<strin
 function validateAndNormalizeResult(
   parsed: Record<string, any> | null,
   agent: BackgroundAgent
-): Record<string, any> {
+) {
+  if (agent.actionType === 'alert') {
+    return { ...validateAndNormalizeAlertResult(parsed, agent), actionType:agent.actionType };
+  }
+  if (agent.actionType === 'update_document') {
+    return { ...validateAndNormalizeUpdateDocumentResult(parsed, agent), actionType:agent.actionType };
+  }
+  throw new Error(`Unsupported action type: ${agent.actionType}`);
+}
+
+function validateAndNormalizeAlertResult(
+  parsed: Record<string, any> | null,
+  agent: BackgroundAgent
+) {
   if (!parsed || typeof parsed !== 'object') {
     console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - Invalid parsed result, using defaults`);
     return {
       rating: 0,
       short_message: 'Evaluation failed - invalid response format',
       description: 'The background agent evaluation could not be completed due to an invalid response format from the model.',
-      severity: 'info',
+      severity: 'info' as const,
       notify: false,
       details: {},
     };
   }
-  
+
   // Support both new format (short_message/description) and legacy format (warning_message)
   const shortMessage = parsed.short_message ?? parsed.warning_message ?? '';
   const description = parsed.description ?? parsed.warning_message ?? '';
@@ -285,11 +400,28 @@ function validateAndNormalizeResult(
     description: String(description || 'No detailed description provided.'),
     severity: (['info', 'warn', 'error'].includes(parsed.severity) 
       ? parsed.severity 
-      : 'info') as 'info' | 'warn' | 'error',
+      : 'info') satisfies 'info' | 'warn' | 'error',
     notify: Boolean(parsed.notify ?? true),
     details: (typeof parsed.details === 'object' && parsed.details !== null 
       ? parsed.details 
-      : {}),
+      : {}) as object,
+  };
+}
+
+function validateAndNormalizeUpdateDocumentResult(
+  parsed: Record<string, any> | null,
+  agent: BackgroundAgent
+) {
+  if (!parsed || typeof parsed !== 'object') {
+    console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - Invalid parsed result, using defaults`);
+    return {
+      heading: 'Background Agent Response: ' + agent.name,
+      content: 'No response provided.',
+    };
+  }
+  return {
+    heading: String(parsed.heading?.replace(/^#+\s*/, '').trim() || 'Background Agent Response: ' + agent.name),
+    content: String(parsed.content?.trim() || 'No response provided.'),
   };
 }
 
@@ -349,13 +481,10 @@ export async function evaluateBackgroundAgent(
       console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - Evaluation skipped due to authentication error`);
       return {
         agentId: agent.id,
-        actionType: agent.actionType,
-        rating: 0,
-        severity: 'info' as const,
-        notify: false,
-        shortMessage: '',
-        description: 'Evaluation skipped - authentication required',
-        details: { error: 'Evaluation skipped - authentication required' },
+        response: {
+          actionType: 'none',
+          cancellationReason: 'Evaluation skipped - authentication required',
+        },
         rawModelOutput: '{}',
         parsedResult: { rating: 0, short_message: '', description: '', severity: 'info', notify: false, details: {} },
       };
@@ -391,42 +520,98 @@ export async function evaluateBackgroundAgent(
   
   const normalized = validateAndNormalizeResult(parsed, agent);
 
-  // Always use the agent's configured actionType - never trust the model's action_type
-  // The model should only provide evaluation metrics (rating, severity, message, etc.)
-  // The action type is a hard-coded property of the agent definition
-  const actionType = agent.actionType;
+  // The action types should match because validateAndNormalizeResult sets the actionType (not the model).
+  // We check anyway though because we *really* don't want the model to be deciding how we handle its response,
+  // and we are also using it as a discriminator for the remaining fields in the rest of this code.
+  if (normalized.actionType !== agent.actionType) {
+    console.error(`🤖 [BackgroundAgents] Agent "${agent.name}" - Action type mismatch: ${normalized.actionType} !== ${agent.actionType}`);
+    throw new Error(`Action type mismatch: ${normalized.actionType} !== ${agent.actionType}`);
+  }
   
-  const verbosityThreshold = Number(agent.verbosityThreshold ?? 50);
-  // Alert when rating is <= threshold (lower rating = worse, so we want to alert on low scores)
-  const notify = normalized.notify && normalized.rating <= verbosityThreshold;
-
-  const result = {
-    agentId: agent.id,
-    actionType,
-    rating: normalized.rating,
-    severity: normalized.severity,
-    notify,
-    shortMessage: normalized.short_message,
-    description: normalized.description,
-    details: normalized.details,
-    rawModelOutput,
-    parsedResult: normalized,
-    // Legacy field for backward compatibility - use shortMessage instead
-    message: normalized.short_message,
-    // Include parse error if one occurred
-    parseError,
-  };
+  let result: EvaluationResult;
+  switch (normalized.actionType) {
+    case 'alert': {
+      result = {
+        agentId: agent.id,
+        response: {
+          actionType: normalized.actionType,
+          rating: normalized.rating,
+          severity: normalized.severity,
+          notify: normalized.notify,
+          shortMessage: normalized.short_message,
+          description: normalized.description,
+          details: normalized.details,
+        },
+        rawModelOutput,
+        parsedResult: normalized,
+        // Legacy field for backward compatibility - use shortMessage instead
+        message: normalized.short_message,
+        // Include parse error if one occurred
+        parseError,
+      };;
+      break;
+    }
+    case 'update_document': {
+      result = {
+        agentId: agent.id,
+        response: {
+          actionType: normalized.actionType,
+          heading: normalized.heading,
+          content: normalized.content,
+        },
+        rawModelOutput,
+        parsedResult: normalized,
+        // Include parse error if one occurred
+        parseError,
+      };
+      break;
+    }
+  }
+  
 
   console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - Evaluation result:`, {
-    actionType: result.actionType,
-    rating: result.rating,
-    severity: result.severity,
-    notify: result.notify,
-    shortMessageLength: result.shortMessage.length,
-    descriptionLength: result.description.length,
-    verbosityThreshold,
-    meetsThreshold: result.rating <= verbosityThreshold,
+    actionType: result.response.actionType,
+    ...summarizeObjectFields(result.response),
   });
 
   return result;
 }
+
+/**
+ * Summarizes the values of an arbitrary object:
+ * - Strings -> their length
+ * - Arrays  -> length
+ * - Objects -> number of fields
+ * - Functions -> "function"
+ * - undefined -> undefined
+ * 
+ * @param obj Any JS object
+ * @returns Summarized object with the same top-level fields
+ */
+function summarizeObjectFields(obj: any): Record<string, any> {
+  if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) {
+    return summarizeValue(obj);
+  }
+  const result: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    result[key] = summarizeValue(obj[key]);
+  }
+  return result;
+
+  function summarizeValue(value: any): any {
+    if (typeof value === 'string') {
+      return value.length;
+    }
+    if (Array.isArray(value)) {
+      return value.length;
+    }
+    if (typeof value === 'function') {
+      return 'function';
+    }
+    if (typeof value === 'object') {
+      return Object.keys(value).length;
+    }
+    return typeof value;
+  }
+}
+

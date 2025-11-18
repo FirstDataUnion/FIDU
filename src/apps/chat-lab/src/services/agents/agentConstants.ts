@@ -4,7 +4,7 @@
 
 export const DEFAULT_AGENT_CONFIG = {
   /** Default cadence: run every N turns */
-  RUN_EVERY_N_TURNS: 6,
+  RUN_EVERY_N_TURNS: 3,
   
   /** Default verbosity threshold (0-100, alerts when rating ≤ threshold) */
   VERBOSITY_THRESHOLD: 40,

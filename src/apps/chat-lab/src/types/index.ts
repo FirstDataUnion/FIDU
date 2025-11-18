@@ -69,6 +69,16 @@ export interface SystemPrompt {
   updatedAt: string;
 }
 
+// Document interface
+// Not named Document to avoid shadowing the Document type from the browser
+export interface MarkdownDocument {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
 
 
 // Authentication Types
@@ -133,122 +143,6 @@ export interface BackgroundAgentAlertMetadata {
   parsedResult?: Record<string, any>;
 }
 
-// FIDU Vault Data Packet types
-export interface ConversationDataPacket {
-  id: string;
-  profile_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-  tags: string[];
-  data: {
-    sourceChatbot: string;
-    interactions: Array<{
-      actor: string;
-      timestamp: string;
-      content: string;
-      attachments: string[];
-      model?: string; // Model that generated this specific message
-      metadata?: {
-        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
-        [key: string]: any; // Allow other metadata fields
-      };
-    }>;
-    targetModelRequested: string;
-    conversationUrl: string;
-    conversationTitle: string;
-    isArchived: boolean;
-    isFavorite: boolean;
-    participants: string[];
-    status: 'active' | 'archived' | 'deleted';
-    // List of unique models used in this conversation (computed and stored for performance)
-    modelsUsed?: string[];
-    // Original prompt information for conversation restart
-    originalPrompt?: {
-      promptText: string;
-      contextId?: string;
-      contextTitle?: string;
-      contextDescription?: string;
-      systemPromptIds: string[]; // Support multiple system prompts
-      systemPromptContents: string[]; // Store all system prompt contents
-      systemPromptNames: string[]; // Store all system prompt names
-      systemPromptId?: string; // Keep for backward compatibility
-      systemPromptContent?: string; // Keep for backward compatibility
-      systemPromptName?: string; // Keep for backward compatibility
-      embellishmentIds?: string[]; // Store selected embellishment IDs
-      estimatedTokens: number;
-    };
-  };
-}
-
-export interface ConversationDataPacketUpdate {
-  id: string;
-  tags: string[];
-  data: {
-    sourceChatbot: string;
-    interactions: Array<{
-      actor: string;
-      timestamp: string;
-      content: string;
-      attachments: string[];
-      model?: string; // Model that generated this specific message
-      metadata?: {
-        backgroundAgentAlerts?: BackgroundAgentAlertMetadata[];
-        [key: string]: any; // Allow other metadata fields
-      };
-    }>;
-    targetModelRequested: string;
-    conversationUrl: string;
-    conversationTitle: string;
-    isArchived: boolean;
-    isFavorite: boolean;
-    participants: string[];
-    status: 'active' | 'archived' | 'deleted';
-    // List of unique models used in this conversation (computed and stored for performance)
-    modelsUsed?: string[];
-    // Original prompt information for conversation restart
-    originalPrompt?: {
-      promptText: string;
-      contextId?: string;
-      contextTitle?: string;
-      contextDescription?: string;
-      systemPromptIds: string[]; // Support multiple system prompts
-      systemPromptContents: string[]; // Store all system prompt contents
-      systemPromptNames: string[]; // Store all system prompt names
-      systemPromptId?: string; // Keep for backward compatibility
-      systemPromptContent?: string; // Keep for backward compatibility
-      systemPromptName?: string; // Keep for backward compatibility
-      embellishmentIds?: string[]; // Store selected embellishment IDs
-      estimatedTokens: number;
-    };
-  };
-}
-
-
-
-export interface EmbellishmentDataPacket {
-  id: string;
-  profile_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-  tags: string[];
-  data: {
-    name: string;
-    instructions: string;
-    category: 'style' | 'tone' | 'format' | 'approach';
-    color: string;
-  };
-}
-
-export interface EmbellishmentDataPacketUpdate {
-  id: string;
-  tags: string[];
-  data: {
-    name: string;
-    instructions: string;
-    category: 'style' | 'tone' | 'format' | 'approach';
-    color: string;
-  };
-}
 
 // Front End types
 
@@ -411,6 +305,7 @@ export interface RootState {
   settings: SettingsState;
   contexts: ContextsState;
   systemPrompts: SystemPromptsState;
+  documents: DocumentsState;
   promptLab: PromptLabState;
   search: SearchState;
   auth: AuthState;
@@ -522,6 +417,12 @@ export interface SystemPromptsState {
   loading: boolean;
   error: string | null;
   selectedSystemPrompt: SystemPrompt | null;
+}
+
+export interface DocumentsState {
+  items: MarkdownDocument[];
+  loading: boolean;
+  error: string | null;
 }
 
 export interface PromptLabState {

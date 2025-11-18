@@ -28,7 +28,7 @@ import {
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
 } from '@mui/icons-material';
 import { getResourceExportService } from '../../services/resourceExport/resourceExportService';
-import type { SystemPrompt, Context } from '../../types';
+import type { SystemPrompt, Context, Conversation, MarkdownDocument } from '../../types';
 import type { BackgroundAgent } from '../../services/api/backgroundAgents';
 
 interface ResourceExportDialogProps {
@@ -52,12 +52,14 @@ export default function ResourceExportDialog({
     systemPrompts: SystemPrompt[];
     contexts: Context[];
     backgroundAgents: BackgroundAgent[];
-    conversations: any[];
+    conversations: Conversation[];
+    documents: MarkdownDocument[];
   }>({
     systemPrompts: [],
     contexts: [],
     backgroundAgents: [],
     conversations: [],
+    documents: [],
   });
 
   const [selectedIds, setSelectedIds] = useState<{
@@ -65,11 +67,13 @@ export default function ResourceExportDialog({
     contexts: Set<string>;
     backgroundAgents: Set<string>;
     conversations: Set<string>;
+    documents: Set<string>;
   }>({
     systemPrompts: new Set(),
     contexts: new Set(),
     backgroundAgents: new Set(),
     conversations: new Set(),
+    documents: new Set(),
   });
 
   const exportService = getResourceExportService();
@@ -109,7 +113,7 @@ export default function ResourceExportDialog({
   }, [open, profileId, exportService]);
 
   const handleToggleResource = useCallback((
-    type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations',
+    type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations' | 'documents',
     id: string
   ) => {
     setSelectedIds(prev => {
@@ -126,7 +130,7 @@ export default function ResourceExportDialog({
     });
   }, []);
 
-  const handleSelectAll = useCallback((type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations') => {
+  const handleSelectAll = useCallback((type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations' | 'documents') => {
     setSelectedIds(prev => {
       const resources = availableResources[type];
       const allSelected = resources.every(r => prev[type].has(r.id));
@@ -157,6 +161,7 @@ export default function ResourceExportDialog({
         contextIds: Array.from(selectedIds.contexts),
         backgroundAgentIds: Array.from(selectedIds.backgroundAgents),
         conversationIds: Array.from(selectedIds.conversations),
+        documentIds: Array.from(selectedIds.documents),
       };
 
       const exportData = await exportService.exportResources(selection, profileId, userEmail);
@@ -174,11 +179,12 @@ export default function ResourceExportDialog({
     selectedIds.systemPrompts.size +
     selectedIds.contexts.size +
     selectedIds.backgroundAgents.size +
-    selectedIds.conversations.size;
+    selectedIds.conversations.size + 
+    selectedIds.documents.size;
 
   const renderResourceSection = (
     title: string,
-    type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations',
+    type: 'systemPrompts' | 'contexts' | 'backgroundAgents' | 'conversations' | 'documents',
     resources: any[],
     getLabel: (resource: any) => string
   ) => {
@@ -271,6 +277,13 @@ export default function ResourceExportDialog({
               'conversations',
               availableResources.conversations,
               (conv) => conv.title
+            )}
+
+            {renderResourceSection(
+              'Documents',
+              'documents',
+              availableResources.documents,
+              (doc) => doc.title
             )}
 
             {totalSelected === 0 && (

@@ -88,6 +88,8 @@ import { useAlertClick } from '../contexts/AlertClickContext';
 
 // Safely import MetricsService - it may not be available in all environments (e.g., local dev)
 import { MetricsService } from '../services/metrics/MetricsService';
+import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import { truncateTitle } from '../utils/stringUtils';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
@@ -192,8 +194,8 @@ function BackgroundAgentDialogCard({
   onJumpToMessage,
   onAlertExpanded,
 }: {
-  agent: BackgroundAgent;
-  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => void;
+  agent: BackgroundAgent & { outputDocumentName?: string };
+  onUpdatePreference: (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => void;
   alerts?: Array<{ 
     id: string; 
     createdAt: string; 
@@ -297,9 +299,10 @@ function BackgroundAgentDialogCard({
         runEveryNTurns: clamped,
         verbosityThreshold: localVerbosityThreshold,
         contextLastN: agent.contextWindowStrategy === 'lastNMessages' ? localContextLastN : undefined,
+        outputDocumentId: agent.outputDocumentId,
       });
     },
-    [agent.contextWindowStrategy, agent.id, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
+    [agent.contextWindowStrategy, agent.id, agent.outputDocumentId, localContextLastN, localRunEveryNTurns, localVerbosityThreshold, onUpdatePreference]
   );
 
   const commitRunEveryNTurns = useCallback(() => {
@@ -501,44 +504,6 @@ function BackgroundAgentDialogCard({
           />
           <Typography variant="body2">turns</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
-              Verbosity threshold:
-            </Typography>
-            <Tooltip
-              title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
-              arrow
-              placement="top"
-            >
-              <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
-            </Tooltip>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '220px' }, maxWidth: 320 }}>
-            <Slider
-              value={localVerbosityThreshold}
-              onChange={(_, value) => {
-                if (typeof value === 'number') {
-                  setLocalVerbosityThreshold(value);
-                }
-              }}
-              onChangeCommitted={(_, value) => {
-                if (typeof value === 'number') {
-                  applyVerbosityThreshold(value);
-                }
-              }}
-              min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-              max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-              step={1}
-              valueLabelDisplay="auto"
-              aria-label="Verbosity threshold"
-              sx={{ flexGrow: 1 }}
-            />
-            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content' }}>
-              {localVerbosityThreshold}/100
-            </Typography>
-          </Box>
-        </Box>
         {agent.contextWindowStrategy === 'lastNMessages' && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -584,6 +549,69 @@ function BackgroundAgentDialogCard({
               }}
             />
             <Typography variant="body2">messages</Typography>
+          </Box>
+        )}
+        {agent.actionType === "alert" && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+                Verbosity threshold:
+              </Typography>
+              <Tooltip
+                title="Rating represents quality/health (0-100, higher is better). Alerts are shown when rating ≤ threshold. Lower threshold = alerts only for very low ratings (fewer alerts). Higher threshold = alerts for more ratings (more alerts)."
+                arrow
+                placement="top"
+              >
+                <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: { xs: '160px', sm: '220px' }, maxWidth: 320 }}>
+              <Slider
+                value={localVerbosityThreshold}
+                onChange={(_, value) => {
+                  if (typeof value === 'number') {
+                    setLocalVerbosityThreshold(value);
+                  }
+                }}
+                onChangeCommitted={(_, value) => {
+                  if (typeof value === 'number') {
+                    applyVerbosityThreshold(value);
+                  }
+                }}
+                min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                step={1}
+                valueLabelDisplay="auto"
+                aria-label="Verbosity threshold"
+                sx={{ flexGrow: 1 }}
+              />
+              <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content' }}>
+                {localVerbosityThreshold}/100
+              </Typography>
+            </Box>
+          </Box>
+        )}
+        {agent.actionType === "update_document" && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ minWidth: 'fit-content', fontWeight: 500 }}>
+                Output Document:
+              </Typography>
+              <Tooltip
+                title="The document to update with the agent's output. Go to Background Agents to select a different document."
+                arrow
+                placement="top"
+              >
+                <HelpOutlineIcon sx={{ fontSize: '1rem', color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <TextField
+              value={agent.outputDocumentName || agent.outputDocumentId}
+              disabled
+              size="small"
+              variant="outlined"
+              sx={{ flexGrow: 1 }}
+            />
           </Box>
         )}
       </Stack>
@@ -1102,8 +1130,13 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                   }}
                 >
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="body1" component="div" sx={{ fontWeight: 500, mb: 1 }}>
-                      {context.title || 'Untitled Context'}
+                    <Typography
+                      variant="body1"
+                      component="div"
+                      sx={{ fontWeight: 500, mb: 1 }}
+                      title={context.title || 'Untitled Context'}
+                      >
+                      {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {context.body ? (
@@ -1583,6 +1616,7 @@ export default function PromptLabPage() {
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
   const { settings } = useAppSelector((state) => state.settings);
+  const { items: documents } = useAppSelector((state) => state.documents);
   const unifiedStorage = useUnifiedStorage();
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
@@ -1743,7 +1777,7 @@ export default function PromptLabPage() {
     }
   }, [backgroundAgentsDialogOpen, currentProfile?.id, backgroundAgentsPrefsVersion, currentConversation?.id]);
 
-  const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold: number; contextLastN?: number }) => {
+  const handleUpdateBackgroundAgentPreference = useCallback(async (agentId: string, prefs: { runEveryNTurns: number; verbosityThreshold?: number; contextLastN?: number; outputDocumentId?: string }) => {
     // Find the agent to determine if it's built-in or custom
     const agent = backgroundAgents.find(a => a.id === agentId);
     
@@ -4898,6 +4932,8 @@ export default function PromptLabPage() {
               label="Context Title"
               value={contextForm.title}
               onChange={(e) => setContextForm(prev => ({ ...prev, title: e.target.value }))}
+              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
             <TextField
@@ -5199,10 +5235,14 @@ export default function PromptLabPage() {
                   agentId: agent.id,
                   conversationId: currentConversationId,
                 });
+                const namedAgent = {
+                  ...agent,
+                  outputDocumentName: documents.find(doc => doc.id === agent.outputDocumentId)?.title || agent.outputDocumentId,
+                };
                 return (
                   <BackgroundAgentDialogCard
                     key={agent.id}
-                    agent={agent}
+                    agent={namedAgent}
                     onUpdatePreference={handleUpdateBackgroundAgentPreference}
                     alerts={allAlerts}
                     autoExpand={allAlerts.some(alert => alert.id === alertToExpand)}

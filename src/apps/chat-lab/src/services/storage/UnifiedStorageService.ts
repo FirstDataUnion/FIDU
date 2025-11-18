@@ -210,6 +210,78 @@ export class UnifiedStorageService {
     return await (adapter as any).deleteBackgroundAgent(agentId);
   }
 
+  // Document operations
+  async getDocuments(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getDocuments !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getDocuments(queryParams, page, limit, profileId);
+  }
+
+  async getDocumentById(documentId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getDocumentById !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).getDocumentById(documentId);
+  }
+
+  async createDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).createDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).createDocument(document, profileId);
+  }
+
+  async updateDocument(document: any, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).updateDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).updateDocument(document, profileId);
+  }
+
+  /**
+   * Appends text to the end of a MarkdownDocument
+   * @param documentId - The ID of the document to append to
+   * @param text - The text to append (will be added with a newline separator)
+   * @param profileId - The profile ID that owns the document
+   * @returns The updated document
+   */
+  async appendTextToDocument(documentId: string, text: string, profileId: string): Promise<any> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).getDocumentById !== 'function' || typeof (adapter as any).updateDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    
+    // Get the current document
+    const document = await (adapter as any).getDocumentById(documentId);
+    
+    if (!document) {
+      throw new Error(`Document with ID ${documentId} not found`);
+    }
+    
+    // Append text with a newline separator (add double newline for markdown paragraph separation)
+    const separator = document.content.trim().length > 0 ? '\n\n---\n\n' : '';
+    const updatedContent = document.content + separator + text;
+    
+    // Update the document
+    return await (adapter as any).updateDocument(
+      { ...document, content: updatedContent },
+      profileId
+    );
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    if (typeof (adapter as any).deleteDocument !== 'function') {
+      throw new Error('Documents are not supported by the current storage adapter');
+    }
+    return await (adapter as any).deleteDocument(documentId);
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     const adapter = this.storageService.getAdapter();

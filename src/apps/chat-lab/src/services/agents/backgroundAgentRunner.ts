@@ -1,5 +1,5 @@
 import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
-import type { ConversationSliceMessage } from './backgroundAgentsService';
+import type { ConversationSliceMessage, EvaluationResult } from './backgroundAgentsService';
 import { evaluateBackgroundAgent } from './backgroundAgentsService';
 import { addAgentAlert } from './agentAlerts';
 import type { BackgroundAgent } from '../api/backgroundAgents';
@@ -103,20 +103,23 @@ function sliceMessagesForAgent(
  * Creates alert metadata from evaluation result and agent info
  */
 function createAlertMetadata(
-  result: any,
+  result: EvaluationResult,
   agent: BackgroundAgent
 ): BackgroundAgentAlertMetadata {
+  if (result.response.actionType !== 'alert') {
+    throw new Error(`🤖 [BackgroundAgents] createAlertMetadata: result.response.actionType is not 'alert': ${result.response.actionType}`);
+  }
   return {
     agentId: agent.id,
     agentName: agent.name,
     createdAt: new Date().toISOString(),
-    rating: Number(result.rating),
-    severity: result.severity,
-    message: result.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
-    shortMessage: result.shortMessage,
-    description: result.description,
+    rating: Number(result.response.rating),
+    severity: result.response.severity,
+    message: result.response.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
+    shortMessage: result.response.shortMessage,
+    description: result.response.description,
     details: {
-      ...result.details,
+      ...result.response.details,
       // Include parse error information in details for debugging
       parseError: result.parseError,
     },
@@ -199,7 +202,7 @@ export async function maybeEvaluateBackgroundAgents(
     }
     
     // Validate actionType is set - this is critical for agent execution
-    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_context')) {
+    if (!a.actionType || (a.actionType !== 'alert' && a.actionType !== 'update_document')) {
       console.warn(`🤖 [BackgroundAgents] Agent "${a.name || a.id}" is enabled but has invalid or missing actionType: "${a.actionType}". Skipping this agent - please fix the agent configuration.`);
       // Skip this agent - user should fix the agent configuration
       return false;
@@ -263,41 +266,26 @@ export async function maybeEvaluateBackgroundAgents(
           messages: slicedMessages,
         });
         const evaluationTime = Date.now() - evaluationStartTime;
-        
-        const threshold = Number(agent.verbosityThreshold ?? 50);
-        // Alert when rating is <= threshold (lower rating = worse, so we want to alert on low scores)
-        const meetsThreshold = Number(result.rating) <= threshold;
-        const shouldNotify = result.notify && meetsThreshold;
-        
+
         console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - Evaluation completed in ${evaluationTime}ms`);
-        console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - Result:`, {
-          rating: result.rating,
-          severity: result.severity,
-          notify: result.notify,
-          threshold,
-          meetsThreshold,
-          shouldNotify,
-          message: result.message,
-        });
-        
-        if (shouldNotify) {
-          console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - 🚨 Triggering action: ${result.actionType} (rating ${result.rating} <= threshold ${threshold})`);
-          
+
           // Dispatch based on action type
-          switch (result.actionType) {
-            case 'alert': {
+        switch (result.response.actionType) {
+          case 'alert': {
+            const shouldNotify = result.response.notify && result.response.rating <= agent.verbosityThreshold;
+            if (shouldNotify) {
               // Generate unique alert ID with timestamp and random suffix to prevent collisions
               const alertId = `${agent.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
               addAgentAlert({
                 id: alertId,
                 agentId: agent.id,
                 createdAt: new Date().toISOString(),
-                rating: Number(result.rating),
-                severity: result.severity,
-                message: result.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
-                shortMessage: result.shortMessage,
-                description: result.description,
-                details: result.details,
+                rating: Number(result.response.rating),
+                severity: result.response.severity,
+                message: result.response.shortMessage || result.message || '', // Use shortMessage, fallback to legacy message
+                shortMessage: result.response.shortMessage,
+                description: result.response.description,
+                details: result.response.details,
                 read: false,
                 conversationId: conversationId, // Link alert to conversation
                 messageId: messageId, // Link alert to specific message that triggered it
@@ -310,28 +298,48 @@ export async function maybeEvaluateBackgroundAgents(
                 result,
                 alertMetadata: createAlertMetadata(result, agent),
               };
-            }
-            case 'update_context': {
-              // Future: Handle context updates
-              // For now, just log that this action type is not yet implemented
-              console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'update_context' not yet implemented`);
-              // TODO: Implement context update logic
-              // applyContextUpdates(result.contextUpdates);
-              return null;
-            }
-            default: {
-              console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Unknown action type: ${result.actionType}`);
+            } else {
+              console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'alert' but notify flag is false - skipping`);
               return null;
             }
           }
-        } else {
-          const reason = !result.notify 
-            ? 'notify flag is false'
-            : !meetsThreshold 
-            ? `rating ${result.rating} > threshold ${threshold}`
-            : 'unknown';
-          console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⏭️  No action triggered (${reason})`);
-          return null;
+          case 'update_document': {
+            if (!agent.outputDocumentId) {
+              console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'update_document' requires outputDocumentId but it was not provided`);
+              return null;
+            }
+            
+            try {
+              const storage = getUnifiedStorageService();
+              const textToAppend = `# ${result.response.heading}\n` +
+              '```background-agent-response\n' +
+              JSON.stringify({
+                background_agent: agent.id,
+                background_agent_name: agent.name,
+                appended_at: new Date().toISOString(),
+                conversation_id: conversationId,
+                message_id: messageId,
+                content_length: result.response.content.length,
+              }, null, 2) +
+              '\n```\n' +
+              result.response.content;
+              
+              await storage.appendTextToDocument(agent.outputDocumentId, textToAppend, profileId);
+              console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ✅ Successfully appended text to document ${agent.outputDocumentId}`);
+            } catch (error: any) {
+              console.error(`🤖 [BackgroundAgents] Agent "${agent.name}" - ❌ Failed to append text to document:`, error?.message || error);
+            }
+            
+            return null;
+          }
+          case 'none': {
+            console.log(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Action type 'none' - skipping; reason: ${result.response.cancellationReason}`);
+            return null;
+          }
+          default: {
+            console.warn(`🤖 [BackgroundAgents] Agent "${agent.name}" - ⚠️  Unknown action type: ${(result.response as any).actionType}`);
+            return null;
+          }
         }
       } catch (e: any) {
         // Log errors for debugging but don't let them propagate

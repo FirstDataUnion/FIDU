@@ -20,7 +20,7 @@ export interface ExportableResource {
 /**
  * Supported resource types
  */
-export type ResourceType = 'systemPrompt' | 'context' | 'backgroundAgent' | 'conversation';
+export type ResourceType = 'systemPrompt' | 'context' | 'backgroundAgent' | 'conversation' | 'document';
 
 /**
  * Main export format structure
@@ -34,6 +34,7 @@ export interface ResourceExport {
     contexts?: ContextExport[];
     backgroundAgents?: BackgroundAgentExport[];
     conversations?: ConversationExport[];
+    documents?: DocumentExport[];
   };
   metadata?: {
     appVersion?: string;
@@ -79,15 +80,26 @@ export interface ContextExport {
   };
 }
 
+export interface DocumentExport {
+  id: string; // Original ID preserved for reference resolution
+  title: string;
+  content: string;
+  tags: string[];
+}
+
 export interface BackgroundAgentExport {
   id: string; // Original ID preserved for reference resolution
   name: string;
   description: string;
   enabled: boolean;
-  actionType: 'alert' | 'update_context';
+  actionType: 'alert' | 'update_document';
   promptTemplate: string;
   runEveryNTurns: number;
-  verbosityThreshold: number;
+  verbosityThreshold?: number;
+  outputDocument?: {
+    id: string;
+    title: string;
+  };
   contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
   contextParams?: {
     lastN?: number;
@@ -192,6 +204,7 @@ export interface ImportResult {
     contexts: number;
     backgroundAgents: number;
     conversations: number;
+    documents: number;
   };
   errors: Array<{
     resourceType: ResourceType;
@@ -213,5 +226,6 @@ export interface ExportSelection {
   contextIds?: string[];
   backgroundAgentIds?: string[];
   conversationIds?: string[];
+  documentIds?: string[];
 }
 

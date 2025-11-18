@@ -2,7 +2,7 @@ import { fiduVaultAPIClient } from './apiClientFIDUVault';
 
 export const BACKGROUND_AGENT_TAG = 'FIDU-CHAT-LAB-BackgroundAgent';
 
-export type AgentActionType = 'alert' | 'update_context';
+export type AgentActionType = 'alert' | 'update_document';
 
 export interface BackgroundAgentDataPacket {
   id: string;
@@ -19,7 +19,8 @@ export interface BackgroundAgentDataPacket {
     cadence: {
       run_every_n_turns: number;
     };
-    verbosity_threshold: number; // 0-100
+    verbosity_threshold?: number; // 0-100
+    output_document_id?: string;
     context_window_strategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
     context_params?: {
       lastN?: number;
@@ -43,7 +44,8 @@ export interface BackgroundAgent {
   actionType: AgentActionType;
   promptTemplate: string;
   runEveryNTurns: number;
-  verbosityThreshold: number;
+  verbosityThreshold?: number;
+  outputDocumentId?: string;
   contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
   contextParams?: {
     lastN?: number;
@@ -63,7 +65,7 @@ export interface BackgroundAgent {
 const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket): BackgroundAgent => {
   // Validate actionType - ensure it's always set and valid
   const actionType: AgentActionType = 
-    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_context'))
+    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_document'))
       ? packet.data.action_type
       : 'alert'; // Default to 'alert' for backward compatibility and safety
   
@@ -76,6 +78,7 @@ const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket)
     promptTemplate: packet.data.prompt_template,
     runEveryNTurns: packet.data.cadence?.run_every_n_turns ?? 6,
     verbosityThreshold: packet.data.verbosity_threshold,
+    outputDocumentId: packet.data.output_document_id,
     contextWindowStrategy: packet.data.context_window_strategy,
     contextParams: packet.data.context_params
       ? {
@@ -115,6 +118,7 @@ const transformBackgroundAgentToDataPacket = (
         run_every_n_turns: agent.runEveryNTurns,
       },
       verbosity_threshold: agent.verbosityThreshold,
+      output_document_id: agent.outputDocumentId,
       context_window_strategy: agent.contextWindowStrategy,
       context_params: agent.contextParams
         ? {
