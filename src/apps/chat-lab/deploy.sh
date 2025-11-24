@@ -43,9 +43,20 @@ case $ENVIRONMENT in
         ;;
 esac
 
+echo -e "${RED}DANGER: this script has been modified to backup the deployment directory to a local directory.${NC}"
+echo -e "${RED}Those changes have not been tested. Keep an eye on what it's doing and stop it if necessary.${NC}"
+echo -e "${YELLOW}Once you've confirmed it's working, remove these echo statements.${NC}"
+read -p "Continue? (y/n): " CONTINUE
+if [ "$CONTINUE" != "y" ]; then
+    echo -e "${RED}Aborting...${NC}"
+    exit 1
+fi
+
 SERVER_USER="root"
 SSH_KEY_PATH=""  # Path to your private SSH key (e.g., ~/.ssh/id_rsa) - Leave empty to use ssh-agent
 LOCAL_BUILD_DIR="./build-deploy-${ENVIRONMENT}"
+LOCAL_BACKUP_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+LOCAL_BACKUP_DIR="./backup/$ENVIRONMENT/$LOCAL_BACKUP_TIMESTAMP"
 
 # Capitalize first letter of environment name
 ENVIRONMENT_CAPITALIZED=$(echo "$ENVIRONMENT" | sed 's/^./\U&/')
@@ -56,6 +67,7 @@ echo -e "${BLUE}Port: ${PORT}${NC}"
 echo -e "${BLUE}Service: ${SERVICE_NAME}${NC}"
 echo -e "${BLUE}Domain: ${DOMAIN}${NC}"
 echo -e "${BLUE}Env File: ${ENV_FILE}${NC}"
+echo -e "${BLUE}Backup Dir: ${LOCAL_BACKUP_DIR}${NC}"
 echo ""
 
 # Function to check if command exists
@@ -440,14 +452,27 @@ $SSH_CMD "$SERVER_USER@$SERVER_IP" "mkdir -p $DEPLOY_PATH"
 echo -e "${YELLOW}🛑 Stopping existing service (if running)...${NC}"
 $SSH_CMD "$SERVER_USER@$SERVER_IP" "systemctl stop ${SERVICE_NAME} 2>/dev/null || true"
 
-# Upload files
-echo -e "${YELLOW}📤 Uploading files...${NC}"
+# Create backup
+read -p "About to do the backup thing.Continue? (y/n): " CONTINUE
+if [ "$CONTINUE" != "y" ]; then
+    echo -e "${RED}Aborting...${NC}"
+    exit 1
+fi
+mkdir -p "$LOCAL_BACKUP_DIR"
 if [[ "$SSH_KEY_PATH" == ~* ]]; then
     EXPANDED_SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
 else
     EXPANDED_SSH_KEY_PATH="$SSH_KEY_PATH"
 fi
+echo -e "${YELLOW}🗄️ Copying backup to local directory...${NC}"
+if [ -n "$SSH_KEY_PATH" ] && [ -f "$EXPANDED_SSH_KEY_PATH" ]; then
+    rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
+else
+    rsync -avz --progress "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
+fi
 
+# Upload files
+echo -e "${YELLOW}📤 Uploading files...${NC}"
 if [ -n "$SSH_KEY_PATH" ] && [ -f "$EXPANDED_SSH_KEY_PATH" ]; then
     rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$LOCAL_BUILD_DIR/" "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/"
 else

@@ -31,3 +31,6 @@ dist-ssr
 .env.production
 .env.test.local
 .env.production.local
+
+# Deployment Backup
+backup/
