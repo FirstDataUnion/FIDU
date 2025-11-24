@@ -226,8 +226,9 @@ function buildUpdateDocumentAgentPrompt(
   schema: Record<string, any>
 ): string {
   const systemInstructions = 
-    'You are a background analysis agent for document updates. Your task is to evaluate the conversation and respond with JSON only, ' +
-    'matching the required Update Document schema. Do not include any explanatory text, markdown, or prose outside of the JSON object.\n\n' +
+    'You are a background analysis agent that periodically reads the most recent conversation messages and produces an asynchronous update to a long-running Markdown document. ' +
+    'Your task is to evaluate the conversation and respond with JSON only, matching the required Update Document schema. ' +
+    'Do not include any explanatory text, markdown, or prose outside of the JSON object.\n\n' +
     `Required Update Document JSON Schema:\n${JSON.stringify(schema, null, 2)}`;
   
   const agentInstructions = agent.promptTemplate || 'Analyze the conversation and provide an evaluation.';
@@ -238,14 +239,14 @@ function buildUpdateDocumentAgentPrompt(
     '\n\n--- UPDATE DOCUMENT GUIDANCE ---\n' +
     'IMPORTANT: Provide both a heading and a content:\n\n' +
     '1. heading: A very brief message suitable for a heading in a markdown document\n' +
-    '    This will be used as the heading of the new section in the markdown document.' +
-    '    Make it brief but descriptive of the content of the section for this conversation.' +
-    '    You many, over time, be asked to create many such sections from the same instructions but for a different conversation.' +
-    '    Make it unique and descriptive of the content of the section for this conversation.' +
-    '    Users will later use it to find the section in the document.' +
-    '2. content: The content of the response, which will be appended to a markdown document as a new section.' +
-    '    This must be formatted as markdown and must not include any top-level headings (#). Nested headings (##, ###, etc.) are allowed but should be used sparingly. Remember, the content will follow the heading, so you do not need to re-iterate the heading in the content.' +
-    '    If no length information is given in the agent instructions, aim for one or two paragraphs.\n';
+    '    This will be used as the heading of the new section in the markdown document.\n' +
+    '    Make it brief but descriptive of the content of the section for this conversation.\n' +
+    '    You many, over time, be asked to create many such sections from the same instructions but for a different conversation.\n' +
+    '    Make it unique and descriptive of the content of the section for this conversation.\n' +
+    '    Users will later use it to find the section in the document.\n' +
+    '2. content: The content of the response, which will be appended to a markdown document as a new section.\n' +
+    '    This must be formatted as markdown and must not include any top-level headings (#). Nested headings (##, ###, etc.) are allowed but should be used sparingly. Remember, the content will follow the heading, so you do not need to re-iterate the heading in the content.\n' +
+    '    If no length information is given in the agent instructions, aim for one or two paragraphs.\n\n';
   
   const outputRequirements = 
     '\n\n--- OUTPUT REQUIREMENTS ---\n' +
