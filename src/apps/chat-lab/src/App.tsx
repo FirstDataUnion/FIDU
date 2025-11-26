@@ -40,6 +40,8 @@ import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
 import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
 import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
+import { fetchFeatureFlags } from './store/slices/featureFlagsSlice';
+import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -170,6 +172,17 @@ const AppContent: React.FC<AppContentProps> = () => {
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
+
+  useEffect(() => {
+    dispatch(fetchFeatureFlags());
+    const intervalId = window.setInterval(() => {
+      dispatch(fetchFeatureFlags());
+    }, FEATURE_FLAGS_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [dispatch]);
 
   const [storageModeInfo, setStorageModeInfo] = useState<{mode: string, loadingMessage: string}>({mode: 'local', loadingMessage: 'Initializing storage service...'});
   

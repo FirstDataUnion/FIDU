@@ -16,9 +16,11 @@ store/
 │   ├── searchSlice.ts         # Global search state
 │   ├── settingsSlice.ts       # Application settings
 │   ├── systemPromptsSlice.ts  # System prompt management
+│   ├── featureFlagsSlice.ts   # Remote feature flag state
 │   └── uiSlice.ts             # UI state and notifications
 └── selectors/                  # Memoized selectors
-    └── conversationsSelectors.ts # Conversation-specific selectors
+    ├── conversationsSelectors.ts # Conversation-specific selectors
+    └── featureFlagsSelectors.ts  # Feature flag helpers
 ```
 
 ## Store Configuration
@@ -284,6 +286,35 @@ interface GoogleDriveAuthState {
 - **`updateSyncStatus`** - Update sync status
 - **`setError`** - Set authentication error
 
+### 🏁 Feature Flags (`featureFlagsSlice.ts`)
+
+**Purpose**: Loads `public/feature_flags.json` from the server, keeps it in Redux, and exposes dependency-aware selectors so UI code can safely gate features.
+
+**State Structure:**
+```typescript
+interface FeatureFlagsState {
+  flags: FeatureFlagsMap | null;
+  loading: boolean;
+  error: string | null;
+  lastFetchedAt: number | null;
+}
+```
+
+**Key Actions & Thunks:**
+- **`fetchFeatureFlags`** – Fetch and hydrate flags on start and every 15 minutes.
+- **`hydrateFeatureFlags`** – Allows manual hydration for tests or SSR scenarios.
+- **`clearFeatureFlagError`** – Reset network/validation errors.
+
+**Selectors & Hooks:**
+- **`selectIsFeatureFlagEnabled(state, key)`** – Resolves dependencies before reporting a flag as enabled.
+- **`useFeatureFlag(key)`** – Hook wrapper that enforces the `FeatureFlagKey` union at compile time.
+
+**Adding or Updating Flags:**
+1. Edit [`src/apps/chat-lab/public/feature_flags.json`](../../public/feature_flags.json). The TypeScript union is inferred directly from this file, so typos will not compile.
+2. Keep `depends_on` limited to other valid keys; cycles disable all flags in the loop.
+3. Run `npm test -- featureFlags` (or the full suite) to revalidate the payload and selectors.
+4. Gate UI with `useFeatureFlag('flag_name')` or the selector instead of hard-coded booleans.
+
 ## Selectors (`selectors/`)
 
 ### Conversation Selectors (`conversationsSelectors.ts`)
@@ -309,6 +340,10 @@ interface GoogleDriveAuthState {
 - Efficient filtering and sorting
 - Derived data computation
 - Pagination support
+
+### Feature Flag Selectors (`featureFlagsSelectors.ts`)
+
+Provide dependency-aware helpers (`selectIsFeatureFlagEnabled`, etc.) for components and hooks. These helpers ensure a missing fetch or a disabled dependency always reads as `false`, preventing mismatched UI states.
 
 ## Design Patterns
 
