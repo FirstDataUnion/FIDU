@@ -66,6 +66,7 @@ import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice'
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const drawerWidth = 240;
 
@@ -210,10 +211,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   ];
 
   const advancedMenuItems = [
-    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
-    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
-    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents' },
-    { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
+    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts', flag: 'context' },
+    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts', flag: 'system_prompts' },
+    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents', flag: 'background_agents' },
+    { text: 'Documents', icon: <DocumentIcon />, path: '/documents', flag: 'documents' },
   ];
 
 
@@ -243,7 +244,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   };
 
   const renderMenuSection = (title: string, items: any[]) => (
+    items.some(item => !item.flag || useFeatureFlag(item.flag)) && (
     <>
+      <Divider sx={{ my: 1 }} />
       {title && (
         <Typography 
           variant="overline" 
@@ -260,7 +263,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         </Typography> 
       )}
       <List dense>
-        {items.map((item) => (
+        {items.map((item) => ( (!item.flag || useFeatureFlag(item.flag)) && (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
@@ -291,11 +294,13 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                   fontWeight: location.pathname.startsWith(item.path) ? 600 : 400 
                 }}
               />
-            </ListItemButton>
-          </ListItem>
-        ))}
+              </ListItemButton>
+            </ListItem>
+          ))
+        )}
       </List>
     </>
+    )
   );
 
   const drawer = (
@@ -306,14 +311,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             FIDU Chat Lab
           </Typography>
         </Toolbar>
-        <Divider />
         
         {renderMenuSection('', mainMenuItems)}
-        
-        <Divider sx={{ my: 1 }} />
         {renderMenuSection('Advanced', advancedMenuItems)}
-        
-        <Divider sx={{ my: 1 }} />
         {renderMenuSection('System', systemMenuItems)}
       </Box>
       
