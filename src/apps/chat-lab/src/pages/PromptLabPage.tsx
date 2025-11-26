@@ -90,6 +90,7 @@ import { useAlertClick } from '../contexts/AlertClickContext';
 import { MetricsService } from '../services/metrics/MetricsService';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { truncateTitle } from '../utils/stringUtils';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
@@ -3965,7 +3966,7 @@ export default function PromptLabPage() {
             px: isMobile ? 0 : 2
           }}>
             {/* System Prompts Sliding Drawer - Desktop Only */}
-            {!isMobile && (
+            {!isMobile && useFeatureFlag('system_prompts') && (
             <Box sx={{ 
               position: 'relative',
               mb: 2
@@ -4310,6 +4311,7 @@ export default function PromptLabPage() {
                 />
 
                 {/* Wizard Button - Inside text box */}
+                {useFeatureFlag('prompt_wizard') && (
                 <Tooltip title="Open Prompt Wizard">
                   <IconButton
                     onClick={handleOpenWizard}
@@ -4335,6 +4337,7 @@ export default function PromptLabPage() {
                     <WizardIcon sx={{ fontSize: isMobile ? 20 : 16 }} />
                   </IconButton>
                 </Tooltip>
+                )}
 
                 {/* Send Button - Inside text box */}
                 <IconButton
@@ -4380,6 +4383,8 @@ export default function PromptLabPage() {
                   flexWrap: 'wrap', 
                   mt: 1 
                 }}>
+
+                  {useFeatureFlag('model_selection') && (
                   <Button
                     variant="outlined"
                     size="small"
@@ -4401,7 +4406,9 @@ export default function PromptLabPage() {
                   >
                     model: {selectedModel} ▾
                   </Button>
+                  )}
                   
+                  {useFeatureFlag('context') && (
                   <Button
                     variant="outlined"
                     size="small"
@@ -4423,7 +4430,9 @@ export default function PromptLabPage() {
                   >
                     Context: {selectedContext ? selectedContext.title : 'None'} ▾
                   </Button>
+                  )}
 
+                  {useFeatureFlag('view_copy_full_prompt') && (
                   <Button
                     variant="outlined"
                     size="small"
@@ -4445,6 +4454,7 @@ export default function PromptLabPage() {
                   >
                     View/Copy Full Prompt
                   </Button>
+                  )}
                 </Box>
               ) : (
                 // Mobile controls - Collapsible
@@ -4456,6 +4466,7 @@ export default function PromptLabPage() {
                     mt: 1.5,
                     px: 0.5
                   }}>
+                    {useFeatureFlag('model_selection') && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -4477,7 +4488,9 @@ export default function PromptLabPage() {
                     >
                       model: {selectedModel} ▾
                     </Button>
+                    )}
                     
+                    {useFeatureFlag('context') && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -4499,7 +4512,9 @@ export default function PromptLabPage() {
                     >
                       Context: {selectedContext ? selectedContext.title : 'None'} ▾
                     </Button>
+                    )}
 
+                    {useFeatureFlag('system_prompts') && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -4521,7 +4536,9 @@ export default function PromptLabPage() {
                     >
                       System Prompts ({selectedSystemPrompts.length}) ▾
                     </Button>
+                    )}
 
+                    {useFeatureFlag('view_copy_full_prompt') && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -4543,6 +4560,7 @@ export default function PromptLabPage() {
                     >
                       View Full Prompt
                     </Button>
+                    )}
 
                     <Button
                       variant="outlined"
@@ -5080,6 +5098,7 @@ export default function PromptLabPage() {
       </Snackbar>
 
       {/* Background Agents Floating Button */}
+      {useFeatureFlag('background_agents') && (
       <Tooltip 
         title={
           backgroundAgentsEvaluating 
@@ -5159,6 +5178,7 @@ export default function PromptLabPage() {
           </IconButton>
         </Box>
       </Tooltip>
+      )}
 
       {/* Background Agents Dialog */}
       <Dialog
