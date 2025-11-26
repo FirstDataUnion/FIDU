@@ -2,10 +2,9 @@
 
 If you're here, you probably want to get stuck into our tools! 
 
-Go to [https://chatlab.firstdataunion.org/fidu-chat-lab/] create an account if you don't have one - connnect up your own server storage or G-drive 
+Go to the [FIDU Chat Lab](https://chatlab.firstdataunion.org/fidu-chat-lab/) and create an account if you don't have one - connnect to Google Drive to store your conversations
 
-Reach out for help or log any issues right here on Github [
-](https://github.com/FirstDataUnion/FIDU/issues)
+Reach out for help or log any issues right [here](https://github.com/FirstDataUnion/FIDU/issues) on Github
 
 Keep reading for more about the project and what it all does...!
 
@@ -25,23 +24,11 @@ We are offering this early alpha to encourage those interested in our journey to
 
 Due to the early stage of this project, there are many caveats to the guarantees we provide so far. Be sure to understand these before using any of our tools.
 
+- **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
+
 ## Current Functionality
 
-### FIDU Vault
-
-A locally run server that must be running to use other apps. It manages the storage and retrieval of user data and currently offers local storage only.
-
-There is a basic front end that allows users to view their raw stored data and manage profiles for their account.
-
-**IMPORTANT:**
-
-- **Data Compatibility:** We will do our best to maintain stored data and compatibility in future versions, but due to the very early nature of this project, we cannot guarantee this yet. The current project is offered as an experimental offering and should not be relied on for permanence.
-- **Data Security:** Please note that as of writing, data encryption is not in place for the stored local data. Be aware of this, and you should treat it, for now, like an unencrypted file on your local machine. If someone gains access to your local machine, they will be able to see what is stored in the FIDU Core. This is an experimental alpha, and we cannot yet guarantee the security of data stored. However, your data is never stored online, and is always encrypted via HTTPS when in transit. 
-
-
 ### Applications
-
-We have released FIDU Vault and two apps to work alongside it. These are examples of what to expect from the application ecosystem:
 
 #### FIDU Chat Lab
 
