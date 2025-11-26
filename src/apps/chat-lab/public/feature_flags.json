@@ -1,51 +1,10 @@
 {
-    "context": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "system_prompts": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "documents": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "background_agents": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "background_agent_to_document": {
-        "enabled": false,
-        "depends_on": ["background_agents", "documents"]
-    },
-    "model_selection": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "prompt_wizard": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "system_prompt_librarian": {
-        "enabled": false,
-        "depends_on": ["system_prompts"]
-    },
-    "view_copy_full_prompt": {
-        "enabled": true,
-        "user_configurable": true,
-        "default_enabled": false
-    },
-    "recent_conversations_in_chat_page": {
-        "enabled": false
-    },
-    "new_chat_button_in_chat_page": {
-        "enabled": true
-    }    
+    "context": {"enabled": true},
+    "system_prompts": {"enabled": true},
+    "documents": {"enabled": true},
+    "background_agents": {"enabled": true},
+    "background_agent_to_document": {"enabled": true, "depends_on": ["background_agents", "documents"]},
+    "model_selection": {"enabled": true},
+    "prompt_wizard": {"enabled": true},
+    "system_prompt_librarian": {"enabled": true, "depends_on": ["system_prompts"]}
 }
