@@ -4562,6 +4562,7 @@ export default function PromptLabPage() {
                     </Button>
                     )}
 
+                    {useFeatureFlag('recent_conversations_in_chat_page') && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -4583,6 +4584,7 @@ export default function PromptLabPage() {
                     >
                       Recent Conversations
                     </Button>
+                    )}
                   </Box>
                 </Collapse>
               )}
@@ -4599,7 +4601,7 @@ export default function PromptLabPage() {
                   px: 2,
                 }}>
                   {/* New Chat Button - Positioned at 1/4 from left */}
-                  {messages.length > 0 && (
+                  {messages.length > 0 && useFeatureFlag('new_chat_button_in_chat_page') && (
                     <Box sx={{
                       position: 'absolute',
                       left: '20%',
@@ -4629,6 +4631,7 @@ export default function PromptLabPage() {
                   )}
                   
                   {/* Menu Toggle Button - Centered */}
+                  {useFeatureFlag('model_selection') || useFeatureFlag('context') || useFeatureFlag('system_prompts') || useFeatureFlag('view_copy_full_prompt') || useFeatureFlag('recent_conversations_in_chat_page') && (
                   <IconButton
                     onClick={() => setShowMobileControls(!showMobileControls)}
                     sx={{
@@ -4642,6 +4645,7 @@ export default function PromptLabPage() {
                   >
                     {showMobileControls ? <ExpandMoreIcon /> : <ExpandLessIcon />}
                   </IconButton>
+                  )}
                 </Box>
               )}
             </Paper>
