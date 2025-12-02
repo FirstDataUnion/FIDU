@@ -43,15 +43,6 @@ case $ENVIRONMENT in
         ;;
 esac
 
-echo -e "${RED}DANGER: this script has been modified to backup the deployment directory to a local directory.${NC}"
-echo -e "${RED}Those changes have not been tested. Keep an eye on what it's doing and stop it if necessary.${NC}"
-echo -e "${YELLOW}Once you've confirmed it's working, remove these echo statements.${NC}"
-read -p "Continue? (y/n): " CONTINUE
-if [ "$CONTINUE" != "y" ]; then
-    echo -e "${RED}Aborting...${NC}"
-    exit 1
-fi
-
 SERVER_USER="root"
 SSH_KEY_PATH=""  # Path to your private SSH key (e.g., ~/.ssh/id_rsa) - Leave empty to use ssh-agent
 LOCAL_BUILD_DIR="./build-deploy-${ENVIRONMENT}"
@@ -453,11 +444,6 @@ echo -e "${YELLOW}🛑 Stopping existing service (if running)...${NC}"
 $SSH_CMD "$SERVER_USER@$SERVER_IP" "systemctl stop ${SERVICE_NAME} 2>/dev/null || true"
 
 # Create backup
-read -p "About to do the backup thing.Continue? (y/n): " CONTINUE
-if [ "$CONTINUE" != "y" ]; then
-    echo -e "${RED}Aborting...${NC}"
-    exit 1
-fi
 mkdir -p "$LOCAL_BACKUP_DIR"
 if [[ "$SSH_KEY_PATH" == ~* ]]; then
     EXPANDED_SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
@@ -527,5 +513,9 @@ echo "  - Set up monitoring and log rotation"
 echo -e "${YELLOW}🧹 Cleaning up local build directory...${NC}"
 rm -rf "$LOCAL_BUILD_DIR"
 rm -f .env  # Remove the copied .env file
+
+echo -e "${YELLOW}🗄️ Server backed up prior to deployment to: ${LOCAL_BACKUP_DIR}${NC}"
+echo -e "If you need to rollback, you can restore from this backup."
+echo -e "Delete the backup directory after you've confirmed the deployment is working: rm -r ${LOCAL_BACKUP_DIR}"
 
 echo -e "${GREEN}✅ Done!${NC}"
