@@ -206,15 +206,15 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   }, []);
 
   const mainMenuItems = [
-    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
-    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
+    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab', enabled: true },
+    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations', enabled: true },
   ];
 
   const advancedMenuItems = [
-    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts', flag: 'context' },
-    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts', flag: 'system_prompts' },
-    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents', flag: 'background_agents' },
-    { text: 'Documents', icon: <DocumentIcon />, path: '/documents', flag: 'documents' },
+    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts', enabled: useFeatureFlag('context') },
+    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts', enabled: useFeatureFlag('system_prompts') },
+    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents', enabled: useFeatureFlag('background_agents') },
+    { text: 'Documents', icon: <DocumentIcon />, path: '/documents', enabled: useFeatureFlag('documents') },
   ];
 
 
@@ -223,8 +223,8 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
-    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export', enabled: true },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings', enabled: true },
   ];
 
 
@@ -244,7 +244,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   };
 
   const renderMenuSection = (title: string, items: any[]) => (
-    items.some(item => !item.flag || useFeatureFlag(item.flag)) && (
+    items.some(item => item.enabled) && (
     <>
       <Divider sx={{ my: 1 }} />
       {title && (
@@ -263,7 +263,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         </Typography> 
       )}
       <List dense>
-        {items.map((item) => ( (!item.flag || useFeatureFlag(item.flag)) && (
+        {items.map((item) => ( item.enabled && (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
