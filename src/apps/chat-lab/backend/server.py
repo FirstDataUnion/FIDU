@@ -92,7 +92,10 @@ logger.info("Identity Service URL configured: %s", identity_service_url)
 
 # Now import encryption_service after environment is loaded
 # pylint: disable=wrong-import-position
-from encryption_service import encryption_service  # type: ignore[import-not-found]
+from encryption_service import (  # type: ignore[import-not-found]
+    encryption_service,
+    IdentityServiceUnauthorizedError,
+)
 
 # Configuration from environment
 PORT = int(os.getenv("PORT", "8080"))
@@ -193,6 +196,8 @@ async def encrypt_refresh_token(token: str, user_id: str, auth_token: str) -> st
         logger.info("Encrypted refresh token for user %s", user_id)
         return encrypted_data
 
+    except IdentityServiceUnauthorizedError:
+        raise
     except Exception as e:
         logger.error("Failed to encrypt refresh token: %s", e)
         raise HTTPException(
@@ -220,6 +225,9 @@ async def decrypt_refresh_token(
         logger.info("Decrypted refresh token for user %s", user_id)
         return token
 
+    except IdentityServiceUnauthorizedError as e:
+        logger.error("Failed to decrypt refresh token: %s", e)
+        raise HTTPException(status_code=401, detail="Authentication failed") from e
     except Exception as e:
         logger.error("Failed to decrypt refresh token: %s", e)
         raise HTTPException(
@@ -323,6 +331,14 @@ def clear_cookie(response: Response, name: str):
             ".firstdataunion.org" if ENVIRONMENT == "prod" else None
         ),  # Match the setting in set_secure_cookie
     )
+
+
+def clear_cookies_on_identity_service_401(response: Response):
+    """Clear relevant cookies when the identity service returns a 401."""
+    clear_cookie(response, "auth_token")
+    # This might be too aggressive - a 401 just means that the auth token should be refreshed
+    # but I still don't understand the entire flow well enough and this seems to work for now
+    clear_cookie(response, "fidu_refresh_token")
 
 
 # Add request logging and metrics middleware
@@ -710,6 +726,16 @@ async def exchange_oauth_code(
                         user_id,
                         environment,
                     )
+                except IdentityServiceUnauthorizedError as e:
+                    logger.error(
+                        "Failed to encrypt refresh token during OAuth exchange: %s", e
+                    )
+                    failure_response = JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication to identity service failed"},
+                    )
+                    clear_cookies_on_identity_service_401(failure_response)
+                    return failure_response
                 except Exception as e:
                     logger.error(
                         "Failed to encrypt refresh token during OAuth exchange: %s", e
@@ -734,6 +760,9 @@ async def exchange_oauth_code(
 
 
 @app.post(f"{BASE_PATH}/api/oauth/refresh-token")
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-statements
 async def refresh_oauth_token(request: Request):
     """
     Refresh an OAuth access token (server-side only).
@@ -772,33 +801,49 @@ async def refresh_oauth_token(request: Request):
         auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
         # Decrypt the refresh token using appropriate method
-        try:
-            if auth_token:
+        if auth_token:
+            try:
                 # If we have an auth token, use the full decryption
                 refresh_token = await decrypt_refresh_token(
                     encrypted_token, user_id, auth_token
                 )
-            else:
-                # If no auth token, try simpler decryption approaches
-                try:
-                    # Try encryption service with empty auth token
-                    encryption_key = await encryption_service.get_user_encryption_key(
-                        user_id, ""  # Empty auth token for pre-auth refresh tokens
-                    )
-                    refresh_token = encryption_service.decrypt_refresh_token(
-                        encrypted_token, encryption_key
-                    )
-                except Exception as exc:
-                    # No fallback - if encryption fails, the token is invalid
-                    logger.error(
-                        "Failed to decrypt refresh token with encryption service"
-                    )
-                    raise HTTPException(
-                        status_code=401, detail="Invalid or corrupted refresh token"
-                    ) from exc
-        except Exception as e:
-            logger.error("Failed to decrypt refresh token: %s", e)
-            raise HTTPException(status_code=401, detail="Invalid refresh token") from e
+            except IdentityServiceUnauthorizedError as e:
+                logger.error("Failed to decrypt refresh token: %s", e)
+                failure_response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication to identity service failed"},
+                )
+                clear_cookies_on_identity_service_401(failure_response)
+                return failure_response
+            except Exception as e:
+                logger.error("Failed to decrypt refresh token: %s", e)
+                raise HTTPException(
+                    status_code=401, detail="Invalid refresh token"
+                ) from e
+        else:
+            # If no auth token, try simpler decryption approaches
+            try:
+                # Try encryption service with empty auth token
+                encryption_key = await encryption_service.get_user_encryption_key(
+                    user_id, ""  # Empty auth token for pre-auth refresh tokens
+                )
+                refresh_token = encryption_service.decrypt_refresh_token(
+                    encrypted_token, encryption_key
+                )
+            except IdentityServiceUnauthorizedError as e:
+                logger.error("Failed to decrypt refresh token: %s", e)
+                failure_response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication to identity service failed"},
+                )
+                clear_cookies_on_identity_service_401(failure_response)
+                return failure_response
+            except Exception as exc:
+                # No fallback - if encryption fails, the token is invalid
+                logger.error("Failed to decrypt refresh token with encryption service")
+                raise HTTPException(
+                    status_code=401, detail="Invalid or corrupted refresh token"
+                ) from exc
 
         if not chatlab_secrets:
             logger.error(
@@ -947,42 +992,56 @@ async def get_oauth_tokens(request: Request):
         auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
         # Decrypt the refresh token
-        try:
-            if auth_token:
+        if auth_token:
+            try:
                 # If we have an auth token, use the full decryption
                 refresh_token = await decrypt_refresh_token(
                     encrypted_token, user_id, auth_token
                 )
-            else:
-                # If no auth token, try simpler decryption approaches
-                try:
-                    # Try encryption service with empty auth token
-                    encryption_key = await encryption_service.get_user_encryption_key(
-                        user_id, ""  # Empty auth token for pre-auth refresh tokens
-                    )
-                    refresh_token = encryption_service.decrypt_refresh_token(
-                        encrypted_token, encryption_key
-                    )
-                except Exception as exc:
-                    # No fallback - if encryption fails, the token is invalid
-                    logger.error(
-                        "Failed to decrypt refresh token with encryption service"
-                    )
-                    raise HTTPException(
-                        status_code=401, detail="Invalid or corrupted refresh token"
-                    ) from exc
-        except (ValueError, TypeError, AttributeError) as e:
-            logger.error("Failed to decrypt Google Drive refresh token: %s", e)
-            # Clear the corrupted token cookie
-            logger.warning("Google Drive refresh token is corrupted - clearing it")
-            fastapi_response = JSONResponse(
-                status_code=500,
-                content={
-                    "detail": "Invalid or corrupted refresh token - please re-authenticate"
-                },
-            )
-            clear_cookie(fastapi_response, cookie_name)
-            return fastapi_response
+            except IdentityServiceUnauthorizedError as e:
+                logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+                failure_response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication to identity service failed"},
+                )
+                clear_cookies_on_identity_service_401(failure_response)
+                return failure_response
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+                # Clear the corrupted token cookie
+                logger.warning("Google Drive refresh token is corrupted - clearing it")
+                fastapi_response = JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": "Invalid or corrupted refresh token - please re-authenticate"
+                    },
+                )
+                clear_cookie(fastapi_response, cookie_name)
+                return fastapi_response
+        else:
+            # If no auth token, try simpler decryption approaches
+            try:
+                # Try encryption service with empty auth token
+                encryption_key = await encryption_service.get_user_encryption_key(
+                    user_id, ""  # Empty auth token for pre-auth refresh tokens
+                )
+                refresh_token = encryption_service.decrypt_refresh_token(
+                    encrypted_token, encryption_key
+                )
+            except IdentityServiceUnauthorizedError as e:
+                logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+                failure_response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication to identity service failed"},
+                )
+                clear_cookies_on_identity_service_401(failure_response)
+                return failure_response
+            except Exception as exc:
+                # No fallback - if encryption fails, the token is invalid
+                logger.error("Failed to decrypt refresh token with encryption service")
+                raise HTTPException(
+                    status_code=401, detail="Invalid or corrupted refresh token"
+                ) from exc
 
         logger.info(
             "✅ Google Drive refresh token retrieved from HTTP-only cookie for %s environment",
@@ -1083,6 +1142,14 @@ async def set_auth_token(request: Request):
         )
         return fastapi_response
 
+    except IdentityServiceUnauthorizedError as e:
+        logger.error("Failed to set auth token: %s", e)
+        failure_response = JSONResponse(
+            status_code=401,
+            content={"detail": "Authentication to identity service failed"},
+        )
+        clear_cookies_on_identity_service_401(failure_response)
+        return failure_response
     except HTTPException:
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -1247,6 +1314,14 @@ async def set_user_settings(request: Request):
             encrypted_settings = await encrypt_refresh_token(
                 json.dumps(settings), user_id, auth_token
             )
+        except IdentityServiceUnauthorizedError as e:
+            logger.error("Failed to encrypt settings: %s", e)
+            failure_response = JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication to identity service failed"},
+            )
+            clear_cookies_on_identity_service_401(failure_response)
+            return failure_response
         except Exception as e:
             logger.error("Failed to encrypt settings: %s", e)
             raise HTTPException(

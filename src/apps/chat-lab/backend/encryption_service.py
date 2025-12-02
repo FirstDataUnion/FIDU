@@ -15,6 +15,14 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 logger = logging.getLogger(__name__)
 
 
+class IdentityServiceUnauthorizedError(Exception):
+    """Exception raised when authentication fails to the identity service."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+
 class BackendEncryptionService:
     """Server-side encryption service for refresh tokens."""
 
@@ -22,7 +30,6 @@ class BackendEncryptionService:
         self.identity_service_url = os.getenv(
             "IDENTITY_SERVICE_URL", "https://identity.firstdataunion.org"
         )
-        self.key_cache = {}  # Simple in-memory cache
         logger.info(
             "BackendEncryptionService initialized with identity service URL: %s",
             self.identity_service_url,
@@ -37,10 +44,6 @@ class BackendEncryptionService:
             raise ValueError(f"Empty or invalid auth token provided for user {user_id}")
 
         try:
-            # Check cache first
-            if user_id in self.key_cache:
-                return self.key_cache[user_id]
-
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{self.identity_service_url}/encryption/key",
@@ -52,7 +55,9 @@ class BackendEncryptionService:
                 )
 
                 if response.status_code == 401:
-                    raise ValueError("Authentication failed")
+                    raise IdentityServiceUnauthorizedError(
+                        "Authentication to identity service failed"
+                    )
 
                 if response.status_code == 404:
                     # Key doesn't exist, create one
@@ -66,8 +71,6 @@ class BackendEncryptionService:
                 data = response.json()
                 key = data["encryption_key"]["key"]
 
-                # Cache the key
-                self.key_cache[user_id] = key
                 return key
 
         except Exception as e:
@@ -94,6 +97,8 @@ class BackendEncryptionService:
                 )
 
                 if not response.is_success:
+                    if response.status_code == 401:
+                        raise IdentityServiceUnauthorizedError("Authentication failed")
                     raise RuntimeError(
                         f"Failed to create encryption key: {response.status_code}"
                     )
@@ -101,8 +106,6 @@ class BackendEncryptionService:
                 data = response.json()
                 key = data["encryption_key"]["key"]
 
-                # Cache the key
-                self.key_cache[user_id] = key
                 return key
 
         except Exception as e:

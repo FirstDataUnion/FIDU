@@ -17,7 +17,10 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from encryption_service import BackendEncryptionService  # type: ignore[import-not-found]
+from encryption_service import (  # type: ignore[import-not-found]
+    BackendEncryptionService,
+    IdentityServiceUnauthorizedError,
+)
 
 
 class TestBackendEncryptionService:
@@ -51,7 +54,6 @@ class TestBackendEncryptionService:
             key = await self.service.get_user_encryption_key("user123", "auth_token")
 
             assert key == "test_encryption_key_base64"
-            assert "user123" in self.service.key_cache
 
     @pytest.mark.asyncio
     async def test_get_user_encryption_key_404_creates_new(self):
@@ -78,7 +80,6 @@ class TestBackendEncryptionService:
             key = await self.service.get_user_encryption_key("user123", "auth_token")
 
             assert key == "new_encryption_key_base64"
-            assert "user123" in self.service.key_cache
 
     @pytest.mark.asyncio
     async def test_get_user_encryption_key_401_raises_exception(self):
@@ -91,31 +92,8 @@ class TestBackendEncryptionService:
                 mock_response
             )
 
-            with pytest.raises(Exception, match="Authentication failed"):
+            with pytest.raises(IdentityServiceUnauthorizedError):
                 await self.service.get_user_encryption_key("user123", "invalid_token")
-
-    @pytest.mark.asyncio
-    async def test_key_caching(self):
-        """Test that keys are cached properly."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"encryption_key": {"key": "cached_key"}}
-
-            mock_client.return_value.__aenter__.return_value.get.return_value = (
-                mock_response
-            )
-
-            # First call should fetch from API
-            key1 = await self.service.get_user_encryption_key("user123", "auth_token")
-            assert key1 == "cached_key"
-
-            # Second call should use cache
-            key2 = await self.service.get_user_encryption_key("user123", "auth_token")
-            assert key2 == "cached_key"
-
-            # Should only have made one API call
-            assert mock_client.return_value.__aenter__.return_value.get.call_count == 1
 
     def test_encrypt_refresh_token(self):
         """Test token encryption."""
@@ -192,7 +170,6 @@ class TestBackendEncryptionService:
             key = await self.service.create_user_encryption_key("user123", "auth_token")
 
             assert key == "newly_created_key"
-            assert "user123" in self.service.key_cache
 
     @pytest.mark.asyncio
     async def test_create_user_encryption_key_failure(self):
