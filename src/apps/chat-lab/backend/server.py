@@ -102,7 +102,8 @@ VM_URL = os.getenv("VM_URL", "http://localhost:8428/api/v1/import/prometheus")
 METRICS_FLUSH_INTERVAL = int(os.getenv("METRICS_FLUSH_INTERVAL", "30"))  # seconds
 
 # Load secrets from OpenBao or environment variables
-chatlab_secrets: Optional[ChatLabSecrets] = None
+# (pylint doesn't like the global so demands UPPER_CASE name)
+chatlab_secrets: Optional[ChatLabSecrets] = None  # pylint: disable=invalid-name
 
 app = FastAPI(title=f"FIDU Chat Lab ({ENVIRONMENT})")
 
