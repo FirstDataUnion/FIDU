@@ -253,8 +253,24 @@ export const WelcomeLandingPage: React.FC = () => {
             <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.8 }}>
               <strong>2. Bring Your Own Keys:</strong> Have API keys already? Use them for free with ChatLab's enhanced interface.
             </Typography>
-            <Typography variant="body1" sx={{ lineHeight: 1.8 }}>
+            <Typography variant="body1" sx={{ mb: 2,lineHeight: 1.8 }}>
               <strong>3. Explore & Customize:</strong> Browse our prompt library, create contexts from past chats, and tailor the experience to your needs.
+            </Typography>
+            <Typography variant="body1" sx={{ lineHeight: 1.8 }}>
+              <strong>4. Get Help:</strong> If you need help, please ask a question on our{' '}
+              <Link
+                component="button"
+                variant="body1"
+                onClick={() => window.open('https://github.com/FirstDataUnion/FIDU/issues', '_blank', 'noopener,noreferrer')}
+                sx={{
+                  textDecoration: 'none',
+                  color: 'primary.main',
+                  fontWeight: 600,
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >GitHub Issues</Link> page (there's a link in the sidebar too).
             </Typography>
           </Box>
 

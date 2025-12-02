@@ -44,6 +44,7 @@ import {
   SmartToy as SmartToyIcon,
   ImportExport as ImportExportIcon,
   Description as DocumentIcon,
+  Help as HelpIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -318,6 +319,24 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       
       {/* Footer with Policy Links */}
       <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
+        <Button
+          fullWidth
+          size="small"
+          startIcon={<HelpIcon fontSize="small" />}
+          onClick={() => window.open('https://github.com/FirstDataUnion/FIDU/issues', '_blank', 'noopener')}
+          sx={{
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            color: 'inherit',
+            opacity: 0.7,
+            '&:hover': {
+              opacity: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        >
+          Get help/report a problem
+        </Button>
         <Button
           fullWidth
           size="small"
