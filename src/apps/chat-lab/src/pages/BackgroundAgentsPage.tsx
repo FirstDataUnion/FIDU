@@ -747,6 +747,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const unifiedStorage = useUnifiedStorage();
   const documents = useAppSelector((state) => state.documents.items);
   const dispatch = useAppDispatch();
+  const backgroundAgentToDocumentFeatureFlag = useFeatureFlag('background_agent_to_document');
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1529,7 +1530,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
-                  {useFeatureFlag('background_agent_to_document') && (
+                  {backgroundAgentToDocumentFeatureFlag && (
                   <MenuItem value="update_document">
                     <Box>
                       <Typography variant="body1">Update Document</Typography>
@@ -1891,7 +1892,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
-                  {useFeatureFlag('background_agent_to_document') && (
+                  {backgroundAgentToDocumentFeatureFlag && (
                   <MenuItem value="update_document">
                     <Box>
                       <Typography variant="body1">Update Document</Typography>
