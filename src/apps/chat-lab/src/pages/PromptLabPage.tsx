@@ -2018,6 +2018,7 @@ export default function PromptLabPage() {
       'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', color: '#4285F4', provider: 'Google' },
       'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash-Lite', color: '#4285F4', provider: 'Google' },
       'gemini-2.5-pro': { name: 'Gemini 2.5 Pro', color: '#4285F4', provider: 'Google' },
+      'gemini-3-pro-preview': { name: 'Gemini 3 Pro Preview', color: '#4285F4', provider: 'Google' },
       
       // Meta Llama Models
       'llama-4-maverick': { name: 'Llama 4 Maverick', color: '#1877f2', provider: 'Meta' },

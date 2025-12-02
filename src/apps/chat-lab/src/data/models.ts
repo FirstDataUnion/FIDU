@@ -422,6 +422,20 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'google'
   },
+  'gemini-3-pro-preview': {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview',
+    provider: 'Google',
+    agentId: 'agent-1764583614624156727',
+    maxTokens: 1000000,
+    description: 'Gemini 3 Pro is Google\'s flagship frontier model for high-precision multimodal reasoning',
+    capabilities: ['advanced-reasoning', 'programming', 'multimodal'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'google'
+  },
 
   // Meta Llama Models
   'llama-4-maverick': {
@@ -1348,6 +1362,20 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
+    executionPath: 'openrouter',
+    providerKey: 'google'
+  },
+  'gemini-3-pro-preview': {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview',
+    provider: 'Google',
+    agentId: 'agent-1764693555713341144',
+    maxTokens: 1000000,
+    description: 'Gemini 3 Pro is Google\'s flagship frontier model for high-precision multimodal reasoning',
+    capabilities: ['advanced-reasoning', 'programming', 'multimodal'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
     executionPath: 'openrouter',
     providerKey: 'google'
   },
