@@ -668,7 +668,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: isMobile ? 0 : 3,
           width: { md: `calc(100vw - ${drawerWidth}px)` },
           maxWidth: { md: `calc(100vw - ${drawerWidth}px)` },
           overflow: 'hidden',
