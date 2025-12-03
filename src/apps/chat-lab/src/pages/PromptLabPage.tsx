@@ -3375,7 +3375,8 @@ export default function PromptLabPage() {
       overflow: 'hidden', // Prevent outer page scrolling
       // Mobile-specific adjustments
       ...(isMobile && {
-        height: 'calc(100vh - 120px)', // Account for bottom navigation
+        height: 'calc(100vh - 70px)', // Account for bottom navigation
+        padding: 0,
       })
     }}>
       {/* Storage Directory Banner */}
@@ -3389,6 +3390,7 @@ export default function PromptLabPage() {
         // Mobile-specific adjustments
         ...(isMobile && {
           pb: 2, // Add padding for mobile
+          padding: 0,
         })
       }}>
         {/* Error Display */}
@@ -3413,7 +3415,7 @@ export default function PromptLabPage() {
             overflowY: 'auto', 
             overflowX: 'hidden', // Prevent horizontal scrolling
             p: isMobile ? spacing.padding.sm : 3,
-            pb: isMobile ? 25 : 24, // Extra bottom padding for mobile input box
+            pb: isMobile ? 10 : 10, // Extra bottom padding for mobile input box
             display: 'flex',
             flexDirection: 'column',
             gap: isMobile ? 1.5 : 2,
@@ -3576,15 +3578,15 @@ export default function PromptLabPage() {
                   display: 'flex',
                   justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
                   mb: isMobile ? 1.5 : 2,
-                  mr: message.role === 'user' ? (isMobile ? '5%' : '15%') : 0,
-                  ml: message.role === 'assistant' ? (isMobile ? '5%' : 0) : 0,
+                  mr: message.role === 'user' ? 0 : (isMobile ? 0 : '15%'),
+                  ml: message.role === 'assistant' ? (isMobile ? 0 : 0) : '5%',
                   scrollMarginTop: '80px', // Add offset for sticky headers
                 }}
               >
                 <Paper
                   sx={{
                     p: isMobile ? 1.5 : 2,
-                    maxWidth: isMobile ? '90%' : '70%',
+                    maxWidth: isMobile ? '100%' : '70%',
                     minWidth: isMobile ? '60%' : 'auto',
                     backgroundColor: message.role === 'user' 
                       ? 'primary.light' 
@@ -3717,8 +3719,8 @@ export default function PromptLabPage() {
                       fontWeight: 600
                     },
                     // Add padding to prevent button overlap
-                    paddingRight: message.role === 'user' ? (isMobile ? '36px' : '44px') : (isMobile ? '36px' : '44px'), // Space for rewind/copy buttons
-                    paddingBottom: message.role === 'assistant' ? (isMobile ? '36px' : '44px') : (isMobile ? '6px' : '8px'), // Extra bottom padding for copy button
+                    paddingRight: message.role === 'user' ? (isMobile ? '36px' : '44px') : (isMobile ? '0' : '44px'), // Space for rewind/copy buttons
+                    paddingBottom: message.role === 'assistant' ? (isMobile ? '20px' : '44px') : (isMobile ? '6px' : '8px'), // Extra bottom padding for copy button
                     // Mobile-specific typography
                     fontSize: isMobile ? '0.9rem' : '1rem',
                     lineHeight: isMobile ? 1.4 : 1.5
@@ -3931,7 +3933,7 @@ export default function PromptLabPage() {
         <Box
           sx={{
             position: 'fixed',
-            bottom: 200, // Position above the prompt bar
+            bottom: 140, // Position above the prompt bar
             right: conversationsDrawerOpen ? 320 : 20, // Adjust position based on drawer state
             zIndex: 1001,
             transition: 'right 0.3s ease' // Smooth transition when drawer opens/closes
@@ -4253,7 +4255,7 @@ export default function PromptLabPage() {
 
             {/* Unified Prompt Entry Container */}
             <Paper sx={{ 
-              p: isMobile ? 2 : 0.75, 
+              p: 0.75, 
               borderRadius: isMobile ? 0 : 2,
               backgroundColor: 'background.paper',
               border: 1,
@@ -4273,6 +4275,7 @@ export default function PromptLabPage() {
                 borderBottom: 'none',
                 borderTop: 1,
                 borderTopColor: 'divider',
+                padding: 0,
               } : {})
             }}>
               {/* Message Input Container */}
@@ -4605,8 +4608,8 @@ export default function PromptLabPage() {
                   display: 'flex', 
                   justifyContent: 'center',
                   alignItems: 'center',
-                  mt: 1.5,
-                  mb: 0.5,
+                  mt: 0,
+                  mb: 0,
                   px: 2,
                 }}>
                   {/* New Chat Button - Positioned at 1/4 from left */}
@@ -4640,7 +4643,7 @@ export default function PromptLabPage() {
                   )}
                   
                   {/* Menu Toggle Button - Centered */}
-                  {modelSelectionFeatureFlag || contextFeatureFlag || systemPromptsFeatureFlag || viewCopyFullPromptFeatureFlag || recentConversationsInChatPageFeatureFlag && (
+                  {(modelSelectionFeatureFlag || contextFeatureFlag || systemPromptsFeatureFlag || viewCopyFullPromptFeatureFlag || recentConversationsInChatPageFeatureFlag) && (
                   <IconButton
                     onClick={() => setShowMobileControls(!showMobileControls)}
                     sx={{
