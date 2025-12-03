@@ -4,17 +4,19 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Tooltip } from '@mui/material';
-import { Schedule } from '@mui/icons-material';
+import { Box, Typography, Tooltip, Button } from '@mui/material';
+import { Schedule, Schedule as ScheduleIcon, Sync as SyncIcon } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { unsyncedDataManager } from '../../services/storage/UnsyncedDataManager';
 
 interface AutoSyncCountdownProps {
   variant?: 'compact' | 'full';
+  onClick?: () => void;
 }
 
-export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact' }) => {
+export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact', onClick }) => {
   const [countdown, setCountdown] = useState<number>(0);
-  const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  const [hasUnsyncedData, setHasUnsyncedData] = useState(false);
 
   useEffect(() => {
     const updateCountdown = async () => {
@@ -28,16 +30,13 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
           
           if (smartStatus && smartStatus.enabled && smartStatus.hasUnsyncedData) {
             setCountdown(smartStatus.countdownSeconds || 0);
-            setIsEnabled(true);
           } else {
             setCountdown(0);
-            setIsEnabled(false);
           }
         }
       } catch (error) {
         console.error('Failed to get sync countdown:', error);
         setCountdown(0);
-        setIsEnabled(false);
       }
     };
 
@@ -49,44 +48,17 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
     return () => clearInterval(interval);
   }, []);
 
-  // Show countdown if enabled and we have unsynced data
-  if (!isEnabled) {
-    return null;
-  }
+  useEffect(() => {
+    // Set initial state
+    setHasUnsyncedData(unsyncedDataManager.hasUnsynced());
 
-  // If countdown is 0 but we still have unsynced data, 
-  // it means sync should happen soon or is stuck
-  if (countdown <= 0) {
-    return (
-      <Tooltip title="Auto-sync should trigger soon..." arrow>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            px: 1,
-            py: 0.5,
-            backgroundColor: 'background.paper',
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider',
-            minWidth: 'fit-content'
-          }}
-        >
-          <Schedule sx={{ fontSize: 14, color: 'warning.main' }} />
-          <Typography
-            variant="caption"
-            sx={{
-              color: 'warning.main',
-              fontWeight: 500
-            }}
-          >
-            auto-sync pending...
-          </Typography>
-        </Box>
-      </Tooltip>
-    );
-  }
+    // Subscribe to changes
+    const unsubscribe = unsyncedDataManager.addListener((hasUnsynced: boolean) => {
+      setHasUnsyncedData(hasUnsynced);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -99,74 +71,23 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
     }
   };
 
-  const getColor = (seconds: number): string => {
-    if (seconds <= 30) return 'warning.main';
-    if (seconds <= 60) return 'info.main';
-    return 'text.secondary';
-  };
-
-  if (variant === 'compact') {
-    return (
-      <Tooltip title={`Auto-sync in ${formatTime(countdown)}`} arrow>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            px: 1,
-            py: 0.5,
-            backgroundColor: 'background.paper',
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider',
-            minWidth: 'fit-content'
-          }}
-        >
-          <Schedule sx={{ fontSize: 14, color: getColor(countdown) }} />
-          <Typography
-            variant="caption"
-            sx={{
-              color: getColor(countdown),
-              fontWeight: 500,
-              fontFamily: 'monospace'
-            }}
-          >
-            auto-sync in {formatTime(countdown)}
-          </Typography>
-        </Box>
-      </Tooltip>
-    );
-  }
-
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        p: 1,
-        backgroundColor: 'background.paper',
-        borderRadius: 1,
-        border: '1px solid',
-        borderColor: 'divider'
-      }}
-    >
-      <Schedule sx={{ fontSize: 16, color: getColor(countdown) }} />
-      <Box>
-        <Typography variant="caption" color="text.secondary">
-          Next auto-sync:
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            color: getColor(countdown),
-            fontWeight: 600,
-            fontFamily: 'monospace'
-          }}
-        >
+    <>
+    <Button onClick={onClick} sx={{ textTransform: 'none', minWidth: '8rem', justifyContent: 'flex-start' }} disabled={countdown <= 0}>
+      <SyncIcon sx={{ color: hasUnsyncedData ? 'warning.main' : 'text.secondary' }} />
+      {countdown > 0 ? (
+        <>
+        <ScheduleIcon sx={{ color: 'text.secondary' }} />
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '1rem', ml: '0.1rem'}}>
           {formatTime(countdown)}
         </Typography>
-      </Box>
-    </Box>
+        </>
+      ) : hasUnsyncedData && (
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.8rem', ml: '0.1rem'}}>
+          Sync pending
+        </Typography>
+      )}
+    </Button>
+    </>
   );
 };

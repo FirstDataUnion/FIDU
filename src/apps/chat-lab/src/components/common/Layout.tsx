@@ -460,46 +460,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                    </Box>
                  )}
                  
-                 {/* Unsynced Data Indicator - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <UnsyncedDataIndicator variant="compact" />
-                   </Box>
-                 )}
-                 
                  {/* Auto-Sync Countdown - only show in cloud storage mode */}
                  {isCloudStorageMode && (
                    <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <AutoSyncCountdown variant="compact" />
+                     <AutoSyncCountdown variant="compact" onClick={handleManualSync} />
                    </Box>
-                 )}
-                 
-                 {/* Manual Sync Button - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync Now to Google Drive"} arrow>
-                     <Button
-                       color="inherit"
-                       variant="outlined"
-                       size="small"
-                       startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
-                       onClick={handleManualSync}
-                       disabled={isSyncInProgress}
-                       sx={{ 
-                         mr: 2,
-                         textTransform: 'none',
-                         borderColor: 'rgba(255,255,255,0.3)',
-                         '&:hover': {
-                           backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                           borderColor: 'rgba(255,255,255,0.8)'
-                         },
-                         '&:disabled': {
-                           opacity: 0.5
-                         }
-                       }}
-                     >
-                       {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
-                     </Button>
-                   </Tooltip>
                  )}
           
           {/* Profile and Logout */}
