@@ -196,7 +196,8 @@ async def encrypt_refresh_token(token: str, user_id: str, auth_token: str) -> st
         logger.info("Encrypted refresh token for user %s", user_id)
         return encrypted_data
 
-    except IdentityServiceUnauthorizedError:
+    except IdentityServiceUnauthorizedError as e:
+        logger.error("Failed to encrypt refresh token due to 401: %s", e)
         raise
     except Exception as e:
         logger.error("Failed to encrypt refresh token: %s", e)
@@ -226,8 +227,8 @@ async def decrypt_refresh_token(
         return token
 
     except IdentityServiceUnauthorizedError as e:
-        logger.error("Failed to decrypt refresh token: %s", e)
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
+        logger.error("Failed to decrypt refresh token due to 401: %s", e)
+        raise
     except Exception as e:
         logger.error("Failed to decrypt refresh token: %s", e)
         raise HTTPException(
@@ -728,7 +729,8 @@ async def exchange_oauth_code(
                     )
                 except IdentityServiceUnauthorizedError as e:
                     logger.error(
-                        "Failed to encrypt refresh token during OAuth exchange: %s", e
+                        "Failed to encrypt refresh token during OAuth exchange due to 401: %s",
+                        e,
                     )
                     failure_response = JSONResponse(
                         status_code=401,
@@ -808,7 +810,7 @@ async def refresh_oauth_token(request: Request):
                     encrypted_token, user_id, auth_token
                 )
             except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt refresh token: %s", e)
+                logger.error("Failed to decrypt refresh token due to 401: %s", e)
                 failure_response = JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
@@ -831,7 +833,7 @@ async def refresh_oauth_token(request: Request):
                     encrypted_token, encryption_key
                 )
             except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt refresh token: %s", e)
+                logger.error("Failed to decrypt refresh token due to 401: %s", e)
                 failure_response = JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
@@ -999,7 +1001,9 @@ async def get_oauth_tokens(request: Request):
                     encrypted_token, user_id, auth_token
                 )
             except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+                logger.error(
+                    "Failed to decrypt Google Drive refresh token due to 401: %s", e
+                )
                 failure_response = JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
@@ -1029,7 +1033,10 @@ async def get_oauth_tokens(request: Request):
                     encrypted_token, encryption_key
                 )
             except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt Google Drive refresh token: %s", e)
+                logger.error(
+                    "Failed to decrypt refresh token with encryption service due to 401: %s",
+                    e,
+                )
                 failure_response = JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
@@ -1143,7 +1150,7 @@ async def set_auth_token(request: Request):
         return fastapi_response
 
     except IdentityServiceUnauthorizedError as e:
-        logger.error("Failed to set auth token: %s", e)
+        logger.error("Failed to set auth token due to 401: %s", e)
         failure_response = JSONResponse(
             status_code=401,
             content={"detail": "Authentication to identity service failed"},
@@ -1261,6 +1268,14 @@ async def get_auth_tokens(request: Request):
         logger.info("Retrieved authentication data from cookies for user %s", user_id)
         return response_data
 
+    except IdentityServiceUnauthorizedError as e:
+        logger.error("Failed to get auth tokens due to 401: %s", e)
+        failure_response = JSONResponse(
+            status_code=401,
+            content={"detail": "Authentication to identity service failed"},
+        )
+        clear_cookies_on_identity_service_401(failure_response)
+        return failure_response
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to get auth tokens: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -1315,7 +1330,7 @@ async def set_user_settings(request: Request):
                 json.dumps(settings), user_id, auth_token
             )
         except IdentityServiceUnauthorizedError as e:
-            logger.error("Failed to encrypt settings: %s", e)
+            logger.error("Failed to encrypt settings due to 401: %s", e)
             failure_response = JSONResponse(
                 status_code=401,
                 content={"detail": "Authentication to identity service failed"},
@@ -1397,6 +1412,18 @@ async def get_user_settings(request: Request):
                     user_id,
                     environment,
                 )
+            except IdentityServiceUnauthorizedError as e:
+                logger.error(
+                    "Failed to decrypt settings data for %s environment due to 401: %s",
+                    environment,
+                    e,
+                )
+                failure_response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication to identity service failed"},
+                )
+                clear_cookies_on_identity_service_401(failure_response)
+                return failure_response
             except (ValueError, RuntimeError, json.JSONDecodeError) as e:
                 logger.warning(
                     "Failed to decrypt settings data for %s environment: %s",
@@ -1803,6 +1830,14 @@ async def refresh_all_tokens(
                     result["errors"]["google_drive"] = "OAuth not configured on server"
             else:
                 logger.debug("No Google Drive refresh token found for batch refresh")
+        except IdentityServiceUnauthorizedError as e:
+            logger.error("Google Drive token refresh failed in batch due to 401: %s", e)
+            failure_response = JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication to identity service failed"},
+            )
+            clear_cookies_on_identity_service_401(failure_response)
+            return failure_response
         except Exception as e:  # pylint: disable=broad-exception-caught
             result["errors"]["google_drive"] = str(e)
             logger.warning("Google Drive token refresh failed in batch: %s", e)
