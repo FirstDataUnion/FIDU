@@ -3586,7 +3586,7 @@ export default function PromptLabPage() {
                 <Paper
                   sx={{
                     p: isMobile ? 1.5 : 2,
-                    maxWidth: isMobile ? '100%' : '70%',
+                    maxWidth: isMobile ? '100%' : '100%',
                     minWidth: isMobile ? '60%' : 'auto',
                     backgroundColor: message.role === 'user' 
                       ? 'primary.light' 
@@ -3719,8 +3719,8 @@ export default function PromptLabPage() {
                       fontWeight: 600
                     },
                     // Add padding to prevent button overlap
-                    paddingRight: message.role === 'user' ? (isMobile ? '36px' : '44px') : (isMobile ? '0' : '44px'), // Space for rewind/copy buttons
-                    paddingBottom: message.role === 'assistant' ? (isMobile ? '20px' : '44px') : (isMobile ? '6px' : '8px'), // Extra bottom padding for copy button
+                    paddingRight: message.role === 'user' ? (isMobile ? '36px' : '18px') : (isMobile ? '0' : '0px'), // Space for rewind/copy buttons
+                    paddingBottom: message.role === 'assistant' ? (isMobile ? '20px' : '18px') : (isMobile ? '6px' : '8px'), // Extra bottom padding for copy button
                     // Mobile-specific typography
                     fontSize: isMobile ? '0.9rem' : '1rem',
                     lineHeight: isMobile ? 1.4 : 1.5
