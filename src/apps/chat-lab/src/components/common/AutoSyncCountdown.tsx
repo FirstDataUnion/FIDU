@@ -4,17 +4,18 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Tooltip, Button } from '@mui/material';
-import { Schedule, Schedule as ScheduleIcon, Sync as SyncIcon } from '@mui/icons-material';
+import { Typography, Button } from '@mui/material';
+import { Schedule as ScheduleIcon, Sync as SyncIcon } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { unsyncedDataManager } from '../../services/storage/UnsyncedDataManager';
 
 interface AutoSyncCountdownProps {
   variant?: 'compact' | 'full';
   onClick?: () => void;
+  isSyncInProgress: boolean;
 }
 
-export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact', onClick }) => {
+export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact', onClick, isSyncInProgress }) => {
   const [countdown, setCountdown] = useState<number>(0);
   const [hasUnsyncedData, setHasUnsyncedData] = useState(false);
 
@@ -73,7 +74,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
 
   return (
     <>
-    <Button onClick={onClick} sx={{ textTransform: 'none', minWidth: '8rem', justifyContent: 'flex-start' }} disabled={countdown <= 0}>
+    <Button onClick={onClick} sx={{ textTransform: 'none', minWidth: '8rem', justifyContent: 'flex-start' }}>
       <SyncIcon sx={{ color: hasUnsyncedData ? 'warning.main' : 'text.secondary' }} />
       {countdown > 0 ? (
         <>
@@ -82,9 +83,9 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
           {formatTime(countdown)}
         </Typography>
         </>
-      ) : hasUnsyncedData && (
+      ) : (hasUnsyncedData || isSyncInProgress) && (
         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.8rem', ml: '0.1rem'}}>
-          Sync pending
+          {isSyncInProgress ? 'Syncing...' : 'Sync pending'}
         </Typography>
       )}
     </Button>
