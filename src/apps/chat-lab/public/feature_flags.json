@@ -9,5 +9,5 @@
     "system_prompt_librarian": {"enabled": false, "depends_on": ["system_prompts"]},
     "view_copy_full_prompt": {"enabled": false},
     "recent_conversations_in_chat_page": {"enabled": false},
-    "new_chat_button_in_chat_page": {"enabled": false}
+    "new_chat_button_in_chat_page": {"enabled": true}
 }
