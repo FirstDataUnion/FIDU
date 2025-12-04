@@ -2,14 +2,17 @@ import {
     Circle as DefaultIcon,
     CheckCircle as EnabledIcon,
     Cancel as DisabledIcon,
+    HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
-import { Box, Switch, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import React, { useMemo } from 'react';
+import { Box, Link, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import React, { useMemo, useState } from 'react';
 import { useAppSelector } from '../store';
 import { selectSystemFeatureFlags, selectUserFeatureFlagOverrides } from '../store/selectors/featureFlagsSelectors';
 import { setUserOverride } from '../store/slices/userFeatureFlagsSlice';
 import type { FeatureFlagDefinition, FeatureFlagKey } from '../types/featureFlags';
 import { useAppDispatch } from '../hooks/redux';
+import ContextHelpModal from '../components/help/ContextHelpModal';
+import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 
 export default function FeatureFlagPage(): React.JSX.Element {
   const dispatch = useAppDispatch();
@@ -26,18 +29,30 @@ export default function FeatureFlagPage(): React.JSX.Element {
   }, [systemFlags]);
 
   const names = {
-    "context": "Context",
+    "context": "Contexts",
     "system_prompts": "System Prompts",
     "documents": "Documents",
     "background_agents": "Background Agents",
     "model_selection": "Model Selection",
     "prompt_wizard": "Prompt Wizard",
     "system_prompt_librarian": "System Prompt Librarian",
-    "view_copy_full_prompt": "View Copy Full Prompt",
+    "view_copy_full_prompt": "View/Copy Full Prompt",
   };
 
-  console.log(userFlags);
-  console.log(configurableFlags);
+  const helpModals = {
+    "context": ContextHelpModal,
+    "system_prompts": SystemPromptHelpModal,
+  };
+
+  const [helpModalOpen, setHelpModalOpen] = useState<keyof typeof helpModals | null>(null);
+
+  function handleHelpModalOpen(key: keyof typeof helpModals) {
+    setHelpModalOpen(key);
+  }
+
+  function handleHelpModalClose() {
+    setHelpModalOpen(null);
+  }
 
   function handleToggleButtonChange(key: FeatureFlagKey, value: string) {
     if (value === null) {
@@ -79,6 +94,27 @@ export default function FeatureFlagPage(): React.JSX.Element {
                 return (
                     <Box key={key}>
                         <Typography variant="h5">{names[key as keyof typeof names]}</Typography>
+                        {key in helpModals && (
+                            <>
+                            <Link
+                                component="button"
+                                variant="body2"
+                                onClick={() => handleHelpModalOpen(key as keyof typeof helpModals)}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                }}
+                            >
+                                <HelpOutlineIcon fontSize="small" />
+                                What are "{names[key as keyof typeof names]}"?
+                            </Link>
+                            {helpModals[key as keyof typeof helpModals]({
+                                open: helpModalOpen === key,
+                                onClose: handleHelpModalClose,
+                            })}
+                            </>
+                        )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Default:</Typography>
                             {
