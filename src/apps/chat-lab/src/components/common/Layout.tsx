@@ -463,7 +463,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                  {/* Auto-Sync Countdown - only show in cloud storage mode */}
                  {isCloudStorageMode && (
                    <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <AutoSyncCountdown variant="compact" onClick={handleManualSync} />
+                     <AutoSyncCountdown variant="compact" onClick={handleManualSync} isSyncInProgress={isSyncInProgress} />
                    </Box>
                  )}
           
@@ -633,7 +633,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: isMobile ? 0 : 3,
+          p: 0,
           width: { md: `calc(100vw - ${drawerWidth}px)` },
           maxWidth: { md: `calc(100vw - ${drawerWidth}px)` },
           overflow: 'hidden',
