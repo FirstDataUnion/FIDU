@@ -1073,12 +1073,14 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
               placeholder="Search contexts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                )
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  )
+                }
               }}
             />
             <FormControl size="small" sx={{ minWidth: 250 }}>
@@ -1423,12 +1425,14 @@ function SystemPromptSelectionModal({
             placeholder="Search system prompts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
+              }
             }}
           />
           
@@ -1576,13 +1580,15 @@ function FullPromptModal({ open, onClose, fullPrompt }: FullPromptModalProps) {
           rows={10}
           variant="outlined"
           value={fullPrompt}
-          InputProps={{
-            readOnly: true,
-            startAdornment: (
-              <InputAdornment position="start">
-                <ChatIcon />
-              </InputAdornment>
-            )
+          slotProps={{
+            input: {
+              readOnly: true,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <ChatIcon />
+                </InputAdornment>
+              )
+            }
           }}
           sx={{
             '& .MuiOutlinedInput-root': {
@@ -4313,12 +4319,30 @@ export default function PromptLabPage() {
                       padding: isMobile ? '12px 14px' : '8px 14px',
                     }
                   }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <ChatIcon color="action" sx={{ fontSize: isMobile ? 20 : 18 }} />
-                      </InputAdornment>
-                    )
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          { isMobile ? (
+                          <IconButton
+                            onClick={() => setShowMobileControls(!showMobileControls)}
+                            sx={{
+                              backgroundColor: 'action.hover',
+                              '&:hover': {
+                                backgroundColor: 'action.selected'
+                              },
+                              width: 44,
+                              height: 44,
+                            }}
+                          >
+                            {showMobileControls ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+                          </IconButton>
+                          ) : (
+                            <ChatIcon color="action" sx={{ fontSize: isMobile ? 20 : 18 }} />
+                          )}
+                        </InputAdornment>
+                      )
+                    }
                   }}
                 />
 
@@ -4478,6 +4502,29 @@ export default function PromptLabPage() {
                     mt: 1.5,
                     px: 0.5
                   }}>
+                    {newChatButtonInChatPageFeatureFlag && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => startNewConversation()}
+                      sx={{ 
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        color: 'primary.dark',
+                        borderColor: 'primary.dark',
+                        boxShadow: 1,
+                        fontSize: '0.8rem',
+                        py: 1,
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          borderColor: 'primary.main',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
+                      New Chat
+                    </Button>
+                    )}
                     {modelSelectionFeatureFlag && (
                     <Button
                       variant="outlined"
@@ -4599,66 +4646,6 @@ export default function PromptLabPage() {
                     )}
                   </Box>
                 </Collapse>
-              )}
-
-              {/* Mobile Controls Toggle and New Chat Button */}
-              {isMobile && (
-                <Box sx={{ 
-                  position: 'relative',
-                  display: 'flex', 
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  mt: 0,
-                  mb: 0,
-                  px: 2,
-                }}>
-                  {/* New Chat Button - Positioned at 1/4 from left */}
-                  {messages.length > 0 && newChatButtonInChatPageFeatureFlag && (
-                    <Box sx={{
-                      position: 'absolute',
-                      left: '20%',
-                      transform: 'translateX(-50%)',
-                    }}>
-                      <Button
-                        variant="outlined"
-                        onClick={startNewConversation}
-                        startIcon={<AddIcon />}
-                        size="small"
-                        sx={{ 
-                          color: 'primary.dark', 
-                          borderColor: 'primary.dark',
-                          fontSize: '0.75rem',
-                          px: 2,
-                          py: 0.75,
-                          whiteSpace: 'nowrap',
-                          '&:hover': {
-                            backgroundColor: 'primary.light',
-                            borderColor: 'primary.main'
-                          }
-                        }}
-                      >
-                        New Chat
-                      </Button>
-                    </Box>
-                  )}
-                  
-                  {/* Menu Toggle Button - Centered */}
-                  {(modelSelectionFeatureFlag || contextFeatureFlag || systemPromptsFeatureFlag || viewCopyFullPromptFeatureFlag || recentConversationsInChatPageFeatureFlag) && (
-                  <IconButton
-                    onClick={() => setShowMobileControls(!showMobileControls)}
-                    sx={{
-                      backgroundColor: 'action.hover',
-                      '&:hover': {
-                        backgroundColor: 'action.selected'
-                      },
-                      width: 44,
-                      height: 44,
-                    }}
-                  >
-                    {showMobileControls ? <ExpandMoreIcon /> : <ExpandLessIcon />}
-                  </IconButton>
-                  )}
-                </Box>
               )}
             </Paper>
 
