@@ -40,7 +40,7 @@ import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
 import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
 import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
-import { fetchFeatureFlags } from './store/slices/featureFlagsSlice';
+import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
 
 // Lazy load page components for code splitting
@@ -174,9 +174,9 @@ const AppContent: React.FC<AppContentProps> = () => {
   useStorageUserId();
 
   useEffect(() => {
-    dispatch(fetchFeatureFlags());
+    dispatch(fetchSystemFeatureFlags());
     const intervalId = window.setInterval(() => {
-      dispatch(fetchFeatureFlags());
+      dispatch(fetchSystemFeatureFlags());
     }, FEATURE_FLAGS_REFRESH_INTERVAL_MS);
 
     return () => {

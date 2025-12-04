@@ -4,25 +4,25 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type { FeatureFlagsMap } from '../../types/featureFlags';
 import { getFeatureFlags } from '../../services/featureFlags/FeatureFlagsService';
 
-export interface FeatureFlagsState {
+export interface SystemFeatureFlagsState {
   flags: FeatureFlagsMap | null;
   loading: boolean;
   error: string | null;
   lastFetchedAt: number | null;
 }
 
-const initialState: FeatureFlagsState = {
+const initialState: SystemFeatureFlagsState = {
   flags: null,
   loading: false,
   error: null,
   lastFetchedAt: null,
 };
 
-export const fetchFeatureFlags = createAsyncThunk<
+export const fetchSystemFeatureFlags = createAsyncThunk<
   FeatureFlagsMap,
   void,
   { rejectValue: string }
->('featureFlags/fetchFeatureFlags', async (_, { rejectWithValue }) => {
+>('systemFeatureFlags/fetchSystemFeatureFlags', async (_, { rejectWithValue }) => {
   try {
     return await getFeatureFlags();
   } catch (error) {
@@ -32,14 +32,14 @@ export const fetchFeatureFlags = createAsyncThunk<
   }
 });
 
-const featureFlagsSlice = createSlice({
-  name: 'featureFlags',
+const systemFeatureFlagsSlice = createSlice({
+  name: 'systemFeatureFlags',
   initialState,
   reducers: {
-    clearFeatureFlagError: (state) => {
+    clearSystemFeatureFlagError: (state) => {
       state.error = null;
     },
-    hydrateFeatureFlags: (state, action: PayloadAction<FeatureFlagsMap>) => {
+    hydrateSystemFeatureFlags: (state, action: PayloadAction<FeatureFlagsMap>) => {
       state.flags = action.payload;
       state.lastFetchedAt = Date.now();
       state.error = null;
@@ -48,17 +48,17 @@ const featureFlagsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchFeatureFlags.pending, (state) => {
+      .addCase(fetchSystemFeatureFlags.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchFeatureFlags.fulfilled, (state, action) => {
+      .addCase(fetchSystemFeatureFlags.fulfilled, (state, action) => {
         state.loading = false;
         state.flags = action.payload;
         state.error = null;
         state.lastFetchedAt = Date.now();
       })
-      .addCase(fetchFeatureFlags.rejected, (state, action) => {
+      .addCase(fetchSystemFeatureFlags.rejected, (state, action) => {
         state.loading = false;
         state.error =
           action.payload ||
@@ -68,8 +68,8 @@ const featureFlagsSlice = createSlice({
   },
 });
 
-export const { clearFeatureFlagError, hydrateFeatureFlags } =
-  featureFlagsSlice.actions;
+export const { clearSystemFeatureFlagError, hydrateSystemFeatureFlags } =
+  systemFeatureFlagsSlice.actions;
 
-export default featureFlagsSlice.reducer;
+export default systemFeatureFlagsSlice.reducer;
 

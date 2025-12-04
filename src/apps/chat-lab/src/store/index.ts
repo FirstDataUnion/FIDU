@@ -13,7 +13,8 @@ import searchSlice from './slices/searchSlice';
 import authSlice from './slices/authSlice';
 import unifiedStorageSlice from './slices/unifiedStorageSlice';
 import googleDriveAuthSlice from './slices/googleDriveAuthSlice';
-import featureFlagsSlice from './slices/featureFlagsSlice';
+import userFeatureFlagsSlice from './slices/userFeatureFlagsSlice';
+import systemFeatureFlagsSlice from './slices/systemFeatureFlagsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -28,7 +29,8 @@ export const store = configureStore({
     auth: authSlice,
     unifiedStorage: unifiedStorageSlice,
     googleDriveAuth: googleDriveAuthSlice,
-    featureFlags: featureFlagsSlice,
+    systemFeatureFlags: systemFeatureFlagsSlice,
+    userFeatureFlags: userFeatureFlagsSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

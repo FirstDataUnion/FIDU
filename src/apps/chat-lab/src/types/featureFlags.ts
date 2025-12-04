@@ -11,6 +11,8 @@ export type FeatureFlagsMap = {
   [K in FeatureFlagKey]: FeatureFlagDefinition;
 };
 
+export type UserFeatureFlagOverrides = Partial<Record<FeatureFlagKey, boolean>>;
+
 const featureFlagKeySet = new Set(
   Object.keys(featureFlagsReference) as FeatureFlagKey[]
 );

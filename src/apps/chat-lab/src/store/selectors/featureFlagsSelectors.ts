@@ -2,9 +2,10 @@ import type { RootState } from '../index';
 import type {
   FeatureFlagKey,
   FeatureFlagsMap,
+  UserFeatureFlagOverrides,
 } from '../../types/featureFlags';
 
-const resolveFlagEnabled = (
+export const resolveFlagEnabled = (
   flags: FeatureFlagsMap,
   key: FeatureFlagKey,
   visited: Set<FeatureFlagKey> = new Set(),
@@ -30,16 +31,52 @@ const resolveFlagEnabled = (
   );
 };
 
-export const selectFeatureFlagsState = (state: RootState) => state.featureFlags;
+export const combineSystemFlagsWithOverrides = (
+  systemFlags: FeatureFlagsMap | null,
+  userOverrides: UserFeatureFlagOverrides
+): FeatureFlagsMap | null => {
+  if (!systemFlags) {
+    return null;
+  }
 
-export const selectFeatureFlags = (state: RootState) =>
-  state.featureFlags.flags;
+  // Create a deep copy of system flags
+  const combined: FeatureFlagsMap = {} as FeatureFlagsMap;
+
+  for (const key in systemFlags) {
+    const typedKey = key as FeatureFlagKey;
+    const systemFlag = systemFlags[typedKey];
+    const userOverride = userOverrides[typedKey];
+
+    // If user has overridden this flag to false, disable it
+    // Otherwise, use the system flag value
+    combined[typedKey] = {
+      enabled: userOverride === false ? false : systemFlag.enabled,
+      depends_on: systemFlag.depends_on ? [...systemFlag.depends_on] : undefined,
+    };
+  }
+
+  return combined;
+};
+
+export const selectUserFeatureFlagsState = (state: RootState) => state.userFeatureFlags;
+
+export const selectSystemFeatureFlags = (state: RootState) =>
+  state.systemFeatureFlags.flags;
+
+export const selectUserFeatureFlagOverrides = (state: RootState) =>
+  state.userFeatureFlags.userOverrides;
+
+export const selectFeatureFlags = (state: RootState): FeatureFlagsMap | null => {
+  const systemFlags = state.systemFeatureFlags.flags;
+  const userOverrides = state.userFeatureFlags.userOverrides;
+  return combineSystemFlagsWithOverrides(systemFlags, userOverrides);
+};
 
 export const selectIsFeatureFlagEnabled = (
   state: RootState,
   key: FeatureFlagKey
 ): boolean => {
-  const flags = state.featureFlags.flags;
+  const flags = selectFeatureFlags(state);
   if (!flags) {
     return false;
   }

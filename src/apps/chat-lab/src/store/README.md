@@ -16,7 +16,8 @@ store/
 │   ├── searchSlice.ts         # Global search state
 │   ├── settingsSlice.ts       # Application settings
 │   ├── systemPromptsSlice.ts  # System prompt management
-│   ├── featureFlagsSlice.ts   # Remote feature flag state
+│   ├── userFeatureFlagsSlice.ts   # User feature flag overrides
+│   ├── systemFeatureFlagsSlice.ts # System feature flags from JSON
 │   └── uiSlice.ts             # UI state and notifications
 └── selectors/                  # Memoized selectors
     ├── conversationsSelectors.ts # Conversation-specific selectors
@@ -286,13 +287,13 @@ interface GoogleDriveAuthState {
 - **`updateSyncStatus`** - Update sync status
 - **`setError`** - Set authentication error
 
-### 🏁 Feature Flags (`featureFlagsSlice.ts`)
+### 🏁 System Feature Flags (`systemFeatureFlagsSlice.ts`)
 
-**Purpose**: Loads `public/feature_flags.json` from the server, keeps it in Redux, and exposes dependency-aware selectors so UI code can safely gate features.
+**Purpose**: Loads `public/feature_flags.json` from the server and stores system-defined feature flags in Redux.
 
 **State Structure:**
 ```typescript
-interface FeatureFlagsState {
+interface SystemFeatureFlagsState {
   flags: FeatureFlagsMap | null;
   loading: boolean;
   error: string | null;
@@ -301,19 +302,47 @@ interface FeatureFlagsState {
 ```
 
 **Key Actions & Thunks:**
-- **`fetchFeatureFlags`** – Fetch and hydrate flags on start and every 15 minutes.
-- **`hydrateFeatureFlags`** – Allows manual hydration for tests or SSR scenarios.
-- **`clearFeatureFlagError`** – Reset network/validation errors.
+- **`fetchSystemFeatureFlags`** – Fetch and hydrate system flags on start and every 15 minutes.
+- **`hydrateSystemFeatureFlags`** – Allows manual hydration for tests or SSR scenarios.
+- **`clearSystemFeatureFlagError`** – Reset network/validation errors.
+
+### 🏁 User Feature Flags (`userFeatureFlagsSlice.ts`)
+
+**Purpose**: Stores user overrides for feature flags, allowing users to disable enabled system flags. Combined with system flags via selectors.
+
+**State Structure:**
+```typescript
+interface UserFeatureFlagsState {
+  userOverrides: UserFeatureFlagOverrides;
+  loading: boolean;
+  error: string | null;
+}
+```
+
+**Key Actions:**
+- **`setUserOverride(key, value)`** – Set or clear a user override for a specific flag.
+- **`clearAllUserOverrides()`** – Reset all user overrides.
+- **`loadUserOverrides(overrides)`** – Bulk load user overrides.
+- **`clearUserFeatureFlagError()`** – Reset errors.
 
 **Selectors & Hooks:**
-- **`selectIsFeatureFlagEnabled(state, key)`** – Resolves dependencies before reporting a flag as enabled.
+- **`selectIsFeatureFlagEnabled(state, key)`** – Resolves dependencies and combines system flags with user overrides before reporting a flag as enabled.
+- **`selectSystemFeatureFlags(state)`** – Get system flags directly.
+- **`selectUserFeatureFlagOverrides(state)`** – Get user overrides directly.
+- **`selectFeatureFlags(state)`** – Get combined system + user flags.
+- **`selectUserFeatureFlagsState(state)`** – Get raw user feature flags state.
 - **`useFeatureFlag(key)`** – Hook wrapper that enforces the `FeatureFlagKey` union at compile time.
+
+**Utilities:**
+- **`resolveFlagEnabled(flags, key)`** – Resolve flag enabled state with dependency checking (exported for page use).
+- **`combineSystemFlagsWithOverrides(systemFlags, userOverrides)`** – Combine system flags with user overrides (exported for page use).
 
 **Adding or Updating Flags:**
 1. Edit [`src/apps/chat-lab/public/feature_flags.json`](../../public/feature_flags.json). The TypeScript union is inferred directly from this file, so typos will not compile.
 2. Keep `depends_on` limited to other valid keys; cycles disable all flags in the loop.
 3. Run `npm test -- featureFlags` (or the full suite) to revalidate the payload and selectors.
 4. Gate UI with `useFeatureFlag('flag_name')` or the selector instead of hard-coded booleans.
+5. User overrides are persisted to localStorage and can only disable flags (not enable disabled ones).
 
 ## Selectors (`selectors/`)
 
