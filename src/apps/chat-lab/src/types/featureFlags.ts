@@ -59,19 +59,20 @@ export const validateFeatureFlagsPayload = (
     }
 
     const enabled = rawValue.enabled;
-    const user_configurable = rawValue.user_configurable ?? false;
-    const default_enabled = rawValue.default_enabled ?? false;
+    const user_configurable = rawValue.user_configurable;
+    const default_enabled = rawValue.default_enabled;
+
     if (typeof enabled !== 'boolean') {
       validationErrors.push(['Invalid enabled flag', rawKey]);
       continue;
     }
 
-    if (typeof user_configurable !== 'boolean') {
+    if (user_configurable !== undefined && typeof user_configurable !== 'boolean') {
       validationErrors.push(['Invalid user_configurable flag', rawKey]);
       continue;
     }
 
-    if (typeof default_enabled !== 'boolean') {
+    if (default_enabled !== undefined && typeof default_enabled !== 'boolean') {
       validationErrors.push(['Invalid default_enabled flag', rawKey]);
       continue;
     }
@@ -107,13 +108,23 @@ export const validateFeatureFlagsPayload = (
       depends_on = Array.from(deduped);
     }
 
-    parsedFlags[rawKey] = { enabled, depends_on, user_configurable, default_enabled };
+    const flag: FeatureFlagDefinition = {enabled};
+    if (user_configurable !== undefined) {
+      flag.user_configurable = user_configurable;
+    }
+    if (default_enabled !== undefined) {
+      flag.default_enabled = default_enabled;
+    }
+    if (depends_on !== undefined) {
+      flag.depends_on = depends_on;
+    }
+    parsedFlags[rawKey] = flag;
   }
 
   // Ensure all known keys present, default to { enabled: false }
   for (const key of KNOWN_FEATURE_FLAG_KEYS) {
     if (!parsedFlags[key]) {
-      parsedFlags[key] = { enabled: false, user_configurable: false, default_enabled: false };
+      parsedFlags[key] = { enabled: false };
     }
   }
 

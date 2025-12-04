@@ -40,15 +40,15 @@ const saveUserOverridesToStorage = (overrides: UserFeatureFlagOverrides): void =
   }
 };
 
-const initialState: UserFeatureFlagsState = {
+const getInitialState = (): UserFeatureFlagsState => ({
   userOverrides: loadUserOverridesFromStorage(),
   loading: false,
   error: null,
-};
+});
 
 const userFeatureFlagsSlice = createSlice({
   name: 'userFeatureFlags',
-  initialState,
+  initialState: getInitialState,
   reducers: {
     setUserOverride: (
       state,

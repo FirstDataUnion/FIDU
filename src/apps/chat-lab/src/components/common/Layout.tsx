@@ -24,7 +24,6 @@ import {
   DialogActions,
   TextField,
   Button,
-  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -38,7 +37,6 @@ import {
   Add as AddIcon,
   Check as CheckIcon,
   Home as HomeIcon,
-  Sync as SyncIcon,
   PrivacyTip as PrivacyIcon,
   NewReleases as WhatsNewIcon,
   SmartToy as SmartToyIcon,
