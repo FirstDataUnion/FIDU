@@ -15,7 +15,7 @@ interface AutoSyncCountdownProps {
   isSyncInProgress: boolean;
 }
 
-export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact', onClick, isSyncInProgress }) => {
+export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ onClick, isSyncInProgress }) => {
   const [countdown, setCountdown] = useState<number>(0);
   const [hasUnsyncedData, setHasUnsyncedData] = useState(false);
 
