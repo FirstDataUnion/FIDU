@@ -42,6 +42,7 @@ import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
 import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
+import FeatureFlagPage from './pages/FeatureFlagPage';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -839,6 +840,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                       </StorageFeatureGuard>
                     } 
                   />
+                  <Route path="/feature-flags" element={<FeatureFlagPage />} />
                   <Route path="/import-export" element={<ImportExportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

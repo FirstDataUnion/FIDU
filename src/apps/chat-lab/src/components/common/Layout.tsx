@@ -45,6 +45,7 @@ import {
   ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
+  PrecisionManufacturing as FeatureFlagIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -55,7 +56,6 @@ import { logout, setCurrentProfile, createProfile } from '../../store/slices/aut
 import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
 import GoogleDriveStatus from '../auth/GoogleDriveStatus';
-import UnsyncedDataIndicator from './UnsyncedDataIndicator';
 import { AutoSyncCountdown } from './AutoSyncCountdown';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
@@ -223,6 +223,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
+    { text: 'Choose your features', icon: <FeatureFlagIcon />, path: '/feature-flags', enabled: true },
     { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export', enabled: true },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings', enabled: true },
   ];

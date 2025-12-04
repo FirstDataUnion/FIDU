@@ -47,6 +47,8 @@ export const store = configureStore({
     search: searchSlice,
     auth: authSlice,
     googleDriveAuth: googleDriveAuthSlice,
+    systemFeatureFlags: systemFeatureFlagsSlice,
+    userFeatureFlags: userFeatureFlagsSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -308,19 +310,22 @@ interface SystemFeatureFlagsState {
 
 ### 🏁 User Feature Flags (`userFeatureFlagsSlice.ts`)
 
-**Purpose**: Stores user overrides for feature flags, allowing users to disable enabled system flags. Combined with system flags via selectors.
+**Purpose**: Stores user overrides for feature flags, allowing users to customize their experience by enabling or disabling user-configurable features. Combined with system flags via selectors.
 
 **State Structure:**
 ```typescript
 interface UserFeatureFlagsState {
-  userOverrides: UserFeatureFlagOverrides;
+  userOverrides: UserFeatureFlagOverrides; // Partial<Record<FeatureFlagKey, boolean>>
   loading: boolean;
   error: string | null;
 }
 ```
 
 **Key Actions:**
-- **`setUserOverride(key, value)`** – Set or clear a user override for a specific flag.
+- **`setUserOverride(key, value)`** – Set a user override for a specific flag. `value` can be:
+  - `true` – Enable the feature (only applies to `user_configurable` flags)
+  - `false` – Disable the feature (only applies to `user_configurable` flags)
+  - `null` – Remove override and use the system `default_enabled` value
 - **`clearAllUserOverrides()`** – Reset all user overrides.
 - **`loadUserOverrides(overrides)`** – Bulk load user overrides.
 - **`clearUserFeatureFlagError()`** – Reset errors.
@@ -337,12 +342,19 @@ interface UserFeatureFlagsState {
 - **`resolveFlagEnabled(flags, key)`** – Resolve flag enabled state with dependency checking (exported for page use).
 - **`combineSystemFlagsWithOverrides(systemFlags, userOverrides)`** – Combine system flags with user overrides (exported for page use).
 
+**User Configuration:**
+- User overrides are persisted to localStorage (`fidu-chat-lab-feature-flag-overrides`).
+- Only `enabled` flags with `user_configurable: true` in the system flags can be overridden by users.
+- When a user override is set to `null` (or not set), the system uses the `default_enabled` value from the feature flag definition.
+- A UI for managing feature flags is available at `/feature-flags` via the `FeatureFlagPage` component.
+
 **Adding or Updating Flags:**
 1. Edit [`src/apps/chat-lab/public/feature_flags.json`](../../public/feature_flags.json). The TypeScript union is inferred directly from this file, so typos will not compile.
-2. Keep `depends_on` limited to other valid keys; cycles disable all flags in the loop.
-3. Run `npm test -- featureFlags` (or the full suite) to revalidate the payload and selectors.
-4. Gate UI with `useFeatureFlag('flag_name')` or the selector instead of hard-coded booleans.
-5. User overrides are persisted to localStorage and can only disable flags (not enable disabled ones).
+2. Set `user_configurable: true` if you want users to override the flag, and `default_enabled` to set the default state for new users.
+3. If you set `user_configurable: true`, update the FeatureFlagPage so it displays your new flag correctly.
+4. Keep `depends_on` limited to other valid keys; cycles disable all flags in the loop.
+5. Run `npm test -- featureFlags` (or the full suite) to revalidate the payload and selectors.
+6. Gate UI with `useFeatureFlag('flag_name')` or the selector instead of hard-coded booleans.
 
 ## Selectors (`selectors/`)
 

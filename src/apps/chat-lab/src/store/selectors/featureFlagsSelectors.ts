@@ -47,10 +47,12 @@ export const combineSystemFlagsWithOverrides = (
     const systemFlag = systemFlags[typedKey];
     const userOverride = userOverrides[typedKey];
 
-    // If user has overridden this flag to false, disable it
-    // Otherwise, use the system flag value
+    let enabled = systemFlag.enabled;
+    if (systemFlag.enabled && systemFlag.user_configurable) {
+      enabled = userOverride ?? systemFlag.default_enabled ?? false;
+    }
     combined[typedKey] = {
-      enabled: userOverride === false ? false : systemFlag.enabled,
+      enabled,
       depends_on: systemFlag.depends_on ? [...systemFlag.depends_on] : undefined,
     };
   }

@@ -60,7 +60,7 @@ const userFeatureFlagsSlice = createSlice({
         const { [key]: _, ...rest } = state.userOverrides;
         state.userOverrides = rest;
       } else {
-        // Set override (only false is meaningful, but we allow boolean for flexibility)
+        // Set override
         state.userOverrides = { ...state.userOverrides, [key]: value };
       }
       // Persist to localStorage

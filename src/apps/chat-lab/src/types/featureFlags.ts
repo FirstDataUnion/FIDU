@@ -5,6 +5,8 @@ export type FeatureFlagKey = keyof typeof featureFlagsReference;
 export interface FeatureFlagDefinition {
   enabled: boolean;
   depends_on?: FeatureFlagKey[];
+  user_configurable?: boolean;
+  default_enabled?: boolean;
 }
 
 export type FeatureFlagsMap = {
@@ -57,12 +59,24 @@ export const validateFeatureFlagsPayload = (
     }
 
     const enabled = rawValue.enabled;
+    const user_configurable = rawValue.user_configurable ?? false;
+    const default_enabled = rawValue.default_enabled ?? false;
     if (typeof enabled !== 'boolean') {
       validationErrors.push(['Invalid enabled flag', rawKey]);
       continue;
     }
 
-    let dependsOn: FeatureFlagKey[] | undefined;
+    if (typeof user_configurable !== 'boolean') {
+      validationErrors.push(['Invalid user_configurable flag', rawKey]);
+      continue;
+    }
+
+    if (typeof default_enabled !== 'boolean') {
+      validationErrors.push(['Invalid default_enabled flag', rawKey]);
+      continue;
+    }
+
+    let depends_on: FeatureFlagKey[] | undefined;
     if ('depends_on' in rawValue && rawValue.depends_on !== undefined) {
       if (!Array.isArray(rawValue.depends_on)) {
         validationErrors.push(['Invalid depends_on array', rawKey]);
@@ -90,16 +104,16 @@ export const validateFeatureFlagsPayload = (
         continue;
       }
 
-      dependsOn = Array.from(deduped);
+      depends_on = Array.from(deduped);
     }
 
-    parsedFlags[rawKey] = dependsOn ? { enabled, depends_on: dependsOn } : { enabled };
+    parsedFlags[rawKey] = { enabled, depends_on, user_configurable, default_enabled };
   }
 
   // Ensure all known keys present, default to { enabled: false }
   for (const key of KNOWN_FEATURE_FLAG_KEYS) {
     if (!parsedFlags[key]) {
-      parsedFlags[key] = { enabled: false };
+      parsedFlags[key] = { enabled: false, user_configurable: false, default_enabled: false };
     }
   }
 
