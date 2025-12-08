@@ -178,19 +178,9 @@ describe('StorageService - Workspace Switching', () => {
       expect(config.driveFolderId).toBe('folder-123');
     });
 
-    it('should handle personal workspace (no driveFolderId)', async () => {
-      const targetWorkspace = {
-        id: 'personal-user-123',
-        name: "John's Workspace",
-        type: 'personal' as const,
-        driveFolderId: undefined,
-        createdAt: '2024-01-01T00:00:00.000Z',
-        lastAccessed: '2024-01-01T00:00:00.000Z',
-      };
-
-      mockWorkspaceRegistry.getWorkspace.mockReturnValue(targetWorkspace);
-
-      await storageService.switchWorkspace('personal-user-123');
+    it('should handle personal workspace (virtual - null)', async () => {
+      // Personal workspace is virtual - pass null
+      await storageService.switchWorkspace(null);
 
       const { createStorageAdapter } = require('../StorageFactory');
       const lastCall = (createStorageAdapter as jest.Mock).mock.calls[
@@ -198,9 +188,12 @@ describe('StorageService - Workspace Switching', () => {
       ];
       const config = lastCall[0];
 
-      expect(config.workspaceId).toBe('personal-user-123');
+      expect(config.workspaceId).toBeUndefined();
       expect(config.workspaceType).toBe('personal');
       expect(config.driveFolderId).toBeUndefined();
+      
+      // Verify registry was updated to null
+      expect(mockWorkspaceRegistry.setActiveWorkspace).toHaveBeenCalledWith(null);
     });
   });
 

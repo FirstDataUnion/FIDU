@@ -10,6 +10,8 @@ export interface DatabaseConfig {
   conversationsDbName: string;
   apiKeysDbName: string;
   enableEncryption?: boolean;
+  workspaceId?: string;
+  workspaceType?: 'personal' | 'shared';
 }
 
 export interface DataPacketRow {
@@ -55,6 +57,18 @@ export class BrowserSQLiteManager {
   constructor(config: DatabaseConfig) {
     this.config = config;
     // Config will be used for database names in future implementations
+  }
+
+  /**
+   * Get workspace ID if this is a shared workspace, otherwise undefined
+   * Used to determine which encryption key to use (workspace key vs personal key)
+   * @returns string | undefined - Workspace ID if shared workspace, undefined otherwise
+   */
+  private getWorkspaceIdForEncryption(): string | undefined {
+    if (this.config.workspaceType === 'shared' && this.config.workspaceId) {
+      return this.config.workspaceId;
+    }
+    return undefined;
   }
 
   async initialize(): Promise<void> {
@@ -294,7 +308,13 @@ export class BrowserSQLiteManager {
     let dataToStore: string;
     if (this.config.enableEncryption) {
       try {
-        const encryptedResult = await encryptionService.encryptData(dataPacket.data || {}, dataPacket.user_id);
+        // Use workspace key for shared workspaces, personal key otherwise
+        const workspaceId = this.getWorkspaceIdForEncryption();
+        const encryptedResult = await encryptionService.encryptData(
+          dataPacket.data || {}, 
+          dataPacket.user_id,
+          workspaceId
+        );
         dataToStore = JSON.stringify({
           encrypted: true,
           data: encryptedResult.encryptedData,
@@ -391,7 +411,13 @@ export class BrowserSQLiteManager {
       // Encrypt data if encryption is enabled
       if (this.config.enableEncryption) {
         try {
-          const encryptedResult = await encryptionService.encryptData(dataPacket.data, dataPacket.user_id);
+          // Use workspace key for shared workspaces, personal key otherwise
+          const workspaceId = this.getWorkspaceIdForEncryption();
+          const encryptedResult = await encryptionService.encryptData(
+            dataPacket.data, 
+            dataPacket.user_id,
+            workspaceId
+          );
           params.push(JSON.stringify({
             encrypted: true,
             data: encryptedResult.encryptedData,
@@ -546,9 +572,15 @@ export class BrowserSQLiteManager {
     }
 
     // Add WHERE conditions
-    const conditions = ['dp.user_id = ?'];
-    params.push(queryParams.user_id);
+    const conditions: string[] = [];
 
+    // Only filter by user_id if provided (personal workspaces)
+    if (queryParams.user_id) {
+      conditions.push('dp.user_id = ?');
+      params.push(queryParams.user_id);
+    }
+
+    // Only filter by profile_id if provided (personal workspaces)
     if (queryParams.profile_id) {
       conditions.push('dp.profile_id = ?');
       params.push(queryParams.profile_id);
@@ -571,7 +603,10 @@ export class BrowserSQLiteManager {
       }
     }
 
-    query += ' WHERE ' + conditions.join(' AND ');
+    // Only add WHERE clause if we have conditions
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
 
     // Add sorting
     const sortOrder = queryParams.sort_order === 'desc' ? 'DESC' : 'ASC';
@@ -907,11 +942,14 @@ export class BrowserSQLiteManager {
       if (this.config.enableEncryption && parsedData && typeof parsedData === 'object' && 'encrypted' in parsedData && parsedData.encrypted) {
         try {
           const encryptedData = parsedData as { encrypted: boolean; data: string; nonce: string; tag: string };
+          // Use workspace key for shared workspaces, personal key otherwise
+          const workspaceId = this.getWorkspaceIdForEncryption();
           const decryptedResult = await encryptionService.decryptData(
             encryptedData.data,
             encryptedData.nonce,
             encryptedData.tag,
-            user_id
+            user_id,
+            workspaceId
           );
           parsedData = decryptedResult.decryptedData;
         } catch (error) {
@@ -1015,12 +1053,247 @@ export class BrowserSQLiteManager {
     return exported;
   }
 
-  // Helper method to migrate data packets from source DB to target DB with timestamp-based conflict resolution
-  private async migrateDataPackets(sourceDb: any, targetDb: any): Promise<void> {
+  /**
+   * Extract a display title from data packet for naming conflict copies
+   */
+  private extractTitleFromDataPacket(dataJson: string): string {
+    try {
+      const data = JSON.parse(dataJson);
+      // Handle encrypted data - can't extract title
+      if (data.encrypted) {
+        return 'Untitled';
+      }
+      // Try common title fields
+      return data.conversationTitle || 
+             data.context_title || 
+             data.title ||
+             data.system_prompt_name || 
+             data.name || 
+             'Untitled';
+    } catch {
+      return 'Untitled';
+    }
+  }
+
+  /**
+   * Generate a new UUID for forked records
+   */
+  private generateUUID(): string {
+    return crypto.randomUUID();
+  }
+
+  /**
+   * Add conflict metadata to a data packet's data field
+   * Handles both encrypted and unencrypted data
+   * @param userName - Name of the user whose local copy is being forked (for clear labeling in shared workspaces)
+   * @param userId - User ID needed for re-encryption of encrypted data
+   * @param isSharedWorkspace - If true, use "[username's copy]", otherwise use numbered suffix "(1)", "(2)", etc.
+   * @param copyNumber - For personal workspaces, the number to use in the suffix
+   */
+  private async addConflictMetadata(
+    dataJson: string, 
+    originalId: string, 
+    originalTitle: string,
+    userName?: string,
+    userId?: string,
+    isSharedWorkspace: boolean = true,
+    copyNumber: number = 1
+  ): Promise<string> {
+    try {
+      const parsedData = JSON.parse(dataJson);
+      
+      // Create copy label - use username for shared workspaces, numbers for personal
+      let copyLabel: string;
+      let forkedByLabel: string;
+      if (isSharedWorkspace) {
+        const displayName = userName || 'Unknown user';
+        copyLabel = `[${displayName}'s copy]`;
+        forkedByLabel = displayName;
+      } else {
+        copyLabel = `(${copyNumber})`;
+        forkedByLabel = 'local device';
+      }
+      
+      // Handle encrypted data - decrypt, modify, re-encrypt
+      if (parsedData.encrypted && userId) {
+        try {
+          const workspaceId = this.getWorkspaceIdForEncryption();
+          const decryptedResult = await encryptionService.decryptData(
+            parsedData.data,
+            parsedData.nonce,
+            parsedData.tag,
+            userId,
+            workspaceId
+          );
+          
+          // Parse the decrypted data and add conflict metadata
+          const decryptedData = typeof decryptedResult.decryptedData === 'string' 
+            ? JSON.parse(decryptedResult.decryptedData) 
+            : decryptedResult.decryptedData;
+          
+          // Add conflict metadata
+          decryptedData._conflictMetadata = {
+            isConflictCopy: true,
+            forkedFrom: originalId,
+            originalTitle: originalTitle,
+            conflictTimestamp: new Date().toISOString(),
+            forkedByUser: forkedByLabel
+          };
+          
+          // Append "[username's copy]" to title fields
+          if (decryptedData.conversationTitle) {
+            decryptedData.conversationTitle = `${decryptedData.conversationTitle} ${copyLabel}`;
+          }
+          if (decryptedData.context_title) {
+            decryptedData.context_title = `${decryptedData.context_title} ${copyLabel}`;
+          }
+          if (decryptedData.title) {
+            decryptedData.title = `${decryptedData.title} ${copyLabel}`;
+          }
+          if (decryptedData.system_prompt_name) {
+            decryptedData.system_prompt_name = `${decryptedData.system_prompt_name} ${copyLabel}`;
+          }
+          if (decryptedData.name) {
+            decryptedData.name = `${decryptedData.name} ${copyLabel}`;
+          }
+          
+          // Re-encrypt the modified data
+          const encryptedResult = await encryptionService.encryptData(
+            decryptedData,
+            userId,
+            workspaceId
+          );
+          
+          return JSON.stringify({
+            encrypted: true,
+            data: encryptedResult.encryptedData,
+            nonce: encryptedResult.nonce,
+            tag: encryptedResult.tag
+          });
+        } catch (encryptError) {
+          console.warn('⚠️ [BrowserSQLiteManager] Failed to decrypt/re-encrypt for conflict labeling:', encryptError);
+          // Fall through to return unmodified data
+          return dataJson;
+        }
+      }
+      
+      // Handle unencrypted data
+      const data = parsedData;
+      
+      // Add conflict metadata
+      data._conflictMetadata = {
+        isConflictCopy: true,
+        forkedFrom: originalId,
+        originalTitle: originalTitle,
+        conflictTimestamp: new Date().toISOString(),
+        forkedByUser: forkedByLabel
+      };
+      
+      // Append "[username's copy]" to title fields
+      if (data.conversationTitle) {
+        data.conversationTitle = `${data.conversationTitle} ${copyLabel}`;
+      }
+      if (data.context_title) {
+        data.context_title = `${data.context_title} ${copyLabel}`;
+      }
+      if (data.title) {
+        data.title = `${data.title} ${copyLabel}`;
+      }
+      if (data.system_prompt_name) {
+        data.system_prompt_name = `${data.system_prompt_name} ${copyLabel}`;
+      }
+      if (data.name) {
+        data.name = `${data.name} ${copyLabel}`;
+      }
+      
+      return JSON.stringify(data);
+    } catch {
+      return dataJson;
+    }
+  }
+
+  /**
+   * Fork a local data packet when there's a conflict with remote
+   * Creates a copy of the local version with appropriate suffix
+   * @param userName - Name of the current user for clear labeling (shared workspaces)
+   * @param isSharedWorkspace - If true, use "[username's copy]", otherwise use numbered suffix
+   * @param copyNumber - For personal workspaces, the number to use in the suffix
+   */
+  private async forkLocalDataPacket(
+    targetDb: any, 
+    localRow: any[],
+    localTagsStmt: any,
+    userName?: string,
+    isSharedWorkspace: boolean = true,
+    copyNumber: number = 1
+  ): Promise<string> {
+    const originalId = localRow[0];
+    const userId = localRow[2]; // user_id needed for encryption
+    const originalData = localRow[5];
+    const originalTags = localRow[6];
     
-    // Get all data packets from source database
+    // Generate new ID for the forked copy
+    const newId = this.generateUUID();
+    const originalTitle = this.extractTitleFromDataPacket(originalData);
+    
+    // Create new data with conflict metadata
+    // Pass userId for decryption/re-encryption of encrypted data
+    const newData = await this.addConflictMetadata(
+      originalData, originalId, originalTitle, userName, userId, isSharedWorkspace, copyNumber
+    );
+    
+    // Create new request ID
+    const newRequestId = `fork-${newId}`;
+    
+    // Insert the forked copy
+    const insertStmt = targetDb.prepare(`
+      INSERT INTO data_packets (
+        id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    insertStmt.run([
+      newId,
+      newRequestId,
+      localRow[1], // profile_id
+      localRow[2], // user_id
+      localRow[3], // create_timestamp
+      new Date().toISOString(), // new update_timestamp for the fork
+      newData,
+      originalTags,
+      'pending' // Mark as pending so it gets synced
+    ]);
+    insertStmt.free();
+    
+    // Copy tags to the forked record
+    localTagsStmt.bind([originalId]);
+    while (localTagsStmt.step()) {
+      const tagRow = localTagsStmt.get();
+      const insertTagStmt = targetDb.prepare(`
+        INSERT OR IGNORE INTO data_packet_tags (data_packet_id, tag) 
+        VALUES (?, ?)
+      `);
+      insertTagStmt.run([newId, tagRow[1]]);
+      insertTagStmt.free();
+    }
+    localTagsStmt.reset();
+    
+    return newId;
+  }
+
+  // Helper method to migrate data packets from source DB to target DB with fork-on-conflict resolution
+  private async migrateDataPackets(
+    sourceDb: any, 
+    targetDb: any, 
+    lastSyncTimestamp?: string,
+    currentUserName?: string,
+    isSharedWorkspace: boolean = true
+  ): Promise<{ inserted: number; updated: number; forked: number }> {
+    
+    // Get all data packets from source database (remote/cloud)
+    // Include create_request_id as it's required for insertion
     const sourceStmt = sourceDb.prepare(`
-      SELECT id, profile_id, user_id, create_timestamp, update_timestamp, data, tags
+      SELECT id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, data, tags
       FROM data_packets 
       ORDER BY create_timestamp
     `);
@@ -1030,57 +1303,89 @@ export class BrowserSQLiteManager {
       FROM data_packet_tags 
       WHERE data_packet_id = ?
     `);
+
+    // Prepare statement to get local tags (for forking)
+    const localTagsStmt = targetDb.prepare(`
+      SELECT data_packet_id, tag 
+      FROM data_packet_tags 
+      WHERE data_packet_id = ?
+    `);
     
     let sourceRow;
-    let count = 0;
-    let conflictsResolved = 0;
+    let inserted = 0;
+    let updated = 0;
+    let forked = 0;
+    
+    // Parse lastSyncTimestamp - if null/undefined, we can't detect conflicts properly
+    // In that case, just use timestamp comparison without conflict detection
+    const hasValidLastSync = !!(lastSyncTimestamp && lastSyncTimestamp !== '');
+    const lastSyncTime = hasValidLastSync ? new Date(lastSyncTimestamp).getTime() : 0;
     
     while (sourceStmt.step()) {
       sourceRow = sourceStmt.get();
       const packetId = sourceRow[0];
-      const sourceUpdateTimestamp = sourceRow[4];
+      const remoteUpdateTimestamp = sourceRow[5]; // index shifted due to create_request_id
+      const remoteUpdateTime = new Date(remoteUpdateTimestamp).getTime();
       
-      // Check if this packet already exists in target database
-      const existsStmt = targetDb.prepare('SELECT update_timestamp FROM data_packets WHERE id = ? LIMIT 1');
+      // Check if this packet already exists in target database (local)
+      const existsStmt = targetDb.prepare(`
+        SELECT profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
+        FROM data_packets WHERE id = ? LIMIT 1
+      `);
       existsStmt.bind([packetId]);
       const existsResult = existsStmt.step() ? existsStmt.get() : null;
       existsStmt.free();
       
       if (existsResult) {
-        const localUpdateTimestamp = existsResult[0];
+        const localUpdateTimestamp = existsResult[3];
+        const localUpdateTime = new Date(localUpdateTimestamp).getTime();
+        const localSyncStatus = existsResult[6];
         
-        // Compare timestamps to resolve conflicts
-        const sourceTime = new Date(sourceUpdateTimestamp).getTime();
-        const localTime = new Date(localUpdateTimestamp).getTime();
+        // Check for true conflict: both sides modified since last sync
+        // IMPORTANT: Only detect conflicts if we have a valid lastSyncTime
+        // Without it, we can't know if changes are truly conflicting
+        const remoteModifiedSinceSync = hasValidLastSync && remoteUpdateTime > lastSyncTime;
+        const localModifiedSinceSync = hasValidLastSync && (localUpdateTime > lastSyncTime || localSyncStatus === 'pending');
         
-        if (sourceTime > localTime) {
-          // Source (cloud) version is newer - update local
-          console.log(`Updating local data packet ${packetId} with newer cloud version`);
+        if (hasValidLastSync && remoteModifiedSinceSync && localModifiedSinceSync && remoteUpdateTime !== localUpdateTime) {
+          // TRUE CONFLICT: Both sides have changes
+          // Fork the local version (create a copy), then update with remote
+          const localRow = [packetId, ...existsResult.slice(0, 6)];
+          // For personal workspaces, use the current fork count + 1 as the copy number
+          await this.forkLocalDataPacket(targetDb, localRow, localTagsStmt, currentUserName, isSharedWorkspace, forked + 1);
+          forked++;
+          
+          // Now update with remote version
           await this.updateDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
-          conflictsResolved++;
-        } else if (sourceTime < localTime) {
-          // Local version is newer - skip cloud version
-          console.log(`Keeping local data packet ${packetId} (newer than cloud version)`);
+          updated++;
+        } else if (remoteUpdateTime > localUpdateTime) {
+          // Remote is newer - update local (no conflict, just normal update)
+          await this.updateDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+          updated++;
+        } else if (remoteUpdateTime < localUpdateTime) {
+          // Local is newer - skip remote version (will be uploaded later)
           continue;
         } else {
-          // Same timestamp - could be same content or true conflict
-          console.log(`Same timestamp for data packet ${packetId}, keeping local version`);
+          // Same timestamp - likely same content
           continue;
         }
       } else {
         // Packet doesn't exist locally - insert it
         await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
-        count++;
+        inserted++;
       }
     }
     
     sourceStmt.free();
     sourceTagsStmt.free();
+    localTagsStmt.free();
     
-    console.log(`Migration complete: ${count} new packets inserted, ${conflictsResolved} conflicts resolved`);
+    return { inserted, updated, forked };
   }
 
   // Helper method to insert a data packet from source database
+  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id, 
+  //                    [4]=create_timestamp, [5]=update_timestamp, [6]=data, [7]=tags
   private async insertDataPacketFromSource(targetDb: any, sourceRow: any, sourceTagsStmt: any): Promise<void> {
     const packetId = sourceRow[0];
     
@@ -1090,21 +1395,22 @@ export class BrowserSQLiteManager {
       return;
     }
     
-    // Insert data packet
+    // Insert data packet (including create_request_id which is required)
     const insertStmt = targetDb.prepare(`
       INSERT INTO data_packets (
-        id, profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     insertStmt.run([
       sourceRow[0], // id
-      sourceRow[1], // profile_id  
-      sourceRow[2], // user_id
-      sourceRow[3], // create_timestamp
-      sourceRow[4], // update_timestamp
-      sourceRow[5], // data
-      sourceRow[6], // tags
+      sourceRow[1], // create_request_id
+      sourceRow[2], // profile_id  
+      sourceRow[3], // user_id
+      sourceRow[4], // create_timestamp
+      sourceRow[5], // update_timestamp
+      sourceRow[6], // data
+      sourceRow[7], // tags
       'synced' // Mark as synced since it came from cloud
     ]);
     insertStmt.free();
@@ -1124,6 +1430,8 @@ export class BrowserSQLiteManager {
   }
 
   // Helper method to update a data packet from source database
+  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id, 
+  //                    [4]=create_timestamp, [5]=update_timestamp, [6]=data, [7]=tags
   private async updateDataPacketFromSource(targetDb: any, sourceRow: any, sourceTagsStmt: any): Promise<void> {
     const packetId = sourceRow[0];
     
@@ -1136,12 +1444,12 @@ export class BrowserSQLiteManager {
     `);
     
     updateStmt.run([
-      sourceRow[1], // profile_id  
-      sourceRow[2], // user_id
-      sourceRow[3], // create_timestamp
-      sourceRow[4], // update_timestamp
-      sourceRow[5], // data
-      sourceRow[6], // tags
+      sourceRow[2], // profile_id  
+      sourceRow[3], // user_id
+      sourceRow[4], // create_timestamp
+      sourceRow[5], // update_timestamp
+      sourceRow[6], // data
+      sourceRow[7], // tags
       'synced', // Mark as synced since it came from cloud
       packetId
     ]);
@@ -1257,7 +1565,20 @@ export class BrowserSQLiteManager {
     console.log(`API Keys migration complete: ${count} new keys inserted, ${conflictsResolved} conflicts resolved`);
   }
 
-  async importConversationsDB(data: Uint8Array): Promise<void> {
+  /**
+   * Import conversations database from remote, merging with local data
+   * @param data - Remote database as Uint8Array
+   * @param lastSyncTimestamp - When this device last synced (for conflict detection)
+   * @param currentUserName - Name of current user for labeling conflict copies (e.g., "Raven's copy")
+   * @param isSharedWorkspace - If true, use "[username's copy]" for conflicts; if false, use numbered suffix "(1)"
+   * @returns Merge stats including number of conflicts forked
+   */
+  async importConversationsDB(
+    data: Uint8Array, 
+    lastSyncTimestamp?: string,
+    currentUserName?: string,
+    isSharedWorkspace: boolean = true
+  ): Promise<{ inserted: number; updated: number; forked: number } | void> {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
@@ -1284,7 +1605,10 @@ export class BrowserSQLiteManager {
       localCountStmt.free();
       
       if (localHasData) {
-        await this.migrateDataPackets(tempDb, this.conversationsDb);
+        // Merge remote into local with fork-on-conflict
+        const mergeResult = await this.migrateDataPackets(tempDb, this.conversationsDb, lastSyncTimestamp, currentUserName, isSharedWorkspace);
+        tempDb.close();
+        return mergeResult;
       } else {
         this.conversationsDb.close();
         this.conversationsDb = new this.SQL.Database(data);
@@ -1294,9 +1618,9 @@ export class BrowserSQLiteManager {
         
         // Fix sync status: imported data packets should be marked as 'synced' since they came from cloud
         await this.markImportedDataPacketsAsSynced();
+        tempDb.close();
+        return { inserted: 0, updated: 0, forked: 0 };
       }
-      
-      tempDb.close();
       
     } catch (error) {
       console.error('Error processing Drive conversation database:', error);

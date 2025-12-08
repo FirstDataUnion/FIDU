@@ -45,7 +45,11 @@ import {
   ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
+<<<<<<< HEAD
   DeleteForever as DeleteAccountIcon,
+=======
+  FolderSpecial as WorkspacesIcon,
+>>>>>>> 0fc57dc (Base implementation completed for shared workspaces)
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -83,6 +87,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
+  
+  // Check if we're in a shared workspace (profiles should be disabled)
+  const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
   
   // Mobile sidebar state management
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -223,6 +230,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
+    { text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces' },
     { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
@@ -523,7 +531,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           
           {/* Profile and Logout */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {currentProfile && (
+            {currentProfile && !isSharedWorkspace && (
               <Chip
                 label={currentProfile.name}
                 size="small"
@@ -543,53 +551,55 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               </Avatar>
             </IconButton>
             
-            {/* Profile Switcher Menu */}
-            <Menu
-              anchorEl={profileMenuAnchorEl}
-              open={Boolean(profileMenuAnchorEl)}
-              onClose={handleProfileSwitcherClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-            >
-              <MenuItem disabled>
-                <Typography variant="body2" color="text.secondary">
-                  Switch Profile
-                </Typography>
-              </MenuItem>
-              <Divider />
-              {profiles.map((profile) => (
-                <MenuItem 
-                  key={profile.id} 
-                  onClick={() => handleProfileSwitch(profile)}
-                  selected={currentProfile?.id === profile.id}
-                >
-                  <ListItemIcon>
-                    {currentProfile?.id === profile.id ? (
-                      <CheckIcon fontSize="small" color="primary" />
-                    ) : (
-                      <AccountIcon fontSize="small" />
-                    )}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={profile.name}
-                    secondary={currentProfile?.id === profile.id ? 'Active' : undefined}
-                  />
+            {/* Profile Switcher Menu - Hidden in shared workspaces */}
+            {!isSharedWorkspace && (
+              <Menu
+                anchorEl={profileMenuAnchorEl}
+                open={Boolean(profileMenuAnchorEl)}
+                onClose={handleProfileSwitcherClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+              >
+                <MenuItem disabled>
+                  <Typography variant="body2" color="text.secondary">
+                    Switch Profile
+                  </Typography>
                 </MenuItem>
-              ))}
-              <Divider />
-              <MenuItem onClick={() => setShowCreateProfileDialog(true)}>
-                <ListItemIcon>
-                  <AddIcon fontSize="small" />
-                </ListItemIcon>
-                Create New Profile
-              </MenuItem>
-            </Menu>
+                <Divider />
+                {profiles.map((profile) => (
+                  <MenuItem 
+                    key={profile.id} 
+                    onClick={() => handleProfileSwitch(profile)}
+                    selected={currentProfile?.id === profile.id}
+                  >
+                    <ListItemIcon>
+                      {currentProfile?.id === profile.id ? (
+                        <CheckIcon fontSize="small" color="primary" />
+                      ) : (
+                        <AccountIcon fontSize="small" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={profile.name}
+                      secondary={currentProfile?.id === profile.id ? 'Active' : undefined}
+                    />
+                  </MenuItem>
+                ))}
+                <Divider />
+                <MenuItem onClick={() => setShowCreateProfileDialog(true)}>
+                  <ListItemIcon>
+                    <AddIcon fontSize="small" />
+                  </ListItemIcon>
+                  Create New Profile
+                </MenuItem>
+              </Menu>
+            )}
             
             {/* User Menu */}
             <Menu

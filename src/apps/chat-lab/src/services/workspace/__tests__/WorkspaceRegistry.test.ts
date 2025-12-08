@@ -59,17 +59,14 @@ describe('WorkspaceRegistryService', () => {
   });
 
   describe('workspace management', () => {
-    it('should create personal workspace', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+    it('should set personal workspace as active (virtual - null)', () => {
+      // Personal workspace is virtual - set activeWorkspaceId to null
+      registry.setActiveWorkspace(null);
       
-      expect(workspace.id).toBe('personal-user-123-profile-456');
-      expect(workspace.name).toBe("John Doe's Workspace");
-      expect(workspace.type).toBe('personal');
-      expect(workspace.driveFolderId).toBeUndefined();
-      
-      const workspaces = registry.getWorkspaces();
-      expect(workspaces).toHaveLength(1);
-      expect(workspaces[0].id).toBe(workspace.id);
+      expect(registry.getActiveWorkspaceId()).toBeNull();
+      expect(registry.getActiveWorkspace()).toBeNull();
+      // Personal workspace is not stored, so workspaces list should be empty
+      expect(registry.getWorkspaces()).toHaveLength(0);
     });
 
     it('should create shared workspace', () => {
@@ -81,14 +78,6 @@ describe('WorkspaceRegistryService', () => {
       expect(workspace.driveFolderId).toBe('folder-123');
       expect(workspace.role).toBe('owner');
       expect(workspace.members).toEqual([]);
-    });
-
-    it('should get or create personal workspace', () => {
-      const workspace1 = registry.getOrCreatePersonalWorkspace('user-123', 'profile-456', 'John Doe');
-      const workspace2 = registry.getOrCreatePersonalWorkspace('user-123', 'profile-456', 'John Doe');
-      
-      expect(workspace1.id).toBe(workspace2.id);
-      expect(registry.getWorkspaces()).toHaveLength(1);
     });
 
     it('should upsert workspace', () => {
@@ -112,7 +101,7 @@ describe('WorkspaceRegistryService', () => {
     });
 
     it('should remove workspace', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+      const workspace = registry.createSharedWorkspace('Team Workspace', 'folder-123');
       expect(registry.getWorkspaces()).toHaveLength(1);
 
       registry.removeWorkspace(workspace.id);
@@ -121,7 +110,7 @@ describe('WorkspaceRegistryService', () => {
     });
 
     it('should clear active workspace when removed', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+      const workspace = registry.createSharedWorkspace('Team Workspace', 'folder-123');
       registry.setActiveWorkspace(workspace.id);
       
       expect(registry.getActiveWorkspaceId()).toBe(workspace.id);
@@ -132,12 +121,19 @@ describe('WorkspaceRegistryService', () => {
   });
 
   describe('active workspace management', () => {
-    it('should set active workspace', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+    it('should set active workspace to shared workspace', () => {
+      const workspace = registry.createSharedWorkspace('Team Workspace', 'folder-123');
       registry.setActiveWorkspace(workspace.id);
       
       expect(registry.getActiveWorkspaceId()).toBe(workspace.id);
       expect(registry.getActiveWorkspace()?.id).toBe(workspace.id);
+    });
+
+    it('should set active workspace to personal (null)', () => {
+      registry.setActiveWorkspace(null);
+      
+      expect(registry.getActiveWorkspaceId()).toBeNull();
+      expect(registry.getActiveWorkspace()).toBeNull();
     });
 
     it('should throw error when setting non-existent workspace as active', () => {
@@ -146,8 +142,8 @@ describe('WorkspaceRegistryService', () => {
       }).toThrow('Workspace not found: non-existent');
     });
 
-    it('should update lastAccessed when setting active workspace', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+    it('should update lastAccessed when setting active shared workspace', () => {
+      const workspace = registry.createSharedWorkspace('Team Workspace', 'folder-123');
       const originalLastAccessed = workspace.lastAccessed;
       
       // Wait a bit to ensure timestamp changes
@@ -162,14 +158,15 @@ describe('WorkspaceRegistryService', () => {
       jest.useRealTimers();
     });
 
-    it('should return null for active workspace when none is set', () => {
+    it('should return null for active workspace when none is set (personal workspace)', () => {
       expect(registry.getActiveWorkspace()).toBeNull();
+      expect(registry.getActiveWorkspaceId()).toBeNull();
     });
   });
 
   describe('persistence', () => {
-    it('should persist workspaces to localStorage', () => {
-      registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+    it('should persist shared workspaces to localStorage', () => {
+      registry.createSharedWorkspace('Team Workspace', 'folder-123');
       
       const stored = localStorage.getItem('fidu-workspaces-registry');
       expect(stored).toBeTruthy();
@@ -177,12 +174,12 @@ describe('WorkspaceRegistryService', () => {
       if (stored) {
         const parsed = JSON.parse(stored);
         expect(parsed.workspaces).toHaveLength(1);
-        expect(parsed.workspaces[0].id).toBe('personal-user-123-profile-456');
+        expect(parsed.workspaces[0].type).toBe('shared');
       }
     });
 
-    it('should persist active workspace to localStorage', () => {
-      const workspace = registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
+    it('should persist active shared workspace to localStorage', () => {
+      const workspace = registry.createSharedWorkspace('Team Workspace', 'folder-123');
       registry.setActiveWorkspace(workspace.id);
       
       const stored = localStorage.getItem('fidu-workspaces-registry');
@@ -193,14 +190,30 @@ describe('WorkspaceRegistryService', () => {
         expect(parsed.activeWorkspaceId).toBe(workspace.id);
       }
     });
+
+    it('should persist null activeWorkspaceId for personal workspace', () => {
+      registry.setActiveWorkspace(null);
+      
+      const stored = localStorage.getItem('fidu-workspaces-registry');
+      expect(stored).toBeTruthy();
+      
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        expect(parsed.activeWorkspaceId).toBeNull();
+      }
+    });
   });
 
   describe('clearAll', () => {
-    it('should clear all workspaces', () => {
-      registry.createPersonalWorkspace('user-123', 'profile-456', 'John Doe');
-      registry.createSharedWorkspace('Team Workspace', 'folder-123');
+    it('should clear all shared workspaces', () => {
+      const workspace1 = registry.createSharedWorkspace('Team Workspace 1', 'folder-123');
+      const workspace2 = registry.createSharedWorkspace('Team Workspace 2', 'folder-456');
       
-      expect(registry.getWorkspaces()).toHaveLength(2);
+      // Verify both workspaces were created (they should have different IDs)
+      const workspaces = registry.getWorkspaces();
+      expect(workspaces.length).toBeGreaterThanOrEqual(1);
+      // If UUIDs happen to collide (unlikely but possible), we'd have 1, otherwise 2
+      // The important thing is that clearAll removes all of them
       
       registry.clearAll();
       

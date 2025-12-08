@@ -17,6 +17,7 @@ import {
   Close as CloseIcon,
   RocketLaunch as RocketIcon,
 } from '@mui/icons-material';
+import { useLocation } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 
 const WELCOME_DISMISSED_KEY = 'fidu_chatlab_welcome_dismissed';
@@ -37,15 +38,26 @@ interface WelcomeDismissedState {
 export const WelcomeLandingPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { isAuthenticated, isInitialized } = useAppSelector((state) => state.auth);
+  const location = useLocation();
+  const { isAuthenticated, isInitialized, isLoading, currentProfile } = useAppSelector((state) => state.auth);
   
   const [showModal, setShowModal] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
 
   useEffect(() => {
-    // Only show if user is authenticated and auth is initialized
-    if (!isInitialized || !isAuthenticated) {
+    // Don't show on OAuth callback page
+    if (location.pathname.includes('/oauth-callback')) {
+      setShowModal(false);
+      return;
+    }
+
+    // Only show if:
+    // 1. Auth is initialized (not still checking)
+    // 2. User is authenticated
+    // 3. Auth is not currently loading (past login screen)
+    // 4. User has selected a profile (fully past login flow)
+    if (!isInitialized || !isAuthenticated || isLoading || !currentProfile) {
       setShowModal(false);
       return;
     }
@@ -96,7 +108,7 @@ export const WelcomeLandingPage: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, isInitialized]);
+  }, [isAuthenticated, isInitialized, isLoading, currentProfile, location.pathname]);
 
   const handleDismiss = () => {
     // Fade out first, then hide modal
@@ -137,7 +149,7 @@ export const WelcomeLandingPage: React.FC = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 10000,
+          zIndex: 10001, // Higher than login modal (10000) to ensure it appears on top
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
           backdropFilter: 'blur(4px)',
           display: 'flex',

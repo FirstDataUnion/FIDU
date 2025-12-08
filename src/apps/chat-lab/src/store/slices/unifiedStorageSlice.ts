@@ -15,7 +15,7 @@ export interface UnifiedStorageState {
   
   // Workspace state
   activeWorkspace: {
-    id: string;
+    id: string | null; // null = personal workspace (virtual)
     name: string;
     type: 'personal' | 'shared';
     driveFolderId?: string;
@@ -238,26 +238,54 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
 // Workspace management thunks
 export const loadWorkspaces = createAsyncThunk(
   'unifiedStorage/loadWorkspaces',
-  async () => {
-    const workspaceRegistry = getWorkspaceRegistry();
-    const workspaces = workspaceRegistry.getWorkspaces();
-    const activeWorkspaceId = workspaceRegistry.getActiveWorkspaceId();
-    
-    return {
-      workspaces,
-      activeWorkspaceId
-    };
+  async (_, { rejectWithValue }) => {
+    try {
+      const workspaceRegistry = getWorkspaceRegistry();
+      
+      // Sync workspaces from API to ensure we have the latest data
+      // This is critical for members who were added to workspaces in previous sessions
+      try {
+        await workspaceRegistry.syncFromAPI();
+      } catch {
+        // Continue with local registry if sync fails (e.g., offline, API error, not authenticated)
+      }
+      
+      const workspaces = workspaceRegistry.getWorkspaces();
+      const activeWorkspaceId = workspaceRegistry.getActiveWorkspaceId();
+      
+      return {
+        workspaces,
+        activeWorkspaceId
+      };
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to load workspaces');
+    }
   }
 );
 
 export const switchWorkspace = createAsyncThunk(
   'unifiedStorage/switchWorkspace',
-  async (workspaceId: string, { rejectWithValue, dispatch }) => {
+  async (workspaceId: string | null, { rejectWithValue, dispatch }) => {
     try {
       const storageService = getStorageService();
       const workspaceRegistry = getWorkspaceRegistry();
       
-      // Get workspace metadata before switching
+      // Handle personal workspace (virtual - no stored entry)
+      if (workspaceId === null) {
+        // Perform the switch to personal workspace
+        await storageService.switchWorkspace(null);
+        
+        return {
+          workspace: {
+            id: null,
+            name: 'Personal Workspace',
+            type: 'personal' as const,
+            driveFolderId: undefined
+          }
+        };
+      }
+      
+      // Handle shared workspace (must exist in registry)
       const workspace = workspaceRegistry.getWorkspace(workspaceId);
       if (!workspace) {
         throw new Error(`Workspace not found: ${workspaceId}`);
@@ -474,8 +502,17 @@ const unifiedStorageSlice = createSlice({
           lastAccessed: w.lastAccessed
         }));
         
-        // Set active workspace if we have one
-        if (action.payload.activeWorkspaceId) {
+        // Set active workspace
+        if (action.payload.activeWorkspaceId === null) {
+          // Personal workspace (virtual - not stored)
+          state.activeWorkspace = {
+            id: null,
+            name: 'Personal Workspace',
+            type: 'personal',
+            driveFolderId: undefined
+          };
+        } else if (action.payload.activeWorkspaceId) {
+          // Shared workspace (must exist in registry)
           const activeWorkspace = action.payload.workspaces.find(
             w => w.id === action.payload.activeWorkspaceId
           );
@@ -486,7 +523,23 @@ const unifiedStorageSlice = createSlice({
               type: activeWorkspace.type,
               driveFolderId: activeWorkspace.driveFolderId
             };
+          } else {
+            // Active workspace ID doesn't match any workspace - reset to personal
+            state.activeWorkspace = {
+              id: null,
+              name: 'Personal Workspace',
+              type: 'personal',
+              driveFolderId: undefined
+            };
           }
+        } else {
+          // No active workspace - default to personal
+          state.activeWorkspace = {
+            id: null,
+            name: 'Personal Workspace',
+            type: 'personal',
+            driveFolderId: undefined
+          };
         }
       })
       

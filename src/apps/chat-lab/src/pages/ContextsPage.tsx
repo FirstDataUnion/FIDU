@@ -95,7 +95,7 @@ export default function ContextsPage() {
         console.log('Initial fetch failed, will retry when auth completes:', error);
       });
     }
-  }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated]);
+  }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.activeWorkspace?.id]);
 
   // Memoize filtered contexts to prevent recalculation on every render
   const filteredContexts = useMemo(() => {

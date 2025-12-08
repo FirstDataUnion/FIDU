@@ -11,7 +11,9 @@ import { initializeAuth } from './store/slices/authSlice';
 import { 
   markStorageConfigured,
   resetStorageConfiguration,
-  checkGoogleDriveAuthStatus
+  checkGoogleDriveAuthStatus,
+  loadWorkspaces,
+  switchWorkspace
 } from './store/slices/unifiedStorageSlice';
 import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
@@ -28,6 +30,7 @@ import { StorageSelectionModal } from './components/storage/StorageSelectionModa
 import { StorageConfigurationBanner } from './components/storage/StorageConfigurationBanner';
 import { isPublicRoute } from './utils/publicRoutes';
 import { getUnifiedStorageService } from './services/storage/UnifiedStorageService';
+import { getStorageService } from './services/storage/StorageService';
 import { serverLogger } from './utils/serverLogger';
 import { initializeErrorTracking } from './utils/errorTracking';
 import { MetricsService } from './services/metrics/MetricsService';
@@ -51,6 +54,7 @@ const PromptLabPage = React.lazy(() => import('./pages/PromptLabPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const BackgroundAgentsPage = React.lazy(() => import('./pages/BackgroundAgentsPage'));
 const ImportExportPage = React.lazy(() => import('./pages/ImportExportPage'));
+const WorkspacesPage = React.lazy(() => import('./pages/WorkspacesPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
@@ -170,6 +174,7 @@ const AppContent: React.FC<AppContentProps> = () => {
   const skipStorageInitRef = useRef(false);
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
+  const [workspaceRestored, setWorkspaceRestored] = useState(false);
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -300,6 +305,15 @@ const AppContent: React.FC<AppContentProps> = () => {
         if (authResult.status === 'fulfilled') {
           updateLoadingStep('auth', 'completed');
           
+          // Load workspaces after auth is initialized
+          // This ensures the active workspace is set in Redux state
+          // IMPORTANT: Await this to ensure workspace restoration happens after workspaces are loaded
+          try {
+            await dispatch(loadWorkspaces()).unwrap();
+          } catch (error) {
+            console.warn('Failed to load workspaces on initialization:', error);
+          }
+          
           // Early exit for cloud mode without FIDU auth - skip loading screen
           // Check if auth returned null (no auth available)
           if (authResult.value === null) {
@@ -318,6 +332,13 @@ const AppContent: React.FC<AppContentProps> = () => {
           }
         } else {
           updateLoadingStep('auth', 'completed'); // No auth is also a valid state
+          // Still try to load workspaces even if auth failed (workspace registry might have data)
+          // IMPORTANT: Await this to ensure workspace restoration happens after workspaces are loaded
+          try {
+            await dispatch(loadWorkspaces()).unwrap();
+          } catch (error) {
+            console.warn('Failed to load workspaces on initialization:', error);
+          }
         }
       } catch (error) {
         console.warn('Failed to initialize app:', error);
@@ -543,14 +564,10 @@ const AppContent: React.FC<AppContentProps> = () => {
           const isFullyInitialized = adapter.isFullyInitialized();
           
           if (!isFullyInitialized) {
-            console.log('🔧 [App] CloudStorageAdapter not fully initialized, completing initialization...');
             updateLoadingStep('google-drive', 'in_progress');
             await (adapter as any).initialize();
-            console.log('✅ [App] CloudStorageAdapter initialization completed');
             updateLoadingStep('google-drive', 'completed');
             updateLoadingStep('data-sync', 'completed');
-          } else {
-            console.log('✅ [App] CloudStorageAdapter already fully initialized');
           }
           
           // Set flag regardless - either was already initialized or just completed
@@ -568,6 +585,66 @@ const AppContent: React.FC<AppContentProps> = () => {
     
     checkAndCompleteInitialization();
   }, [unifiedStorage.googleDrive.isAuthenticated, storageInitialized]);
+
+  // Automatically switch to active workspace after storage and workspaces are loaded
+  // This handles the case where storage initializes before workspaces are loaded (on page reload)
+  useEffect(() => {
+    const restoreActiveWorkspace = async () => {
+      // Wait for storage to be initialized
+      if (!storageInitialized || !cloudAdapterFullyInitialized) {
+        return;
+      }
+
+      // Wait for workspaces to be loaded
+      // On first login, activeWorkspace starts as null (not set) and is set by loadWorkspaces.fulfilled
+      // After loadWorkspaces.fulfilled, activeWorkspace will be an object (even if id is null for personal)
+      // So we check if activeWorkspace is still the initial null state (workspaces not loaded yet)
+      if (unifiedStorage.activeWorkspace === null) {
+        // Workspaces haven't been loaded yet - wait for loadWorkspaces to complete
+        // This will set activeWorkspace to an object (even if id is null for personal workspace)
+        return;
+      }
+
+      // Skip if we're in the middle of switching (user-initiated switch in progress)
+      if (unifiedStorage.isSwitchingWorkspace) {
+        return;
+      }
+
+      try {
+        const storageService = getStorageService();
+        const currentWorkspaceId = storageService.getCurrentWorkspaceId();
+        const activeWorkspaceId = unifiedStorage.activeWorkspace.id;
+
+        // Compare current workspace with active workspace
+        // If activeWorkspaceId is null, that means personal workspace
+        // If currentWorkspaceId is undefined, that also means personal workspace
+        const currentIsPersonal = currentWorkspaceId === undefined || currentWorkspaceId === null;
+        const activeIsPersonal = activeWorkspaceId === null;
+
+        // If they match, no need to switch - mark as restored
+        if (currentIsPersonal && activeIsPersonal) {
+          setWorkspaceRestored(true);
+          return;
+        }
+        if (!currentIsPersonal && !activeIsPersonal && currentWorkspaceId === activeWorkspaceId) {
+          setWorkspaceRestored(true);
+          return;
+        }
+
+        // They don't match - switch to the active workspace
+        // This happens when storage initialized with default (personal) but active workspace is shared
+        await dispatch(switchWorkspace(activeWorkspaceId)).unwrap();
+        setWorkspaceRestored(true);
+      } catch (error) {
+        console.warn('Failed to restore active workspace on initialization:', error);
+        // Even on error, mark as restored to avoid infinite loading
+        // The workspace might still be usable, or user can manually switch
+        setWorkspaceRestored(true);
+      }
+    };
+
+    restoreActiveWorkspace();
+  }, [dispatch, storageInitialized, cloudAdapterFullyInitialized, unifiedStorage.activeWorkspace?.id, unifiedStorage.isSwitchingWorkspace]);
 
   useEffect(() => {
     const envInfo = getEnvironmentInfo();
@@ -746,9 +823,12 @@ const AppContent: React.FC<AppContentProps> = () => {
   // In cloud mode, also wait for CloudStorageAdapter to be fully initialized
   const waitingForCloudAdapter = isCloudMode && !cloudAdapterFullyInitialized;
   
+  // Wait for workspace restoration to complete (ensures active workspace is loaded on page reload)
+  const waitingForWorkspaceRestore = !workspaceRestored && storageInitialized && cloudAdapterFullyInitialized;
+  
   // Skip loading screen if early check detected no FIDU auth in cloud mode
   const shouldShowLoadingScreen = !earlyNoAuthDetected 
-    && (authLoading || !storageInitialized || unifiedStorage.googleDrive.isLoading || waitingForCloudAuth || waitingForCloudAdapter);
+    && (authLoading || !storageInitialized || unifiedStorage.googleDrive.isLoading || waitingForCloudAuth || waitingForCloudAdapter || waitingForWorkspaceRestore);
   
   if (shouldShowLoadingScreen) {
     // Use the new unified loading progress component
@@ -841,6 +921,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                     } 
                   />
                   <Route path="/import-export" element={<ImportExportPage />} />
+                  <Route path="/workspaces" element={<WorkspacesPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                   <Route path="/terms-of-use" element={<TermsOfUsePage />} />

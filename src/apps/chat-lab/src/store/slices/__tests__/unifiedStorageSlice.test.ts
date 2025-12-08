@@ -25,6 +25,8 @@ jest.mock('../../../utils/environment', () => ({
     storageMode: 'cloud',
     syncInterval: 300000,
   }),
+  getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
+  getGatewayUrl: () => 'https://gateway.firstdataunion.org',
 }));
 
 // Mock GoogleDriveAuth service

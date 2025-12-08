@@ -176,7 +176,7 @@ const ConversationsPage: React.FC = React.memo(() => {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, isAuthenticated, currentProfile, unifiedStorage.googleDrive.isAuthenticated]);
+  }, [dispatch, isAuthenticated, currentProfile, unifiedStorage.googleDrive.isAuthenticated, unifiedStorage.activeWorkspace?.id]);
 
   // Memoized event handlers
   const handleRefresh = useCallback(() => {

@@ -6,6 +6,12 @@
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { MetricsService } from '../../metrics/MetricsService';
 import { trackStorageError } from '../../../utils/errorTracking';
+import { 
+  CONVERSATIONS_DB_PREFIX, 
+  API_KEYS_DB_PREFIX, 
+  METADATA_JSON_PREFIX,
+  getMetadataJsonFilename 
+} from '../../../constants/workspaceFiles';
 
 // Custom error for insufficient permissions
 export class InsufficientPermissionsError extends Error {
@@ -139,7 +145,8 @@ export class GoogleDriveService {
         
         const spaces = isAppData ? 'appDataFolder' : 'drive';
         
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=${spaces}`;
+        // Include supportsAllDrives and includeItemsFromAllDrives for shared folders/drives
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=${spaces}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
 
         const response = await fetch(
           url,
@@ -177,7 +184,9 @@ export class GoogleDriveService {
     return this.trackGoogleApiRequest('uploadFile', async () => {
       const accessToken = await this.authService.getAccessToken();
       
-      // Check if file already exists
+      // Check if file already exists in current folder
+      // Note: findFileByName only searches within the current folder (getFolderId())
+      // so this is already workspace-isolated
       const existingFile = await this.findFileByName(fileName);
       
       if (existingFile) {
@@ -230,7 +239,8 @@ export class GoogleDriveService {
     // Copy close delimiter  
     fullBody.set(closeDelimiterBytes, offset);
 
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      // Include supportsAllDrives=true to support shared folders and shared drives
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -255,17 +265,27 @@ export class GoogleDriveService {
   async downloadFile(fileId: string): Promise<Uint8Array> {
     const accessToken = await this.authService.getAccessToken();
     
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    console.log(`🔍 [GoogleDriveService] Downloading file by ID: ${fileId}`);
+    
+    // Include supportsAllDrives=true to support shared folders and shared drives
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to download file: ${response.statusText}`);
+      const errorText = await response.text().catch(() => 'Unable to read error response');
+      console.error(`❌ [GoogleDriveService] Failed to download file ${fileId}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+      });
+      throw new Error(`Failed to download file: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    console.log(`✅ [GoogleDriveService] Successfully downloaded file ${fileId} (${arrayBuffer.byteLength} bytes)`);
     return new Uint8Array(arrayBuffer);
   }
 
@@ -275,7 +295,8 @@ export class GoogleDriveService {
   async updateFile(fileId: string, data: Uint8Array, mimeType: string = 'application/octet-stream'): Promise<void> {
     const accessToken = await this.authService.getAccessToken();
     
-    const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    // Include supportsAllDrives=true to support shared folders and shared drives
+    const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -296,7 +317,8 @@ export class GoogleDriveService {
   async deleteFile(fileId: string): Promise<void> {
     const accessToken = await this.authService.getAccessToken();
     
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+    // Include supportsAllDrives=true to support shared folders and shared drives
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -314,8 +336,9 @@ export class GoogleDriveService {
   async getFileMetadata(fileId: string): Promise<DriveFile> {
     const accessToken = await this.authService.getAccessToken();
     
+    // Include supportsAllDrives=true to support shared folders and shared drives
     const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,size,createdTime,modifiedTime,parents`,
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,size,createdTime,modifiedTime,parents&supportsAllDrives=true`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -388,7 +411,7 @@ export class GoogleDriveService {
    * Upload metadata file
    */
   async uploadMetadata(metadata: any, version: string = '1'): Promise<string> {
-    const fileName = `fidu_metadata_v${version}.json`;
+    const fileName = getMetadataJsonFilename(version);
     const data = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
     return await this.uploadFile(fileName, data, 'application/json');
   }
@@ -397,7 +420,7 @@ export class GoogleDriveService {
    * Download metadata file
    */
   async downloadMetadata(version: string = '1'): Promise<any> {
-    const fileName = `fidu_metadata_v${version}.json`;
+    const fileName = getMetadataJsonFilename(version);
     const file = await this.findFileByName(fileName);
     
     if (!file) {
@@ -421,9 +444,9 @@ export class GoogleDriveService {
     const fileNames = files.map(f => f.name);
 
     return {
-      conversations: fileNames.some(name => name.startsWith('fidu_conversations_v')),
-      apiKeys: fileNames.some(name => name.startsWith('fidu_api_keys_v')),
-      metadata: fileNames.some(name => name.startsWith('fidu_metadata_v'))
+      conversations: fileNames.some(name => name.startsWith(CONVERSATIONS_DB_PREFIX)),
+      apiKeys: fileNames.some(name => name.startsWith(API_KEYS_DB_PREFIX)),
+      metadata: fileNames.some(name => name.startsWith(METADATA_JSON_PREFIX))
     };
   }
 
@@ -453,9 +476,9 @@ export class GoogleDriveService {
   async clearAllDatabaseFiles(): Promise<void> {
     const files = await this.listFiles();
     const databaseFiles = files.filter(file => 
-      file.name.startsWith('fidu_conversations_v') || 
-      file.name.startsWith('fidu_api_keys_v') || 
-      file.name.startsWith('fidu_metadata_v')
+      file.name.startsWith(CONVERSATIONS_DB_PREFIX) || 
+      file.name.startsWith(API_KEYS_DB_PREFIX) || 
+      file.name.startsWith(METADATA_JSON_PREFIX)
     );
 
     if (databaseFiles.length === 0) {

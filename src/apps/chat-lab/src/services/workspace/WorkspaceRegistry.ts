@@ -74,18 +74,28 @@ export class WorkspaceRegistryService {
 
   /**
    * Get active workspace metadata
+   * Returns null if activeWorkspaceId is null (personal workspace - virtual)
    */
   getActiveWorkspace(): WorkspaceMetadata | null {
     if (!this.registry.activeWorkspaceId) {
-      return null;
+      return null; // Personal workspace (virtual - not stored)
     }
     return this.getWorkspace(this.registry.activeWorkspaceId);
   }
 
   /**
    * Set active workspace
+   * @param workspaceId - Workspace ID to set as active, or null for personal workspace (virtual)
    */
-  setActiveWorkspace(workspaceId: string): void {
+  setActiveWorkspace(workspaceId: string | null): void {
+    if (workspaceId === null) {
+      // Setting to personal workspace (virtual - no stored entry)
+      this.registry.activeWorkspaceId = null;
+      this.saveRegistry();
+      return;
+    }
+
+    // Setting to a shared workspace - must exist in registry
     const workspace = this.getWorkspace(workspaceId);
     if (!workspace) {
       throw new Error(`Workspace not found: ${workspaceId}`);
@@ -134,27 +144,8 @@ export class WorkspaceRegistryService {
   }
 
   /**
-   * Create a personal workspace for a user/profile
-   */
-  createPersonalWorkspace(userId: string, profileId: string, profileName: string): WorkspaceMetadata {
-    const workspaceId = `personal-${userId}-${profileId}`;
-    
-    const workspace: WorkspaceMetadata = {
-      id: workspaceId,
-      name: `${profileName}'s Workspace`,
-      type: 'personal',
-      driveFolderId: undefined, // Personal workspaces use AppData
-      createdAt: new Date().toISOString(),
-      lastAccessed: new Date().toISOString(),
-    };
-    
-    this.upsertWorkspace(workspace);
-    
-    return workspace;
-  }
-
-  /**
    * Create a shared workspace
+   * Note: Personal workspaces are virtual (no stored entry) - use setActiveWorkspace(null) to switch to personal
    */
   createSharedWorkspace(name: string, driveFolderId: string, role: 'owner' | 'member' = 'owner'): WorkspaceMetadata {
     const workspaceId = `shared-${uuidv4()}`;
@@ -176,17 +167,81 @@ export class WorkspaceRegistryService {
   }
 
   /**
-   * Get or create personal workspace for current user/profile
+   * Sync workspaces from identity service API
+   * Fetches all workspaces the user is a member of and updates the local registry
    */
-  getOrCreatePersonalWorkspace(userId: string, profileId: string, profileName: string): WorkspaceMetadata {
-    const workspaceId = `personal-${userId}-${profileId}`;
-    const existing = this.getWorkspace(workspaceId);
-    
-    if (existing) {
-      return existing;
+  async syncFromAPI(): Promise<void> {
+    try {
+      const { identityServiceAPIClient } = await import('../api/apiClientIdentityService');
+      
+      // Fetch all workspaces - the API returns the user's role directly in each workspace
+      const allWorkspacesResponse = await identityServiceAPIClient.listWorkspaces();
+      
+      // Build workspace map using the role from the API response
+      const allWorkspaces = new Map<string, any>();
+      
+      allWorkspacesResponse.workspaces.forEach((ws: any) => {
+        // Use the role directly from the API response - it tells us the current user's role
+        allWorkspaces.set(ws.id, ws);
+      });
+      
+      // Get file IDs for each workspace (needed for sync)
+      const workspaceMetadataPromises = Array.from(allWorkspaces.values()).map(async (ws) => {
+        try {
+          const files = await identityServiceAPIClient.getWorkspaceFiles(ws.id);
+          // Map snake_case API response to camelCase WorkspaceMetadata format
+          return {
+            id: ws.id,
+            name: ws.name,
+            type: 'shared' as const,
+            driveFolderId: ws.drive_folder_id,
+            role: ws.role,
+            files: {
+              conversationsDbId: files.files.conversations_db_id,
+              metadataJsonId: files.files.metadata_json_id,
+              // API doesn't return apiKeysDbId for shared workspaces (API keys aren't synced)
+            },
+            createdAt: ws.created_at,
+            lastAccessed: this.getWorkspace(ws.id)?.lastAccessed || new Date().toISOString(), // Preserve lastAccessed if exists
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch files for workspace ${ws.id}:`, error);
+          // Return workspace without files - will be added to registry anyway
+          return {
+            id: ws.id,
+            name: ws.name,
+            type: 'shared' as const,
+            driveFolderId: ws.drive_folder_id,
+            role: ws.role,
+            createdAt: ws.created_at,
+            lastAccessed: this.getWorkspace(ws.id)?.lastAccessed || new Date().toISOString(),
+          };
+        }
+      });
+      
+      const workspaceMetadata = await Promise.all(workspaceMetadataPromises);
+      
+      // Update registry with synced workspaces
+      workspaceMetadata.forEach(workspace => {
+        this.upsertWorkspace(workspace as any);
+      });
+      
+      // Remove workspaces from registry that are no longer in API response
+      // (user was removed from workspace)
+      const apiWorkspaceIds = new Set(workspaceMetadata.map(w => w.id));
+      const localWorkspaceIds = this.registry.workspaces
+        .filter(w => w.type === 'shared')
+        .map(w => w.id);
+      
+      localWorkspaceIds.forEach(id => {
+        if (!apiWorkspaceIds.has(id)) {
+          this.removeWorkspace(id);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to sync workspaces from API:', error);
+      throw error;
     }
-    
-    return this.createPersonalWorkspace(userId, profileId, profileName);
   }
 
   /**

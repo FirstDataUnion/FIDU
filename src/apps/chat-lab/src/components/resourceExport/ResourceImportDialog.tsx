@@ -44,6 +44,7 @@ export default function ResourceImportDialog({
   onImportComplete,
 }: ResourceImportDialogProps) {
   const { currentProfile } = useAppSelector((state) => state.auth);
+  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,12 @@ export default function ResourceImportDialog({
   const [isDragging, setIsDragging] = useState(false);
 
   const importService = getResourceImportService();
+  
+  // Determine effective profile ID: use workspace-level profile for shared workspaces
+  const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
+  const effectiveProfileId = isSharedWorkspace && unifiedStorage.activeWorkspace?.id
+    ? `workspace-${unifiedStorage.activeWorkspace.id}-default`
+    : currentProfile?.id;
 
   const processFile = async (file: File) => {
     try {
@@ -132,7 +139,7 @@ export default function ResourceImportDialog({
   };
 
   const handleImport = async () => {
-    if (!previewData || !currentProfile?.id) {
+    if (!previewData || !effectiveProfileId) {
       setError('Missing required data');
       return;
     }
@@ -143,11 +150,11 @@ export default function ResourceImportDialog({
 
       const storage = getUnifiedStorageService();
       const adapter = storage.getAdapter();
-      const userId = (adapter as any).ensureUserId?.() || currentProfile.id;
+      const userId = (adapter as any).ensureUserId?.() || effectiveProfileId;
 
       const result = await importService.importResources(
         previewData,
-        currentProfile.id,
+        effectiveProfileId,
         userId,
         {
           skipDuplicates: true,

@@ -785,6 +785,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     modelId: 'gpt-oss-120b',
   });
 
+  // Fetch documents when profile or auth state changes
   useEffect(() => {
     if (currentProfile?.id) {
       dispatch(fetchDocuments(currentProfile.id)).catch((error) => {
@@ -793,28 +794,30 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     }
   }, [dispatch, currentProfile?.id, unifiedStorage.googleDrive.isAuthenticated]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const storage = getUnifiedStorageService();
-        const profileId = currentProfile?.id;
-        if (!profileId) {
-          throw new Error('No active profile. Please select or create a profile.');
-        }
-        const { backgroundAgents } = await storage.getBackgroundAgents(undefined, 1, 20, profileId);
-        // Only store custom agents (never store built-in ones)
-        const customAgents = (backgroundAgents || []).filter((a: BackgroundAgent) => !a.isSystem);
-        setAgents(customAgents);
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load background agents');
-      } finally {
-        setLoading(false);
+  // Load background agents callback - extracted for use by useSyncRefresh
+  const loadAgents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const storage = getUnifiedStorageService();
+      const profileId = currentProfile?.id;
+      if (!profileId) {
+        throw new Error('No active profile. Please select or create a profile.');
       }
-    };
-    void load();
+      const { backgroundAgents } = await storage.getBackgroundAgents(undefined, 1, 20, profileId);
+      // Only store custom agents (never store built-in ones)
+      const customAgents = (backgroundAgents || []).filter((a: BackgroundAgent) => !a.isSystem);
+      setAgents(customAgents);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load background agents');
+    } finally {
+      setLoading(false);
+    }
   }, [currentProfile?.id]);
+
+  useEffect(() => {
+    void loadAgents();
+  }, [loadAgents, unifiedStorage.activeWorkspace?.id]);
 
   // Transform built-in agents from data file to BackgroundAgent format, merging stored preferences
   const transformedBuiltInAgents = useMemo(() => {

@@ -165,13 +165,17 @@ describe('conversationUtils', () => {
     it('should format Date object correctly', () => {
       const date = new Date('2024-01-15T12:30:45Z');
       const result = formatTimestamp(date);
-      expect(result).toMatch(/Jan 15, 2024, 12:30:45/);
+      // Timezone-agnostic: just verify it contains the date parts and time format
+      expect(result).toMatch(/Jan 1[45], 2024/); // Jan 14 or 15 depending on timezone
+      expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}/); // Time in HH:MM:SS format
     });
 
     it('should format string timestamp correctly', () => {
       const timestamp = '2024-01-15T12:30:45Z';
       const result = formatTimestamp(timestamp);
-      expect(result).toMatch(/Jan 15, 2024, 12:30:45/);
+      // Timezone-agnostic: just verify it contains the date parts and time format
+      expect(result).toMatch(/Jan 1[45], 2024/); // Jan 14 or 15 depending on timezone
+      expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}/); // Time in HH:MM:SS format
     });
 
     it('should handle invalid date strings', () => {

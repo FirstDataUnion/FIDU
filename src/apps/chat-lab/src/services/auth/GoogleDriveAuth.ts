@@ -106,6 +106,10 @@ export class GoogleDriveAuthService {
     
     if (restored) {
       console.log('✅ Successfully restored authentication from HTTP-only cookies');
+      // Ensure user info is loaded (will update Google email if FIDU auth is ready)
+      if (!this.user) {
+        await this.getUser();
+      }
       return;
     }
     
@@ -135,7 +139,7 @@ export class GoogleDriveAuthService {
         // Even if token is valid, verify it's still working by checking user info
         try {
           await this.validateToken();
-          // If validation succeeds, ensure user info is loaded
+          // If validation succeeds, ensure user info is loaded (will update Google email if FIDU auth is ready)
           if (!this.user) {
             await this.getUser();
           }
@@ -143,7 +147,7 @@ export class GoogleDriveAuthService {
           console.warn('Token validation failed, attempting refresh:', error);
           try {
             await this.refreshAccessToken();
-            // After successful refresh, load user info
+            // After successful refresh, load user info (will update Google email if FIDU auth is ready)
             if (!this.user) {
               await this.getUser();
             }
@@ -198,6 +202,13 @@ export class GoogleDriveAuthService {
     }
 
     return this.tokens.accessToken;
+  }
+
+  /**
+   * Get the OAuth client ID (needed for Google Picker appId)
+   */
+  getClientId(): string {
+    return this.config.clientId;
   }
 
   /**
@@ -359,6 +370,72 @@ export class GoogleDriveAuthService {
     };
   }
 
+  /**
+   * Get granted OAuth scopes
+   * First tries to get from stored tokens, then falls back to Token Info API
+   */
+  async getGrantedScopes(): Promise<string[]> {
+    // First, try to get from stored tokens
+    if (this.tokens?.scope) {
+      const scopes = this.tokens.scope.split(' ').filter(s => s.length > 0);
+      if (scopes.length > 0) {
+        return scopes;
+      }
+    }
+    
+    // If no scope in tokens, verify via Token Info API
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + encodeURIComponent(accessToken));
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.scope) {
+          const scopes = data.scope.split(' ').filter((s: string) => s.length > 0);
+          // Update stored tokens with scope for future use
+          if (this.tokens) {
+            this.tokens.scope = data.scope;
+            this.storeTokens(this.tokens);
+          }
+          return scopes;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to verify scopes via Token Info API:', error);
+    }
+    
+    return [];
+  }
+
+  /**
+   * Check if a specific scope is granted
+   */
+  async hasScope(scope: string): Promise<boolean> {
+    const grantedScopes = await this.getGrantedScopes();
+    return grantedScopes.includes(scope);
+  }
+
+  /**
+   * Check if drive.file scope is granted (required for shared workspaces)
+   */
+  async hasDriveFileScope(): Promise<boolean> {
+    return await this.hasScope('https://www.googleapis.com/auth/drive.file');
+  }
+
+  /**
+   * Request additional scopes (triggers re-authentication with new scopes)
+   */
+  async requestAdditionalScopes(additionalScopes: string[]): Promise<void> {
+    const currentScopes = this.config.scopes;
+    const newScopes = [...new Set([...currentScopes, ...additionalScopes])];
+    
+    // Update config with new scopes
+    this.config.scopes = newScopes;
+    
+    // Force re-authentication to get new scopes
+    await this.authenticate(true);
+  }
+
   // Private methods
 
   private buildAuthUrl(forceConsent: boolean = false): string {
@@ -429,7 +506,7 @@ export class GoogleDriveAuthService {
       this.tokens = tokens;
       this.storeTokens(tokens);
 
-      // Fetch user info
+      // Fetch user info (will update Google email if FIDU auth is ready)
       console.log('🔄 Fetching user info...');
       await this.fetchUserInfo();
       console.log('✅ OAuth callback completed successfully');
@@ -733,6 +810,11 @@ export class GoogleDriveAuthService {
         this.tokens!.accessToken = data.access_token;
         this.tokens!.expiresAt = Date.now() + (data.expires_in * 1000);
         
+        // Update scope if provided (may not always be included in refresh response)
+        if (data.scope) {
+          this.tokens!.scope = data.scope;
+        }
+        
         // Store updated tokens
         this.storeTokens(this.tokens!);
 
@@ -887,6 +969,59 @@ export class GoogleDriveAuthService {
     
     // Persist user info to localStorage
     this.storeUserInfo(this.user);
+    
+    // Update Google email in identity service (if FIDU auth is ready)
+    // This will skip silently if auth isn't ready to avoid triggering logout
+    await this.updateGoogleEmailInIdentityService(userData.email);
+  }
+
+  /**
+   * Update Google email in identity service
+   * Called after successful Google Drive authentication
+   * Safely skips update if FIDU authentication isn't ready to avoid triggering logout
+   */
+  private async updateGoogleEmailInIdentityService(googleEmail: string): Promise<void> {
+    try {
+      const fiduAuthService = getFiduAuthService();
+      
+      // Check if FIDU auth is ready before attempting API call
+      // The axios interceptor will trigger logout if AuthenticationRequiredError is thrown,
+      // so we need to verify auth is ready first
+      if (!(await fiduAuthService.isAuthenticated())) {
+        console.log('ℹ️ FIDU authentication not ready - skipping Google email update');
+        return;
+      }
+      
+      // Dynamically import to avoid circular dependencies
+      const { identityServiceAPIClient } = await import('../api/apiClientIdentityService');
+      await identityServiceAPIClient.updateGoogleEmail(googleEmail);
+      console.log('✅ Google email updated in identity service:', googleEmail);
+    } catch (error: any) {
+      // Silently handle auth errors - these can trigger logout if not caught
+      // This is expected during initialization/login when FIDU auth isn't ready yet
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (
+          errorMessage.includes('authentication required') ||
+          errorMessage.includes('please log in again') ||
+          errorMessage.includes('user not authenticated') ||
+          errorMessage.includes('authenticationrequirederror') ||
+          error.name === 'AuthenticationRequiredError'
+        ) {
+          console.log('ℹ️ FIDU authentication not ready - Google email update will be retried later');
+          return;
+        }
+      }
+      
+      // Handle 401 errors (API errors)
+      if (error?.status === 401 || error?.response?.status === 401) {
+        console.log('ℹ️ Received 401 from identity service - FIDU auth may not be ready');
+        return;
+      }
+      
+      // Log other errors but don't throw - this is a non-critical operation
+      console.warn('⚠️ Failed to update Google email in identity service:', error);
+    }
   }
   
   private storeUserInfo(user: GoogleDriveUser): void {
@@ -1060,16 +1195,13 @@ export class GoogleDriveAuthService {
       const newAccessToken = await this.refreshAccessToken();
       
       if (newAccessToken) {
-        console.log('✅ Successfully restored authentication from HTTP-only cookies');
-        
-        // Load user info if we don't have it
+        // Load user info if we don't have it (will update Google email if FIDU auth is ready)
         if (!this.user) {
           await this.fetchUserInfo();
         }
         
         return true;
       } else {
-        console.log('❌ Failed to refresh access token from cookies');
         return false;
       }
       
@@ -1260,6 +1392,7 @@ export async function getGoogleDriveAuthService(): Promise<GoogleDriveAuthServic
       redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
       scopes: [
         'https://www.googleapis.com/auth/drive.appdata',
+        'https://www.googleapis.com/auth/drive.file', // Required for shared workspaces
         'https://www.googleapis.com/auth/userinfo.email'
       ]
     };

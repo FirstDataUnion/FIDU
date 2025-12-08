@@ -18,6 +18,7 @@ import { unsyncedDataManager } from '../UnsyncedDataManager';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import { extractUniqueModels } from '../../../utils/conversationUtils';
+import { encryptionService } from '../../encryption/EncryptionService';
 
 export class CloudStorageAdapter implements StorageAdapter {
   private initialized = false;
@@ -40,7 +41,6 @@ export class CloudStorageAdapter implements StorageAdapter {
       } 
       
       // Reset if not fully initialized
-      console.log('🔄 [CloudStorageAdapter] Not fully initialized, resetting for re-initialization');
       this.initialized = false;
       
       // Reset component state
@@ -53,12 +53,10 @@ export class CloudStorageAdapter implements StorageAdapter {
     try {
       // Get Google Drive auth service (but don't call initialize - AuthManager handles that)
       this.authService = await getGoogleDriveAuthService();
-      console.log('📦 [CloudStorageAdapter] Auth service acquired, waiting for authentication...');
 
       // If not authenticated, we're done for now
       // AuthManager will handle auth and then the app can call our methods once auth completes
       if (!this.authService.isAuthenticated()) {
-        console.log('ℹ️  [CloudStorageAdapter] Not authenticated yet - will initialize fully once auth completes');
         this.initialized = true;
         return;
       }
@@ -74,26 +72,37 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   private async initializeWithAuthentication(): Promise<void> {
+    // Check if this is a shared workspace (API keys should not be synced for shared workspaces)
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const driveFolderId = this.config.driveFolderId;
+    
     // Initialize the browser SQLite manager with encryption enabled
+    // Note: Even for shared workspaces, we initialize the API keys DB locally (for personal use),
+    // but we won't sync it to Drive
     this.dbManager = new BrowserSQLiteManager({
       conversationsDbName: 'fidu_conversations',
       apiKeysDbName: 'fidu_api_keys',
-      enableEncryption: true
+      enableEncryption: true,
+      workspaceId: this.config.workspaceId,
+      workspaceType: this.config.workspaceType
     });
 
     await this.dbManager.initialize();
 
     // Initialize Google Drive service with workspace folder if configured
-    const driveFolderId = this.config.driveFolderId;
     this.driveService = new GoogleDriveService(this.authService!, driveFolderId);
     await this.driveService.initialize();
 
     // Initialize sync service
+    // Pass isSharedWorkspace flag to skip API keys sync for shared workspaces
+    // Pass workspaceId for workspace-specific sync tracking
     this.syncService = new SyncService(
       this.dbManager,
       this.driveService,
       this.authService!,
-      15 * 60 * 1000 // 15 minutes sync interval (not used by smart auto-sync)
+      15 * 60 * 1000, // 15 minutes sync interval (not used by smart auto-sync)
+      isSharedWorkspace, // API keys should not be synced for shared workspaces
+      this.config.workspaceId || 'default' // Workspace ID for sync tracking
     );
     await this.syncService.initialize();
     
@@ -108,8 +117,27 @@ export class CloudStorageAdapter implements StorageAdapter {
     });
     
     // Perform initial sync from Google Drive
+    // For shared workspaces, use file IDs from workspace registry to avoid creating duplicate files
+    let fileIds: { conversationsDbId?: string; metadataJsonId?: string } | undefined;
+    if (isSharedWorkspace && this.config.workspaceId) {
+      const { getWorkspaceRegistry } = await import('../../workspace/WorkspaceRegistry');
+      const workspaceRegistry = getWorkspaceRegistry();
+      const workspace = workspaceRegistry.getWorkspace(this.config.workspaceId);
+      if (workspace?.files) {
+        fileIds = {
+          conversationsDbId: workspace.files.conversationsDbId,
+          metadataJsonId: workspace.files.metadataJsonId,
+        };
+      }
+    }
+    
     try {
-      await this.syncService.syncFromDrive();
+      // Use fullSync instead of syncFromDrive to ensure lastSyncTime is set
+      // This is critical for conflict detection on subsequent syncs
+      await this.syncService.fullSync({ 
+        version: '1', 
+        fileIds // Pass file IDs for shared workspaces
+      });
     } catch (error) {
       console.error('Initial sync failed, continuing with empty database:', error);
     }
@@ -120,6 +148,36 @@ export class CloudStorageAdapter implements StorageAdapter {
     // Ensure database is ready
     if (!this.dbManager?.isInitialized()) {
       await this.dbManager!.initialize();
+    }
+
+    // Pre-fetch workspace encryption key for shared workspaces (non-blocking)
+    // This warms up the cache so encryption/decryption is faster on first use
+    if (isSharedWorkspace && this.config.workspaceId) {
+      this.prefetchWorkspaceEncryptionKey(this.config.workspaceId).catch(() => {
+        // Non-blocking: if pre-fetch fails, key will be fetched on-demand when needed
+      });
+    }
+  }
+
+  /**
+   * Pre-fetch workspace encryption key for shared workspaces
+   * This is non-blocking and errors are handled gracefully
+   * @param workspaceId - The workspace ID
+   */
+  private async prefetchWorkspaceEncryptionKey(workspaceId: string): Promise<void> {
+    try {
+      const userId = this.ensureUserId();
+      if (!userId) {
+        return;
+      }
+
+      // Pre-fetch the workspace key (will be cached)
+      await encryptionService.getWorkspaceEncryptionKey(workspaceId, userId);
+    } catch (error) {
+      // Don't throw - this is a pre-fetch, failures are acceptable
+      // The key will be fetched on-demand when encryption is actually needed
+      console.warn(`⚠️ [CloudStorageAdapter] Failed to pre-fetch workspace encryption key:`, error);
+      throw error; // Re-throw so caller can handle if needed
     }
   }
 
@@ -174,11 +232,19 @@ export class CloudStorageAdapter implements StorageAdapter {
   ): Promise<Conversation> {
     await this.ensureAuthenticated();
 
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    
+    // For shared workspaces, use workspace-level profile ID
+    // For personal workspaces, use the provided profileId
+    const effectiveProfileId = isSharedWorkspace 
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+
     // Transform conversation to data packet format (similar to local adapter)
-    const dataPacket = this.transformConversationToDataPacket(profileId, conversation, messages, originalPrompt);
+    const dataPacket = this.transformConversationToDataPacket(effectiveProfileId, conversation, messages, originalPrompt);
     
     // Generate request ID for idempotency
-    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
     
     try {
       const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
@@ -231,10 +297,10 @@ export class CloudStorageAdapter implements StorageAdapter {
   ): Promise<ConversationsResponse> {
     await this.ensureAuthenticated();
 
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
     // Build query parameters
-    const queryParams = {
-      user_id: this.ensureUserId(),
-      profile_id: profileId,
+    const queryParams: any = {
       tags: filters?.tags ? [...PROTECTED_TAGS, ...filters.tags] : [...PROTECTED_TAGS],
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
@@ -242,6 +308,12 @@ export class CloudStorageAdapter implements StorageAdapter {
       offset: (page - 1) * limit,
       sort_order: 'desc'
     };
+
+    // Only filter by user_id and profile_id for personal workspaces
+    if (!isSharedWorkspace) {
+      queryParams.user_id = this.ensureUserId();
+      queryParams.profile_id = profileId;
+    }
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(queryParams);
@@ -365,11 +437,8 @@ export class CloudStorageAdapter implements StorageAdapter {
     try {
       const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
       if (apiKey && apiKey.api_key) {
-        const keyPreview = apiKey.api_key.substring(0, 10) + '...';
-        console.log(`🔑 [CloudStorageAdapter] Found API key for provider: ${provider}, key preview: ${keyPreview}`);
         return apiKey.api_key;
       } else {
-        console.info(`ℹ️ [CloudStorageAdapter] No API key configured for provider: ${provider}`);
         return null;
       }
     } catch (error) {
@@ -383,9 +452,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
-      const available = apiKey !== null;
-      console.log(`🔑 [CloudStorageAdapter] API key availability for ${provider}: ${available ? 'Available' : 'Not configured'}`);
-      return available;
+      return apiKey !== null;
     } catch (error) {
       console.error(`Error checking API key availability for provider ${provider}:`, error);
       return false;
@@ -397,7 +464,6 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       const apiKeys = await this.dbManager!.getAllAPIKeys(this.ensureUserId());
-      console.log(`🔑 [CloudStorageAdapter] Retrieved ${apiKeys.length} API keys`);
       return apiKeys;
     } catch (error) {
       console.error('Error fetching all API keys:', error);
@@ -416,7 +482,6 @@ export class CloudStorageAdapter implements StorageAdapter {
       
       if (existingKey) {
         // Update existing key
-        console.log(`🔑 [CloudStorageAdapter] Updating existing API key for provider: ${provider}`);
         const updated = await this.dbManager!.updateAPIKey(existingKey.id, apiKey, userId);
         
         // Mark as unsynced since we updated local data
@@ -425,7 +490,6 @@ export class CloudStorageAdapter implements StorageAdapter {
         return updated;
       } else {
         // Create new key
-        console.log(`🔑 [CloudStorageAdapter] Creating new API key for provider: ${provider}`);
         const newApiKey = {
           id: crypto.randomUUID(),
           provider,
@@ -451,7 +515,6 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      console.log(`🔑 [CloudStorageAdapter] Deleting API key with ID: ${id}`);
       await this.dbManager!.deleteAPIKey(id);
       
       // Mark as unsynced since we deleted local data
@@ -477,14 +540,21 @@ export class CloudStorageAdapter implements StorageAdapter {
     // Ensure fully ready
     await this.ensureFullyReady();
 
-    const contextQueryParams = {
-      user_id: this.ensureUserId(),
-      profile_id: profileId,
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
+    const contextQueryParams: any = {
       tags: ['FIDU-CHAT-LAB-Context'],
       limit: limit,
       offset: (page - 1) * limit,
       sort_order: 'desc'
     };
+
+    // Only filter by user_id and profile_id for personal workspaces
+    if (!isSharedWorkspace) {
+      contextQueryParams.user_id = this.ensureUserId();
+      contextQueryParams.profile_id = profileId;
+    }
+    // For shared workspaces, show all data (no user_id/profile_id filtering)
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(contextQueryParams);
@@ -517,8 +587,16 @@ export class CloudStorageAdapter implements StorageAdapter {
   async createContext(context: any, profileId: string): Promise<any> {
     await this.ensureAuthenticated();
 
-    const dataPacket = this.transformContextToDataPacket(context, profileId);
-    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    
+    // For shared workspaces, use workspace-level profile ID
+    // For personal workspaces, use the provided profileId
+    const effectiveProfileId = isSharedWorkspace 
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+
+    const dataPacket = this.transformContextToDataPacket(context, effectiveProfileId);
+    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
     
     try {
       const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
@@ -577,14 +655,21 @@ export class CloudStorageAdapter implements StorageAdapter {
   async getSystemPrompts(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
     await this.ensureAuthenticated();
 
-    const systemPromptQueryParams = {
-      user_id: this.ensureUserId(),
-      profile_id: profileId,
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
+    const systemPromptQueryParams: any = {
       tags: ['FIDU-CHAT-LAB-SystemPrompt'],
       limit: limit,
       offset: (page - 1) * limit,
       sort_order: 'desc'
     };
+
+    // Only filter by user_id and profile_id for personal workspaces
+    if (!isSharedWorkspace) {
+      systemPromptQueryParams.user_id = this.ensureUserId();
+      systemPromptQueryParams.profile_id = profileId;
+    }
+    // For shared workspaces, show all data (no user_id/profile_id filtering)
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(systemPromptQueryParams);
@@ -617,8 +702,16 @@ export class CloudStorageAdapter implements StorageAdapter {
   async createSystemPrompt(systemPrompt: any, profileId: string): Promise<any> {
     await this.ensureAuthenticated();
 
-    const dataPacket = this.transformSystemPromptToDataPacket(systemPrompt, profileId);
-    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    
+    // For shared workspaces, use workspace-level profile ID
+    // For personal workspaces, use the provided profileId
+    const effectiveProfileId = isSharedWorkspace 
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+
+    const dataPacket = this.transformSystemPromptToDataPacket(systemPrompt, effectiveProfileId);
+    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
     
     try {
       const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
@@ -676,14 +769,21 @@ export class CloudStorageAdapter implements StorageAdapter {
   async getBackgroundAgents(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
     await this.ensureAuthenticated();
 
-    const queryParams = {
-      user_id: this.ensureUserId(),
-      profile_id: profileId,
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
+    const queryParams: any = {
       tags: ['FIDU-CHAT-LAB-BackgroundAgent'],
       limit: limit,
       offset: (page - 1) * limit,
       sort_order: 'desc'
     };
+
+    // Only filter by user_id and profile_id for personal workspaces
+    if (!isSharedWorkspace) {
+      queryParams.user_id = this.ensureUserId();
+      queryParams.profile_id = profileId;
+    }
+    // For shared workspaces, show all data (no user_id/profile_id filtering)
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(queryParams);
@@ -914,11 +1014,9 @@ export class CloudStorageAdapter implements StorageAdapter {
     
     if (this.smartAutoSyncService) {
       // User initiated sync - use force sync to bypass smart timing
-      console.log('🔍 [CloudStorageAdapter] User triggered sync - forcing immediate sync');
       await this.smartAutoSyncService.forceSync();
     } else if (this.syncService) {
       // Fallback to regular sync if smart auto-sync not available
-      console.log('🔍 [CloudStorageAdapter] User triggered sync - using fallback sync');
       await this.syncService.syncToDrive({ forceUpload: true });
       unsyncedDataManager.markAsSynced();
     }
@@ -1031,11 +1129,8 @@ export class CloudStorageAdapter implements StorageAdapter {
    * Update auto-sync configuration
    */
   updateAutoSyncConfig(config: { delayMinutes?: number }): void {
-    console.log('🔍 [CloudStorageAdapter] Updating auto-sync config:', config);
     if (this.smartAutoSyncService) {
       this.smartAutoSyncService.updateConfig(config);
-    } else {
-      console.warn('🔍 [CloudStorageAdapter] Smart auto-sync service not available');
     }
   }
 

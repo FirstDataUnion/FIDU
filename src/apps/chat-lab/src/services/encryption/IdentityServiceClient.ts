@@ -17,6 +17,11 @@ export interface EncryptionKeyResponse {
   encryption_key: EncryptionKeyData;
 }
 
+export interface WrappedWorkspaceKeyResponse {
+  wrapped_key: string;
+  algorithm: string;
+}
+
 export class IdentityServiceClient {
   private readonly identityServiceUrl: string;
 
@@ -168,6 +173,64 @@ export class IdentityServiceClient {
    */
   private getAuthToken(): string | null {
     return localStorage.getItem('auth_token');
+  }
+
+  /**
+   * Get wrapped workspace encryption key for the authenticated user
+   * @param workspaceId - The workspace ID
+   * @returns Promise<string> - Base64 encoded wrapped encryption key
+   */
+  async getWrappedWorkspaceKey(workspaceId: string): Promise<string> {
+    const token = this.getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token not found. Please log in again.');
+    }
+
+    try {
+      const response = await fetch(`${this.identityServiceUrl}/workspaces/${workspaceId}/encryption-key`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      if (response.status === 404) {
+        throw new Error('Encryption key not found for workspace');
+      }
+
+      if (response.status === 400) {
+        const errorData = await response.json().catch(() => ({ error: 'User is not a workspace member' }));
+        throw new Error(errorData.error || 'User is not a workspace member');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workspace encryption key: ${response.status} ${response.statusText}`);
+      }
+
+      const data: WrappedWorkspaceKeyResponse = await response.json();
+      
+      // Validate the response structure
+      if (!data.wrapped_key || typeof data.wrapped_key !== 'string') {
+        console.error('❌ [IdentityServiceClient] Invalid wrapped key format:', data);
+        throw new Error('Invalid wrapped encryption key format received from server');
+      }
+
+      if (data.algorithm !== 'AES-256-GCM') {
+        console.warn(`⚠️ [IdentityServiceClient] Unexpected algorithm: ${data.algorithm}, expected AES-256-GCM`);
+      }
+      
+      return data.wrapped_key;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to communicate with identity service. Please try again later.');
+    }
   }
 
   /**
