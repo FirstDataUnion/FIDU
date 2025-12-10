@@ -16,9 +16,12 @@ store/
 │   ├── searchSlice.ts         # Global search state
 │   ├── settingsSlice.ts       # Application settings
 │   ├── systemPromptsSlice.ts  # System prompt management
+│   ├── userFeatureFlagsSlice.ts   # User feature flag overrides
+│   ├── systemFeatureFlagsSlice.ts # System feature flags from JSON
 │   └── uiSlice.ts             # UI state and notifications
 └── selectors/                  # Memoized selectors
-    └── conversationsSelectors.ts # Conversation-specific selectors
+    ├── conversationsSelectors.ts # Conversation-specific selectors
+    └── featureFlagsSelectors.ts  # Feature flag helpers
 ```
 
 ## Store Configuration
@@ -44,6 +47,8 @@ export const store = configureStore({
     search: searchSlice,
     auth: authSlice,
     googleDriveAuth: googleDriveAuthSlice,
+    systemFeatureFlags: systemFeatureFlagsSlice,
+    userFeatureFlags: userFeatureFlagsSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -284,6 +289,71 @@ interface GoogleDriveAuthState {
 - **`updateSyncStatus`** - Update sync status
 - **`setError`** - Set authentication error
 
+### 🏁 System Feature Flags (`systemFeatureFlagsSlice.ts`)
+
+**Purpose**: Loads `public/feature_flags.json` from the server and stores system-defined feature flags in Redux.
+
+**State Structure:**
+```typescript
+interface SystemFeatureFlagsState {
+  flags: FeatureFlagsMap | null;
+  loading: boolean;
+  error: string | null;
+  lastFetchedAt: number | null;
+}
+```
+
+**Key Actions & Thunks:**
+- **`fetchSystemFeatureFlags`** – Fetch and hydrate system flags on start and every 15 minutes.
+- **`hydrateSystemFeatureFlags`** – Allows manual hydration for tests or SSR scenarios.
+- **`clearSystemFeatureFlagError`** – Reset network/validation errors.
+
+### 🏁 User Feature Flags (`userFeatureFlagsSlice.ts`)
+
+**Purpose**: Stores user overrides for feature flags, allowing users to customize their experience by enabling or disabling user-configurable features. Combined with system flags via selectors.
+
+**State Structure:**
+```typescript
+interface UserFeatureFlagsState {
+  userOverrides: UserFeatureFlagOverrides; // Partial<Record<FeatureFlagKey, boolean>>
+  loading: boolean;
+  error: string | null;
+}
+```
+
+**Key Actions:**
+- **`setUserOverride({ key, value })`** – Set a user override for a specific flag. Takes an object with `key: FeatureFlagKey` and `value` that can be:
+  - `true` – Enable the feature (only applies to `user_configurable` flags)
+  - `false` – Disable the feature (only applies to `user_configurable` flags)
+  - `null` – Remove override and use the system `default_enabled` value
+- **`clearAllUserOverrides()`** – Reset all user overrides.
+- **`loadUserOverrides(overrides)`** – Bulk load user overrides.
+- **`clearUserFeatureFlagError()`** – Reset errors.
+
+**Selectors & Hooks:**
+- **`selectIsFeatureFlagEnabled(state, key)`** – Resolves dependencies and combines system flags with user overrides before reporting a flag as enabled.
+- **`selectSystemFeatureFlags(state)`** – Get system flags directly.
+- **`selectUserFeatureFlagOverrides(state)`** – Get user overrides directly.
+- **`selectFeatureFlags(state)`** – Get combined system + user flags.
+- **`selectUserFeatureFlagsState(state)`** – Get raw user feature flags state.
+- **`useFeatureFlag(key)`** – Hook wrapper that enforces the `FeatureFlagKey` union at compile time.
+
+**Utilities:**
+- **`resolveFlagEnabled(flags, key)`** – Resolve flag enabled state with dependency checking (exported for page use).
+- **`combineSystemFlagsWithOverrides(systemFlags, userOverrides)`** – Combine system flags with user overrides (exported for page use).
+
+**User Configuration:**
+- User overrides are persisted to localStorage (`fidu-chat-lab-feature-flag-overrides`).
+- Only `enabled` flags with `user_configurable: true` in the system flags can be overridden by users.
+- When a user override is set to `null` (or not set), the system uses the `default_enabled` value from the feature flag definition.
+
+**Adding or Updating Flags:**
+1. Edit [`src/apps/chat-lab/public/feature_flags.json`](../../public/feature_flags.json). The TypeScript union is inferred directly from this file, so typos will not compile.
+2. Set `user_configurable: true` if you want users to override the flag, and `default_enabled` to set the default state for new users.
+3. Keep `depends_on` limited to other valid keys; cycles disable all flags in the loop.
+4. Run `npm test -- featureFlags` (or the full suite) to revalidate the payload and selectors.
+5. Gate UI with `useFeatureFlag('flag_name')` or the selector instead of hard-coded booleans.
+
 ## Selectors (`selectors/`)
 
 ### Conversation Selectors (`conversationsSelectors.ts`)
@@ -309,6 +379,10 @@ interface GoogleDriveAuthState {
 - Efficient filtering and sorting
 - Derived data computation
 - Pagination support
+
+### Feature Flag Selectors (`featureFlagsSelectors.ts`)
+
+Provide dependency-aware helpers (`selectIsFeatureFlagEnabled`, etc.) for components and hooks. These helpers ensure a missing fetch or a disabled dependency always reads as `false`, preventing mismatched UI states.
 
 ## Design Patterns
 

@@ -1,3 +1,6 @@
+import type { UserFeatureFlagsState } from '../store/slices/userFeatureFlagsSlice';
+import type { SystemFeatureFlagsState } from '../store/slices/systemFeatureFlagsSlice';
+
 // Core Chat Lab Types
 export interface Conversation {
   id: string;
@@ -311,6 +314,8 @@ export interface RootState {
   auth: AuthState;
   unifiedStorage: UnifiedStorageState;
   googleDriveAuth: GoogleDriveAuthState;
+  systemFeatureFlags: SystemFeatureFlagsState;
+  userFeatureFlags: UserFeatureFlagsState;
 }
 
 export interface AuthState {
