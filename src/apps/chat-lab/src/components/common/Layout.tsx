@@ -45,6 +45,7 @@ import {
   ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
+  DeleteForever as DeleteAccountIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -390,6 +391,24 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           }}
         >
           Terms of Use
+        </Button>
+        <Button
+          fullWidth
+          size="small"
+          startIcon={<DeleteAccountIcon fontSize="small" />}
+          onClick={() => handleNavigation('/delete-account')}
+          sx={{
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            color: 'inherit',
+            opacity: 0.7,
+            '&:hover': {
+              opacity: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        >
+          Delete Account
         </Button>
         <Typography 
           variant="caption" 
