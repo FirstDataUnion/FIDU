@@ -250,6 +250,34 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'openai'
   },
+  'gpt-5.2': {
+    id: 'gpt-5.2',
+    name: 'GPT-5.2',
+    provider: 'OpenAI',
+    agentId: 'agent-1765539267526666554',
+    maxTokens: 400000,
+    description: 'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
+    capabilities: ['advanced-reasoning', 'general-use', 'long-context'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
+  },
+  'gpt-5.2-chat': {
+    id: 'gpt-5.2-chat',
+    name: 'GPT-5.2 Chat',
+    provider: 'OpenAI',
+    agentId: 'agent-1765539293026890574',
+    maxTokens: 128000,
+    description: 'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
+    capabilities: ['fast-responses', 'general-use', 'conversation'],
+    category: 'general',
+    costTier: 'premium',
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
+  },
 
   // Anthropic Claude Models
   'claude-haiku-3': {
@@ -1189,6 +1217,34 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
     category: 'general',
     costTier: 'low',
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
+  },
+  'gpt-5.2': {
+    id: 'gpt-5.2',
+    name: 'GPT-5.2',
+    provider: 'OpenAI',
+    agentId: 'agent-1765540375246153919',
+    maxTokens: 400000,
+    description: 'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
+    capabilities: ['advanced-reasoning', 'general-use', 'long-context'],
+    category: 'reasoning',
+    costTier: 'premium',
+    speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'openai'
+  },
+  'gpt-5.2-chat': {
+    id: 'gpt-5.2-chat',
+    name: 'GPT-5.2 Chat',
+    provider: 'OpenAI',
+    agentId: 'agent-1765540385077620140',
+    maxTokens: 128000,
+    description: 'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
+    capabilities: ['fast-responses', 'general-use', 'conversation'],
+    category: 'general',
+    costTier: 'premium',
     speed: 'fast',
     executionPath: 'openrouter',
     providerKey: 'openai'
