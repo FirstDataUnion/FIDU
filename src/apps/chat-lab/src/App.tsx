@@ -43,6 +43,7 @@ import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
 import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
 import { supportsDocuments, supportsBackgroundAgents } from './utils/storageFeatureChecks';
+import { useFeatureFlag } from './hooks/useFeatureFlag';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
 
@@ -175,6 +176,7 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
   const [workspaceRestored, setWorkspaceRestored] = useState(false);
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -921,7 +923,9 @@ const AppContent: React.FC<AppContentProps> = () => {
                     } 
                   />
                   <Route path="/import-export" element={<ImportExportPage />} />
-                  <Route path="/workspaces" element={<WorkspacesPage />} />
+                  {isSharedWorkspacesEnabled && (
+                    <Route path="/workspaces" element={<WorkspacesPage />} />
+                  )}
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                   <Route path="/terms-of-use" element={<TermsOfUsePage />} />

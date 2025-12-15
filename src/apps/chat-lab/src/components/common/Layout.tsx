@@ -45,11 +45,8 @@ import {
   ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
-<<<<<<< HEAD
   DeleteForever as DeleteAccountIcon,
-=======
   FolderSpecial as WorkspacesIcon,
->>>>>>> 0fc57dc (Base implementation completed for shared workspaces)
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -71,6 +68,7 @@ import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice'
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const drawerWidth = 240;
 
@@ -87,6 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
   
   // Check if we're in a shared workspace (profiles should be disabled)
   const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
@@ -230,7 +229,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
-    { text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces' },
+    ...(isSharedWorkspacesEnabled ? [{ text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces' }] : []),
     { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
