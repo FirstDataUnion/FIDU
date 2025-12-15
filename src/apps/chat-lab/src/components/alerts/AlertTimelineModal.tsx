@@ -280,11 +280,11 @@ export default function AlertTimelineModal({
   const getSeverityColor = (severity: AgentAlert['severity']) => {
     switch (severity) {
       case 'error':
-        return { bg: 'error.light', border: 'error.main', text: 'error.dark', chip: 'error' };
+        return { bg: 'error.main', border: 'error.main', text: 'text.primary', chip: 'error' };
       case 'warn':
-        return { bg: 'warning.light', border: 'warning.main', text: 'warning.dark', chip: 'warning' };
+        return { bg: 'warning.main', border: 'warning.main', text: 'text.primary', chip: 'warning' };
       default:
-        return { bg: 'info.light', border: 'info.main', text: 'info.dark', chip: 'info' };
+        return { bg: 'info.main', border: 'info.main', text: 'text.primary', chip: 'info' };
     }
   };
 

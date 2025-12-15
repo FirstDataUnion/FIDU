@@ -386,9 +386,9 @@ function BackgroundAgentDialogCard({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'error': return { bg: 'error.light', border: 'error.main', text: 'error.dark', chip: 'error' };
-      case 'warn': return { bg: 'warning.light', border: 'warning.main', text: 'warning.dark', chip: 'warning' };
-      default: return { bg: 'info.light', border: 'info.main', text: 'info.dark', chip: 'info' };
+      case 'error': return { bg: 'error.main', border: 'error.main', text: 'error.contrastText', chip: 'error' };
+      case 'warn': return { bg: 'warning.main', border: 'warning.main', text: 'warning.contrastText', chip: 'warning' };
+      default: return { bg: 'info.main', border: 'info.main', text: 'info.contrastText', chip: 'info' };
     }
   };
 
@@ -661,7 +661,7 @@ function BackgroundAgentDialogCard({
                         <Chip
                           label={`Rating: ${alert.rating}/100`}
                           size="small"
-                          variant="outlined"
+                          color={colors.chip as any}
                           sx={{ height: 20, fontSize: '0.7rem' }}
                         />
                         {hasParseError && (
@@ -673,7 +673,7 @@ function BackgroundAgentDialogCard({
                           />
                         )}
                       </Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color={colors.text}>
                         {formatTimeAgo(new Date(alert.createdAt))}
                       </Typography>
                     </Box>
