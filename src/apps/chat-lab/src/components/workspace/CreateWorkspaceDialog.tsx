@@ -179,11 +179,12 @@ export default function CreateWorkspaceDialog({
 
   // Cleanup email validation timers on unmount
   useEffect(() => {
+    const timerRef = emailValidationTimerRef.current;
     return () => {
-      emailValidationTimerRef.current.forEach((timer) => {
+      timerRef.forEach((timer) => {
         clearTimeout(timer);
       });
-      emailValidationTimerRef.current.clear();
+      timerRef.clear();
     };
   }, []);
 
@@ -312,18 +313,19 @@ export default function CreateWorkspaceDialog({
 
   // Cleanup on unmount
   useEffect(() => {
+    const timerRef = emailValidationTimerRef.current;
+    const serviceRef = creationServiceRef.current;
     return () => {
       // Clear progress callback (set to no-op)
-      if (creationServiceRef.current) {
-        creationServiceRef.current.setProgressCallback(() => {});
-        creationServiceRef.current = null;
+      if (serviceRef) {
+        serviceRef.setProgressCallback(() => {});
       }
       
       // Clear email validation timers
-      emailValidationTimerRef.current.forEach((timer) => {
+      timerRef.forEach((timer) => {
         clearTimeout(timer);
       });
-      emailValidationTimerRef.current.clear();
+      timerRef.clear();
     };
   }, []);
 

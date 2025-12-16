@@ -3,7 +3,7 @@
  * Allows workspace owners to view and remove members from a workspace
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -64,18 +64,7 @@ export default function ManageMembersDialog({
   const [error, setError] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<WorkspaceMember | null>(null);
 
-  // Fetch members when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchMembers();
-    } else {
-      // Reset state when dialog closes
-      setMembers([]);
-      setError(null);
-    }
-  }, [open, workspaceId]);
-
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -88,7 +77,18 @@ export default function ManageMembersDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [workspaceId]);
+
+  // Fetch members when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchMembers();
+    } else {
+      // Reset state when dialog closes
+      setMembers([]);
+      setError(null);
+    }
+  }, [open, workspaceId, fetchMembers]);
 
   const handleRemoveClick = (member: WorkspaceMember) => {
     if (member.role === 'owner') {

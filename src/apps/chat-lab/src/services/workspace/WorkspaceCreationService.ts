@@ -191,12 +191,13 @@ export class WorkspaceCreationService {
     const drivePicker = new DrivePicker({ authService });
 
     switch (options.folderCreationMethod) {
-      case 'create':
+      case 'create': {
         // Use folderName if provided, otherwise fall back to workspace name
         const folderNameToUse = options.folderName?.trim() || options.name.trim();
         return await drivePicker.createFolder(folderNameToUse);
+      }
       
-      case 'select':
+      case 'select': {
         // Validation already done in validateOptions, but double-check for safety
         if (!options.selectedFolderId) {
           throw new Error('No folder selected');
@@ -207,6 +208,7 @@ export class WorkspaceCreationService {
           throw new Error('App does not have access to the selected folder. Please select a folder created by this app or grant access via Google Picker.');
         }
         return options.selectedFolderId;
+      }
       
       default:
         throw new Error(`Unknown folder creation method: ${options.folderCreationMethod}`);

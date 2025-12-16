@@ -265,7 +265,7 @@ export const loadWorkspaces = createAsyncThunk(
 
 export const switchWorkspace = createAsyncThunk(
   'unifiedStorage/switchWorkspace',
-  async (workspaceId: string | null, { rejectWithValue, dispatch }) => {
+  async (workspaceId: string | null, { rejectWithValue }) => {
     try {
       const storageService = getStorageService();
       const workspaceRegistry = getWorkspaceRegistry();

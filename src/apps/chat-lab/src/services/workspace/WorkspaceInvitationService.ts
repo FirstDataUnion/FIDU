@@ -3,7 +3,7 @@
  * Orchestrates the invitation acceptance flow
  */
 
-import { getGoogleDriveAuthService, GoogleDriveAuthService } from '../auth/GoogleDriveAuth';
+import { getGoogleDriveAuthService } from '../auth/GoogleDriveAuth';
 import { DrivePicker } from '../drive/DrivePicker';
 import { identityServiceAPIClient } from '../api/apiClientIdentityService';
 import { ApiError } from '../api/apiClients';

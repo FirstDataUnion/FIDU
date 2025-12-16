@@ -13,7 +13,6 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Divider,
   IconButton,
   Dialog,
   DialogTitle,
@@ -35,12 +34,10 @@ import {
   Mail as MailIcon,
   PersonAdd as PersonAddIcon,
   Refresh as RefreshIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { switchWorkspace } from '../store/slices/unifiedStorageSlice';
 import { getWorkspaceRegistry } from '../services/workspace/WorkspaceRegistry';
-import { getStorageService } from '../services/storage/StorageService';
 import { identityServiceAPIClient } from '../services/api/apiClientIdentityService';
 import CreateWorkspaceDialog from '../components/workspace/CreateWorkspaceDialog';
 import AddMembersDialog from '../components/workspace/AddMembersDialog';
@@ -55,7 +52,7 @@ import type { AcceptInvitationProgress } from '../services/workspace/WorkspaceIn
 const WorkspacesPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
-  const { user, currentProfile } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state.auth);
   
   const [workspaces, setWorkspaces] = useState<WorkspaceMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +101,7 @@ const WorkspacesPage: React.FC = () => {
         throw new Error('Invitation is missing folder ID. Please contact the workspace owner.');
       }
       
-      const workspaceId = await invitationService.acceptInvitation({
+      await invitationService.acceptInvitation({
         workspaceId: invitation.workspace_id,
         workspaceName: invitation.workspace_name,
         driveFolderId: driveFolderId,
@@ -165,7 +162,7 @@ const WorkspacesPage: React.FC = () => {
     setShowCreateDialog(true);
   };
 
-  const handleCreateSuccess = (workspaceId: string) => {
+  const handleCreateSuccess = (_workspaceId: string) => {
     setShowCreateDialog(false);
     loadWorkspaces(); // Reload to show new workspace
   };

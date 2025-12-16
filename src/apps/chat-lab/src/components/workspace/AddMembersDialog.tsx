@@ -153,11 +153,12 @@ export default function AddMembersDialog({
 
   // Cleanup email validation timers on unmount
   useEffect(() => {
+    const timerRef = emailValidationTimerRef.current;
     return () => {
-      emailValidationTimerRef.current.forEach((timer) => {
+      timerRef.forEach((timer) => {
         clearTimeout(timer);
       });
-      emailValidationTimerRef.current.clear();
+      timerRef.clear();
     };
   }, []);
 
@@ -187,9 +188,13 @@ export default function AddMembersDialog({
       const result = await identityServiceAPIClient.addMembers(workspaceId, validEmails);
       
       // Check if any members are missing Google emails
-      const membersWithoutGoogle = result.members.filter(m => !m.google_email);
+      // Match members back to original emails by index (API returns in same order)
+      const membersWithoutGoogle = result.members
+        .map((m, index) => ({ member: m, email: validEmails[index] }))
+        .filter(({ member }) => !member.google_email);
+      
       if (membersWithoutGoogle.length > 0) {
-        const emails = membersWithoutGoogle.map(m => m.fidu_email || 'unknown').join(', ');
+        const emails = membersWithoutGoogle.map(({ email }) => email).join(', ');
         throw new Error(
           `The following members have not connected their Google Drive accounts: ${emails}. ` +
           `Please ask them to connect their Google Drive account in Chat Lab before inviting them.`
@@ -227,7 +232,7 @@ export default function AddMembersDialog({
 
             if (!response.ok) {
               const errorText = await response.text();
-              throw new Error(`Failed to share folder with ${email}: ${response.status} ${response.statusText}`);
+              throw new Error(`Failed to share folder with ${email}: ${response.status} ${response.statusText}. ${errorText}`);
             }
           })
         );

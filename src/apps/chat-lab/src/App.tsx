@@ -646,7 +646,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
 
     restoreActiveWorkspace();
-  }, [dispatch, storageInitialized, cloudAdapterFullyInitialized, unifiedStorage.activeWorkspace?.id, unifiedStorage.isSwitchingWorkspace]);
+  }, [dispatch, storageInitialized, cloudAdapterFullyInitialized, unifiedStorage.activeWorkspace, unifiedStorage.isSwitchingWorkspace]);
 
   useEffect(() => {
     const envInfo = getEnvironmentInfo();

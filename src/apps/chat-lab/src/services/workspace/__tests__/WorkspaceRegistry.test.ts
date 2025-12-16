@@ -206,8 +206,8 @@ describe('WorkspaceRegistryService', () => {
 
   describe('clearAll', () => {
     it('should clear all shared workspaces', () => {
-      const workspace1 = registry.createSharedWorkspace('Team Workspace 1', 'folder-123');
-      const workspace2 = registry.createSharedWorkspace('Team Workspace 2', 'folder-456');
+      registry.createSharedWorkspace('Team Workspace 1', 'folder-123');
+      registry.createSharedWorkspace('Team Workspace 2', 'folder-456');
       
       // Verify both workspaces were created (they should have different IDs)
       const workspaces = registry.getWorkspaces();

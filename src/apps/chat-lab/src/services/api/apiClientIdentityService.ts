@@ -213,7 +213,7 @@ class IdentityServiceAPIClient {
   /**
    * Add members to a workspace
    */
-  async addMembers(workspaceId: string, emails: string[], role: 'member' = 'member'): Promise<{ members: Array<{ id: string; user_id: string; role: 'owner' | 'member'; google_email?: string }> }> {
+  async addMembers(workspaceId: string, emails: string[], _role: 'member' = 'member'): Promise<{ members: Array<{ id: string; user_id: string; role: 'owner' | 'member'; google_email?: string }> }> {
     const response = await this.client.post(`/workspaces/${workspaceId}/members`, {
       member_emails: emails,
     });
