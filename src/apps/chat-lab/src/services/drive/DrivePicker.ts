@@ -87,43 +87,7 @@ export class DrivePicker {
 
       return new Promise((resolve) => {
         // Set up MutationObserver to catch picker iframe when it's created
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                
-                // Check if it's a picker iframe
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-                
-                // Recursively check children for iframes
-                const childIframes = element.querySelectorAll('iframe');
-                childIframes.forEach((iframe) => {
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    (iframe as HTMLElement).style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          });
-        });
+        const observer = createZIndexObserver();
         
         // Start observing
         observer.observe(document.body, {
@@ -561,49 +525,7 @@ export class DrivePicker {
 
       return new Promise((resolve) => {
         // Set up MutationObserver to catch picker iframe when it's created
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                
-                // Check if it's a picker iframe or container
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    // Also set on parent and grandparent if they exist
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-                
-                // Check for picker-related containers
-                if (element.id?.includes('picker') || element.className?.includes('picker')) {
-                  element.style.zIndex = '10001';
-                }
-                
-                // Recursively check children for iframes
-                const childIframes = element.querySelectorAll('iframe');
-                childIframes.forEach((iframe) => {
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    (iframe as HTMLElement).style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          });
-        });
+        const observer = createZIndexObserver();
         
         // Start observing
         observer.observe(document.body, {
@@ -798,27 +720,7 @@ export class DrivePicker {
 
       return new Promise((resolve) => {
         // Set up MutationObserver for z-index management
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-              }
-            });
-          });
-        });
+        const observer = createZIndexObserver();
         
         observer.observe(document.body, {
           childList: true,
@@ -976,5 +878,22 @@ interface DocsViewInstance {
   setMimeTypes(mimeTypes: string): DocsViewInstance;
   setQuery(query: string): DocsViewInstance;
   setParent(parentId: string): DocsViewInstance;
+}
+
+function createZIndexObserver() {
+  return new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as HTMLElement;
+
+          // Check for picker-related containers
+          if (element.classList.contains('picker')) {
+            element.style.zIndex = '10001';
+          }
+        }
+      });
+    });
+  });
 }
 
