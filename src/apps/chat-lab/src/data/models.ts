@@ -464,6 +464,20 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     executionPath: 'openrouter',
     providerKey: 'google'
   },
+  'gemini-3-flash-preview': {
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash Preview',
+    provider: 'Google',
+    agentId: 'agent-1766054495312101606',
+    maxTokens: 1000000,
+    description: 'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
+    capabilities: ['fast-responses', 'conversation', 'coding'],
+    category: 'general',
+    costTier: 'medium',
+    speed: 'fast',
+    executionPath: 'openrouter',
+    providerKey: 'google'
+  },
 
   // Meta Llama Models
   'llama-4-maverick': {
@@ -1432,6 +1446,20 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
+    executionPath: 'openrouter',
+    providerKey: 'google'
+  },
+  'gemini-3-flash-preview': {
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash Preview',
+    provider: 'Google',
+    agentId: 'agent-1766055081708192367',
+    maxTokens: 1000000,
+    description: 'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
+    capabilities: ['fast-responses', 'conversation', 'coding'],
+    category: 'general',
+    costTier: 'medium',
+    speed: 'fast',
     executionPath: 'openrouter',
     providerKey: 'google'
   },
