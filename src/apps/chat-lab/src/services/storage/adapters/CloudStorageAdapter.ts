@@ -132,8 +132,6 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
     
     try {
-      // Use fullSync instead of syncFromDrive to ensure lastSyncTime is set
-      // This is critical for conflict detection on subsequent syncs
       await this.syncService.fullSync({ 
         version: '1', 
         fileIds // Pass file IDs for shared workspaces
