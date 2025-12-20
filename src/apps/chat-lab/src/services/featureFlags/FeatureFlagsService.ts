@@ -18,6 +18,11 @@ const buildRequestUrl = (): string => {
       ? window.location.origin
       : 'http://localhost';
   const url = new URL(`${basePath}${FEATURE_FLAGS_ENDPOINT}`, origin);
+
+  // Add cache-busting query parameter
+  url.searchParams.set('no-cache', Date.now().toString());
+  console.log('Feature flags URL:', url.toString());
+
   return url.toString();
 };
 
