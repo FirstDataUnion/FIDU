@@ -121,6 +121,7 @@ const WorkspacesPage: React.FC = () => {
       console.error('Failed to accept invitation:', err);
       setError(err.message || 'Failed to accept invitation');
       setAcceptProgress(null);
+      setShowAcceptDialog(false);
     } finally {
       setAcceptingInvitationId(null);
     }
