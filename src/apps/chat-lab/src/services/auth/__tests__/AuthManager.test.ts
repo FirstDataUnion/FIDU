@@ -69,6 +69,7 @@ describe('AuthManager', () => {
     mockGoogleDriveAuthService = {
       initialize: jest.fn().mockResolvedValue(undefined),
       isAuthenticated: jest.fn().mockReturnValue(true),
+      ensureAuthenticated: jest.fn().mockResolvedValue(true),
       getUser: jest.fn().mockResolvedValue({
         id: 'test-user-id',
         email: 'test@example.com',
@@ -82,6 +83,15 @@ describe('AuthManager', () => {
       restoreFromCookies: jest.fn().mockResolvedValue(true),
       restoreFromCookiesWithRetry: jest.fn().mockResolvedValue(true),
       getAuthStatus: jest.fn().mockReturnValue({
+        isAuthenticated: true,
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+          name: 'Test User',
+        },
+        expiresAt: Date.now() + 3600000,
+      }),
+      getAuthStatusAsync: jest.fn().mockResolvedValue({
         isAuthenticated: true,
         user: {
           id: 'test-user-id',
@@ -220,11 +230,8 @@ describe('AuthManager', () => {
     });
 
     it('should check and restore authentication successfully', async () => {
-      // Simulate not authenticated
-      mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(false);
-      mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      // After restoration, simulate authenticated
-      mockGoogleDriveAuthService.isAuthenticated.mockReturnValueOnce(false).mockReturnValue(true);
+      // Simulate not authenticated - ensureAuthenticated will attempt restoration
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.getUser.mockReturnValue({
         id: 'restored-user',
         email: 'restored@example.com',
@@ -234,23 +241,23 @@ describe('AuthManager', () => {
       const restored = await authManager.checkAndRestore();
 
       expect(restored).toBe(true);
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).toHaveBeenCalledWith(2);
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should skip if already authenticated', async () => {
       // Ensure auth service reports as authenticated
-      mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(true);
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
 
       const restored = await authManager.checkAndRestore();
 
       expect(restored).toBe(true);
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).not.toHaveBeenCalled();
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should debounce rapid check attempts', async () => {
       jest.useFakeTimers();
 
-      mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(false);
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
 
       const check1 = authManager.checkAndRestore();
       await check1;
@@ -261,7 +268,7 @@ describe('AuthManager', () => {
       const check2 = authManager.checkAndRestore();
 
       expect(await check2).toBe(false); // Skipped due to debouncing
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).not.toHaveBeenCalled();
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).not.toHaveBeenCalled();
 
       jest.useRealTimers();
     });
@@ -285,11 +292,8 @@ describe('AuthManager', () => {
     });
 
     it('should sync to Redux after successful restoration', async () => {
-      // Simulate unauthenticated, then authenticated after restore
-      mockGoogleDriveAuthService.isAuthenticated
-        .mockReturnValueOnce(false) // First check
-        .mockReturnValue(true); // After restoration
-      mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
+      // Simulate successful authentication restoration
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.getUser.mockReturnValue({
         id: 'test-user',
         email: 'test@example.com',
@@ -299,6 +303,18 @@ describe('AuthManager', () => {
       await authManager.checkAndRestore();
 
       expect(mockDispatch).toHaveBeenCalled();
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
+    });
+
+    it('should handle authentication restoration failure', async () => {
+      // Simulate failed authentication restoration
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(false);
+
+      const restored = await authManager.checkAndRestore();
+
+      expect(restored).toBe(false);
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalled(); // Should still sync to Redux
     });
   });
 
@@ -342,12 +358,11 @@ describe('AuthManager', () => {
       const callback = jest.fn();
       authManager.subscribe('auth-restored', callback);
 
-      // Simulate auth restoration
-      mockGoogleDriveAuthService.isAuthenticated
-        .mockReturnValueOnce(false) // First check
-        .mockReturnValue(true); // After restoration
-      mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
+      // Simulate auth restoration - ensureAuthenticated returns true
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
+      // After ensureAuthenticated succeeds, isAuthenticated should return true
+      mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(true);
+      mockGoogleDriveAuthService.getCachedUser.mockReturnValue({
         id: 'restored-user',
         email: 'restored@example.com',
         name: 'Restored User',
@@ -366,9 +381,10 @@ describe('AuthManager', () => {
       const callback = jest.fn();
       authManager.subscribe('auth-lost', callback);
 
-      // Simulate failed restoration
+      // Simulate failed restoration - ensureAuthenticated returns false
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(false);
+      // After ensureAuthenticated fails, isAuthenticated should return false
       mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(false);
-      mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(false);
 
       await authManager.checkAndRestore();
 
@@ -797,25 +813,24 @@ describe('AuthManager', () => {
       const newManager = getAuthManager(mockDispatch);
       newManager.setGoogleDriveAuthService(mockGoogleDriveAuthService);
       
-      mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(false);
-      mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(false);
+      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(false);
 
       // First call
       await newManager.checkAndRestore();
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).toHaveBeenCalledTimes(1);
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
       
       jest.clearAllMocks();
 
       // Call within 2 seconds - should be skipped
       await newManager.checkAndRestore();
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).not.toHaveBeenCalled();
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).not.toHaveBeenCalled();
 
       // Advance time by 2.1 seconds
       jest.advanceTimersByTime(2100);
 
       // Call after 2 seconds - should execute
       await newManager.checkAndRestore();
-      expect(mockGoogleDriveAuthService.restoreFromCookiesWithRetry).toHaveBeenCalledTimes(1);
+      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
 
       jest.useRealTimers();
     });

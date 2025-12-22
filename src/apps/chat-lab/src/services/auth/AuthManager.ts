@@ -188,18 +188,11 @@ export class AuthManager {
         return false;
       }
 
-      // If already authenticated, nothing to do
-      if (this.googleDriveAuthService.isAuthenticated()) {
-        console.log('✅ [AuthManager] Authentication still valid');
-        return true;
-      }
+      // Use ensureAuthenticated() which attempts restoration
+      const authenticated = await this.googleDriveAuthService.ensureAuthenticated();
 
-      // Try to restore from cookies
-      console.log('🔄 [AuthManager] Attempting to restore authentication...');
-      const restored = await this.googleDriveAuthService.restoreFromCookiesWithRetry(2);
-
-      if (restored) {
-        console.log('✅ [AuthManager] Authentication restored successfully');
+      if (authenticated) {
+        console.log('✅ [AuthManager] Authentication valid');
         this.notifySubscribers('auth-restored', this.getAuthStatus());
         await this.syncToRedux();
         return true;

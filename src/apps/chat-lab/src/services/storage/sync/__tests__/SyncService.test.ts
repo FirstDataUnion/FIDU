@@ -787,5 +787,23 @@ describe('SyncService', () => {
       expect(mockDriveService.checkFilesExist).not.toHaveBeenCalled();
     });
   });
+
+  describe('getAuthService', () => {
+    it('should return the auth service instance', () => {
+      const service = createSyncService(false, 'test-workspace');
+      const authService = service.getAuthService();
+      
+      expect(authService).toBe(mockAuthService);
+    });
+
+    it('should return the same instance on multiple calls', () => {
+      const service = createSyncService(false, 'test-workspace');
+      const authService1 = service.getAuthService();
+      const authService2 = service.getAuthService();
+      
+      expect(authService1).toBe(authService2);
+      expect(authService1).toBe(mockAuthService);
+    });
+  });
 });
 

@@ -497,6 +497,14 @@ export class SyncService {
     this.lastMergeResult = null;
   }
 
+  /**
+   * Get the auth service for external access (e.g., by SmartAutoSyncService)
+   * Used for proactive token refresh before sync attempts
+   */
+  getAuthService(): GoogleDriveAuthService {
+    return this.authService;
+  }
+
   // Private methods
 
   private storeLastSyncTime(): void {
