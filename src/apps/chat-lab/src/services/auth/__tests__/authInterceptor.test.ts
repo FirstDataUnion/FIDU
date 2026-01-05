@@ -11,7 +11,7 @@ import express from 'express';
 import type { Express, Request, Response } from 'express';
 import { createServer, Server } from 'http';
 import axios, { AxiosInstance } from 'axios';
-import { getFiduAuthService } from '../FiduAuthService';
+import { getFiduAuthService, TokenRefreshError } from '../FiduAuthService';
 import { AuthenticationRequiredError } from '../FiduAuthService';
 
 
@@ -165,6 +165,7 @@ describe('FiduAuthService Auth Interceptor', () => {
       expect(response.data).toEqual(expectedData);
       expect(authHeaders).toEqual([`Bearer ${initialAccessToken}`]);
       expect(requestCount).toBe(1);
+      expect(global.fetch).toHaveBeenCalledTimes(1); // In the beforeEach
     });
   });
 
@@ -175,10 +176,15 @@ describe('FiduAuthService Auth Interceptor', () => {
       let authHeaders: (string | undefined)[] = [];
 
       let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
-      fetchMock.mockResolvedValueOnce({
-        ...defaultResponse,
-        ok: true,
-        json: () => Promise.resolve({ access_token: refreshedAccessToken, expires_in: 3600 }),
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+        expect(typeof input).toBe('string');
+        const url = input as string;
+        expect(url).toContain('auth/fidu/refresh-access-token');
+        return Promise.resolve({
+          ...defaultResponse,
+          ok: true,
+          json: () => Promise.resolve({ access_token: refreshedAccessToken, expires_in: 3600 }),
+        });
       });
 
       // Test endpoint - first call returns 401, retry returns 200
@@ -209,17 +215,24 @@ describe('FiduAuthService Auth Interceptor', () => {
     });
   });
 
-  describe('401 response with failed token refresh', () => {
+  describe('401 response with 401 refresh token response', () => {
+    beforeEach(() => {
+      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+        expect(typeof input).toBe('string');
+        const url = input as string;
+        expect(url).toContain('auth/fidu/refresh-access-token');
+        return Promise.resolve({
+          ...defaultResponse,
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ detail: 'Refresh token expired or invalid' }),
+        });
+      });
+    });
+
     it('should throw error when token refresh also returns 401', async () => {
       let testEndpointCallCount = 0;
-
-      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
-      fetchMock.mockResolvedValue({
-        ...defaultResponse,
-        ok: false,
-        status: 401,
-        json: () => Promise.resolve({ detail: 'Refresh token expired or invalid' }),
-      });
 
       app.get(testEndpoint, (req: Request, res: Response) => {
         testEndpointCallCount++;
@@ -237,40 +250,33 @@ describe('FiduAuthService Auth Interceptor', () => {
 
     it('should clear tokens and dispatch logout on refresh failure', async () => {
       const clearAllAuthTokensSpy = jest.spyOn(fiduAuthService, 'clearAllAuthTokens');
-      let getTokensCallCount = 0;
-      
-      app.get('/api/auth/fidu/get-tokens', (req: Request, res: Response) => {
-        getTokensCallCount++;
-        // First call should return a refresh token so hasRefreshToken() returns true
-        if (getTokensCallCount === 1) {
-          res.json({
-            access_token: initialAccessToken,
-            refresh_token: 'expired-refresh-token',
-            expires_in: 3600,
-          });
-        } else {
-          res.json({
-            access_token: null,
-            refresh_token: null,
-            expires_in: 0,
-          });
-        }
-      });
-
-      app.post('/api/auth/fidu/refresh-access-token', (req: Request, res: Response) => {
-        res.status(401).json({ detail: 'Refresh token expired' });
-      });
 
       app.get(testEndpoint, (req: Request, res: Response) => {
         res.status(401).json({ message: 'Unauthorized' });
       });
 
-      await expect(axiosClient.get(testEndpoint)).rejects.toThrow(
-        'Authentication required. Please log in again.'
-      );
+      await expect(axiosClient.get(testEndpoint)).rejects.toThrow(AuthenticationRequiredError);
 
       // Verify tokens were cleared
       expect(clearAllAuthTokensSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('401 response with network error during token refresh', () => {
+    it('should not clear tokens and dispatch logout on network error', async () => {
+      const clearAllAuthTokensSpy = jest.spyOn(fiduAuthService, 'clearAllAuthTokens');
+
+      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockRejectedValue(new Error('Network error'));
+
+      app.get(testEndpoint, (req: Request, res: Response) => {
+        res.status(401).json({ message: 'Unauthorized' });
+      });
+
+      await expect(axiosClient.get(testEndpoint)).rejects.toThrow(TokenRefreshError);
+
+      // Verify tokens were not cleared
+      expect(clearAllAuthTokensSpy).not.toHaveBeenCalled();
     });
   });
 });

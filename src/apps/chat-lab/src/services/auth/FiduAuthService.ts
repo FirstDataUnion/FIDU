@@ -294,8 +294,6 @@ export class FiduAuthService {
         credentials: 'include',
       });
 
-      console.log('🔐 Refresh access token response:', response);
-
       if (response.status === 401) {
         this.resetCache();
         throw new AuthenticationRequiredError('Authentication failed while refreshing token.');
@@ -479,15 +477,15 @@ export class FiduAuthService {
             // Retry the original request
             return this.retryRequest(originalRequest);
           } catch (refreshError) {
-            console.error('Token refresh failed, logging out user:', refreshError);
-            
-            // Clear all auth tokens and dispatch logout action
-            this.clearAllAuthTokens();
-            
-            // Dispatch logout action to update Redux state
-            await this.dispatchLogout();
-            
-            return Promise.reject(new AuthenticationRequiredError());
+            if (refreshError instanceof AuthenticationRequiredError) {
+              console.error('Token refresh authentication failure, logging out user:', refreshError);
+              this.clearAllAuthTokens();
+              await this.dispatchLogout();
+            } else {
+              console.error('Token refresh network error:', refreshError);
+            }
+
+            return Promise.reject(refreshError);
           }
         }
         
