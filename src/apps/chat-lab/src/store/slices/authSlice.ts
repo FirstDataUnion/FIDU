@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '../../services/api/auth';
-import { refreshTokenService } from '../../services/api/refreshTokenService';
 import { getFiduAuthService } from '../../services/auth/FiduAuthService';
 import { beginLogout, completeLogout, currentLogoutSource, markAuthenticated } from '../../services/auth/logoutCoordinator';
 import type { 
@@ -98,7 +97,7 @@ export const logout = createAsyncThunk(
       }
       
       // Clear localStorage and client-side cookies
-      refreshTokenService.clearAllAuthTokens();
+      getFiduAuthService().clearAllAuthTokens();
       console.log('✅ LocalStorage and client-side cookies cleared');
       
       // Also clear Google Drive tokens from localStorage if they exist
@@ -119,7 +118,7 @@ export const logout = createAsyncThunk(
     } catch (error: any) {
       console.error('❌ Logout failed:', error);
       // Even if some steps fail, we should still clear what we can
-      refreshTokenService.clearAllAuthTokens();
+      getFiduAuthService().clearAllAuthTokens();
       localStorage.removeItem('google_drive_tokens');
       localStorage.removeItem('google_drive_user');
       
@@ -220,7 +219,7 @@ export const initializeAuth = createAsyncThunk(
       // Clear invalid auth data
       const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
-      refreshTokenService.clearAllAuthTokens();
+      getFiduAuthService().clearAllAuthTokens();
       return rejectWithValue(error.message || 'Failed to initialize auth');
     }
   }

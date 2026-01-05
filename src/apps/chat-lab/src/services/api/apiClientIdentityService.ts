@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
 import type { Profile, User } from "../../types";
 import { getIdentityServiceUrl } from "../../utils/environment";
-import { refreshTokenService } from "./refreshTokenService";
+import { getFiduAuthService } from "../auth/FiduAuthService";
 import { ApiError, type ErrorResponse } from './apiClients';
 
 // Identity Service API Configuration
@@ -27,8 +27,8 @@ class IdentityServiceAPIClient {
   }
 
   private setupInterceptors(): void {    
-    // Use the refresh token service's auth interceptor for consistent behavior
-    const authInterceptor = refreshTokenService.createAuthInterceptor();
+    // Use the FiduAuthService's auth interceptor for consistent behavior
+    const authInterceptor = getFiduAuthService().createAuthInterceptor();
     
     // Request interceptor
     this.client.interceptors.request.use(
@@ -355,62 +355,14 @@ export function externalProfileToInternalProfile(externalProfile: any): Profile 
   };
 }
 
-export async function createProfile(display_name: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.createProfile(display_name);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function createProfile(display_name: string) {
   return await identityServiceAPIClient.createProfile(display_name);
 }
 
-export async function updateProfile(profile_id: string, display_name: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.updateProfile(profile_id, display_name);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function updateProfile(profile_id: string, display_name: string) {
   return await identityServiceAPIClient.updateProfile(profile_id, display_name);
 }
 
-export async function deleteProfile(profile_id: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.deleteProfile(profile_id);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function deleteProfile(profile_id: string) {
   return await identityServiceAPIClient.deleteProfile(profile_id);
 }

@@ -1,5 +1,6 @@
 import type { User } from '../../types';
 import { detectRuntimeEnvironment } from '../../utils/environment';
+import { beginLogout, completeLogout, currentLogoutSource } from '../auth/logoutCoordinator';
 
 export interface FiduAuthTokens {
   access_token?: string;
@@ -44,7 +45,7 @@ export class FiduAuthService {
 
   private cachedAccessToken: string | null = null;
   private cachedRefreshTokenAvailable: boolean | null = null;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<void> | null = null;
   private lastRefreshError: Error | null = null;
 
   constructor() {
@@ -137,9 +138,10 @@ export class FiduAuthService {
     }
   }
 
-  async getAccessToken(): Promise<string | null> {
+  private async getAccessToken(): Promise<string | null> {
     try {
-      return await this.ensureAccessToken();
+      await this.ensureAccessToken();
+      return this.cachedAccessToken;
     } catch (error) {
       if (error instanceof AuthenticationRequiredError || error instanceof TokenAcquisitionTimeoutError) {
         return null;
@@ -149,31 +151,24 @@ export class FiduAuthService {
     }
   }
 
-  async getAccessTokenOrThrow(options?: EnsureAccessTokenOptions): Promise<string> {
-    const token = await this.ensureAccessToken(options);
-    if (!token) {
-      throw new AuthenticationRequiredError();
-    }
-    return token;
-  }
-
-  async ensureAccessToken(options: EnsureAccessTokenOptions = {}): Promise<string | null> {
+  async ensureAccessToken(options: EnsureAccessTokenOptions = {}): Promise<void> {
     const { forceRefresh = false, timeoutMs = 10000, onWait, maxAttempts = 3 } = options;
 
     if (!forceRefresh && this.cachedAccessToken && this.cachedAccessToken.trim() !== '') {
-      return this.cachedAccessToken;
+      return;
     }
 
     if (!forceRefresh) {
       const tokens = await this.getTokens();
       if (tokens?.access_token && tokens.access_token.trim() !== '') {
-        return tokens.access_token;
+        return;
       }
     }
 
     if (this.refreshPromise) {
       if (onWait) onWait();
-      return await this.waitForPromise(this.refreshPromise, timeoutMs);
+      await this.waitForPromise(this.refreshPromise, timeoutMs);
+      return;
     }
 
     const refreshTask = this.refreshAccessTokenWithRetry(maxAttempts);
@@ -181,7 +176,6 @@ export class FiduAuthService {
       .then((token) => {
         this.cachedAccessToken = token;
         this.lastRefreshError = null;
-        return token;
       })
       .catch((error) => {
         this.lastRefreshError = error;
@@ -192,7 +186,7 @@ export class FiduAuthService {
       });
 
     if (onWait) onWait();
-    return await this.waitForPromise(this.refreshPromise, timeoutMs);
+    await this.waitForPromise(this.refreshPromise, timeoutMs);
   }
 
   async refreshAccessToken(): Promise<string | null> {
@@ -264,6 +258,7 @@ export class FiduAuthService {
 
     for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt += 1) {
       try {
+        console.log('🔐 Refreshing access token with retry... ', attempt, ' of ', maxAttempts);
         const token = await this.refreshAccessTokenInternal();
         return token;
       } catch (error) {
@@ -298,6 +293,8 @@ export class FiduAuthService {
         method: 'POST',
         credentials: 'include',
       });
+
+      console.log('🔐 Refresh access token response:', response);
 
       if (response.status === 401) {
         this.resetCache();
@@ -372,6 +369,182 @@ export class FiduAuthService {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('token_expires_in');
   }
+
+
+  /**
+   * Check if the current access token is expired
+   * We'll use a simple heuristic: if we have a refresh token, assume the access token might be expired
+   */
+  private isAccessTokenExpired(): boolean {
+    const accessToken = this.cachedAccessToken;
+    
+    // If no access token, it's expired
+    if (!accessToken) return true;
+    
+    // If we have a refresh token, check if access token is expired
+    try {
+      // Decode JWT to check expiration
+      const payload = this.decodeJWT(accessToken);
+      if (payload && payload.exp) {
+        // Add 5 minute buffer for safety
+        const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+        return Date.now() >= (payload.exp * 1000) - bufferTime;
+      }
+    } catch (error) {
+      // If we can't decode the JWT, assume it's expired
+      console.warn('Could not decode JWT token, assuming expired:', error);
+      return true;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Decode a JWT token to extract payload
+   */
+  private decodeJWT(token: string): any {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('Error decoding JWT:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create an axios interceptor that automatically handles token refresh
+   */
+  createAuthInterceptor() {
+    return {
+      // Request interceptor
+      request: async (config: any) => {
+        const headers = config.headers ?? (config.headers = {});
+        const skipGuard = Boolean(config?.skipFiduAuthGuard);
+
+        if (skipGuard) {
+          return config;
+        }
+
+        try {
+          await getFiduAuthService().ensureAccessToken({
+            onWait: () => console.log('🔐 Ensuring FIDU auth before identity service request...'),
+          });
+          const token = this.cachedAccessToken;
+
+          if (token && token.trim() !== '') {
+            headers.Authorization = `Bearer ${token}`;
+            return config;
+          }
+        } catch (error) {
+          // TODO think through when this happens and how to make it clear to upstream components that they need to handle it
+          if (error instanceof AuthenticationRequiredError) {
+            this.clearAllAuthTokens();
+            await this.dispatchLogout();
+            return Promise.reject(error);
+          }
+
+          if (error instanceof TokenAcquisitionTimeoutError) {
+            return Promise.reject(error);
+          }
+
+          console.warn('Failed to ensure FIDU auth token before request:', error);
+        }
+
+        return Promise.reject(new Error('Authentication required. Please log in again.'));
+      },
+      
+      // Response interceptor
+      response: (response: any) => response,
+      
+      // Error interceptor
+      error: async (error: any) => {
+        const originalRequest = error.config;
+        
+        // If it's a 401 error and we haven't retried yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            // Attempt to refresh the token
+            const newToken = await this.refreshAccessTokenWithRetry();
+            
+            // Update the authorization header
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            
+            // Retry the original request
+            return this.retryRequest(originalRequest);
+          } catch (refreshError) {
+            console.error('Token refresh failed, logging out user:', refreshError);
+            
+            // Clear all auth tokens and dispatch logout action
+            this.clearAllAuthTokens();
+            
+            // Dispatch logout action to update Redux state
+            await this.dispatchLogout();
+            
+            return Promise.reject(new AuthenticationRequiredError());
+          }
+        }
+        
+        return Promise.reject(error);
+      }
+    };
+  }
+
+  /**
+   * Dispatch logout action to update Redux state
+   * This ensures the UI properly reflects the authentication state change
+  */
+  private async dispatchLogout(): Promise<void> {
+    const started = beginLogout('auto');
+
+    if (!started) {
+      const source = currentLogoutSource();
+      console.log('🔁 Logout already in progress, skipping duplicate auto-dispatch', { source });
+      return;
+    }
+
+    try {
+      // const { store } = await loadStoreModule();
+      // const { logout } = await loadAuthSliceModule();
+      // await store.dispatch(logout());
+    } catch (error) {
+      console.error('Logout dispatch failed:', error);
+      completeLogout();
+      window.location.reload();
+    }
+  }
+
+  /**
+   * Clear all authentication tokens and data
+   */
+  clearAllAuthTokens(): void {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('fiduRefreshToken');
+    localStorage.removeItem('token_expires_in');
+    localStorage.removeItem('user');
+    localStorage.removeItem('current_profile');
+    localStorage.removeItem('fiduToken');
+    
+    // Clear cookies
+    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+    document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
+    document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
+  }
+
+  /**
+   * Retry a failed request with new configuration
+   */
+  private async retryRequest(config: any): Promise<any> {
+    // Import axios dynamically to avoid circular dependencies
+    const { default: axios } = await import('axios');
+    return axios(config);
+  }
 }
 
 let fiduAuthServiceInstance: FiduAuthService | null = null;
@@ -382,10 +555,3 @@ export const getFiduAuthService = (): FiduAuthService => {
   }
   return fiduAuthServiceInstance;
 };
-
-// Legacy aliases to ease migration
-export const getFiduTokenService = getFiduAuthService;
-export const getFiduAuthCookieService = getFiduAuthService;
-export { FiduAuthService as FiduAuthCookieService };
-
-

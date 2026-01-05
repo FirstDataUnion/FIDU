@@ -15,7 +15,6 @@ services/api/
 ├── conversations.ts           # Conversation API service
 ├── contexts.ts                # Context API service
 ├── prompts.ts                 # Prompt API service
-├── refreshTokenService.ts     # Token refresh management
 └── systemPrompts.ts           # System prompt API service
 ```
 
