@@ -103,11 +103,24 @@ export class AuthManager {
    */
   private async _doInitialize(): Promise<void> {
     try {
-      // Step 1: Check FIDU authentication
-      const fiduTokens = await this.fiduAuthService.getTokens();
-      const hasFiduAuth = !!fiduTokens?.access_token;
+      // Step 1: Check FIDU authentication with restoration attempt
+      let fiduAuthenticated = await this.fiduAuthService.ensureAuthenticated();
       
-      if (!hasFiduAuth) {
+      // If restoration failed, try one more time with ensureAccessToken (more aggressive)
+      if (!fiduAuthenticated) {
+        console.log('🔄 [AuthManager] FIDU authentication not found, attempting aggressive restoration...');
+        try {
+          const token = await this.fiduAuthService.ensureAccessToken({
+            maxAttempts: 2, // Quick retry
+            timeoutMs: 5000, // 5 second timeout
+          });
+          fiduAuthenticated = !!token;
+        } catch (error) {
+          console.warn('⚠️ [AuthManager] Aggressive FIDU auth restoration failed:', error);
+        }
+      }
+      
+      if (!fiduAuthenticated) {
         console.log('ℹ️  [AuthManager] No FIDU authentication - user needs to log in');
         this.notifySubscribers('auth-lost', this.getAuthStatus());
         await this.syncToRedux();
@@ -182,20 +195,57 @@ export class AuthManager {
     try {
       console.log('🔄 [AuthManager] Checking authentication status...');
 
+      // Check FIDU authentication first
+      let fiduAuthenticated = await this.fiduAuthService.ensureAuthenticated();
+      
+      // If restoration failed, try one more time with ensureAccessToken (more aggressive)
+      if (!fiduAuthenticated) {
+        console.log('🔄 [AuthManager] FIDU authentication not found in checkAndRestore, attempting aggressive restoration...');
+        try {
+          const token = await this.fiduAuthService.ensureAccessToken({
+            maxAttempts: 2, // Quick retry
+            timeoutMs: 5000, // 5 second timeout
+          });
+          fiduAuthenticated = !!token;
+          if (fiduAuthenticated) {
+            console.log('✅ [AuthManager] FIDU authentication restored successfully');
+          }
+        } catch (error) {
+          console.warn('⚠️ [AuthManager] Aggressive FIDU auth restoration failed:', error);
+        }
+      }
+      
+      if (!fiduAuthenticated) {
+        console.log('ℹ️  [AuthManager] FIDU authentication lost');
+        this.notifySubscribers('auth-lost', this.getAuthStatus());
+        await this.syncToRedux();
+        return false;
+      }
+
       // Check if we have a Google Drive auth service
       if (!this.googleDriveAuthService) {
         console.log('ℹ️  [AuthManager] Google Drive auth service not ready');
+        // FIDU auth is valid, but we can't verify Google Drive auth yet
+        // Return false silently (no notification) - this is a transient state
         return false;
       }
 
       // Use ensureAuthenticated() which attempts restoration
-      const authenticated = await this.googleDriveAuthService.ensureAuthenticated();
+      const googleDriveAuthenticated = await this.googleDriveAuthService.ensureAuthenticated();
 
-      if (authenticated) {
-        console.log('✅ [AuthManager] Authentication valid');
+      if (fiduAuthenticated && googleDriveAuthenticated) {
+        console.log('✅ [AuthManager] All authentication valid');
         this.notifySubscribers('auth-restored', this.getAuthStatus());
         await this.syncToRedux();
         return true;
+      }
+
+      // FIDU is valid but Google Drive is not - don't logout, just notify
+      if (fiduAuthenticated && !googleDriveAuthenticated) {
+        console.log('ℹ️  [AuthManager] FIDU authentication valid, but Google Drive authentication lost');
+        this.notifySubscribers('auth-lost', this.getAuthStatus());
+        await this.syncToRedux();
+        return false;
       }
 
       console.log('ℹ️  [AuthManager] Could not restore authentication');

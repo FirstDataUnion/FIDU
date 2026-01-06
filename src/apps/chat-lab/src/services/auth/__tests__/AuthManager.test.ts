@@ -59,6 +59,12 @@ describe('AuthManager', () => {
         refresh_token: 'fidu-refresh-token',
         user: { id: 'test-user', email: 'test@example.com' },
       }),
+      ensureAuthenticated: jest.fn().mockResolvedValue(true),
+      getAuthStatusAsync: jest.fn().mockResolvedValue({
+        isAuthenticated: true,
+        user: { id: 'test-user', email: 'test@example.com' },
+        hasRefreshToken: true,
+      }),
       clearTokens: jest.fn().mockResolvedValue(true),
     } as any;
 
@@ -140,7 +146,7 @@ describe('AuthManager', () => {
     it('should successfully initialize with valid FIDU and Google Drive auth', async () => {
       await authManager.initialize();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalled(); // Redux sync
     });
@@ -154,7 +160,7 @@ describe('AuthManager', () => {
       await Promise.all([init1, init2, init3]);
 
       // Should only have checked FIDU auth once (operation locking)
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalledTimes(1);
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalledTimes(1);
     });
 
@@ -168,7 +174,7 @@ describe('AuthManager', () => {
       await authManager.initialize();
 
       // Should not have called auth services again (debouncing)
-      expect(mockFiduAuthService.getTokens).not.toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).not.toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).not.toHaveBeenCalled();
 
       jest.useRealTimers();
@@ -187,7 +193,7 @@ describe('AuthManager', () => {
       } as any;
       
       newManager.setGoogleDriveAuthService(unauthenticatedService);
-      mockFiduAuthService.getTokens.mockResolvedValue(null);
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(false);
 
       await newManager.initialize();
 
@@ -231,6 +237,7 @@ describe('AuthManager', () => {
 
     it('should check and restore authentication successfully', async () => {
       // Simulate not authenticated - ensureAuthenticated will attempt restoration
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.getUser.mockReturnValue({
         id: 'restored-user',
@@ -241,22 +248,26 @@ describe('AuthManager', () => {
       const restored = await authManager.checkAndRestore();
 
       expect(restored).toBe(true);
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should skip if already authenticated', async () => {
       // Ensure auth service reports as authenticated
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
 
       const restored = await authManager.checkAndRestore();
 
       expect(restored).toBe(true);
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should debounce rapid check attempts', async () => {
       jest.useFakeTimers();
 
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
 
       const check1 = authManager.checkAndRestore();
@@ -268,6 +279,7 @@ describe('AuthManager', () => {
       const check2 = authManager.checkAndRestore();
 
       expect(await check2).toBe(false); // Skipped due to debouncing
+      expect(mockFiduAuthService.ensureAuthenticated).not.toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.ensureAuthenticated).not.toHaveBeenCalled();
 
       jest.useRealTimers();
@@ -293,6 +305,7 @@ describe('AuthManager', () => {
 
     it('should sync to Redux after successful restoration', async () => {
       // Simulate successful authentication restoration
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.getUser.mockReturnValue({
         id: 'test-user',
@@ -303,17 +316,18 @@ describe('AuthManager', () => {
       await authManager.checkAndRestore();
 
       expect(mockDispatch).toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should handle authentication restoration failure', async () => {
       // Simulate failed authentication restoration
-      mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(false);
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(false);
 
       const restored = await authManager.checkAndRestore();
 
       expect(restored).toBe(false);
-      expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalled(); // Should still sync to Redux
     });
   });
@@ -328,7 +342,7 @@ describe('AuthManager', () => {
     it('should reset state and reinitialize', async () => {
       await authManager.reAuthenticate();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalled();
     });
 
@@ -341,7 +355,7 @@ describe('AuthManager', () => {
       // Normally this would be debounced, but reAuthenticate resets the timer
       await authManager.reAuthenticate();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
 
       jest.useRealTimers();
     });
@@ -591,7 +605,7 @@ describe('AuthManager', () => {
 
   describe('Error Handling', () => {
     it('should handle FIDU auth token retrieval errors', async () => {
-      mockFiduAuthService.getTokens.mockRejectedValue(new Error('FIDU auth failed'));
+      mockFiduAuthService.ensureAuthenticated.mockRejectedValue(new Error('FIDU auth failed'));
 
       await expect(authManager.initialize()).rejects.toThrow('FIDU auth failed');
     });
@@ -704,7 +718,7 @@ describe('AuthManager', () => {
       await Promise.all(promises);
 
       // Should only have checked FIDU tokens once (operation locking)
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalledTimes(1);
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
     });
 
     it('should handle initialize and checkAndRestore called simultaneously', async () => {
@@ -799,11 +813,14 @@ describe('AuthManager', () => {
       resetAuthManager();
       const newManager = getAuthManager(mockDispatch);
       // Don't set Google Drive service
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
 
       const result = await newManager.checkAndRestore();
 
+      // Should return false if Google Drive service isn't set (can't verify Google Drive auth)
+      // This is a transient state, not an auth failure
       expect(result).toBe(false);
-      expect(newManager.getAuthStatus().isAuthenticated).toBe(false);
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalled();
     });
 
     it('should handle time-based debouncing correctly', async () => {
@@ -813,16 +830,19 @@ describe('AuthManager', () => {
       const newManager = getAuthManager(mockDispatch);
       newManager.setGoogleDriveAuthService(mockGoogleDriveAuthService);
       
+      mockFiduAuthService.ensureAuthenticated.mockResolvedValue(true);
       mockGoogleDriveAuthService.ensureAuthenticated.mockResolvedValue(false);
 
       // First call
       await newManager.checkAndRestore();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
       expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
       
       jest.clearAllMocks();
 
       // Call within 2 seconds - should be skipped
       await newManager.checkAndRestore();
+      expect(mockFiduAuthService.ensureAuthenticated).not.toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.ensureAuthenticated).not.toHaveBeenCalled();
 
       // Advance time by 2.1 seconds
@@ -830,6 +850,7 @@ describe('AuthManager', () => {
 
       // Call after 2 seconds - should execute
       await newManager.checkAndRestore();
+      expect(mockFiduAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
       expect(mockGoogleDriveAuthService.ensureAuthenticated).toHaveBeenCalledTimes(1);
 
       jest.useRealTimers();

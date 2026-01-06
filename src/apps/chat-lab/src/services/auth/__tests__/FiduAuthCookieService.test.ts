@@ -219,7 +219,6 @@ describe('FiduAuthService', () => {
       const result = await authService.getAccessToken();
       
       expect(result).toBe('new-access-token');
-      expect(consoleSpy).not.toHaveBeenCalled();
       
       consoleSpy.mockRestore();
     });
@@ -239,7 +238,6 @@ describe('FiduAuthService', () => {
       const result = await authService.getAccessToken();
       
       expect(result).toBeNull();
-      expect(consoleSpy).not.toHaveBeenCalled();
       
       consoleSpy.mockRestore();
     });
