@@ -2,13 +2,14 @@
  * Google Drive Authentication Service
  * Handles OAuth 2.0 flow for Google Drive access
  */
-
+import axios from 'axios';
+import type { AxiosInstance, AxiosError } from 'axios';
 import {
   getFiduAuthService,
   AuthenticationRequiredError,
   TokenAcquisitionTimeoutError,
 } from './FiduAuthService';
-import { detectRuntimeEnvironment } from '../../utils/environment';
+import { detectRuntimeEnvironment, getGoogleClientId, getGoogleRedirectUri } from '../../utils/environment';
 
 // Custom error for insufficient OAuth scopes
 export class InsufficientScopesError extends Error {
@@ -43,6 +44,7 @@ export interface GoogleDriveAuthConfig {
   clientId: string;
   redirectUri: string;
   scopes: string[];
+  testHostName?: string;
 }
 
 export interface GoogleDriveTokens {
@@ -60,6 +62,7 @@ export interface GoogleDriveUser {
 }
 
 export class GoogleDriveAuthService {
+  private client: AxiosInstance;
   private config: GoogleDriveAuthConfig;
   private tokens: GoogleDriveTokens | null = null;
   private user: GoogleDriveUser | null = null;
@@ -67,9 +70,66 @@ export class GoogleDriveAuthService {
   private isAuthenticating: boolean = false;
 
   constructor(config: GoogleDriveAuthConfig) {
+    let baseURL;
+    if (config.testHostName && detectRuntimeEnvironment() === 'dev') {
+      baseURL = config.testHostName;
+    } else {
+      baseURL = window.location.pathname.includes('/fidu-chat-lab') 
+        ? '/fidu-chat-lab' 
+        : '';
+    }
+    this.client = axios.create({
+      baseURL: baseURL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true,
+    });
+    this.setUpInterceptors();
     this.config = config;
     this.loadStoredTokens();
     this.loadUserInfo();
+  }
+
+  private setUpInterceptors(): void {
+    const authInterceptor = getFiduAuthService().createAuthInterceptor();
+
+    // Request interceptor
+    this.client.interceptors.request.use(
+      authInterceptor.request
+    );
+
+    // Response interceptor
+    this.client.interceptors.response.use(
+      authInterceptor.response,
+      async (error: AxiosError) => {
+        try {
+          // Try the auth interceptor's error handler first
+          return await authInterceptor.error(error);
+        } catch (authError) {
+          // If the auth interceptor throws an authentication-related error,
+          // let it propagate (this will trigger logout)
+          // TODO: use specific error types for authentication errors
+          if (authError instanceof Error && 
+              (authError.message.includes('Authentication required') || 
+               authError.message.includes('Please log in again'))) {
+            throw authError;
+          }
+          // If auth interceptor doesn't handle it, handle other errors
+          if (error.response) {
+            const errorText = error.response.data || 'An error occurred';
+            throw new Error(`Backend OAuth error (${error.response.status}): ${errorText}`);
+          } else if (error.request) {
+            console.error('No response received from backend:', error);
+            throw new Error('No response received from backend');
+          } else {
+            console.error('Error setting up backend request:', error);
+            throw new Error('Error setting up backend request');
+          }
+        }
+      }
+    );
   }
 
   /**
@@ -231,14 +291,15 @@ export class GoogleDriveAuthService {
     
     this.isAuthenticating = true;
     try {
-      const fiduTokenService = getFiduAuthService();
+      const fiduAuthService = getFiduAuthService();
       try {
-        await fiduTokenService.ensureAccessToken({
+        // Don't show the user the Google OAuth flow if we won't be able to do anything with it
+        await fiduAuthService.ensureAccessToken({
           onWait: () => console.log('🔐 Ensuring FIDU session before starting Google OAuth flow...'),
         });
       } catch (error) {
         if (error instanceof AuthenticationRequiredError) {
-          await fiduTokenService.clearTokens();
+          await fiduAuthService.clearTokens();
           try {
             const [{ store }, { logout }] = await Promise.all([
               import('../../store'),
@@ -521,20 +582,9 @@ export class GoogleDriveAuthService {
   }
 
   private async exchangeCodeForTokens(code: string): Promise<GoogleDriveTokens> {
-    // Try to use backend endpoint for secure token exchange (production)
-    // Falls back to direct Google OAuth for local development
-    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
-      ? '/fidu-chat-lab' 
-      : '';
-    
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      let fiduAuthToken: string | null = null;
+    // Use backend endpoint for secure token exchange
       try {
-        fiduAuthToken = await getFiduAuthService().ensureAccessToken({
+        await getFiduAuthService().ensureAccessToken({
           onWait: () => console.log('🔐 Ensuring FIDU auth before exchanging OAuth code...'),
         });
       } catch (error) {
@@ -547,26 +597,14 @@ export class GoogleDriveAuthService {
         throw error;
       }
 
-      if (fiduAuthToken) {
-        headers['Authorization'] = `Bearer ${fiduAuthToken}`;
-        console.log('🔑 Including FIDU auth token in OAuth exchange request');
-      }
-      
-      const response = await fetch(`${basePath}/api/oauth/exchange-code`, {
-        method: 'POST',
-        headers,
-        credentials: 'include', // Include HTTP-only cookies
-        body: JSON.stringify({
-          code: code,
-          redirect_uri: this.config.redirectUri,
-          environment: detectRuntimeEnvironment(),
-        }),
-        // Short timeout to quickly detect if backend is unavailable
-        signal: this.createTimeoutSignal(5000),
+      const response = await this.client.post("/api/oauth/exchange-code", {
+        code: code,
+        redirect_uri: this.config.redirectUri,
+        environment: detectRuntimeEnvironment(),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = response.data;
         
         const tokens = {
           accessToken: data.access_token,
@@ -581,24 +619,6 @@ export class GoogleDriveAuthService {
         console.log('✅ Token exchange via backend (secure)');
         return tokens;
       }
-      
-      // Backend returned error (400/500) - don't fall back, this is a backend issue
-      if (response.status >= 400) {
-        const errorText = await response.text();
-        throw new Error(`Backend OAuth error (${response.status}): ${errorText}`);
-      }
-    } catch (error: any) {
-      // Only fall back on network/timeout errors
-      // Backend errors should be thrown, not trigger fallback
-      if (error.name === 'AbortError' || error.name === 'TypeError' || 
-          error.message?.includes('fetch') || error.message?.includes('network')) {
-        console.warn('⚠️ Backend not available (timeout/network), falling back to direct OAuth');
-        return this.exchangeCodeForTokensDirect(code);
-      }
-      
-      // Propagate backend errors
-      throw error;
-    }
 
     // Shouldn't reach here
     throw new Error('Unexpected state in token exchange');
@@ -620,78 +640,6 @@ export class GoogleDriveAuthService {
     return controller.signal;
   }
 
-  /**
-   * Direct token exchange with Google (fallback for local development)
-   * Only used when backend is not available
-   * 
-   * SECURITY WARNING: This method exposes client secret in the browser.
-   * Only use for local development. Never deploy with VITE_GOOGLE_CLIENT_SECRET
-   * set in production environment variables.
-   */
-  private async exchangeCodeForTokensDirect(code: string): Promise<GoogleDriveTokens> {
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-    
-    if (!clientSecret) {
-      throw new Error(
-        'Backend unavailable and VITE_GOOGLE_CLIENT_SECRET not set. ' +
-        'Either start the backend server or set VITE_GOOGLE_CLIENT_SECRET for local development.'
-      );
-    }
-
-    // CRITICAL: Warn if using direct OAuth in production build
-    if (import.meta.env.PROD) {
-      console.error(
-        '🚨 SECURITY WARNING: Using direct OAuth in production build!\n' +
-        'This means VITE_GOOGLE_CLIENT_SECRET is set in production environment.\n' +
-        'Client secret should NEVER be in production builds.\n' +
-        'Backend should handle OAuth in production for security.'
-      );
-      
-      // Optional: Fail fast if strict mode enabled
-      if (import.meta.env.VITE_DISABLE_INSECURE_FALLBACK === 'true') {
-        throw new Error(
-          'Insecure OAuth fallback is disabled in production. ' +
-          'Backend must be available for secure token exchange.'
-        );
-      }
-    }
-
-    console.log('🔧 Using direct OAuth exchange (development mode)');
-    
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.config.clientId,
-        client_secret: clientSecret,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: this.config.redirectUri,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Direct token exchange failed: ${error}`);
-    }
-
-    const data = await response.json();
-    
-    const tokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: Date.now() + (data.expires_in * 1000),
-      scope: data.scope
-    };
-    
-    // Validate that we received the required scopes
-    this.validateScopes(tokens.scope);
-    
-    return tokens;
-  }
-  
   /**
    * Validate that all required scopes were granted
    */
@@ -751,28 +699,13 @@ export class GoogleDriveAuthService {
   }
 
   private async performTokenRefresh(): Promise<string> {
-    // Try to use backend endpoint for secure token refresh (production)
-    // Falls back to direct Google OAuth for local development
-    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
-      ? '/fidu-chat-lab' 
-      : '';
-    
     // Detect environment for cookie isolation using shared utility
     const environment = detectRuntimeEnvironment();
-    
-    try {
+
       const fiduTokenService = getFiduAuthService();
-      
-      // Check if we have a FIDU refresh token before attempting to get access token
-      const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
-      if (!hasFiduRefreshToken) {
-        console.log('ℹ️ No FIDU refresh token available - skipping secure token refresh');
-        throw new Error('No FIDU refresh token available for secure token refresh');
-      }
-      
-      let fiduAuthToken: string | null = null;
+
       try {
-        fiduAuthToken = await fiduTokenService.ensureAccessToken({
+        await fiduTokenService.ensureAccessToken({
           onWait: () => console.log('🔐 Ensuring FIDU auth before Google token refresh...'),
         });
       } catch (error) {
@@ -785,26 +718,10 @@ export class GoogleDriveAuthService {
         throw error;
       }
       
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Include FIDU auth token if available
-      if (fiduAuthToken) {
-        headers['Authorization'] = `Bearer ${fiduAuthToken}`;
-        console.log('🔑 Including FIDU auth token in token refresh request');
-      }
-      
-      const response = await fetch(`${basePath}/api/oauth/refresh-token?env=${environment}`, {
-        method: 'POST',
-        headers,
-        credentials: 'include', // Include HTTP-only cookies
-        // Short timeout to quickly detect if backend is unavailable
-        signal: this.createTimeoutSignal(5000),
-      });
+      const response = await this.client.post(`/api/oauth/refresh-token?env=${environment}`, {});
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = response.data;
         
         // Update tokens
         this.tokens!.accessToken = data.access_token;
@@ -824,17 +741,10 @@ export class GoogleDriveAuthService {
       
       // Backend returned error (400/500) - check error type
       if (response.status >= 400) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || errorData.error || 'Unknown error';
-        
-        // Check if this is a refresh token expiration/revocation error
-        if (response.status === 401 && (errorMessage.includes('expired') || errorMessage.includes('revoked'))) {
-          console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
-          this.clearStoredTokens();
-          this.tokens = null;
-          this.user = null;
-          throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
-        }
+        const errorData = response.data;
+        const errorMessage = typeof(errorData) === 'string'
+            ? errorData 
+            : (errorData?.detail || errorData?.error || 'Unknown error');
         
         // Handle 503 Service Unavailable errors
         if (response.status === 503) {
@@ -854,96 +764,9 @@ export class GoogleDriveAuthService {
         // Other 4xx/5xx errors - don't fall back to direct OAuth
         throw new Error(`Backend token refresh error (${response.status}): ${errorMessage}`);
       }
-    } catch (error: any) {
-      // Don't fall back on configuration errors - these are permanent
-      if (error instanceof ConfigurationError) {
-        throw error;
-      }
-      
-      // Don't fall back on service unavailable errors - let caller decide on retry
-      if (error instanceof ServiceUnavailableError) {
-        throw error;
-      }
-      
-      // Only fall back on network/timeout errors
-      if (error.name === 'AbortError' || error.name === 'TypeError' ||
-          error.message?.includes('fetch') || error.message?.includes('network')) {
-        console.warn('⚠️ Backend not available (timeout/network), falling back to direct OAuth');
-        return this.refreshTokenDirect();
-      }
-      
-      // Propagate other backend errors
-      throw error;
-    }
 
     // Shouldn't reach here
     throw new Error('Unexpected state in token refresh');
-  }
-
-  /**
-   * Direct token refresh with Google (fallback for local development)
-   * Only used when backend is not available
-   * 
-   * SECURITY WARNING: This method exposes client secret in the browser.
-   * Only use for local development.
-   */
-  private async refreshTokenDirect(): Promise<string> {
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-    
-    if (!clientSecret) {
-      throw new Error(
-        'Backend unavailable and VITE_GOOGLE_CLIENT_SECRET not set. ' +
-        'Either start the backend server or set VITE_GOOGLE_CLIENT_SECRET for local development.'
-      );
-    }
-
-    // Warn if using direct OAuth in production
-    if (import.meta.env.PROD) {
-      console.error(
-        '🚨 SECURITY WARNING: Using direct token refresh in production build!'
-      );
-    }
-
-    console.log('🔧 Using direct token refresh (development mode)');
-    
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.config.clientId,
-        client_secret: clientSecret,
-        refresh_token: this.tokens!.refreshToken!,
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      
-      // Check if this is a refresh token expiration/revocation error
-      if (error.includes('invalid_grant') || error.includes('invalid refresh_token')) {
-        console.error('❌ Refresh token has expired or been revoked. User needs to re-authenticate.');
-        this.clearStoredTokens();
-        this.tokens = null;
-        this.user = null;
-        throw new Error('Refresh token expired or revoked. Please re-authenticate with Google Drive.');
-      }
-      
-      throw new Error(`Direct token refresh failed: ${error}`);
-    }
-
-    const data = await response.json();
-    
-    // Update tokens
-    this.tokens!.accessToken = data.access_token;
-    this.tokens!.expiresAt = Date.now() + (data.expires_in * 1000);
-    
-    // Store updated tokens
-    this.storeTokens(this.tokens!);
-
-    return data.access_token;
   }
 
   private async fetchUserInfo(): Promise<void> {
@@ -1095,25 +918,13 @@ export class GoogleDriveAuthService {
    */
   private async loadTokensFromCookies(): Promise<GoogleDriveTokens | null> {
     try {
-      const basePath = window.location.pathname.includes('/fidu-chat-lab') 
-        ? '/fidu-chat-lab' 
-        : '';
-      
       // Detect environment for cookie isolation using shared utility
       const environment = detectRuntimeEnvironment();
       
       const fiduTokenService = getFiduAuthService();
       
-      // Check if we have a FIDU refresh token before attempting to get access token
-      const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
-      if (!hasFiduRefreshToken) {
-        console.log('ℹ️ No FIDU refresh token available - skipping secure token retrieval');
-        return null;
-      }
-      
-      let fiduAuthToken: string | null = null;
       try {
-        fiduAuthToken = await fiduTokenService.ensureAccessToken({
+        await fiduTokenService.ensureAccessToken({
           onWait: () => console.log('🔐 Ensuring FIDU auth before retrieving Google Drive tokens...'),
         });
       } catch (error) {
@@ -1128,24 +939,10 @@ export class GoogleDriveAuthService {
         throw error;
       }
       
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+      const response = await this.client.get(`/api/oauth/get-tokens?env=${environment}`, {});
       
-      // Include FIDU auth token if available
-      if (fiduAuthToken) {
-        headers['Authorization'] = `Bearer ${fiduAuthToken}`;
-        console.log('🔑 Including FIDU auth token in token retrieval request');
-      }
-      
-      const response = await fetch(`${basePath}/api/oauth/get-tokens?env=${environment}`, {
-        method: 'GET',
-        headers,
-        credentials: 'include', // Include HTTP-only cookies
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = response.data;
         
         if (data.has_tokens && data.refresh_token) {
           console.log('✅ Google Drive refresh token retrieved from HTTP-only cookies');
@@ -1374,7 +1171,7 @@ async function fetchGoogleClientId(): Promise<string> {
     console.warn('Failed to fetch Google Client ID from backend, falling back to env:', error);
     
     // Fall back to environment variable
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = getGoogleClientId();
     if (!clientId) {
       throw new Error('Google Client ID not configured in backend or environment variables');
     }
@@ -1382,19 +1179,20 @@ async function fetchGoogleClientId(): Promise<string> {
   }
 }
 
-export async function getGoogleDriveAuthService(): Promise<GoogleDriveAuthService> {
+export async function getGoogleDriveAuthService(testHostName?: string): Promise<GoogleDriveAuthService> {
   if (!authServiceInstance) {
     // Fetch client ID from backend (which may come from OpenBao)
     const clientId = await fetchGoogleClientId();
 
     const config: GoogleDriveAuthConfig = {
       clientId,
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
+      redirectUri: getGoogleRedirectUri() || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
       scopes: [
         'https://www.googleapis.com/auth/drive.appdata',
         'https://www.googleapis.com/auth/drive.file', // Required for shared workspaces
         'https://www.googleapis.com/auth/userinfo.email'
-      ]
+      ],
+      testHostName,
     };
 
     authServiceInstance = new GoogleDriveAuthService(config);

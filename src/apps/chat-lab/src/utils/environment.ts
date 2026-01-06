@@ -102,4 +102,12 @@ export const isDevEnvironment = (): boolean => {
   
   // Default to prod for production deployments
   return false;
-}; 
+};
+
+export const getGoogleClientId = (): string | undefined => {
+  return import.meta.env.VITE_GOOGLE_CLIENT_ID;
+};
+
+export const getGoogleRedirectUri = (): string | undefined => {
+  return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+};
