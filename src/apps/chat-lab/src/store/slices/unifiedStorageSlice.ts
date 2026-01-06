@@ -157,10 +157,11 @@ export const initializeGoogleDriveAuth = createAsyncThunk(
       
       const status = authManager.getAuthStatus();
       
+      const expiresAt = null as number | null; // AuthManager doesn't track expiresAt in its status
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: null // AuthManager doesn't track expiresAt in its status
+        expiresAt
       };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to initialize Google Drive auth');
@@ -206,10 +207,11 @@ export const checkGoogleDriveAuthStatus = createAsyncThunk(
       await authManager.checkAndRestore();
       const status = authManager.getAuthStatus();
       
+      const expiresAt = null as number | null; // AuthManager doesn't track expiresAt in its status
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: null // AuthManager doesn't track expiresAt in its status
+        expiresAt
       };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to check Google Drive auth status');

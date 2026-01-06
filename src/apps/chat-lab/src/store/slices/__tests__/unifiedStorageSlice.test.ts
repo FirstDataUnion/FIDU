@@ -20,13 +20,14 @@ jest.mock('../../../utils/environment', () => ({
     mode: 'test',
     isDevelopment: true,
     isProduction: false,
-    identityServiceUrl: 'https://identity.firstdataunion.org',
-    gatewayUrl: 'https://gateway.firstdataunion.org',
+    identityServiceUrl: 'http://localhost:9877',
+    gatewayUrl: 'http://localhost:9878',
     storageMode: 'cloud',
     syncInterval: 300000,
   }),
-  getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
-  getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+  getIdentityServiceUrl: () => 'http://localhost:9877',
+  getGatewayUrl: () => 'http://localhost:9878',
+  detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 
 // Mock GoogleDriveAuth service
@@ -69,6 +70,10 @@ const initialState: UnifiedStorageState = {
   },
   isLoading: false,
   error: null,
+  activeWorkspace: null,
+  availableWorkspaces: [],
+  isSwitchingWorkspace: false,
+  switchError: null,
 };
 
 describe('unifiedStorageSlice', () => {

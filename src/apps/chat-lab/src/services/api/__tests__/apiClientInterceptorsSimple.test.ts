@@ -34,23 +34,22 @@ jest.mock('../../auth/GoogleDriveAuth', () => ({
   getGoogleDriveAuthService: jest.fn(),
 }));
 
-// Mock the refresh token service
-jest.mock('../refreshTokenService', () => ({
-  refreshTokenService: {
-    getAccessToken: jest.fn(),
-    createAuthInterceptor: jest.fn(() => ({
-      request: jest.fn((config) => config),
-      response: jest.fn((response) => response),
-      error: jest.fn(),
-    })),
-    clearAllAuthTokens: jest.fn(),
-  },
+// Mock the FiduAuthService
+const mockFiduAuthService = {
+  createAuthInterceptor: jest.fn(() => ({
+    request: jest.fn((config) => config),
+    response: jest.fn((response) => response),
+    error: jest.fn(),
+  })),
+  clearAllAuthTokens: jest.fn(),
+};
+jest.mock('../../auth/FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(() => mockFiduAuthService),
 }));
 
 import axios from 'axios';
 import { FiduVaultAPIClient } from '../apiClientFIDUVault';
 import { NLPWorkbenchAPIClient } from '../apiClientNLPWorkbench';
-import { refreshTokenService } from '../refreshTokenService';
 
 const mockAxios = axios as jest.Mocked<typeof axios>;
 
@@ -92,7 +91,7 @@ describe('API Client Interceptor Setup', () => {
       new FiduVaultAPIClient();
       
       // Verify refresh token service was called
-      expect(refreshTokenService.createAuthInterceptor).toHaveBeenCalled();
+      expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalled();
     });
   });
 
@@ -112,7 +111,7 @@ describe('API Client Interceptor Setup', () => {
       new NLPWorkbenchAPIClient();
       
       // Verify refresh token service was called
-      expect(refreshTokenService.createAuthInterceptor).toHaveBeenCalled();
+      expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalled();
     });
   });
 
@@ -139,17 +138,17 @@ describe('API Client Interceptor Setup', () => {
   describe('Auth Interceptor Integration', () => {
     it('should call createAuthInterceptor for each client', () => {
       // Clear previous calls
-      (refreshTokenService.createAuthInterceptor as jest.Mock).mockClear();
+      (mockFiduAuthService.createAuthInterceptor as jest.Mock).mockClear();
       
       new FiduVaultAPIClient();
       new NLPWorkbenchAPIClient();
       
       // Should be called twice (once for each client)
-      expect(refreshTokenService.createAuthInterceptor).toHaveBeenCalledTimes(2);
+      expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalledTimes(2);
     });
 
     it('should return proper interceptor structure', () => {
-      const interceptor = refreshTokenService.createAuthInterceptor();
+      const interceptor = mockFiduAuthService.createAuthInterceptor();
       
       expect(interceptor).toHaveProperty('request');
       expect(interceptor).toHaveProperty('response');

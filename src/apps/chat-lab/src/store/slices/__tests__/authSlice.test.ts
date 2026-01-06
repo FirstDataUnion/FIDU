@@ -17,14 +17,8 @@ jest.mock('../../../services/api/auth', () => ({
   },
 }));
 
-// Mock the refresh token service
-jest.mock('../../../services/api/refreshTokenService', () => ({
-  refreshTokenService: {
-    clearAllAuthTokens: jest.fn(),
-  },
-}));
-
 // Mock FiduAuthService
+const mockClearAllAuthTokens = jest.fn();
 const mockClearTokens = jest.fn().mockResolvedValue(true);
 const mockGetTokens = jest.fn().mockResolvedValue(null); // Default to null so tests can override
 const mockMigrateFromLocalStorage = jest.fn().mockResolvedValue(true);
@@ -33,6 +27,7 @@ jest.mock('../../../services/auth/FiduAuthService', () => ({
     clearTokens: mockClearTokens,
     getTokens: mockGetTokens,
     migrateFromLocalStorage: mockMigrateFromLocalStorage,
+    clearAllAuthTokens: mockClearAllAuthTokens,
   })),
 }));
 
@@ -46,8 +41,6 @@ jest.mock('../../../services/auth/GoogleDriveAuth', () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const mockAuthApi = require('../../../services/api/auth').authApi;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mockRefreshTokenService = require('../../../services/api/refreshTokenService').refreshTokenService;
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -367,7 +360,7 @@ describe('authSlice', () => {
       await thunk(dispatch, getState, undefined);
       
       // The logout thunk should call clearAllAuthTokens
-      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      expect(mockClearAllAuthTokens).toHaveBeenCalled();
       // The logout thunk should also call FiduAuthService.clearTokens
       expect(mockClearTokens).toHaveBeenCalled();
     });
@@ -517,7 +510,7 @@ describe('authSlice', () => {
       await thunk(dispatch, getState, undefined);
       
       expect(mockGetTokens).toHaveBeenCalled();
-      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      expect(mockClearAllAuthTokens).toHaveBeenCalled();
     });
 
     it('should use refreshTokenService.clearAllAuthTokens in logout thunk', async () => {
@@ -538,7 +531,7 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
-      expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      expect(mockClearAllAuthTokens).toHaveBeenCalled();
       expect(mockClearTokens).toHaveBeenCalled();
       
       // Check that the fulfilled action clears the state
@@ -553,32 +546,27 @@ describe('authSlice', () => {
       expect(state.error).toBeNull();
     });
 
-    it('should clear tokens consistently across all error scenarios', async () => {
-      // Test various error scenarios that should trigger token clearing
-      const errorScenarios = [
-        new Error('Network error'),
-        new Error('Authentication failed'),
-        new Error('Token expired'),
-      ];
-
-      for (const error of errorScenarios) {
-        jest.clearAllMocks();
-        
-        mockLocalStorage.getItem
-          .mockReturnValueOnce('test-token')
-          .mockReturnValueOnce(JSON.stringify(mockUser))
-          .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
-        
-        mockAuthApi.getCurrentUser.mockRejectedValue(error);
-        
-        const thunk = initializeAuth();
-        const dispatch = jest.fn();
-        const getState = jest.fn();
-        
-        await thunk(dispatch, getState, undefined);
-        
-        expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
-      }
+    it.each([
+      new Error('Network error'),
+      new Error('Authentication failed'),
+      new Error('Token expired'),
+    ])('should clear tokens consistently across all error scenarios: %s', async (error) => {
+      jest.clearAllMocks();
+      
+      mockLocalStorage.getItem
+        .mockReturnValueOnce('test-token')
+        .mockReturnValueOnce(JSON.stringify(mockUser))
+        .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
+      
+      mockAuthApi.getCurrentUser.mockRejectedValue(error);
+      
+      const thunk = initializeAuth();
+      const dispatch = jest.fn();
+      const getState = jest.fn();
+      
+      await thunk(dispatch, getState, undefined);
+      
+      expect(mockClearAllAuthTokens).toHaveBeenCalled();
     });
   });
 });

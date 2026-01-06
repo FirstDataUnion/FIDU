@@ -189,19 +189,6 @@ export class FiduAuthService {
     await this.waitForPromise(this.refreshPromise, timeoutMs);
   }
 
-  async refreshAccessToken(): Promise<string | null> {
-    try {
-      const token = await this.refreshAccessTokenWithRetry();
-      return token;
-    } catch (error) {
-      if (error instanceof AuthenticationRequiredError) {
-        return null;
-      }
-      console.error('❌ Failed to refresh FIDU access token:', error);
-      return null;
-    }
-  }
-
   async clearTokens(): Promise<boolean> {
     try {
       const response = await fetch(`${this.basePath}/api/auth/fidu/clear-tokens?env=${this.environment}`, {

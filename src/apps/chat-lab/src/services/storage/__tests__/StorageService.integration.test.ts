@@ -60,13 +60,14 @@ jest.mock('../../../utils/environment', () => ({
     mode: 'development',
     isDevelopment: true,
     isProduction: false,
-    identityServiceUrl: 'https://identity.firstdataunion.org',
-    gatewayUrl: 'https://gateway.firstdataunion.org',
+    identityServiceUrl: 'http://localhost:9877',
+    gatewayUrl: 'http://localhost:9878',
     storageMode: 'cloud', // Change to cloud to allow cloud mode testing
     syncInterval: 300000,
   })),
-  getIdentityServiceUrl: jest.fn(() => 'https://identity.firstdataunion.org'),
-  getGatewayUrl: jest.fn(() => 'https://gateway.firstdataunion.org'),
+  getIdentityServiceUrl: jest.fn(() => 'http://localhost:9877'),
+  getGatewayUrl: jest.fn(() => 'http://localhost:9878'),
+  detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 
 describe('StorageService Integration Tests', () => {

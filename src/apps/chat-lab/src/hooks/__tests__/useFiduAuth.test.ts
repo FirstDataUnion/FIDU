@@ -8,8 +8,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useFiduAuth } from '../useFiduAuth';
 import { fetchCurrentUser } from '../../services/api/apiClientIdentityService';
-import { refreshTokenService } from '../../services/api/refreshTokenService';
 import * as logoutCoordinator from '../../services/auth/logoutCoordinator';
+import { getFiduAuthService } from '../../services/auth/FiduAuthService';
 
 // Minimal mocks - only what's necessary
 // Use factory functions to avoid hoisting issues
@@ -20,12 +20,14 @@ jest.mock('../../utils/environment', () => ({
   detectRuntimeEnvironment: jest.fn(() => 'development'),
 }));
 
+const mockFiduAuthService = {
+  setTokens: jest.fn().mockResolvedValue(true),
+  clearTokens: jest.fn().mockResolvedValue(true),
+  getTokens: jest.fn().mockResolvedValue({ access_token: 'test-token' }),
+  clearAllAuthTokens: jest.fn(),
+};
 jest.mock('../../services/auth/FiduAuthService', () => ({
-  getFiduAuthService: jest.fn(() => ({
-    setTokens: jest.fn().mockResolvedValue(true),
-    clearTokens: jest.fn().mockResolvedValue(true),
-    getTokens: jest.fn().mockResolvedValue({ access_token: 'test-token' }),
-  })),
+  getFiduAuthService: jest.fn(() => mockFiduAuthService),
 }));
 
 jest.mock('../../services/api/apiClientIdentityService', () => ({
@@ -36,22 +38,11 @@ jest.mock('../../services/api/apiClientIdentityService', () => ({
   }),
 }));
 
-jest.mock('../../services/api/refreshTokenService', () => ({
-  refreshTokenService: {
-    clearAllAuthTokens: jest.fn(),
-  },
-}));
-
 jest.mock('../../services/auth/logoutCoordinator', () => ({
   beginLogout: jest.fn().mockReturnValue(true),
   markAuthenticated: jest.fn(),
   currentLogoutSource: jest.fn().mockReturnValue('manual'),
   completeLogout: jest.fn(),
-}));
-
-jest.mock('../../utils/emailAllowlist', () => ({
-  isEmailAllowed: jest.fn(() => true),
-  getAllowedEmails: jest.fn(() => []),
 }));
 
 const mockIsAuthenticated = jest.fn(() => false);
@@ -114,7 +105,7 @@ describe('useFiduAuth (Simplified)', () => {
 
       await waitFor(() => {
         expect(mockOnError).toHaveBeenCalled();
-        expect(refreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+        expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
       });
     });
   });
@@ -125,7 +116,7 @@ describe('useFiduAuth (Simplified)', () => {
 
       result.current.handleAuthError(new Error('Auth failed'));
 
-      expect(refreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+      expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
       expect(mockOnError).toHaveBeenCalledWith('Authentication failed. Please try again.');
     });
   });
