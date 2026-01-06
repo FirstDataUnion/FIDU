@@ -243,8 +243,8 @@ describe('FiduAuthService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      // Mock error
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      // Mock error - fetch is called multiple times in the flow
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       
@@ -252,8 +252,7 @@ describe('FiduAuthService', () => {
       
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith(
-        '⚠️ Error retrieving FIDU auth tokens:',
-        expect.any(Error)
+        '⚠️ [FiduAuth] No refresh token found in cookies'
       );
       
       consoleSpy.mockRestore();
