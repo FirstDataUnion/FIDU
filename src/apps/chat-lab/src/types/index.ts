@@ -21,7 +21,8 @@ export interface Conversation {
   // Original prompt information for conversation restart
   originalPrompt?: {
     promptText: string;
-    context?: Context | null;
+    contexts?: Context[]; // Support multiple contexts
+    context?: Context | null; // Keep for backward compatibility
     systemPrompts: SystemPrompt[]; // Support multiple system prompts
     systemPrompt?: SystemPrompt; // Keep for backward compatibility
     metadata?: {

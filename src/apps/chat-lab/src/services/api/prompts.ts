@@ -5,7 +5,7 @@ import type { Message } from '../../types';
 export const buildCompletePrompt = (
   systemPrompts: any[],
   embellishments: any[],
-  context: any,
+  contexts: any[] | any, // Accept both array and single context for backward compatibility
   conversationMessages: Message[],
   userPrompt: string
 ): string => {
@@ -55,11 +55,24 @@ export const buildCompletePrompt = (
     return String(ctx);
   };
   
-  const contextContent = getContextContent(context);
+  // 4. Handle multiple contexts (backward compatible with single context)
+  // Convert single context to array for processing
+  const contextsArray = Array.isArray(contexts) ? contexts : (contexts ? [contexts] : []);
   
-  // 4. Add context if available
-  if (contextContent) {
-    agentPrompt += `Given the following existing background context: ${contextContent}\n\n`;
+  const contextContents = contextsArray
+    .map(ctx => getContextContent(ctx))
+    .filter(content => content && content.trim());
+  
+  if (contextContents.length > 0) {
+    if (contextContents.length === 1) {
+      agentPrompt += `Given the following existing background context: ${contextContents[0]}\n\n`;
+    } else {
+      // Multiple contexts - combine with clear separation
+      agentPrompt += `Given the following existing background contexts:\n\n`;
+      contextContents.forEach((content, index) => {
+        agentPrompt += `Context ${index + 1}:\n${content}\n\n`;
+      });
+    }
   }
   
   // 5. Add conversation history if available
@@ -76,17 +89,26 @@ export const buildCompletePrompt = (
   }
   
   // 6. Add the instruction and prompt
-  if (contextContent && conversationMessages.length > 0) {
-    // Both context and conversation history available
-    agentPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind, treating it as either a previous part of the same conversation, or just as a framing for the following prompt:\n\n`;
-  } else if (contextContent) {
-    // Only context available
-    agentPrompt += `Answer the following prompt, keeping the existing context in mind:\n\n`;
+  const hasContexts = contextContents.length > 0;
+  if (hasContexts && conversationMessages.length > 0) {
+    // Both contexts and conversation history available
+    if (contextContents.length === 1) {
+      agentPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind, treating it as either a previous part of the same conversation, or just as a framing for the following prompt:\n\n`;
+    } else {
+      agentPrompt += `Answer the following prompt, keeping the existing contexts of the conversation in mind, treating them as either previous parts of the same conversation, or just as framing for the following prompt:\n\n`;
+    }
+  } else if (hasContexts) {
+    // Only contexts available
+    if (contextContents.length === 1) {
+      agentPrompt += `Answer the following prompt, keeping the existing context in mind:\n\n`;
+    } else {
+      agentPrompt += `Answer the following prompt, keeping the existing contexts in mind:\n\n`;
+    }
   } else if (conversationMessages.length > 0) {
     // Only conversation history available
     agentPrompt += `Answer the following prompt, keeping the existing context of the conversation in mind and continuing the flow of the conversation:\n\n`;
   } else {
-    // Neither context nor conversation history
+    // Neither contexts nor conversation history
     agentPrompt += `Answer the following prompt:\n\n`;
   }
   
@@ -108,7 +130,7 @@ export const createPromptsApi = () => {
   return {
     executePrompt: async (
       conversationMessages: Message[],
-      context: any,
+      contexts: any[] | any, // Accept both array and single context for backward compatibility
       prompt: string,
       selectedModel: string,
       profileId?: string,
@@ -123,7 +145,7 @@ export const createPromptsApi = () => {
       const agentPrompt = buildCompletePrompt(
         systemPrompts || [],
         embellishments || [],
-        context,
+        contexts,
         conversationMessages,
         prompt
       );

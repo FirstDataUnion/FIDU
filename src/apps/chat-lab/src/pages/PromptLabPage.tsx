@@ -90,6 +90,7 @@ import { useAlertClick } from '../contexts/AlertClickContext';
 import { MetricsService } from '../services/metrics/MetricsService';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { truncateTitle } from '../utils/stringUtils';
+import { getContextTokenCount } from '../utils/tokenEstimation';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
@@ -1006,18 +1007,24 @@ const getErrorMessage = (error: unknown, selectedModel?: string): { userMessage:
 interface ContextSelectionModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectContext: (context: Context) => void;
+  onAddContext: (context: Context) => void;
+  onRemoveContext: (contextId: string) => void;
   contexts: Context[];
+  selectedContexts: Context[];
   loading: boolean;
   error: string | null;
   onCreateNewContext: () => void;
-  onClearContext?: () => void;
+  onClearAllContexts?: () => void;
 }
 
-function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loading, error, onCreateNewContext, onClearContext }: ContextSelectionModalProps) {
+function ContextSelectionModal({ open, onClose, onAddContext, onRemoveContext, contexts, selectedContexts, loading, error, onCreateNewContext, onClearAllContexts }: ContextSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent-desc' | 'recent-asc' | 'alpha-asc' | 'alpha-desc'>('recent-desc');
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+
+  const isContextSelected = (contextId: string) => {
+    return selectedContexts.some(ctx => ctx.id === contextId);
+  };
 
   const filteredAndSortedContexts = contexts
     .filter(context => 
@@ -1066,6 +1073,84 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {/* Currently Selected Contexts */}
+          {selectedContexts.length > 0 && (
+            <Box sx={{ 
+              backgroundColor: 'primary.light', 
+              borderRadius: 2, 
+              p: 2,
+              border: '1px solid',
+              borderColor: 'primary.main'
+            }}>
+              <Typography variant="subtitle2" sx={{ 
+                fontWeight: 600, 
+                mb: 1.5,
+                color: 'primary.dark',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <CheckCircleIcon fontSize="small" />
+                Currently Selected ({selectedContexts.length})
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {selectedContexts.map((context) => (
+                  <Box
+                    key={context.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: 'background.paper',
+                      borderRadius: 1,
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'primary.main'
+                    }}
+                  >
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                        {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
+                      </Typography>
+                      {context.body && (
+                        <Typography variant="caption" color="text.secondary" sx={{ 
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {context.body.length > 100 ? `${context.body.substring(0, 100)}...` : context.body}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                        <Chip 
+                          label={`${getContextTokenCount(context)} tokens`} 
+                          size="small" 
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', height: 20 }}
+                        />
+                      </Box>
+                    </Box>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => onRemoveContext(context.id)}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 1,
+                        py: 0.5,
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
             <TextField
               fullWidth
@@ -1115,64 +1200,83 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
 
           {!loading && !error && filteredAndSortedContexts.length > 0 && (
             <List>
-              {filteredAndSortedContexts.map((context) => (
-                <ListItemButton 
-                  key={context.id} 
-                  divider
-                  onClick={() => onSelectContext(context)}
-                  sx={{
-                    cursor: 'pointer',
-                    borderRadius: 1,
-                    mb: 1,
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    }
-                  }}
-                >
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography
-                      variant="body1"
-                      component="div"
-                      sx={{ fontWeight: 500, mb: 1 }}
-                      title={context.title || 'Untitled Context'}
-                      >
-                      {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {context.body ? (
-                        context.body.length > 150 
-                          ? `${context.body.substring(0, 150)}...` 
-                          : context.body
-                      ) : (
-                        'No content available'
-                      )}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Chip 
-                        label={`${context.tokenCount} tokens`} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                      <Chip 
-                        label={new Date(context.updatedAt || context.createdAt).toLocaleDateString()} 
-                        size="small" 
-                        variant="outlined"
-                        color="secondary"
-                      />
-                    </Box>
-                  </Box>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectContext(context);
+              {filteredAndSortedContexts.map((context) => {
+                const isSelected = isContextSelected(context.id);
+                return (
+                  <ListItemButton 
+                    key={context.id} 
+                    divider
+                    onClick={() => {
+                      if (isSelected) {
+                        onRemoveContext(context.id);
+                      } else {
+                        onAddContext(context);
+                      }
+                    }}
+                    sx={{
+                      cursor: 'pointer',
+                      borderRadius: 1,
+                      mb: 1,
+                      backgroundColor: isSelected ? 'primary.light' : 'transparent',
+                      border: isSelected ? '1px solid' : 'none',
+                      borderColor: isSelected ? 'primary.main' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: isSelected ? 'primary.light' : 'action.hover',
+                      }
                     }}
                   >
-                    Select
-                  </Button>
-                </ListItemButton>
-              ))}
+                    <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {isSelected && <CheckCircleIcon color="primary" fontSize="small" />}
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography
+                          variant="body1"
+                          component="div"
+                          sx={{ fontWeight: 500, mb: 1 }}
+                          title={context.title || 'Untitled Context'}
+                        >
+                          {truncateTitle(context.title || 'Untitled Context', RESOURCE_TITLE_MAX_LENGTH)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          {context.body ? (
+                            context.body.length > 150 
+                              ? `${context.body.substring(0, 150)}...` 
+                              : context.body
+                          ) : (
+                            'No content available'
+                          )}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Chip 
+                            label={`${getContextTokenCount(context)} tokens`} 
+                            size="small" 
+                            variant="outlined"
+                          />
+                          <Chip 
+                            label={new Date(context.updatedAt || context.createdAt).toLocaleDateString()} 
+                            size="small" 
+                            variant="outlined"
+                            color="secondary"
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+                    <Button
+                      size="small"
+                      variant={isSelected ? "outlined" : "contained"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isSelected) {
+                          onRemoveContext(context.id);
+                        } else {
+                          onAddContext(context);
+                        }
+                      }}
+                    >
+                      {isSelected ? 'Remove' : 'Add'}
+                    </Button>
+                  </ListItemButton>
+                );
+              })}
             </List>
           )}
         </Stack>
@@ -1195,13 +1299,12 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
           >
             Create New Context
           </Button>
-          {onClearContext && (
+          {onClearAllContexts && selectedContexts.length > 0 && (
             <Button 
               variant="outlined" 
               startIcon={<ClearIcon />}
               onClick={() => {
-                onClearContext();
-                onClose();
+                onClearAllContexts();
               }}
               sx={{
                 borderColor: 'error.main',
@@ -1213,11 +1316,11 @@ function ContextSelectionModal({ open, onClose, onSelectContext, contexts, loadi
                 }
               }}
             >
-              Clear Context
+              Clear All Contexts
             </Button>
           )}
         </Box>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Cancel</Button>
+        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>Done</Button>
       </DialogActions>
 
       {/* Help Modal */}
@@ -1646,6 +1749,7 @@ export default function PromptLabPage() {
     }
   }, []);
 
+
   const clearSession = useCallback(() => {
     try {
       (Object.values(STORAGE_KEYS) as string[]).forEach((key) => sessionStorage.removeItem(key));
@@ -1658,7 +1762,26 @@ export default function PromptLabPage() {
   const [messages, setMessages] = useState<Message[]>(() => loadFromSession(STORAGE_KEYS.messages) || []);
   const [currentMessage, setCurrentMessage] = useState('');
   const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'auto-router');
-  const [selectedContext, setSelectedContext] = useState<Context | null>(() => loadFromSession(STORAGE_KEYS.context) || null);
+  const [selectedContexts, setSelectedContexts] = useState<Context[]>(() => {
+    const STORAGE_KEYS_TEMP = {
+      context: 'promptlab_context'
+    };
+    try {
+      const data = loadFromSession(STORAGE_KEYS_TEMP.context);
+      if (!data) return [];
+      // Backward compatibility: if it's a single context object (not array), wrap it in an array
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data && typeof data === 'object') {
+        // Single context object - convert to array
+        return [data];
+      }
+      return [];
+    } catch (error) {
+      console.warn('Failed to load contexts from sessionStorage:', error);
+      return [];
+    }
+  });
   const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<SystemPrompt[]>(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1929,7 +2052,7 @@ export default function PromptLabPage() {
     setSystemPromptModalOpen(true);
   };
 
-  // Helper function to restore system prompts from a conversation
+  // Helper function to restore system prompts and contexts from a conversation
   const restoreConversationSettings = useCallback((conversation: Conversation) => {
     if (conversation.originalPrompt) {
       if (conversation.originalPrompt.systemPrompts && conversation.originalPrompt.systemPrompts.length > 0) {
@@ -1937,6 +2060,16 @@ export default function PromptLabPage() {
       } else if (conversation.originalPrompt.systemPrompt) {
         // Backward compatibility: single system prompt
         setSelectedSystemPrompts([conversation.originalPrompt.systemPrompt]);
+      }
+      
+      // Restore contexts
+      if (conversation.originalPrompt.contexts && Array.isArray(conversation.originalPrompt.contexts)) {
+        setSelectedContexts(conversation.originalPrompt.contexts);
+      } else if (conversation.originalPrompt.context) {
+        // Backward compatibility: single context
+        setSelectedContexts([conversation.originalPrompt.context]);
+      } else {
+        setSelectedContexts([]);
       }
       
       // Embellishments removed
@@ -2242,17 +2375,17 @@ export default function PromptLabPage() {
   }, [currentConversation, saveToSession, STORAGE_KEYS.conversation]);
 
   useEffect(() => {
-    if (selectedContext) {
-      saveToSession(STORAGE_KEYS.context, selectedContext);
+    if (selectedContexts.length > 0) {
+      saveToSession(STORAGE_KEYS.context, selectedContexts);
     } else {
-      // Clear context from sessionStorage when context is cleared
+      // Clear contexts from sessionStorage when all contexts are cleared
       try {
         sessionStorage.removeItem(STORAGE_KEYS.context);
       } catch (error) {
-        console.warn('Failed to clear context from sessionStorage:', error);
+        console.warn('Failed to clear contexts from sessionStorage:', error);
       }
     }
-  }, [selectedContext, saveToSession, STORAGE_KEYS.context]);
+  }, [selectedContexts, saveToSession, STORAGE_KEYS.context]);
 
   useEffect(() => {
     if (selectedSystemPrompts.length > 0) {
@@ -2330,7 +2463,7 @@ export default function PromptLabPage() {
         // Start new conversation - clear existing state
         setMessages([]);
         setCurrentMessage('');
-        setSelectedContext(null);
+        setSelectedContexts([]);
         setSelectedSystemPrompts([systemPrompt]);
         setCurrentConversation(null);
         clearSession();
@@ -2422,7 +2555,8 @@ export default function PromptLabPage() {
           messages,
           originalPrompt: {
             promptText: messages[0]?.content || '',
-            context: selectedContext,
+            contexts: selectedContexts,
+            context: selectedContexts[0] || null, // Keep for backward compatibility
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
             metadata: { estimatedTokens: 0 }
@@ -2455,7 +2589,8 @@ export default function PromptLabPage() {
           status: 'active' as const,
           originalPrompt: {
             promptText: messages[0]?.content || '',
-            context: selectedContext,
+            contexts: selectedContexts,
+            context: selectedContexts[0] || null, // Keep for backward compatibility
             systemPrompts: selectedSystemPrompts, // Store all selected system prompts
             systemPrompt: selectedSystemPrompts[0] || null, // Keep for backward compatibility
             metadata: { estimatedTokens: 0 }
@@ -2467,7 +2602,8 @@ export default function PromptLabPage() {
           messages,
           {
             promptText: messages[0]?.content || '',
-            context: selectedContext,
+            contexts: selectedContexts,
+            context: selectedContexts[0] || null, // Keep for backward compatibility
             systemPrompts: selectedSystemPrompts,
             systemPrompt: selectedSystemPrompts[0] || null,
             metadata: { estimatedTokens: 0 }
@@ -2487,7 +2623,7 @@ export default function PromptLabPage() {
     } finally {
       setIsSavingConversation(false);
     }
-  }, [currentProfile, currentConversation, selectedContext, selectedSystemPrompts, selectedModel, dispatch]);
+  }, [currentProfile, currentConversation, selectedContexts, selectedSystemPrompts, selectedModel, dispatch]);
 
   // Handle sending a message
   const handleSendMessage = async () => {
@@ -2523,7 +2659,8 @@ export default function PromptLabPage() {
         modelsUsed: [],
         originalPrompt: {
           promptText: currentMessage,
-          context: selectedContext,
+          contexts: selectedContexts,
+          context: selectedContexts[0] || null, // Keep for backward compatibility
           systemPrompts: selectedSystemPrompts,
           systemPrompt: selectedSystemPrompts[0] || null,
           metadata: { estimatedTokens: 0 }
@@ -2577,7 +2714,7 @@ export default function PromptLabPage() {
     setIsRequestCancelled(false);
 
     // Analyze request for potential long duration
-    const contextLength = selectedContext ? JSON.stringify(selectedContext).length : 0;
+    const contextLength = selectedContexts.reduce((total, ctx) => total + JSON.stringify(ctx).length, 0);
     const conversationLength = messages.reduce((total, msg) => total + msg.content.length, 0);
     const analysis = analyzeRequestDuration(
       currentMessage,
@@ -2598,7 +2735,7 @@ export default function PromptLabPage() {
       // Call the actual API to get AI response
       const response = await promptsApi.executePrompt(
         messages, // Pass existing conversation history
-        selectedContext,
+        selectedContexts,
         currentMessage,
         selectedModel,
         currentProfile.id,
@@ -3174,8 +3311,8 @@ export default function PromptLabPage() {
     setMessages([]);
     setCurrentConversation(null);
     setError(null);
-    // Clear selected context
-    setSelectedContext(null);
+    // Clear selected contexts
+    setSelectedContexts([]);
     // Clear persisted conversation state
     clearSession();
     // Reset unread alert count (no conversation = no alerts)
@@ -3266,7 +3403,7 @@ export default function PromptLabPage() {
       // Call the API to get AI response
       const response = await promptsApi.executePrompt(
         messages.slice(0, errorMessageIndex), // Pass messages up to the error point
-        selectedContext,
+        selectedContexts,
         lastUserMessage.content,
         selectedModel,
         currentProfile!.id,
@@ -3342,7 +3479,7 @@ export default function PromptLabPage() {
       setIsLoading(false);
       setCurrentMessage(''); // Clear the input after retry
     }
-  }, [messages, selectedContext, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast, currentConversation?.id]);
+  }, [messages, selectedContexts, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast, currentConversation?.id]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
@@ -3350,11 +3487,11 @@ export default function PromptLabPage() {
     return buildCompletePrompt(
       selectedSystemPrompts,
       [], // Embellishments removed
-      selectedContext,
+      selectedContexts,
       messages,
       currentMessage.trim() || (messages.length > 0 ? messages.filter(m => m.role === 'user').pop()?.content || '' : '')
     );
-  }, [selectedSystemPrompts, selectedContext, messages, currentMessage]);
+  }, [selectedSystemPrompts, selectedContexts, messages, currentMessage]);
 
   return (
     <Box sx={{ 
@@ -3423,7 +3560,7 @@ export default function PromptLabPage() {
           }}
         >
           {/* New Conversation Button - Top Right (when context is selected and messages exist) - Desktop Only */}
-          {!isMobile && selectedContext && messages.length > 0 && (
+          {!isMobile && selectedContexts.length > 0 && messages.length > 0 && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -3451,7 +3588,7 @@ export default function PromptLabPage() {
           )}
 
           {/* New Conversation Button - Top Right (when no context selected and messages exist) - Desktop Only */}
-          {!isMobile && messages.length > 0 && !selectedContext && (
+          {!isMobile && messages.length > 0 && selectedContexts.length === 0 && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -4421,7 +4558,7 @@ export default function PromptLabPage() {
                       }
                     }}
                   >
-                    Context: {selectedContext ? selectedContext.title : 'None'} ▾
+                    Context: {selectedContexts.length > 0 ? (selectedContexts.length === 1 ? selectedContexts[0].title : `${selectedContexts.length} selected`) : 'None'} ▾
                   </Button>
 
                   <Button
@@ -4497,7 +4634,7 @@ export default function PromptLabPage() {
                         }
                       }}
                     >
-                      Context: {selectedContext ? selectedContext.title : 'None'} ▾
+                      Context: {selectedContexts.length > 0 ? (selectedContexts.length === 1 ? selectedContexts[0].title : `${selectedContexts.length} selected`) : 'None'} ▾
                     </Button>
 
                     <Button
@@ -4910,16 +5047,25 @@ export default function PromptLabPage() {
       <ContextSelectionModal
         open={contextModalOpen}
         onClose={() => setContextModalOpen(false)}
-        onSelectContext={(context) => {
-          setSelectedContext(context);
-          setContextModalOpen(false);
+        onAddContext={(context) => {
+          setSelectedContexts(prev => {
+            // Prevent duplicates
+            if (prev.some(ctx => ctx.id === context.id)) {
+              return prev;
+            }
+            return [...prev, context];
+          });
+        }}
+        onRemoveContext={(contextId) => {
+          setSelectedContexts(prev => prev.filter(ctx => ctx.id !== contextId));
         }}
         contexts={contexts}
+        selectedContexts={selectedContexts}
         loading={contextsLoading}
         error={contextsError}
         onCreateNewContext={() => setCreateContextModalOpen(true)}
-        onClearContext={() => {
-          setSelectedContext(null);
+        onClearAllContexts={() => {
+          setSelectedContexts([]);
         }}
       />
 

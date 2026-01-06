@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 - **Drive Sync Resilience**: Added extra mechanisms to try to automatically recover from sync failures from long lived sessions. 
+- **Allow Multiple Context Selection**: Multiple contexts can now be added to a prompt at once. 
 
 ## [0.1.9] - 2025-12-04
 
