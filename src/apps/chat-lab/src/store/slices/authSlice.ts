@@ -142,28 +142,27 @@ export const initializeAuth = createAsyncThunk(
     try {
       const fiduAuthService = getFiduAuthService();
       
-      // First try to get tokens from HTTP-only cookies
-      let token: string | null = null;
-      let user: any = null;
+      // Use ensureAccessToken to handle refresh automatically
+      const token = await fiduAuthService.ensureAccessToken();
       
-      const cookieTokens = await fiduAuthService.getTokens();
-      if (cookieTokens?.access_token && cookieTokens.access_token.trim() !== '' && cookieTokens?.user) {
-        token = cookieTokens.access_token;
-        user = cookieTokens.user;
-        console.log('✅ Using FIDU auth tokens from HTTP-only cookies');
-      } else {
-        // Fallback to localStorage for backward compatibility
-        token = localStorage.getItem('auth_token');
-        user = localStorage.getItem('user');
-        
-        if (token && user) {
-          console.log('🔄 Using FIDU auth tokens from localStorage (fallback)');
-          
-          // Try to migrate to HTTP-only cookies
+      if (!token) {
+        // No token available, even after restoration attempt
+        return null;
+      }
+      
+      // Get user info from tokens
+      const tokens = await fiduAuthService.getTokens();
+      let user: any = tokens?.user;
+      
+      // If no user in tokens, try localStorage fallback
+      if (!user) {
+        const localUser = localStorage.getItem('user');
+        if (localUser) {
           try {
-            await fiduAuthService.migrateFromLocalStorage();
+            user = JSON.parse(localUser);
+            console.log('🔄 Using user info from localStorage (fallback)');
           } catch (error) {
-            console.warn('Failed to migrate tokens to HTTP-only cookies:', error);
+            console.warn('Failed to parse user from localStorage:', error);
           }
         }
       }

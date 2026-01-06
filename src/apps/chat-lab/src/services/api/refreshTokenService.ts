@@ -340,16 +340,30 @@ class RefreshTokenService {
           originalRequest._retry = true;
           
           try {
-            // Attempt to refresh the token
-            const newToken = await this.refreshAccessToken();
+            // Attempt to restore and refresh token using FiduAuthService
+            const fiduAuthService = getFiduAuthService();
+            const restored = await fiduAuthService.ensureAuthenticated();
             
-            // Update the authorization header
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            if (restored) {
+              // Get new token after restoration
+              const newToken = await fiduAuthService.getAccessToken();
+              if (newToken) {
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return this.retryRequest(originalRequest);
+              }
+            }
             
-            // Retry the original request
-            return this.retryRequest(originalRequest);
+            // If restoration failed, attempt direct refresh
+            const newToken = await fiduAuthService.refreshAccessToken();
+            if (newToken) {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              return this.retryRequest(originalRequest);
+            }
+            
+            // Only logout if all restoration attempts failed
+            throw new Error('Authentication required. Please log in again.');
           } catch (refreshError) {
-            console.error('Token refresh failed, logging out user:', refreshError);
+            console.error('Token refresh failed after restoration attempt:', refreshError);
             
             // Clear all auth tokens and dispatch logout action
             this.clearAllAuthTokens();

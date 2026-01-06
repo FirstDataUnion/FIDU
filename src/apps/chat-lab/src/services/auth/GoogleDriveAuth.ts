@@ -65,6 +65,8 @@ export class GoogleDriveAuthService {
   private user: GoogleDriveUser | null = null;
   private refreshPromise: Promise<string> | null = null;
   private isAuthenticating: boolean = false;
+  private refreshTimer: NodeJS.Timeout | null = null;
+  private validationInterval: NodeJS.Timeout | null = null;
 
   constructor(config: GoogleDriveAuthConfig) {
     this.config = config;
@@ -110,6 +112,9 @@ export class GoogleDriveAuthService {
       if (!this.user) {
         await this.getUser();
       }
+      // Start proactive refresh and periodic validation after successful restoration
+      this.startProactiveRefresh();
+      this.startPeriodicValidation();
       return;
     }
     
@@ -119,47 +124,56 @@ export class GoogleDriveAuthService {
       const now = Date.now();
       const fiveMinutesFromNow = now + (5 * 60 * 1000);
       
-      // Proactively refresh tokens that are close to expiring
-      if (this.tokens.expiresAt <= fiveMinutesFromNow) {
-        try {
-          console.log('Token expires soon, refreshing automatically');
-          await this.refreshAccessToken();
-        } catch (error) {
-          console.warn('Failed to refresh token during initialization:', error);
-          // Check if this is a refresh token expiration issue
-          if (error instanceof Error && error.message.includes('invalid_grant')) {
-            console.error('Refresh token has expired or been revoked. User needs to re-authenticate.');
-            this.clearStoredTokens();
-            this.tokens = null;
-            this.user = null;
-          }
-          // Let the app handle the unauthenticated state
-        }
-      } else {
-        // Even if token is valid, verify it's still working by checking user info
-        try {
-          await this.validateToken();
-          // If validation succeeds, ensure user info is loaded (will update Google email if FIDU auth is ready)
-          if (!this.user) {
-            await this.getUser();
-          }
-        } catch (error) {
-          console.warn('Token validation failed, attempting refresh:', error);
-          try {
-            await this.refreshAccessToken();
-            // After successful refresh, load user info (will update Google email if FIDU auth is ready)
-            if (!this.user) {
-              await this.getUser();
+          // Proactively refresh tokens that are close to expiring
+          if (this.tokens.expiresAt <= fiveMinutesFromNow) {
+            try {
+              console.log('Token expires soon, refreshing automatically');
+              await this.refreshAccessToken();
+              // After successful refresh, start proactive refresh and periodic validation
+              this.startProactiveRefresh();
+              this.startPeriodicValidation();
+            } catch (error) {
+              console.warn('Failed to refresh token during initialization:', error);
+              // Check if this is a refresh token expiration issue
+              if (error instanceof Error && error.message.includes('invalid_grant')) {
+                console.error('Refresh token has expired or been revoked. User needs to re-authenticate.');
+                this.clearStoredTokens();
+                this.tokens = null;
+                this.user = null;
+              }
+              // Let the app handle the unauthenticated state
             }
-          } catch (refreshError) {
-            console.error('Failed to refresh after validation failure:', refreshError);
-            // Clear tokens if refresh fails
-            this.clearStoredTokens();
-            this.tokens = null;
-            this.user = null;
+          } else {
+            // Even if token is valid, verify it's still working by checking user info
+            try {
+              await this.validateToken();
+              // If validation succeeds, ensure user info is loaded (will update Google email if FIDU auth is ready)
+              if (!this.user) {
+                await this.getUser();
+              }
+              // Start proactive refresh and periodic validation for valid tokens
+              this.startProactiveRefresh();
+              this.startPeriodicValidation();
+            } catch (error) {
+              console.warn('Token validation failed, attempting refresh:', error);
+              try {
+                await this.refreshAccessToken();
+                // After successful refresh, load user info (will update Google email if FIDU auth is ready)
+                if (!this.user) {
+                  await this.getUser();
+                }
+                // Start proactive refresh and periodic validation after successful refresh
+                this.startProactiveRefresh();
+                this.startPeriodicValidation();
+              } catch (refreshError) {
+                console.error('Failed to refresh after validation failure:', refreshError);
+                // Clear tokens if refresh fails
+                this.clearStoredTokens();
+                this.tokens = null;
+                this.user = null;
+              }
+            }
           }
-        }
-      }
     } else {
       console.log('❌ No authentication found in cookies or memory - user needs to authenticate');
     }
@@ -181,11 +195,22 @@ export class GoogleDriveAuthService {
   }
 
   /**
-   * Get current access token (refreshes if needed)
+   * Get current access token (refreshes if needed, restores if missing)
    */
   async getAccessToken(): Promise<string> {
+    // If tokens missing, try to restore from cookies first
     if (!this.tokens) {
-      throw new Error('User not authenticated');
+      console.log('🔄 Tokens missing from memory, attempting to restore from cookies...');
+      const restored = await this.restoreFromCookies();
+      if (!restored || !this.tokens) {
+        throw new Error('User not authenticated. Please reconnect Google Drive.');
+      }
+      // After restoration, tokens should be set, continue with normal flow
+    }
+
+    // At this point, tokens should exist, but TypeScript needs confirmation
+    if (!this.tokens) {
+      throw new Error('Tokens not available after restoration. Please reconnect Google Drive.');
     }
 
     // Check if token is expired or will expire soon (within 5 minutes)
@@ -194,11 +219,37 @@ export class GoogleDriveAuthService {
     
     if (this.tokens.expiresAt <= fiveMinutesFromNow) {
       if (!this.tokens.refreshToken) {
-        throw new Error('Token expired and no refresh token available');
+        // Try one more time to restore from cookies
+        console.log('🔄 Refresh token missing, attempting cookie restoration...');
+        const restored = await this.restoreFromCookies();
+        if (!restored || !this.tokens) {
+          throw new Error('Token expired and no refresh token available. Please reconnect Google Drive.');
+        }
+        // After restoration, check again
+        if (this.tokens.expiresAt <= fiveMinutesFromNow) {
+          // Still need to refresh
+          this.tokens.accessToken = await this.refreshAccessToken();
+        }
+      } else {
+        // Refresh token
+        try {
+          this.tokens.accessToken = await this.refreshAccessToken();
+        } catch (error) {
+          // If refresh fails, try to restore from cookies as fallback
+          console.warn('⚠️ Token refresh failed, attempting cookie restoration as fallback:', error);
+          const restored = await this.restoreFromCookies();
+          if (!restored) {
+            throw new Error('Failed to refresh token. Please reconnect Google Drive.');
+          }
+          // After restoration, retry getting access token
+          return this.getAccessToken();
+        }
       }
-      
-      // Refresh token
-      this.tokens.accessToken = await this.refreshAccessToken();
+    }
+
+    // Final check before returning
+    if (!this.tokens) {
+      throw new Error('Tokens not available. Please reconnect Google Drive.');
     }
 
     return this.tokens.accessToken;
@@ -364,7 +415,55 @@ export class GoogleDriveAuthService {
     expiresAt: number | null;
   } {
     return {
-      isAuthenticated: this.isAuthenticated(),
+      isAuthenticated: this.isAuthenticated(), // Keep sync for immediate UI updates
+      user: this.user,
+      expiresAt: this.tokens?.expiresAt || null
+    };
+  }
+
+  /**
+   * Ensure user is authenticated, attempting restoration if needed
+   * This is an async version of isAuthenticated() that attempts restoration
+   * Use this when you need to guarantee authentication state
+   */
+  async ensureAuthenticated(): Promise<boolean> {
+    // Fast path: if tokens exist and valid, return immediately
+    if (this.tokens && this.tokens.expiresAt > Date.now() + 5 * 60 * 1000) {
+      return true;
+    }
+    
+    // Slow path: try to restore from cookies
+    if (!this.tokens || this.tokens.expiresAt <= Date.now() + 5 * 60 * 1000) {
+      try {
+        console.log('🔄 Authentication not valid, attempting restoration...');
+        const restored = await this.restoreFromCookies();
+        if (restored) {
+          console.log('✅ Authentication restored successfully');
+          return true;
+        }
+        console.log('❌ Could not restore authentication');
+        return false;
+      } catch (error) {
+        console.warn('⚠️ Failed to restore authentication:', error);
+        return false;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Get authentication status with async restoration attempt
+   * Use this when you need accurate auth state
+   */
+  async getAuthStatusAsync(): Promise<{
+    isAuthenticated: boolean;
+    user: GoogleDriveUser | null;
+    expiresAt: number | null;
+  }> {
+    const authenticated = await this.ensureAuthenticated();
+    return {
+      isAuthenticated: authenticated,
       user: this.user,
       expiresAt: this.tokens?.expiresAt || null
     };
@@ -509,6 +608,11 @@ export class GoogleDriveAuthService {
       // Fetch user info (will update Google email if FIDU auth is ready)
       console.log('🔄 Fetching user info...');
       await this.fetchUserInfo();
+      
+      // Start proactive refresh and periodic validation after successful OAuth
+      this.startProactiveRefresh();
+      this.startPeriodicValidation();
+      
       console.log('✅ OAuth callback completed successfully');
       
     } catch (error) {
@@ -763,17 +867,36 @@ export class GoogleDriveAuthService {
     try {
       const fiduTokenService = getFiduAuthService();
       
-      // Check if we have a FIDU refresh token before attempting to get access token
+      // First, try to ensure FIDU authentication is available
+      // This will attempt restoration from cookies if needed
+      console.log('🔐 [GoogleDrive] Ensuring FIDU authentication before token refresh...');
+      const fiduAuthenticated = await fiduTokenService.ensureAuthenticated();
+      
+      if (!fiduAuthenticated) {
+        console.warn('⚠️ [GoogleDrive] FIDU authentication not available - attempting to restore...');
+        // Try one more time with ensureAccessToken which has more aggressive restoration
+        try {
+          await fiduTokenService.ensureAccessToken({
+            onWait: () => console.log('🔐 [GoogleDrive] Waiting for FIDU auth restoration...'),
+            maxAttempts: 2, // Quick retry
+          });
+        } catch (error) {
+          console.error('❌ [GoogleDrive] Failed to restore FIDU authentication:', error);
+          throw new Error('FIDU authentication expired before refreshing Google Drive tokens. Please log in again.');
+        }
+      }
+      
+      // Check if we have a FIDU refresh token
       const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
       if (!hasFiduRefreshToken) {
-        console.log('ℹ️ No FIDU refresh token available - skipping secure token refresh');
+        console.log('ℹ️ [GoogleDrive] No FIDU refresh token available - skipping secure token refresh');
         throw new Error('No FIDU refresh token available for secure token refresh');
       }
       
       let fiduAuthToken: string | null = null;
       try {
         fiduAuthToken = await fiduTokenService.ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU auth before Google token refresh...'),
+          onWait: () => console.log('🔐 [GoogleDrive] Ensuring FIDU auth before Google token refresh...'),
         });
       } catch (error) {
         if (error instanceof AuthenticationRequiredError) {
@@ -817,6 +940,9 @@ export class GoogleDriveAuthService {
         
         // Store updated tokens
         this.storeTokens(this.tokens!);
+
+        // Start proactive refresh after successful refresh
+        this.startProactiveRefresh();
 
         console.log('✅ Token refresh via backend (secure)');
         return data.access_token;
@@ -942,6 +1068,9 @@ export class GoogleDriveAuthService {
     
     // Store updated tokens
     this.storeTokens(this.tokens!);
+
+    // Start proactive refresh after successful refresh
+    this.startProactiveRefresh();
 
     return data.access_token;
   }
@@ -1104,25 +1233,44 @@ export class GoogleDriveAuthService {
       
       const fiduTokenService = getFiduAuthService();
       
-      // Check if we have a FIDU refresh token before attempting to get access token
+      // First, try to ensure FIDU authentication is available
+      // This will attempt restoration from cookies if needed
+      console.log('🔐 [GoogleDrive] Ensuring FIDU authentication before retrieving tokens...');
+      const fiduAuthenticated = await fiduTokenService.ensureAuthenticated();
+      
+      if (!fiduAuthenticated) {
+        console.warn('⚠️ [GoogleDrive] FIDU authentication not available - attempting to restore...');
+        // Try one more time with ensureAccessToken which has more aggressive restoration
+        try {
+          await fiduTokenService.ensureAccessToken({
+            onWait: () => console.log('🔐 [GoogleDrive] Waiting for FIDU auth restoration...'),
+            maxAttempts: 2, // Quick retry
+          });
+        } catch (error) {
+          console.error('❌ [GoogleDrive] Failed to restore FIDU authentication:', error);
+          return null;
+        }
+      }
+      
+      // Check if we have a FIDU refresh token
       const hasFiduRefreshToken = await fiduTokenService.hasRefreshToken();
       if (!hasFiduRefreshToken) {
-        console.log('ℹ️ No FIDU refresh token available - skipping secure token retrieval');
+        console.log('ℹ️ [GoogleDrive] No FIDU refresh token available - skipping secure token retrieval');
         return null;
       }
       
       let fiduAuthToken: string | null = null;
       try {
         fiduAuthToken = await fiduTokenService.ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU auth before retrieving Google Drive tokens...'),
+          onWait: () => console.log('🔐 [GoogleDrive] Ensuring FIDU auth before retrieving Google Drive tokens...'),
         });
       } catch (error) {
         if (error instanceof AuthenticationRequiredError) {
-          console.warn('FIDU authentication required before restoring Google Drive tokens.');
+          console.warn('⚠️ [GoogleDrive] FIDU authentication required before restoring Google Drive tokens.');
           return null;
         }
         if (error instanceof TokenAcquisitionTimeoutError) {
-          console.warn('Timed out while preparing FIDU authentication for Google Drive token retrieval.');
+          console.warn('⚠️ [GoogleDrive] Timed out while preparing FIDU authentication for Google Drive token retrieval.');
           return null;
         }
         throw error;
@@ -1199,6 +1347,9 @@ export class GoogleDriveAuthService {
         if (!this.user) {
           await this.fetchUserInfo();
         }
+        
+        // Start proactive refresh after restoration
+        this.startProactiveRefresh();
         
         return true;
       } else {
@@ -1311,11 +1462,139 @@ export class GoogleDriveAuthService {
   }
 
   /**
+   * Start proactive token refresh timer
+   * Refreshes tokens 10 minutes before expiration
+   */
+  private startProactiveRefresh(): void {
+    // Clear existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    
+    if (!this.tokens || !this.tokens.refreshToken) {
+      // No tokens to refresh
+      return;
+    }
+    
+    // Calculate time until refresh (refresh when 10 minutes left)
+    const now = Date.now();
+    const expiresAt = this.tokens.expiresAt;
+    const refreshAt = expiresAt - (10 * 60 * 1000); // 10 minutes before expiry
+    const timeUntilRefresh = refreshAt - now;
+    
+    if (timeUntilRefresh <= 0) {
+      // Refresh immediately
+      console.log('🔄 Token expires soon, refreshing immediately...');
+      this.refreshAccessToken()
+        .then(() => {
+          console.log('✅ Token refreshed proactively');
+          this.startProactiveRefresh(); // Schedule next refresh
+        })
+        .catch((error) => {
+          console.error('❌ Proactive token refresh failed:', error);
+          // Retry after shorter interval on failure (5 minutes)
+          this.refreshTimer = setTimeout(() => {
+            this.startProactiveRefresh();
+          }, 5 * 60 * 1000);
+        });
+      return;
+    }
+    
+    // Schedule refresh
+    console.log(`🔄 Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshAccessToken()
+        .then(() => {
+          console.log('✅ Token refreshed proactively');
+          this.startProactiveRefresh(); // Schedule next refresh
+        })
+        .catch((error) => {
+          console.error('❌ Proactive token refresh failed:', error);
+          // Retry after shorter interval on failure (5 minutes)
+          setTimeout(() => {
+            this.startProactiveRefresh();
+          }, 5 * 60 * 1000);
+        });
+    }, timeUntilRefresh);
+  }
+
+  /**
+   * Stop proactive refresh timer
+   */
+  private stopProactiveRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  /**
+   * Start periodic token validation
+   * Checks every 5 minutes and refreshes if needed
+   */
+  private startPeriodicValidation(): void {
+    // Clear existing interval
+    if (this.validationInterval) {
+      clearInterval(this.validationInterval);
+      this.validationInterval = null;
+    }
+    
+    // Check every 5 minutes
+    this.validationInterval = setInterval(async () => {
+      try {
+        if (!this.tokens) {
+          // Try to restore
+          console.log('🔄 Periodic check: tokens missing, attempting restoration...');
+          const restored = await this.restoreFromCookies();
+          if (restored) {
+            console.log('✅ Periodic check: tokens restored');
+            this.startProactiveRefresh(); // Start proactive refresh after restoration
+          }
+          return;
+        }
+        
+        // If token expires in less than 10 minutes, refresh proactively
+        const now = Date.now();
+        const tenMinutesFromNow = now + (10 * 60 * 1000);
+        
+        if (this.tokens.expiresAt <= tenMinutesFromNow) {
+          console.log('🔄 Periodic check: token expires soon, refreshing...');
+          try {
+            await this.refreshAccessToken();
+            console.log('✅ Periodic check: token refreshed');
+          } catch (error) {
+            console.warn('⚠️ Periodic check: token refresh failed, attempting restoration:', error);
+            // Try to restore from cookies
+            await this.restoreFromCookies();
+          }
+        }
+      } catch (error) {
+        console.error('❌ Periodic validation error:', error);
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+  }
+
+  /**
+   * Stop periodic validation
+   */
+  private stopPeriodicValidation(): void {
+    if (this.validationInterval) {
+      clearInterval(this.validationInterval);
+      this.validationInterval = null;
+    }
+  }
+
+  /**
    * Logout from Google Drive by clearing tokens and HTTP-only cookies
    */
   async logout(): Promise<void> {
     try {
       console.log('🔄 Logging out from Google Drive...');
+      
+      // Stop proactive refresh and periodic validation
+      this.stopProactiveRefresh();
+      this.stopPeriodicValidation();
       
       // Clear local tokens
       this.clearStoredTokens();

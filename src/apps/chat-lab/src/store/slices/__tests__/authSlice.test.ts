@@ -27,11 +27,13 @@ jest.mock('../../../services/api/refreshTokenService', () => ({
 // Mock FiduAuthService
 const mockClearTokens = jest.fn().mockResolvedValue(true);
 const mockGetTokens = jest.fn().mockResolvedValue(null); // Default to null so tests can override
+const mockEnsureAccessToken = jest.fn().mockResolvedValue('test-token'); // Default to token so tests can override
 const mockMigrateFromLocalStorage = jest.fn().mockResolvedValue(true);
 jest.mock('../../../services/auth/FiduAuthService', () => ({
   getFiduAuthService: jest.fn(() => ({
     clearTokens: mockClearTokens,
     getTokens: mockGetTokens,
+    ensureAccessToken: mockEnsureAccessToken,
     migrateFromLocalStorage: mockMigrateFromLocalStorage,
   })),
 }));
@@ -106,6 +108,9 @@ describe('authSlice', () => {
     mockLocalStorage.setItem.mockImplementation(() => {});
     mockLocalStorage.removeItem.mockImplementation(() => {});
     mockLocalStorage.clear.mockImplementation(() => {});
+    // Reset mocks to default values
+    mockEnsureAccessToken.mockResolvedValue('test-token');
+    mockGetTokens.mockResolvedValue(null);
   });
 
   describe('reducers', () => {
@@ -222,12 +227,17 @@ describe('authSlice', () => {
       });
 
       it('should handle initializeAuth.fulfilled with valid auth data', async () => {
-        // Mock getTokens to return null so it falls back to localStorage
-        mockGetTokens.mockResolvedValueOnce(null);
+        // Mock ensureAccessToken to return a token
+        mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+        // Mock getTokens to return user info (so it doesn't need to check localStorage)
+        mockGetTokens.mockResolvedValueOnce({
+          access_token: 'test-token',
+          refresh_token: 'test-refresh-token',
+          user: mockUser,
+        });
         
         mockLocalStorage.getItem
-          .mockReturnValueOnce('test-token') // auth_token
-          .mockReturnValueOnce(JSON.stringify(mockUser)); // user
+          .mockReturnValueOnce('test-token'); // auth_token (for backward compatibility)
         
         mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
         
@@ -242,9 +252,10 @@ describe('authSlice', () => {
         
         await thunk(dispatch, getState, undefined);
         
+        expect(mockEnsureAccessToken).toHaveBeenCalled();
         expect(mockGetTokens).toHaveBeenCalled();
-        expect(mockLocalStorage.getItem).toHaveBeenCalledWith('auth_token');
-        expect(mockLocalStorage.getItem).toHaveBeenCalledWith('user');
+        // If getTokens returns a user, localStorage.getItem('user') won't be called
+        // Only localStorage.getItem('auth_token') might be called for backward compatibility
       });
 
       it('should handle initializeAuth.fulfilled with no auth data', () => {
@@ -375,8 +386,14 @@ describe('authSlice', () => {
 
   describe('profile selection logic', () => {
     it('should use saved profile if it exists in fetched profiles', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
+      // Mock ensureAccessToken to return a token
+      mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+      // Mock getTokens to return user info
+      mockGetTokens.mockResolvedValueOnce({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh-token',
+        user: mockUser,
+      });
       
       const savedProfile = {
         id: 'profile-1',
@@ -408,6 +425,7 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
+      expect(mockEnsureAccessToken).toHaveBeenCalled();
       expect(mockGetTokens).toHaveBeenCalled();
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'auth_token',
@@ -421,8 +439,14 @@ describe('authSlice', () => {
     });
 
     it('should use first profile if saved profile does not exist', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
+      // Mock ensureAccessToken to return a token
+      mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+      // Mock getTokens to return user info
+      mockGetTokens.mockResolvedValueOnce({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh-token',
+        user: mockUser,
+      });
       
       const savedProfile = {
         id: 'profile-3', // This profile doesn't exist in the fetched profiles
@@ -455,6 +479,7 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
+      expect(mockEnsureAccessToken).toHaveBeenCalled();
       expect(mockGetTokens).toHaveBeenCalled();
       // The thunk should process authentication - verify setItem was called
       // It should set auth_token and potentially current_profile
@@ -466,8 +491,14 @@ describe('authSlice', () => {
     });
 
     it('should handle invalid saved profile JSON', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
+      // Mock ensureAccessToken to return a token
+      mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+      // Mock getTokens to return user info
+      mockGetTokens.mockResolvedValueOnce({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh-token',
+        user: mockUser,
+      });
       
       mockLocalStorage.getItem
         .mockReturnValueOnce('test-token')
@@ -488,6 +519,7 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
+      expect(mockEnsureAccessToken).toHaveBeenCalled();
       expect(mockGetTokens).toHaveBeenCalled();
     });
   });
@@ -495,13 +527,20 @@ describe('authSlice', () => {
   describe('refresh token integration', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      // Reset mock to return null by default
+      // Reset mocks to default values
+      mockEnsureAccessToken.mockResolvedValue('test-token');
       mockGetTokens.mockResolvedValue(null);
     });
 
     it('should use refreshTokenService.clearAllAuthTokens in initializeAuth error handling', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
+      // Mock ensureAccessToken to return a token
+      mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+      // Mock getTokens to return user info
+      mockGetTokens.mockResolvedValueOnce({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh-token',
+        user: mockUser,
+      });
       
       mockLocalStorage.getItem
         .mockReturnValueOnce('test-token')
@@ -516,6 +555,7 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
+      expect(mockEnsureAccessToken).toHaveBeenCalled();
       expect(mockGetTokens).toHaveBeenCalled();
       expect(mockRefreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
     });
@@ -563,6 +603,15 @@ describe('authSlice', () => {
 
       for (const error of errorScenarios) {
         jest.clearAllMocks();
+        
+        // Mock ensureAccessToken to return a token so we reach the error handling
+        mockEnsureAccessToken.mockResolvedValueOnce('test-token');
+        // Mock getTokens to return user info
+        mockGetTokens.mockResolvedValueOnce({
+          access_token: 'test-token',
+          refresh_token: 'test-refresh-token',
+          user: mockUser,
+        });
         
         mockLocalStorage.getItem
           .mockReturnValueOnce('test-token')
