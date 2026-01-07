@@ -3,8 +3,41 @@
  * Tests that environment detection works correctly for dev/prod switching
  */
 
+// Mock axios
+const mockPost = jest.fn();
+const mockGet = jest.fn();
+const mockAxiosInstance = {
+  post: mockPost,
+  get: mockGet,
+  interceptors: {
+    request: { use: jest.fn() },
+    response: { use: jest.fn() },
+  },
+};
+
+jest.mock('axios', () => ({
+  create: jest.fn(() => mockAxiosInstance),
+}));
+
+// Mock FiduAuthService
+const mockFiduAuthService = {
+  ensureAccessToken: jest.fn().mockResolvedValue(undefined),
+  createAuthInterceptor: jest.fn(() => ({
+    request: jest.fn((config) => config),
+    response: jest.fn((response) => response),
+    error: jest.fn(),
+  })),
+};
+
+jest.mock('../services/auth/FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(() => mockFiduAuthService),
+  AuthenticationRequiredError: class AuthenticationRequiredError extends Error {},
+  TokenAcquisitionTimeoutError: class TokenAcquisitionTimeoutError extends Error {},
+}));
+
 import { detectRuntimeEnvironment } from '../utils/environment';
 import { CookieSettingsService } from '../services/settings/CookieSettingsService';
+import { UserSettings } from '../types';
 
 describe('Environment Detection for Dev/Prod Switching', () => {
   beforeEach(() => {
@@ -16,6 +49,8 @@ describe('Environment Detection for Dev/Prod Switching', () => {
       },
       writable: true,
     });
+
+    jest.clearAllMocks();
   });
 
   describe('CookieSettingsService Environment Detection', () => {
@@ -91,8 +126,7 @@ describe('Environment Detection for Dev/Prod Switching', () => {
   });
 
   describe('Environment-Specific Cookie Names', () => {
-    it('should use different cookie names for different environments', async () => {
-      // Test dev environment
+    it('should use dev cookie names for dev environment', async () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'dev.chatlab.firstdataunion.org',
@@ -103,36 +137,62 @@ describe('Environment Detection for Dev/Prod Switching', () => {
 
       const devService = new CookieSettingsService();
       
-      // Mock fetch to capture the request
-      global.fetch = jest.fn()
-        // Mock auth token fetch first
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ 
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' }
-          }),
-        })
-        // Then mock settings call
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ success: true }),
-        });
+      // Mock axios post to return success
+      mockPost.mockResolvedValueOnce({
+        status: 200,
+        data: { success: true },
+      });
 
-      const mockSettings = { theme: 'dark', storageMode: 'cloud' };
+      const mockSettings = { theme: 'dark', storageMode: 'cloud' } as UserSettings;
       await devService.setSettings(mockSettings);
 
       // Verify the request includes environment information
-      expect(fetch).toHaveBeenNthCalledWith(2,
-        '/fidu-chat-lab/api/settings/set',
+      expect(mockPost).toHaveBeenCalledWith(
+        'api/settings/set',
         expect.objectContaining({
-          body: expect.stringContaining('"environment":"dev"'),
+          settings: expect.objectContaining({
+            environment: 'dev',
+            environmentPrefix: '_dev',
+          }),
+          environment: 'dev',
         })
       );
     });
 
-    it('should validate environment when retrieving settings', () => {
+    it('should use prod cookie names for prod environment', async () => {
+      Object.defineProperty(window, 'location', {
+        value: {
+          hostname: 'chatlab.firstdataunion.org',
+          pathname: '/fidu-chat-lab',
+        },
+        writable: true,
+      });
+
+      const prodService = new CookieSettingsService();
+      
+      // Mock axios post to return success
+      mockPost.mockResolvedValueOnce({
+        status: 200,
+        data: { success: true },
+      });
+
+      const mockSettings = { theme: 'dark', storageMode: 'cloud' } as UserSettings;
+      await prodService.setSettings(mockSettings);
+
+      // Verify the request includes environment information
+      expect(mockPost).toHaveBeenCalledWith(
+        'api/settings/set',
+        expect.objectContaining({
+          settings: expect.objectContaining({
+            environment: 'prod',
+            environmentPrefix: '',
+          }),
+          environment: 'prod',
+        })
+      );
+    });
+
+    it('should validate environment when retrieving settings', async () => {
       // Mock dev environment
       Object.defineProperty(window, 'location', {
         value: {
@@ -144,21 +204,21 @@ describe('Environment Detection for Dev/Prod Switching', () => {
 
       const devService = new CookieSettingsService();
       
-      // Mock fetch to return settings for wrong environment
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ 
+      // Mock axios get to return settings for wrong environment
+      mockGet.mockResolvedValueOnce({
+        status: 200,
+        data: { 
           settings: { 
             theme: 'dark', 
             environment: 'prod' // Wrong environment!
           } 
-        }),
+        },
       });
 
-      return devService.getSettings().then(result => {
-        // Should return null because environment doesn't match
-        expect(result).toBeNull();
-      });
+      const result = await devService.getSettings();
+      // Should return null because environment doesn't match
+      expect(result).toBeNull();
+      expect(mockGet).toHaveBeenCalledWith('api/settings/get?env=dev');
     });
   });
 
