@@ -279,5 +279,32 @@ describe('FiduAuthService Auth Interceptor', () => {
       expect(clearAllAuthTokensSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('401 response, successful token refresh, 401 again on retry', () => {
+    it('should throw an error when the retry also fails', async () => {
+      const seenAuthorizationHeaders: (string | undefined)[] = [];
+      
+      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+        expect(typeof input).toBe('string');
+        const url = input as string;
+        expect(url).toContain('auth/fidu/refresh-access-token');
+        return Promise.resolve({
+          ...defaultResponse,
+          ok: true,
+          json: () => Promise.resolve({ access_token: refreshedAccessToken, expires_in: 3600 }),
+        });
+      });
+
+      app.get(testEndpoint, (req: Request, res: Response) => {
+        seenAuthorizationHeaders.push(req.headers.authorization);
+        res.status(401).json({ message: 'Unauthorized' });
+      });
+
+      await expect(axiosClient.get(testEndpoint)).rejects.toThrow(AuthenticationRequiredError);
+
+      expect(seenAuthorizationHeaders).toEqual([`Bearer ${initialAccessToken}`, `Bearer ${refreshedAccessToken}`]);
+    });
+  });
 });
 

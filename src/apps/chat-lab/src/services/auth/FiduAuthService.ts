@@ -1,3 +1,4 @@
+import { AxiosError } from 'axios';
 import type { User } from '../../types';
 import { detectRuntimeEnvironment } from '../../utils/environment';
 import { beginLogout, completeLogout, currentLogoutSource } from '../auth/logoutCoordinator';
@@ -462,8 +463,11 @@ export class FiduAuthService {
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             
             // Retry the original request
-            return this.retryRequest(originalRequest);
+            return await this.retryRequest(originalRequest);
           } catch (refreshError) {
+            if (refreshError instanceof AxiosError && refreshError.response?.status === 401) {
+              refreshError = new AuthenticationRequiredError('Authentication failed while retrying with refreshed token.');
+            }
             if (refreshError instanceof AuthenticationRequiredError) {
               console.error('Token refresh authentication failure, logging out user:', refreshError);
               this.clearAllAuthTokens();
@@ -472,11 +476,11 @@ export class FiduAuthService {
               console.error('Token refresh network error:', refreshError);
             }
 
-            return Promise.reject(refreshError);
+            throw refreshError;
           }
         }
         
-        return Promise.reject(error);
+        throw error;
       }
     };
   }
