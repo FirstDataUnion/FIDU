@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { type AxiosInstance, AxiosError, type AxiosResponse } from 'axios';
+import { type AxiosInstance, AxiosError } from 'axios';
 import type { UserSettings } from '../../types';
 import {
   getFiduAuthService,

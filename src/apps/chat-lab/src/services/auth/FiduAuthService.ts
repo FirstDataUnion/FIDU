@@ -465,18 +465,19 @@ export class FiduAuthService {
             // Retry the original request
             return await this.retryRequest(originalRequest);
           } catch (refreshError) {
+            let errorToThrow = refreshError;
             if (refreshError instanceof AxiosError && refreshError.response?.status === 401) {
-              refreshError = new AuthenticationRequiredError('Authentication failed while retrying with refreshed token.');
+              errorToThrow = new AuthenticationRequiredError('Authentication failed while retrying with refreshed token.');
             }
-            if (refreshError instanceof AuthenticationRequiredError) {
-              console.error('Token refresh authentication failure, logging out user:', refreshError);
+            if (errorToThrow instanceof AuthenticationRequiredError) {
+              console.error('Token refresh authentication failure, logging out user:', errorToThrow);
               this.clearAllAuthTokens();
               await this.dispatchLogout();
             } else {
-              console.error('Token refresh network error:', refreshError);
+              console.error('Token refresh network error:', errorToThrow);
             }
 
-            throw refreshError;
+            throw errorToThrow;
           }
         }
         

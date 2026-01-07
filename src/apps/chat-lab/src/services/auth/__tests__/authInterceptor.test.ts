@@ -14,6 +14,7 @@ import axios, { AxiosInstance } from 'axios';
 import { getFiduAuthService, TokenRefreshError } from '../FiduAuthService';
 import { AuthenticationRequiredError } from '../FiduAuthService';
 import { AddressInfo } from 'net';
+import * as environmentUtils from '../../../utils/environment';
 
 
 // Test configuration
@@ -99,7 +100,7 @@ describe('FiduAuthService Auth Interceptor', () => {
     await setupMockServer();
 
     // Mock environment detection
-    jest.spyOn(require('../../../utils/environment'), 'detectRuntimeEnvironment')
+    jest.spyOn(environmentUtils, 'detectRuntimeEnvironment')
       .mockReturnValue(testEnvironment);
 
     // Mock window.location
@@ -113,7 +114,7 @@ describe('FiduAuthService Auth Interceptor', () => {
     });
 
     // Mock fetch
-    let fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
+    const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
     global.fetch = fetchMock;
 
     // Set up OPTIONS CORS handler (headers added in middleware above)
@@ -155,7 +156,7 @@ describe('FiduAuthService Auth Interceptor', () => {
     it('should add Authorization header and return 200 response with expected data', async () => {
       const expectedData = { message: 'Success', data: { id: 1, name: 'Test' } };
       let requestCount = 0;
-      let authHeaders: (string | undefined)[] = [];
+      const authHeaders: (string | undefined)[] = [];
 
       // Set up ALL handlers for this test - must be done before any requests
       app.get(testEndpoint, (req: Request, res: Response) => {
@@ -180,10 +181,10 @@ describe('FiduAuthService Auth Interceptor', () => {
     it('should refresh token on 401, retry request, and return 200 response', async () => {
       const expectedData = { message: 'Success after retry', data: { id: 2 } };
       let testEndpointCallCount = 0;
-      let authHeaders: (string | undefined)[] = [];
+      const authHeaders: (string | undefined)[] = [];
 
-      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
-      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, _init?: RequestInit) => {
         expect(typeof input).toBe('string');
         const url = input as string;
         expect(url).toContain('auth/fidu/refresh-access-token');
@@ -224,8 +225,8 @@ describe('FiduAuthService Auth Interceptor', () => {
 
   describe('401 response with 401 refresh token response', () => {
     beforeEach(() => {
-      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
-      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, _init?: RequestInit) => {
         expect(typeof input).toBe('string');
         const url = input as string;
         expect(url).toContain('auth/fidu/refresh-access-token');
@@ -273,7 +274,7 @@ describe('FiduAuthService Auth Interceptor', () => {
     it('should not clear tokens and dispatch logout on network error', async () => {
       const clearAllAuthTokensSpy = jest.spyOn(fiduAuthService, 'clearAllAuthTokens');
 
-      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
       fetchMock.mockRejectedValue(new Error('Network error'));
 
       app.get(testEndpoint, (req: Request, res: Response) => {
@@ -291,8 +292,8 @@ describe('FiduAuthService Auth Interceptor', () => {
     it('should throw an error when the retry also fails', async () => {
       const seenAuthorizationHeaders: (string | undefined)[] = [];
       
-      let fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
-      fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockImplementation((input: string | URL | globalThis.Request, _init?: RequestInit) => {
         expect(typeof input).toBe('string');
         const url = input as string;
         expect(url).toContain('auth/fidu/refresh-access-token');
