@@ -14,14 +14,12 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import { createServer, Server } from 'http';
-import { GoogleDriveAuthService, ServiceUnavailableError, getGoogleDriveAuthService } from '../GoogleDriveAuth';
-import { getFiduAuthService, AuthenticationRequiredError, TokenRefreshError } from '../FiduAuthService';
+import { GoogleDriveAuthConfig, GoogleDriveAuthService, ServiceUnavailableError, getGoogleDriveAuthService } from '../GoogleDriveAuth';
+import { getFiduAuthService, AuthenticationRequiredError, TokenRefreshError, FiduAuthService } from '../FiduAuthService';
+import { AddressInfo } from 'net';
 
 // Test configuration
-const testPort = 9876;
-const testBaseUrl = `http://localhost:${testPort}`;
 const testEnvironment = 'dev';
-const identityServicePort = 9877;
 
 // Test tokens
 const fiduAccessToken = 'fidu-access-token';
@@ -59,17 +57,21 @@ const defaultResponse = {
 };
 
 describe('GoogleDriveAuth FiduAuthService Integration', () => {
+  let testPort: number;
+  let testBaseUrl: string;
   let fiduApp: Express;
   let fiduServer: Server;
+  let identityServicePort: number;
   let identityServiceApp: Express;
   let identityServiceServer: Server;
+  let baseGoogleDriveAuthConfig: GoogleDriveAuthConfig;
   let googleDriveAuth: GoogleDriveAuthService;
-  let fiduAuthService: ReturnType<typeof getFiduAuthService>;
+  let fiduAuthService: FiduAuthService;
   let fetchCallHistory: Array<{ url: string; method?: string }> = [];
   let identityServiceCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
   let fiduAppCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
 
-  function setupMockServer(done: () => void) {
+  async function setupMockServer(): Promise<void> {
     fiduApp = express();
     fiduApp.use(express.json());
     fiduApp.use((req, res, next) => {
@@ -97,12 +99,14 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     // });
 
     fiduServer = createServer(fiduApp);
-    const mockServerListening = new Promise((resolve) => {
-      fiduServer.listen(testPort, () => {
-          resolve(true);
-        });
-      }
-    );
+    const fiduServerListening = new Promise<void>((resolve) => {
+      fiduServer.listen(0, () => {
+        const address = fiduServer.address() as AddressInfo;
+        testPort = address.port;
+        testBaseUrl = `http://localhost:${testPort}`;
+        resolve();
+      });
+    });
 
 
     identityServiceApp = express();
@@ -126,15 +130,15 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     });
 
     identityServiceServer = createServer(identityServiceApp);
-    const identityServiceServerListening = new Promise((resolve) => {
-      identityServiceServer.listen(identityServicePort, () => {
-        resolve(true);
+    const identityServiceServerListening = new Promise<void>((resolve) => {
+      identityServiceServer.listen(0, () => {
+        const address = identityServiceServer.address() as AddressInfo;
+        identityServicePort = address.port;
+        resolve();
       });
     });
 
-    Promise.all([mockServerListening, identityServiceServerListening]).then(() => {
-      done();
-    });
+    return Promise.all([fiduServerListening, identityServiceServerListening]).then(() => {});
   }
 
   function setUpValidFiduAppEndpoints() {
@@ -306,7 +310,9 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     return fetchMock;
   }
 
-  beforeAll(() => {});
+  beforeAll(async () => {
+    baseGoogleDriveAuthConfig = (await getGoogleDriveAuthService() as any).config;
+  });
 
   afterAll(() => {});
 
@@ -323,23 +329,22 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
       (googleDriveAuth as any).user = null;
     }
     
-    const fiduServerClosed = new Promise((resolve) => {
-      fiduServer.close(() => {
-        resolve(true);
-      });
+    const fiduServerClosed = new Promise<Error | undefined>((resolve) => {
+      fiduServer.close(resolve);
     });
-    const identityServiceServerClosed = new Promise((resolve) => {
-      identityServiceServer.close(() => {
-        resolve(true);
-      });
+    const identityServiceServerClosed = new Promise<Error | undefined>((resolve) => {
+      identityServiceServer.close(resolve);
     });
-    Promise.all([fiduServerClosed, identityServiceServerClosed]).then(() => {
+    Promise.all([fiduServerClosed, identityServiceServerClosed]).then((errors) => {
+      if (errors.some(error => error !== undefined)) {
+        console.error('Failed to close servers', errors);
+      }
       done();
     });
   });
 
-  beforeEach((done) => {
-    setupMockServer(done);
+  beforeEach(async () => {
+    await setupMockServer();
 
     // Mock environment detection
     jest.spyOn(require('../../../utils/environment'), 'detectRuntimeEnvironment')
@@ -372,7 +377,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+      googleDriveAuth = new GoogleDriveAuthService({...baseGoogleDriveAuthConfig, testHostName: testBaseUrl});
       setUpValidFiduAppEndpoints();
     });
 
@@ -420,7 +425,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+      googleDriveAuth = new GoogleDriveAuthService({...baseGoogleDriveAuthConfig, testHostName: testBaseUrl});
 
       fiduApp.use((req, res, next) => {
         if (req.headers.authorization === `Bearer ${fiduAccessToken}`) {
@@ -592,7 +597,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+      googleDriveAuth = new GoogleDriveAuthService({...baseGoogleDriveAuthConfig, testHostName: testBaseUrl});
 
       const defaultFetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
       global.fetch = jest.fn().mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
@@ -645,7 +650,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+      googleDriveAuth = new GoogleDriveAuthService({...baseGoogleDriveAuthConfig, testHostName: testBaseUrl});
 
       fiduApp.use((req, res, next) => {
         if (req.url.includes('/api/oauth/exchange-code')) {

@@ -13,11 +13,10 @@ import { createServer, Server } from 'http';
 import axios, { AxiosInstance } from 'axios';
 import { getFiduAuthService, TokenRefreshError } from '../FiduAuthService';
 import { AuthenticationRequiredError } from '../FiduAuthService';
+import { AddressInfo } from 'net';
 
 
 // Test configuration
-const testPort = 9876;
-const testBaseUrl = `http://localhost:${testPort}`;
 const testEnvironment = 'dev';
 const testEndpoint = '/api/test-endpoint';
 
@@ -49,12 +48,14 @@ const defaultResponse = {
 };
 
 describe('FiduAuthService Auth Interceptor', () => {
+  let testPort: number;
+  let testBaseUrl: string;
   let mockServer: Server;
   let app: Express;
   let axiosClient: AxiosInstance;
   let fiduAuthService: ReturnType<typeof getFiduAuthService>;
 
-  function setupMockServer(done: () => void) {
+  async function setupMockServer(): Promise<void> {
     app = express();
     app.use(express.json());
     app.use((req, res, next) => {
@@ -71,8 +72,14 @@ describe('FiduAuthService Auth Interceptor', () => {
     // });
 
     mockServer = createServer(app);
-    mockServer.listen(testPort, () => {
-      done();
+    return new Promise((resolve) => {
+      mockServer.listen(0, () => {
+        const address = mockServer.address() as AddressInfo;
+        testPort = address.port;
+        testBaseUrl = `http://localhost:${testPort}`;
+        console.log('testBaseUrl', testBaseUrl);
+        resolve();
+      });
     });
   }
 
@@ -88,8 +95,8 @@ describe('FiduAuthService Auth Interceptor', () => {
     });
   });
 
-  beforeEach((done) => {
-    setupMockServer(done);
+  beforeEach(async () => {
+    await setupMockServer();
 
     // Mock environment detection
     jest.spyOn(require('../../../utils/environment'), 'detectRuntimeEnvironment')

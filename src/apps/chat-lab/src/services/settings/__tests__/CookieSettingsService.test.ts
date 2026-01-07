@@ -9,16 +9,15 @@ import { createServer, Server } from 'http';
 import { CookieSettingsService } from '../CookieSettingsService';
 import { getFiduAuthService } from '../../auth/FiduAuthService';
 import type { UserSettings } from '../../../types';
-
-// Test configuration
-const testPort = 9876;
-const testBaseUrl = `http://localhost:${testPort}`;
+import { AddressInfo } from 'net';
 
 // Test tokens
 const fiduAccessToken = 'test-auth-token';
 const fiduRefreshToken = 'test-refresh-token';
 
 describe('CookieSettingsService', () => {
+  let testPort: number;
+  let testBaseUrl: string;
   let fiduApp: Express;
   let fiduServer: Server;
   let fiduAppCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
@@ -53,7 +52,7 @@ describe('CookieSettingsService', () => {
     },
   };
 
-  function setUpMockServer(done: () => void) {
+  async function setUpMockServer(): Promise<void> {
     fiduApp = express();
     fiduApp.use(express.json());
     fiduApp.use((req, res, next) => {
@@ -80,8 +79,13 @@ describe('CookieSettingsService', () => {
     });
 
     fiduServer = createServer(fiduApp);
-    fiduServer.listen(testPort, () => {
-      done();
+    return new Promise((resolve) => {
+      fiduServer.listen(0, () => {
+        const address = fiduServer.address() as AddressInfo;
+        testPort = address.port;
+        testBaseUrl = `http://localhost:${testPort}`;
+        resolve();
+      });
     });
   }
 
@@ -96,7 +100,9 @@ describe('CookieSettingsService', () => {
     }
   });
 
-  beforeEach((done) => {
+  beforeEach(async () => {
+    await setUpMockServer();
+
     // Mock window.location for production path and environment
     Object.defineProperty(window, 'location', {
       value: {
@@ -118,8 +124,6 @@ describe('CookieSettingsService', () => {
       writable: true,
       value: true,
     });
-
-    setUpMockServer(done);
 
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
