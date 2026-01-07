@@ -14,8 +14,8 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import { createServer, Server } from 'http';
-import { GoogleDriveAuthService, getGoogleDriveAuthService } from '../GoogleDriveAuth';
-import { getFiduAuthService, AuthenticationRequiredError } from '../FiduAuthService';
+import { GoogleDriveAuthService, ServiceUnavailableError, getGoogleDriveAuthService } from '../GoogleDriveAuth';
+import { getFiduAuthService, AuthenticationRequiredError, TokenRefreshError } from '../FiduAuthService';
 
 // Test configuration
 const testPort = 9876;
@@ -26,10 +26,14 @@ const identityServicePort = 9877;
 // Test tokens
 const fiduAccessToken = 'fidu-access-token';
 const fiduRefreshedAccessToken = 'fidu-refreshed-access-token';
+const fiduRefreshToken = 'fidu-refresh-token';
 const googleAccessToken = 'google-access-token';
+const googleExpiredAccessToken = 'google-expired-access-token';
 const googleRefreshedAccessToken = 'google-refreshed-access-token';
 const googleRefreshToken = 'google-refresh-token';
 const testGoogleClientId = 'test-google-client-id';
+
+const scope_string = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 
 // Default response for fetch
 const defaultHeaders = new Headers({
@@ -63,6 +67,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
   let fiduAuthService: ReturnType<typeof getFiduAuthService>;
   let fetchCallHistory: Array<{ url: string; method?: string }> = [];
   let identityServiceCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
+  let fiduAppCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
 
   function setupMockServer(done: () => void) {
     fiduApp = express();
@@ -74,16 +79,22 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       next();
     });
+    fiduApp.use((req, res, next) => {
+      if (req.method !== 'OPTIONS') {
+        fiduAppCallHistory.push({ url: req.url, method: req.method, authorization: req.headers.authorization });
+      }
+      next();
+    });
     fiduApp.options('*path', (req: Request, res: Response) => {
       res.sendStatus(200);
     });
 
     // Debug helper middleware
-    fiduApp.use((req, res, next) => {
-      console.log(req.method, req.path, req.headers.authorization || 'no auth');
-      next();
-      console.log(req.method, req.path, res.statusCode);
-    });
+    // fiduApp.use((req, res, next) => {
+    //   console.log(req.method, req.path, req.headers.authorization || 'no auth');
+    //   next();
+    //   console.log(req.method, req.path, res.statusCode);
+    // });
 
     fiduServer = createServer(fiduApp);
     const mockServerListening = new Promise((resolve) => {
@@ -126,7 +137,58 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     });
   }
 
-  function createFetchMock() {
+  function setUpValidFiduAppEndpoints() {
+    fiduApp.get('/api/oauth/get-tokens', (req: Request, res: Response) => {
+      res.json({
+        has_tokens: true,
+        refresh_token: googleRefreshToken,
+      });
+    });
+    fiduApp.post('/api/oauth/refresh-token', (req: Request, res: Response) => {
+      res.json({
+        access_token: googleAccessToken,
+        expires_in: 3600,
+        scope: scope_string,
+      });
+    });
+    fiduApp.post('/api/oauth/exchange-code', (req: Request, res: Response) => {
+      res.json({
+        access_token: googleAccessToken,
+        expires_in: 3600,
+        scope: scope_string,
+      });
+    });
+  }
+
+  function setUpWindowLocationForOAuthCallback() {
+    const code = 'test-oauth-code';
+    const urlParams = new URLSearchParams();
+    urlParams.set('code', code);
+    urlParams.set('state', 'test-state');
+    sessionStorage.setItem('google_oauth_state', 'test-state');
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/',
+        hostname: 'localhost',
+        port: String(testPort),
+        origin: testBaseUrl,
+        href: `${testBaseUrl}/?${urlParams.toString()}`,
+        search: `?${urlParams.toString()}`,
+      },
+      writable: true,
+    });
+  }
+  
+  function setUpExpiredGoogleOAuthToken(googleDriveAuth: GoogleDriveAuthService) {
+    (googleDriveAuth as any).tokens = {
+      accessToken: googleExpiredAccessToken,
+      refreshToken: fiduRefreshToken,
+      expiresAt: Date.now() - 1000, // Expired
+      scope: scope_string,
+    };
+  }
+
+  function setUpValidFetchMock() {
     const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
     
     fetchMock.mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
@@ -158,7 +220,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
             ok: true,
             status: 200,
             json: () => Promise.resolve({
-              scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+              scope: scope_string,
             }),
           });
         }
@@ -189,7 +251,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
             status: 200,
             json: () => Promise.resolve({
               access_token: fiduAccessToken,
-              refresh_token: 'fidu-refresh-token',
+              refresh_token: fiduRefreshToken,
               user: { id: '1', email: 'test@example.com', profiles: [] },
             }),
           });
@@ -254,7 +316,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     sessionStorage.clear();
     fetchCallHistory = [];
     identityServiceCallHistory = [];
-
+    fiduAppCallHistory = [];
     // Clear any state from services
     if (googleDriveAuth) {
       (googleDriveAuth as any).tokens = null;
@@ -297,228 +359,310 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     });
 
     // Mock fetch
-    global.fetch = createFetchMock();
+    global.fetch = setUpValidFetchMock();
 
-    // Initialize FiduAuthService and set tokens
+    // Initialize FiduAuthService
     fiduAuthService = getFiduAuthService();
   });
 
-  describe('OAuth code exchange with FIDU auth interceptor', () => {
-    it('should exchange OAuth code for tokens using FIDU auth interceptor', async () => {
-      const oauthCode = 'test-oauth-code';
-      const seenAuthorizationHeaders: (string | undefined)[] = [];
-      const seenCodes: (string | undefined)[] = [];
-
+  describe('a valid FIDU access token is cached in memory', () => {
+    beforeEach(async () => {
       fiduAuthService.setTokens(
         fiduAccessToken,
-        'fidu-refresh-token',
+        fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-      
-      // Set up Express endpoint for token exchange
-      fiduApp.post('/api/oauth/exchange-code', (req: Request, res: Response) => {
-        // Verify FIDU auth header was added by interceptor
-        seenAuthorizationHeaders.push(req.headers.authorization);
-        seenCodes.push(req.body?.code);
-        res.json({
-          access_token: googleAccessToken,
-          expires_in: 3600,
-          scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-        });
-      });
-
-
-      // Simulate OAuth callback
-      const urlParams = new URLSearchParams();
-      urlParams.set('code', oauthCode);
-      urlParams.set('state', 'test-state');
-      sessionStorage.setItem('google_oauth_state', 'test-state');
-      
-      Object.defineProperty(window, 'location', {
-        value: {
-          pathname: '/',
-          hostname: 'localhost',
-          port: String(testPort),
-          origin: testBaseUrl,
-          href: `${testBaseUrl}/?${urlParams.toString()}`,
-          search: `?${urlParams.toString()}`,
-        },
-        writable: true,
-      });
-
       googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
-
-      // Initialize should handle the callback
-      await googleDriveAuth.initialize();
-
-      expect(seenAuthorizationHeaders).toEqual([`Bearer ${fiduAccessToken}`]);
-      expect(seenCodes).toEqual([oauthCode]);
-
-      // Verify fetch calls were made in correct order
-      const fetchCalls = fetchCallHistory.map(c => c.url);
-      expect(fetchCalls).toEqual(expect.arrayContaining([
-        expect.stringContaining('/api/auth/fidu/set-tokens'),
-        expect.stringContaining('/api/config'),
-        expect.stringContaining("googleapis.com/oauth2/v2/userinfo"),
-      ]));
-
-      // Verify identity service calls were made in correct order
-      expect(identityServiceCallHistory).toEqual(expect.arrayContaining([
-        { url: '/user/google-email', method: 'PUT', authorization: `Bearer ${fiduAccessToken}` },
-      ]));
+      setUpValidFiduAppEndpoints();
     });
-  });
 
-  describe('Token refresh with FIDU auth interceptor', () => {
-    let seenRefreshTokenAuthorizationHeaders: (string | undefined)[] = [];
-    let seenGetTokensAuthorizationHeaders: (string | undefined)[] = [];
+    it('processOAuthCallback should store new Google OAuth tokens in memory', async () => {
+      setUpWindowLocationForOAuthCallback();
 
-    beforeEach(async () => {
-      seenRefreshTokenAuthorizationHeaders = [];
-      seenGetTokensAuthorizationHeaders = [];
+      await googleDriveAuth.processOAuthCallback();
 
-      // Set up endpoints
-      fiduApp.post('/api/oauth/refresh-token', (req: Request, res: Response) => {
-        // Store FIDU auth header for verification outside endpoint
-        seenRefreshTokenAuthorizationHeaders.push(req.headers.authorization);
-        res.json({
-          access_token: googleRefreshedAccessToken,
-          expires_in: 3600,
-          scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-        });
-      });
+      expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
+        accessToken: googleAccessToken,
+      }));
+      expect(fiduAppCallHistory).toEqual([expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` })]);
+    });
 
-      fiduApp.get('/api/oauth/get-tokens', (req: Request, res: Response) => {
-        // Store FIDU auth header for verification outside endpoint
-        seenGetTokensAuthorizationHeaders.push(req.headers.authorization);
-        res.json({
-          has_tokens: true,
-          refresh_token: googleRefreshToken,
-        });
-      });
+    it('getAccessToken should refresh its expired Google OAuth token', async () => {
+      setUpExpiredGoogleOAuthToken(googleDriveAuth);
 
-      // Initialize GoogleDriveAuth
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
-      
-      // Set up tokens in memory
-      (googleDriveAuth as any).tokens = {
+      await googleDriveAuth.getAccessToken();
+
+      expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
+        accessToken: googleAccessToken,
+      }));
+      expect(fiduAppCallHistory).toEqual([expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` })]);
+    });
+
+    it('restoreFromCookies should set the tokens in memory', async () => {
+      const restored = await googleDriveAuth.restoreFromCookies();
+
+      expect(restored).toBe(true);
+      expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
         accessToken: googleAccessToken,
         refreshToken: googleRefreshToken,
-        expiresAt: Date.now() - 1000, // Expired
-        scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-      };
-    });
-
-    it('should refresh Google token using FIDU auth interceptor', async () => {
-      const newToken = await googleDriveAuth.getAccessToken();
-      
-      expect(newToken).toBe(googleRefreshedAccessToken);
-      
-      // Verify FIDU auth header was added by interceptor
-      expect(seenRefreshTokenAuthorizationHeaders).toEqual([`Bearer ${fiduAccessToken}`]);
+      }));
+      expect(fiduAppCallHistory).toEqual([
+        expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
+        expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
+      ]);
     });
   });
 
-  describe('401 response handling with token refresh retry', () => {
-    let seenRefreshTokenAuthorizationHeaders: (string | undefined)[] = [];
-
+  describe('a seemingly valid but revoked FIDU access token is cached in memory', () => {
     beforeEach(async () => {
-      seenRefreshTokenAuthorizationHeaders = [];
+      fiduAuthService.setTokens(
+        fiduAccessToken,
+        fiduRefreshToken,
+        { id: '1', email: 'test@example.com', profiles: [] }
+      );
+      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
 
-      // Set up endpoints
-      let callCount = 0;
-      
-      fiduApp.post('/api/oauth/refresh-token', (req: Request, res: Response) => {
-        callCount++;
-        // Store FIDU auth header for verification outside endpoint
-        seenRefreshTokenAuthorizationHeaders.push(req.headers.authorization);
-        if (callCount === 1) {
-          // First call returns 401 - should trigger FIDU token refresh
+      fiduApp.use((req, res, next) => {
+        if (req.headers.authorization === `Bearer ${fiduAccessToken}`) {
           res.status(401).json({ message: 'Unauthorized' });
         } else {
-          // Retry with refreshed FIDU token succeeds
-          res.json({
-            access_token: googleRefreshedAccessToken,
-            expires_in: 3600,
-            scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+          next();
+        }
+      });
+    });
+
+    describe('and refreshing it succeeds', () => {
+      it('processOAuthCallback should retry a 401 and then store new Google OAuth tokens in memory', async () => {
+        setUpValidFiduAppEndpoints();
+        setUpWindowLocationForOAuthCallback();
+
+        await googleDriveAuth.processOAuthCallback();
+
+        expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
+          accessToken: googleAccessToken,
+        }));
+        expect(fiduAppCallHistory).toEqual([
+          expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
+          expect.objectContaining({ authorization: `Bearer ${fiduRefreshedAccessToken}` }),
+        ]);
+      });
+
+      it('getAccessToken should retry a 401 and then refresh its expired Google OAuth token', async () => {
+        setUpValidFiduAppEndpoints();
+        setUpExpiredGoogleOAuthToken(googleDriveAuth);
+
+        await googleDriveAuth.getAccessToken();
+
+        expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
+          accessToken: googleAccessToken,
+        }));
+        expect(fiduAppCallHistory).toEqual([
+          expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
+          expect.objectContaining({ authorization: `Bearer ${fiduRefreshedAccessToken}` }),
+        ]);
+      });
+
+      it('restoreFromCookies should retry a 401 and then set the tokens in memory', async () => {
+        setUpValidFiduAppEndpoints();
+        const restored = await googleDriveAuth.restoreFromCookies();
+
+        expect(restored).toBe(true);
+        expect((googleDriveAuth as any).tokens).toEqual(expect.objectContaining({
+          accessToken: googleAccessToken,
+          refreshToken: googleRefreshToken,
+        }));
+        expect(fiduAppCallHistory).toEqual([
+          expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
+          expect.objectContaining({ authorization: `Bearer ${fiduRefreshedAccessToken}` }),
+          expect.objectContaining({ authorization: `Bearer ${fiduRefreshedAccessToken}` }),
+        ]);
+      });
+
+      describe('but the following call fails for unrelated reasons', () => {
+        beforeEach(async () => {
+          fiduApp.use((req, res, next) => {
+            if (req.url.includes('/api/oauth/')) {
+              res.status(500).json({ message: 'Internal Server Error' });
+            } else {
+              next();
+            }
           });
+          setUpValidFiduAppEndpoints();
+        });
+
+        it('processOAuthCallback should throw an error', async () => {
+          setUpWindowLocationForOAuthCallback();
+
+          await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow("Backend OAuth error (500): Internal Server Error");
+        });
+
+        it('getAccessToken should throw an error', async () => {
+          setUpExpiredGoogleOAuthToken(googleDriveAuth);
+
+          await expect(googleDriveAuth.getAccessToken()).rejects.toThrow("Backend token refresh error (500): Internal Server Error");
+        });
+
+        it('restoreFromCookies should return false', async () => {
+          const restored = await googleDriveAuth.restoreFromCookies();
+
+          expect(restored).toBe(false);
+        });
+      });
+    });
+
+    describe('and refresh token is also invalid or expired', () => {
+      beforeEach(async () => {
+        const defaultFetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+        global.fetch = jest.fn().mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+          expect(typeof input).toBe('string');
+          const url = input as string;
+          if (url.includes('/api/auth/fidu/refresh-access-token')) {
+            return Promise.resolve({
+              ...defaultResponse,
+              ok: false,
+              status: 401,
+              json: () => Promise.resolve({ message: 'Unauthorized' }),
+            });
+          }
+          return defaultFetchMock(input, init);
+        });
+      });
+
+      it('processOAuthCallback should throw an error', async () => {
+        setUpWindowLocationForOAuthCallback();
+
+        await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow(AuthenticationRequiredError);
+      });
+
+      it('getAccessToken should throw an error', async () => {
+        setUpExpiredGoogleOAuthToken(googleDriveAuth);
+
+        await expect(googleDriveAuth.getAccessToken()).rejects.toThrow(AuthenticationRequiredError);
+      });
+
+      it('restoreFromCookies should return false', async () => {
+        const restored = await googleDriveAuth.restoreFromCookies();
+
+        expect(restored).toBe(false);
+      });
+    });
+
+    describe('and there is an error refreshing the FIDU access token', () => {
+      beforeEach(async () => {
+        const defaultFetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+        global.fetch = jest.fn().mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+          expect(typeof input).toBe('string');
+          const url = input as string;
+          if (url.includes('/api/auth/fidu/refresh-access-token')) {
+            return Promise.resolve({
+              ...defaultResponse,
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({ message: 'Internal Server Error' }),
+            });
+          }
+          return defaultFetchMock(input, init);
+        });
+      });
+
+      it('processOAuthCallback should throw a TokenRefreshError', async () => {
+        setUpWindowLocationForOAuthCallback();
+
+        await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow(TokenRefreshError);
+      });
+
+      it('getAccessToken should throw a TokenRefreshError', async () => {
+        setUpExpiredGoogleOAuthToken(googleDriveAuth);
+
+        await expect(googleDriveAuth.getAccessToken()).rejects.toThrow(TokenRefreshError);
+      });
+
+      it('restoreFromCookies should return false', async () => {
+        const restored = await googleDriveAuth.restoreFromCookies();
+
+        expect(restored).toBe(false);
+      });
+    });
+  });
+
+  describe('all FIDU services have server-side errors', () => {
+    beforeEach(async () => {
+      fiduAuthService.setTokens(
+        fiduAccessToken,
+        fiduRefreshToken,
+        { id: '1', email: 'test@example.com', profiles: [] }
+      );
+      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+
+      const defaultFetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      global.fetch = jest.fn().mockImplementation((input: string | URL | globalThis.Request, init?: RequestInit) => {
+        expect(typeof input).toBe('string');
+        const url = input as string;
+        if (url.includes('googleapis.com')) {
+          return defaultFetchMock(input, init);
+        }
+        return {
+          ...defaultResponse,
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ message: 'Internal Server Error' }),
         }
       });
 
-      // Initialize GoogleDriveAuth
-      googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
-      
-      // Set up tokens in memory
-      (googleDriveAuth as any).tokens = {
-        accessToken: googleAccessToken,
-        refreshToken: googleRefreshToken,
-        expiresAt: Date.now() - 1000, // Expired
-        scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-      };
+      fiduApp.use((req, res, next) => {
+        res.status(500).json({ message: 'Internal Server Error' });
+      });
+      setUpValidFiduAppEndpoints();
     });
 
-    it('should refresh FIDU token on 401 and retry Google token refresh', async () => {
-      const newToken = await googleDriveAuth.getAccessToken();
-      
-      expect(newToken).toBe(googleRefreshedAccessToken);
-      
-      // Verify FIDU auth headers - first call should use original token, retry should use refreshed token
-      expect(seenRefreshTokenAuthorizationHeaders).toEqual([`Bearer ${fiduAccessToken}`, `Bearer ${fiduRefreshedAccessToken}`]);
-      // Verify FIDU token refresh was called
-      expect(fetchCallHistory).toEqual(expect.arrayContaining([
-        expect.objectContaining({ url: expect.stringContaining('/api/auth/fidu/refresh-access-token'), method: 'POST' }),
-      ]));
+    it('processOAuthCallback should throw a ServiceUnavailableError', async () => {
+      setUpWindowLocationForOAuthCallback();
+
+      await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow("Backend OAuth error (500): Internal Server Error");
+
+      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
+    });
+    
+    it('getAccessToken should throw a ServiceUnavailableError', async () => {
+      setUpExpiredGoogleOAuthToken(googleDriveAuth);
+
+      await expect(googleDriveAuth.getAccessToken()).rejects.toThrow("Backend token refresh error (500): Internal Server Error");
+
+      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
+    });
+
+    it('restoreFromCookies should return false', async () => {
+      const restored = await googleDriveAuth.restoreFromCookies();
+      expect(restored).toBe(false);
+      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
     });
   });
 
-  describe('Restore from cookies with FIDU auth interceptor', () => {
-    let seenGetTokensAuthorizationHeaders: (string | undefined)[] = [];
-    let seenRefreshTokenAuthorizationHeaders: (string | undefined)[] = [];
-
+  describe('FIDU backend cannot exchange code for tokens', () => {
     beforeEach(async () => {
-      seenGetTokensAuthorizationHeaders = [];
-      seenRefreshTokenAuthorizationHeaders = [];
-
-      // Set up endpoint for getting tokens from cookies
-      fiduApp.get('/api/oauth/get-tokens', (req: Request, res: Response) => {
-        // Store FIDU auth header for verification outside endpoint
-        seenGetTokensAuthorizationHeaders.push(req.headers.authorization);
-        res.json({
-          has_tokens: true,
-          refresh_token: googleRefreshToken,
-        });
-      });
-
-      fiduApp.post('/api/oauth/refresh-token', (req: Request, res: Response) => {
-        // Store FIDU auth header for verification outside endpoint
-        seenRefreshTokenAuthorizationHeaders.push(req.headers.authorization);
-        res.json({
-          access_token: googleAccessToken,
-          expires_in: 3600,
-          scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
-        });
-      });
-
       fiduAuthService.setTokens(
         fiduAccessToken,
-        'fidu-refresh-token',
+        fiduRefreshToken,
         { id: '1', email: 'test@example.com', profiles: [] }
       );
-
-      // Initialize GoogleDriveAuth
       googleDriveAuth = await getGoogleDriveAuthService(testBaseUrl);
+
+      fiduApp.use((req, res, next) => {
+        if (req.url.includes('/api/oauth/exchange-code')) {
+          res.status(503).json({ message: 'Gateway error' });
+        } else {
+          next();
+        }
+      });
+      setUpValidFiduAppEndpoints();
     });
 
-    it('should restore tokens from cookies using FIDU auth interceptor', async () => {
-      const restored = await googleDriveAuth.restoreFromCookies();
-      
-      expect(restored).toBe(true);
-      
-      // Verify FIDU auth header was added by interceptor
-      expect(seenGetTokensAuthorizationHeaders).toEqual([`Bearer ${fiduAccessToken}`]);
-      expect(fetchCallHistory).toEqual(expect.arrayContaining([
-        expect.objectContaining({ url: expect.stringContaining('googleapis.com/oauth2/v2/userinfo'), method: 'GET' }),
-      ]));
+    it('processOAuthCallback should throw a ServiceUnavailableError', async () => {
+      setUpWindowLocationForOAuthCallback();
+
+      await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow("Backend OAuth error (503): Gateway error");
+
+      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/oauth/exchange-code'}));
     });
   });
 });

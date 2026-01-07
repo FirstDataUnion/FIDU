@@ -3,7 +3,7 @@
  * Handles OAuth 2.0 flow for Google Drive access
  */
 import axios from 'axios';
-import type { AxiosInstance, AxiosError } from 'axios';
+import { type AxiosInstance, AxiosError } from 'axios';
 import {
   getFiduAuthService,
   AuthenticationRequiredError,
@@ -103,31 +103,18 @@ export class GoogleDriveAuthService {
     // Response interceptor
     this.client.interceptors.response.use(
       authInterceptor.response,
-      async (error: AxiosError) => {
-        try {
-          // Try the auth interceptor's error handler first
-          return await authInterceptor.error(error);
-        } catch (authError) {
-          // If the auth interceptor throws an authentication-related error,
-          // let it propagate (this will trigger logout)
-          // TODO: use specific error types for authentication errors
-          if (authError instanceof Error && 
-              (authError.message.includes('Authentication required') || 
-               authError.message.includes('Please log in again'))) {
-            throw authError;
-          }
-          // If auth interceptor doesn't handle it, handle other errors
-          if (error.response) {
-            const errorText = error.response.data || 'An error occurred';
-            throw new Error(`Backend OAuth error (${error.response.status}): ${errorText}`);
-          } else if (error.request) {
-            console.error('No response received from backend:', error);
-            throw new Error('No response received from backend');
-          } else {
-            console.error('Error setting up backend request:', error);
-            throw new Error('Error setting up backend request');
-          }
+      authInterceptor.error,
+    );
+
+    // Return response for non-auth errors to allow the individual methods to handle them
+    // If there is something all methods should do, it should be added here.
+    this.client.interceptors.response.use(
+      response => response,
+      error => {
+        if (error instanceof AxiosError) {
+          return error.response;
         }
+        throw error;
       }
     );
   }
@@ -620,6 +607,12 @@ export class GoogleDriveAuthService {
         return tokens;
       }
 
+      // Backend returned error (400/500)  don't fall back, this is a backend issue
+      if (response.status >= 400) {
+        const errorText = response.data?.message || "Unknown error";
+        throw new Error(`Backend OAuth error (${response.status}): ${errorText}`);
+      }
+
     // Shouldn't reach here
     throw new Error('Unexpected state in token exchange');
   }
@@ -744,7 +737,7 @@ export class GoogleDriveAuthService {
         const errorData = response.data;
         const errorMessage = typeof(errorData) === 'string'
             ? errorData 
-            : (errorData?.detail || errorData?.error || 'Unknown error');
+            : (errorData?.message || 'Unknown error');
         
         // Handle 503 Service Unavailable errors
         if (response.status === 503) {
