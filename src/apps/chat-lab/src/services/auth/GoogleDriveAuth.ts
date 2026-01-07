@@ -111,7 +111,7 @@ export class GoogleDriveAuthService {
     this.client.interceptors.response.use(
       response => response,
       error => {
-        if (error instanceof AxiosError) {
+        if (error instanceof AxiosError && error.response) {
           return error.response;
         }
         throw error;

@@ -3,6 +3,8 @@
  * Handles storing and retrieving user settings from HTTP-only cookies
  */
 
+import axios from 'axios';
+import { type AxiosInstance, AxiosError, type AxiosResponse } from 'axios';
 import type { UserSettings } from '../../types';
 import {
   getFiduAuthService,
@@ -22,13 +24,27 @@ export type CookieSettingsMutationResult =
   | { success: false; reason: 'unexpected_error'; error: unknown };
 
 export class CookieSettingsService {
-  private basePath: string;
+  private client: AxiosInstance;
   private environment: string;
 
-  constructor() {
-    this.basePath = window.location.pathname.includes('/fidu-chat-lab') 
-      ? '/fidu-chat-lab' 
-      : '';
+  constructor(testHostName?: string) {
+    let baseURL;
+    if (testHostName && detectRuntimeEnvironment() === 'dev') {
+      baseURL = testHostName;
+    } else {
+      baseURL = window.location.pathname.includes('/fidu-chat-lab')
+        ? '/fidu-chat-lab'
+        : '';
+    }
+    this.client = axios.create({
+      baseURL: baseURL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true,
+    });
+    this.setUpInterceptors();
     
     // Detect environment based on hostname using shared utility
     this.environment = detectRuntimeEnvironment();
@@ -41,6 +57,29 @@ export class CookieSettingsService {
     return this.environment !== 'prod' ? `_${this.environment}` : '';
   }
 
+  private setUpInterceptors(): void {
+    const authInterceptor = getFiduAuthService().createAuthInterceptor();
+    this.client.interceptors.request.use(
+      authInterceptor.request,
+      (error: AxiosError) => {
+        return Promise.reject(error);
+      }
+    );
+    this.client.interceptors.response.use(
+      authInterceptor.response,
+      authInterceptor.error
+    );
+    this.client.interceptors.response.use(
+      response => response,
+      error => {
+        if (error instanceof AxiosError && error.response) {
+          return error.response;
+        }
+        throw error;
+      }
+    );
+  }
+
   /**
    * Store user settings in HTTP-only cookie
    * Requires authentication for security
@@ -50,8 +89,8 @@ export class CookieSettingsService {
       console.log(`🔄 Storing user settings in HTTP-only cookie for ${this.environment} environment...`);
       
       // Get auth token for secure storage
-      const authToken = await this.getAuthToken();
-      if (!authToken) {
+      const authTokenAvailable = await this.ensureAuthToken();
+      if (!authTokenAvailable) {
         console.warn('⚠️ No auth token available - cannot store settings securely');
         return { success: false, reason: 'auth_unavailable' };
       }
@@ -63,20 +102,12 @@ export class CookieSettingsService {
         environmentPrefix: this.getEnvironmentPrefix(),
       };
       
-      const response = await fetch(`${this.basePath}/api/settings/set`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        credentials: 'include', // Include HTTP-only cookies
-        body: JSON.stringify({ 
-          settings: settingsWithEnv,
-          environment: this.environment,
-        }),
+      const response = await this.client.post('api/settings/set', {
+        settings: settingsWithEnv,
+        environment: this.environment,
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         console.log('✅ User settings stored in HTTP-only cookie');
         return { success: true };
       } else {
@@ -98,22 +129,16 @@ export class CookieSettingsService {
       console.log(`🔄 Retrieving user settings from HTTP-only cookie for ${this.environment} environment...`);
       
       // Get auth token for secure retrieval
-      const authToken = await this.getAuthToken();
-      if (!authToken) {
+      const hasValidAuthToken = await this.ensureAuthToken();
+      if (!hasValidAuthToken) {
         console.warn('⚠️ No auth token available - cannot retrieve settings securely');
         return null;
       }
       
-      const response = await fetch(`${this.basePath}/api/settings/get?env=${this.environment}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-        credentials: 'include', // Include HTTP-only cookies
-      });
+      const response = await this.client.get(`api/settings/get?env=${this.environment}`);
 
-      if (response.ok) {
-        const data: CookieSettingsResponse = await response.json();
+      if (response.status === 200) {
+        const data: CookieSettingsResponse = response.data;
         if (data.settings) {
           // Validate that settings are for the current environment
           const settingsEnv = (data.settings as any).environment;
@@ -185,24 +210,25 @@ export class CookieSettingsService {
   /**
    * Get authentication token for secure requests
    */
-  private async getAuthToken(): Promise<string | null> {
+  private async ensureAuthToken(): Promise<boolean> {
     try {
       const fiduTokenService = getFiduAuthService();
-      return await fiduTokenService.ensureAccessToken({
+      await fiduTokenService.ensureAccessToken({
         onWait: () => console.log('🔐 Ensuring FIDU auth before fetching settings...'),
       });
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {
         console.warn('FIDU authentication required before fetching settings');
-        return null;
+        return false;
       }
       if (error instanceof TokenAcquisitionTimeoutError) {
         console.warn('Timed out waiting for FIDU auth while fetching settings');
-        return null;
+        return false;
       }
       console.warn('Failed to get auth token:', error);
-      return null;
+      return false;
     }
+    return true;
   }
 }
 

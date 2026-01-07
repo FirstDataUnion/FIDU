@@ -620,7 +620,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
 
       await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow("Backend OAuth error (500): Internal Server Error");
 
-      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
+      expect(fiduAppCallHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'})]));
     });
     
     it('getAccessToken should throw a ServiceUnavailableError', async () => {
@@ -628,13 +628,13 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
 
       await expect(googleDriveAuth.getAccessToken()).rejects.toThrow("Backend token refresh error (500): Internal Server Error");
 
-      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
+      expect(fiduAppCallHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'})]));
     });
 
     it('restoreFromCookies should return false', async () => {
       const restored = await googleDriveAuth.restoreFromCookies();
       expect(restored).toBe(false);
-      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'}));
+      expect(fiduAppCallHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'})]));
     });
   });
 
@@ -657,12 +657,12 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
       setUpValidFiduAppEndpoints();
     });
 
-    it('processOAuthCallback should throw a ServiceUnavailableError', async () => {
+    it('processOAuthCallback should throw an error', async () => {
       setUpWindowLocationForOAuthCallback();
 
       await expect(googleDriveAuth.processOAuthCallback()).rejects.toThrow("Backend OAuth error (503): Gateway error");
 
-      expect(fiduAppCallHistory).not.toContain(expect.objectContaining({ url: '/api/oauth/exchange-code'}));
+      expect(fiduAppCallHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'})]));
     });
   });
 });

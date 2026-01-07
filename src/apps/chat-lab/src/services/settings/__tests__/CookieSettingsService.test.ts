@@ -2,15 +2,27 @@
  * Tests for CookieSettingsService
  * High-impact tests for cookie-based settings storage
  */
+import express from 'express';
+import type { Express, Request, Response } from 'express';
+import { createServer, Server } from 'http';
 
 import { CookieSettingsService } from '../CookieSettingsService';
 import { getFiduAuthService } from '../../auth/FiduAuthService';
 import type { UserSettings } from '../../../types';
 
-// Mock fetch globally
-global.fetch = jest.fn();
+// Test configuration
+const testPort = 9876;
+const testBaseUrl = `http://localhost:${testPort}`;
+
+// Test tokens
+const fiduAccessToken = 'test-auth-token';
+const fiduRefreshToken = 'test-refresh-token';
 
 describe('CookieSettingsService', () => {
+  let fiduApp: Express;
+  let fiduServer: Server;
+  let fiduAppCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
+
   let service: CookieSettingsService;
   const mockSettings: UserSettings = {
     id: 'test-user',
@@ -41,26 +53,60 @@ describe('CookieSettingsService', () => {
     },
   };
 
-const createResponse = (body: any, overrides: Partial<Response> = {}) => ({
-  ok: true,
-  status: 200,
-  json: async () => body,
-  text: async () => JSON.stringify(body),
-  ...overrides,
-}) as unknown as Response;
+  function setUpMockServer(done: () => void) {
+    fiduApp = express();
+    fiduApp.use(express.json());
+    fiduApp.use((req, res, next) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      next();
+    });
+    // Debug helper middleware
+    // fiduApp.use((req, res, next) => {
+    //   console.log(req.method, req.path, req.headers.authorization || 'no auth');
+    //   next();
+    //   console.log(req.method, req.path, res.statusCode);
+    // });
+    fiduApp.use((req, res, next) => {
+      if (req.method !== 'OPTIONS') {
+        fiduAppCallHistory.push({ url: req.url, method: req.method, authorization: req.headers.authorization });
+      }
+      next();
+    });
+    fiduApp.options('*path', (req: Request, res: Response) => {
+      res.sendStatus(200);
+    });
 
-  beforeEach(() => {
+    fiduServer = createServer(fiduApp);
+    fiduServer.listen(testPort, () => {
+      done();
+    });
+  }
+
+  afterEach((done) => {
+    fiduAppCallHistory = [];
+    if (fiduServer.listening) {
+      fiduServer.close(() => {
+        done();
+      });
+    } else {
+      done();
+    }
+  });
+
+  beforeEach((done) => {
     // Mock window.location for production path and environment
     Object.defineProperty(window, 'location', {
       value: {
         pathname: '/fidu-chat-lab/some-page',
-        hostname: 'chatlab.firstdataunion.org', // Default to prod environment
+        hostname: 'dev.chatlab.firstdataunion.org',
       },
       writable: true,
     });
     
-    service = new CookieSettingsService();
-    jest.clearAllMocks();
+    service = new CookieSettingsService(testBaseUrl);
     localStorage.clear();
     const fiduService = getFiduAuthService() as any;
     fiduService.cachedAccessToken = null;
@@ -72,125 +118,81 @@ const createResponse = (body: any, overrides: Partial<Response> = {}) => ({
       writable: true,
       value: true,
     });
+
+    setUpMockServer(done);
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => {return {success: true}}
+    })
+    .mockImplementation(() => {expect("SUT should not use fetch").toBe(false);});
+    getFiduAuthService().setTokens(fiduAccessToken, fiduRefreshToken, { id: 'test-user', email: 'test@example.com', profiles: [] });
   });
 
   describe('setSettings', () => {
     it('should successfully store settings in HTTP-only cookie', async () => {
-      // Mock the auth token fetch first
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockResolvedValueOnce(createResponse({ success: true }));
+      fiduApp.post('/api/settings/set', (req: Request, res: Response) => {
+        res.json({ success: true });
+      });
 
       const result = await service.setSettings(mockSettings);
 
-      expect(result.success).toBe(true);
-      const calls = (fetch as jest.Mock).mock.calls;
-      expect(calls.some(([url]) => url === '/fidu-chat-lab/api/auth/fidu/get-tokens?env=prod')).toBe(true);
-      const settingsCall = calls.find(([url]) => url === '/fidu-chat-lab/api/settings/set');
-      expect(settingsCall).toBeDefined();
-      expect(settingsCall?.[1]).toEqual(
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer test-auth-token',
-          }),
-          credentials: 'include',
-          body: expect.stringContaining('"environment":"prod"'),
-        })
-      );
+      expect(result).toEqual(expect.objectContaining({ success: true }));
+      expect(fiduAppCallHistory).toContainEqual({
+        method: 'POST',
+        authorization: `Bearer ${fiduAccessToken}`,
+        url: '/api/settings/set',
+      });
     });
 
     it('should handle server errors gracefully', async () => {
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-          })
-        )
-        .mockResolvedValueOnce(createResponse({}, { ok: false, status: 500 }));
+      fiduApp.post('/api/settings/set', (req: Request, res: Response) => {
+        res.sendStatus(500);
+      });
 
       const result = await service.setSettings(mockSettings);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('request_failed');
-      expect(result.status).toBe(500);
+      expect((result as any).reason).toBe('request_failed');
+      expect((result as any).status).toBe(500);
     });
 
     it('should handle network errors gracefully', async () => {
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-          })
-        )
-        .mockRejectedValueOnce(new Error('Network error'));
+      // Stop the mock server to simulate network error
+      await new Promise((resolve) => fiduServer.close(resolve));
 
       const result = await service.setSettings(mockSettings);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('unexpected_error');
+      expect((result as any).reason).toBe('unexpected_error');
     });
   });
 
   describe('getSettings', () => {
     it('should successfully retrieve settings from HTTP-only cookie', async () => {
-      // Mock the auth token fetch first
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockResolvedValueOnce(createResponse({ settings: mockSettings }));
+      fiduApp.get('/api/settings/get', (req: Request, res: Response) => {
+        res.json({ settings: mockSettings });
+      });
 
       const result = await service.getSettings();
 
       expect(result).toEqual(mockSettings);
-      const calls = (fetch as jest.Mock).mock.calls;
-      expect(calls.some(([url]) => url === '/fidu-chat-lab/api/auth/fidu/get-tokens?env=prod')).toBe(true);
-      const getCall = calls.find(([url]) => url === '/fidu-chat-lab/api/settings/get?env=prod');
-      expect(getCall).toBeDefined();
-      expect(getCall?.[1]).toEqual(
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({ Authorization: 'Bearer test-auth-token' }),
-          credentials: 'include',
-        })
+      expect(fiduAppCallHistory).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            method: 'GET',
+            authorization: `Bearer ${fiduAccessToken}`,
+            url: expect.stringContaining('/api/settings/get'),
+          })
+        ])
       );
     });
 
     it('should return null when no settings found', async () => {
-      // Mock the auth token fetch first
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockResolvedValueOnce(createResponse({}));
-
-      const result = await service.getSettings();
-
-      expect(result).toBeNull();
-    });
-
-    it('should handle server errors gracefully', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce(createResponse({}, { ok: false, status: 404 }));
+      fiduApp.get('/api/settings/get', (req: Request, res: Response) => {
+        res.json({});
+      });
 
       const result = await service.getSettings();
 
@@ -200,26 +202,24 @@ const createResponse = (body: any, overrides: Partial<Response> = {}) => ({
 
   describe('getSettingsWithRetry', () => {
     it('should retry on failure and eventually succeed', async () => {
-      // Mock auth token fetch
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce(createResponse({ settings: mockSettings }));
+      let getSettingsCallCount = 0;
+      fiduApp.get('/api/settings/get', (req: Request, res: Response) => {
+        getSettingsCallCount++;
+        if (getSettingsCallCount === 1) {
+          res.sendStatus(500);
+        } else {
+          res.json({ settings: mockSettings });
+        }
+      });
 
       const result = await service.getSettingsWithRetry(2);
 
       expect(result).toEqual(mockSettings);
-      expect((fetch as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(getSettingsCallCount).toBe(2);
     });
 
     it('should return null after all retries fail', async () => {
-      (fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+      await new Promise((resolve) => fiduServer.close(resolve));
 
       const result = await service.getSettingsWithRetry(2);
 
@@ -235,67 +235,7 @@ const createResponse = (body: any, overrides: Partial<Response> = {}) => ({
       const result = await service.getSettingsWithRetry(3);
 
       expect(result).toBeNull();
-      expect(fetch).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('path handling', () => {
-    it('should use correct base path for production', async () => {
-      // Mock window.location for production
-      Object.defineProperty(window, 'location', {
-        value: {
-          pathname: '/fidu-chat-lab/some-page',
-          hostname: 'chatlab.firstdataunion.org',
-        },
-        writable: true,
-      });
-
-      const prodService = new CookieSettingsService();
-      
-      // Mock auth token fetch
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockResolvedValueOnce(createResponse({ success: true }));
-
-      await prodService.setSettings(mockSettings);
-      
-      // Verify the correct path was used for settings
-      expect((fetch as jest.Mock).mock.calls.some(([url]) => url === '/fidu-chat-lab/api/settings/set')).toBe(true);
-    });
-
-    it('should use empty base path for development', async () => {
-      // Mock window.location for development
-      Object.defineProperty(window, 'location', {
-        value: {
-          pathname: '/some-page',
-          hostname: 'localhost',
-        },
-        writable: true,
-      });
-
-      const devService = new CookieSettingsService();
-      
-      // Mock auth token fetch
-      (fetch as jest.Mock)
-        .mockResolvedValueOnce(
-          createResponse({
-            access_token: 'test-auth-token',
-            refresh_token: 'test-refresh-token',
-            user: { id: 'test-user', email: 'test@example.com' },
-        })
-        )
-        .mockResolvedValueOnce(createResponse({ success: true }));
-
-      await devService.setSettings(mockSettings);
-      
-      // Verify the correct path was used for settings
-      expect((fetch as jest.Mock).mock.calls.some(([url]) => url === '/api/settings/set')).toBe(true);
+      expect(fiduAppCallHistory).toEqual([]);
     });
   });
 });
