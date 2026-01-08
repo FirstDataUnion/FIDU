@@ -144,6 +144,7 @@ export const initializeAuth = createAsyncThunk(
         // Fallback to localStorage for backward compatibility
         console.log('🔄 Using FIDU auth tokens from localStorage (fallback)');
       } else {
+        console.log('❌ No FIDU auth tokens found');
         return null;
       }
 
@@ -171,19 +172,20 @@ export const initializeAuth = createAsyncThunk(
           console.warn('Failed to parse saved profile:', error);
         }
       }
-      
+
       // If no saved profile or saved profile doesn't exist anymore, use first profile
       if (!currentProfile && profiles.length > 0) {
         currentProfile = profiles[0];
         localStorage.setItem('current_profile', JSON.stringify(currentProfile));
       }
-      
+
       return {
         user: currentUser,
         profiles,
         currentProfile,
       };
     } catch (error: any) {
+      console.error('❌ Failed to initialize auth:', error);
       // Clear invalid auth data
       const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();

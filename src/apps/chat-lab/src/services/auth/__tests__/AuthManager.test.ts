@@ -54,11 +54,7 @@ describe('AuthManager', () => {
 
     // Create mock FIDU auth service
     mockFiduAuthService = {
-      getTokens: jest.fn().mockResolvedValue({
-        access_token: 'fidu-access-token',
-        refresh_token: 'fidu-refresh-token',
-        user: { id: 'test-user', email: 'test@example.com' },
-      }),
+      isAuthenticated: jest.fn().mockResolvedValue(true),
       clearTokens: jest.fn().mockResolvedValue(true),
     } as any;
 
@@ -130,7 +126,7 @@ describe('AuthManager', () => {
     it('should successfully initialize with valid FIDU and Google Drive auth', async () => {
       await authManager.initialize();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.isAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalled(); // Redux sync
     });
@@ -144,7 +140,7 @@ describe('AuthManager', () => {
       await Promise.all([init1, init2, init3]);
 
       // Should only have checked FIDU auth once (operation locking)
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalledTimes(1);
+      expect(mockFiduAuthService.isAuthenticated).toHaveBeenCalledTimes(1);
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalledTimes(1);
     });
 
@@ -158,7 +154,7 @@ describe('AuthManager', () => {
       await authManager.initialize();
 
       // Should not have called auth services again (debouncing)
-      expect(mockFiduAuthService.getTokens).not.toHaveBeenCalled();
+      expect(mockFiduAuthService.isAuthenticated).not.toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).not.toHaveBeenCalled();
 
       jest.useRealTimers();
@@ -177,7 +173,7 @@ describe('AuthManager', () => {
       } as any;
       
       newManager.setGoogleDriveAuthService(unauthenticatedService);
-      mockFiduAuthService.getTokens.mockResolvedValue(null);
+      mockFiduAuthService.isAuthenticated.mockResolvedValue(false);
 
       await newManager.initialize();
 
@@ -225,11 +221,6 @@ describe('AuthManager', () => {
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
       // After restoration, simulate authenticated
       mockGoogleDriveAuthService.isAuthenticated.mockReturnValueOnce(false).mockReturnValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'restored-user',
-        email: 'restored@example.com',
-        name: 'Restored User',
-      });
 
       const restored = await authManager.checkAndRestore();
 
@@ -290,11 +281,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false) // First check
         .mockReturnValue(true); // After restoration
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -312,7 +298,7 @@ describe('AuthManager', () => {
     it('should reset state and reinitialize', async () => {
       await authManager.reAuthenticate();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.isAuthenticated).toHaveBeenCalled();
       expect(mockGoogleDriveAuthService.restoreFromCookies).toHaveBeenCalled();
     });
 
@@ -325,7 +311,7 @@ describe('AuthManager', () => {
       // Normally this would be debounced, but reAuthenticate resets the timer
       await authManager.reAuthenticate();
 
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalled();
+      expect(mockFiduAuthService.isAuthenticated).toHaveBeenCalled();
 
       jest.useRealTimers();
     });
@@ -347,11 +333,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false) // First check
         .mockReturnValue(true); // After restoration
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'restored-user',
-        email: 'restored@example.com',
-        name: 'Restored User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -390,11 +371,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false)
         .mockReturnValue(true);
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -415,11 +391,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false)
         .mockReturnValue(true);
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -442,11 +413,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false)
         .mockReturnValue(true);
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       // Should not throw
       await expect(authManager.checkAndRestore()).resolves.not.toThrow();
@@ -575,7 +541,7 @@ describe('AuthManager', () => {
 
   describe('Error Handling', () => {
     it('should handle FIDU auth token retrieval errors', async () => {
-      mockFiduAuthService.getTokens.mockRejectedValue(new Error('FIDU auth failed'));
+      mockFiduAuthService.isAuthenticated.mockRejectedValue(new Error('FIDU auth failed'));
 
       await expect(authManager.initialize()).rejects.toThrow('FIDU auth failed');
     });
@@ -627,11 +593,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false) // First check
         .mockReturnValue(true); // After restoration
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -661,11 +622,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false) // First check
         .mockReturnValue(true); // After restoration
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       await authManager.checkAndRestore();
 
@@ -688,7 +644,7 @@ describe('AuthManager', () => {
       await Promise.all(promises);
 
       // Should only have checked FIDU tokens once (operation locking)
-      expect(mockFiduAuthService.getTokens).toHaveBeenCalledTimes(1);
+      expect(mockFiduAuthService.isAuthenticated).toHaveBeenCalledTimes(1);
     });
 
     it('should handle initialize and checkAndRestore called simultaneously', async () => {
@@ -729,11 +685,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false)
         .mockReturnValue(true);
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
       await newManager.checkAndRestore();
       expect(newManager.getAuthStatus().isAuthenticated).toBe(true);
     });
@@ -770,7 +721,6 @@ describe('AuthManager', () => {
       
       // After clear, should be unauthenticated
       mockGoogleDriveAuthService.isAuthenticated.mockReturnValue(false);
-      mockGoogleDriveAuthService.getUser.mockReturnValue(null);
       
       await authManager.clearAuth();
 
@@ -835,11 +785,6 @@ describe('AuthManager', () => {
         .mockReturnValueOnce(false)
         .mockReturnValue(true);
       mockGoogleDriveAuthService.restoreFromCookiesWithRetry.mockResolvedValue(true);
-      mockGoogleDriveAuthService.getUser.mockReturnValue({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
 
       authManager.checkAndRestore();
 

@@ -20,14 +20,14 @@ jest.mock('../../../services/api/auth', () => ({
 // Mock FiduAuthService
 const mockClearAllAuthTokens = jest.fn();
 const mockClearTokens = jest.fn().mockResolvedValue(true);
-const mockGetTokens = jest.fn().mockResolvedValue(null); // Default to null so tests can override
 const mockMigrateFromLocalStorage = jest.fn().mockResolvedValue(true);
+const mockIsAuthenticated = jest.fn().mockResolvedValue(true);
 jest.mock('../../../services/auth/FiduAuthService', () => ({
   getFiduAuthService: jest.fn(() => ({
     clearTokens: mockClearTokens,
-    getTokens: mockGetTokens,
     migrateFromLocalStorage: mockMigrateFromLocalStorage,
     clearAllAuthTokens: mockClearAllAuthTokens,
+    isAuthenticated: mockIsAuthenticated,
   })),
 }));
 
@@ -85,12 +85,28 @@ const initialState: AuthState = {
   user: null,
   currentProfile: null,
   profiles: [],
-  token: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
   isInitialized: false,
 };
+
+/**
+ * Mock the dispatch function to return the result (in a promise) for
+ * calls within the SUT but not redux's internal dispatching of thunk actions.
+ * @param dispatch - The dispatch function to mock
+ * @param result - The result to return from the promise
+ */
+function mockDispatch(dispatch: jest.Mock, result: any) {
+  dispatch.mockImplementation((action) => {
+    if (typeof action === 'function') {
+      return {
+        unwrap: () => Promise.resolve(result),
+      }
+    }
+    return action;
+  });
+}
 
 describe('authSlice', () => {
   beforeEach(() => {
@@ -136,7 +152,7 @@ describe('authSlice', () => {
   describe('async thunks', () => {
     describe('getCurrentUser', () => {
       it('should handle getCurrentUser.pending', () => {
-        const action = getCurrentUser.pending('', 'test-token');
+        const action = getCurrentUser.pending('');
         const state = authSlice(initialState, action);
         
         expect(state.isLoading).toBe(true);
@@ -144,7 +160,7 @@ describe('authSlice', () => {
       });
 
       it('should handle getCurrentUser.fulfilled', () => {
-        const action = getCurrentUser.fulfilled(mockUser, '', 'test-token');
+        const action = getCurrentUser.fulfilled(mockUser, '');
         const state = authSlice(initialState, action);
         
         expect(state.isLoading).toBe(false);
@@ -156,8 +172,7 @@ describe('authSlice', () => {
       it('should handle getCurrentUser.rejected', () => {
         const action = getCurrentUser.rejected(
           new Error('Failed to get user'),
-          '',
-          'test-token'
+          ''
         );
         const state = authSlice(initialState, action);
         
@@ -215,13 +230,6 @@ describe('authSlice', () => {
       });
 
       it('should handle initializeAuth.fulfilled with valid auth data', async () => {
-        // Mock getTokens to return null so it falls back to localStorage
-        mockGetTokens.mockResolvedValueOnce(null);
-        
-        mockLocalStorage.getItem
-          .mockReturnValueOnce('test-token') // auth_token
-          .mockReturnValueOnce(JSON.stringify(mockUser)); // user
-        
         mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
         
         const thunk = initializeAuth();
@@ -229,15 +237,15 @@ describe('authSlice', () => {
         const getState = jest.fn();
         
         // Mock the getCurrentUser thunk
-        dispatch.mockResolvedValueOnce({
-          unwrap: () => Promise.resolve(mockUser),
-        });
+        mockDispatch(dispatch, mockUser);
         
         await thunk(dispatch, getState, undefined);
-        
-        expect(mockGetTokens).toHaveBeenCalled();
-        expect(mockLocalStorage.getItem).toHaveBeenCalledWith('auth_token');
-        expect(mockLocalStorage.getItem).toHaveBeenCalledWith('user');
+
+        expect(dispatch).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            type: 'auth/initializeAuth/fulfilled',
+          }),
+        );
       });
 
       it('should handle initializeAuth.fulfilled with no auth data', () => {
@@ -306,7 +314,6 @@ describe('authSlice', () => {
         expect(state.user).toBeNull();
         expect(state.currentProfile).toBeNull();
         expect(state.profiles).toEqual([]);
-        expect(state.token).toBeNull();
         expect(state.isAuthenticated).toBe(false);
         expect(state.error).toBeNull();
       });
@@ -334,7 +341,6 @@ describe('authSlice', () => {
         expect(state.user).toBeNull();
         expect(state.currentProfile).toBeNull();
         expect(state.profiles).toEqual([]);
-        expect(state.token).toBeNull();
         expect(state.isAuthenticated).toBe(false);
         expect(state.error).toBe('Logout failed');
       });
@@ -367,10 +373,11 @@ describe('authSlice', () => {
   });
 
   describe('profile selection logic', () => {
+    beforeEach(() => {
+      mockIsAuthenticated.mockResolvedValue(true);
+    });
+
     it('should use saved profile if it exists in fetched profiles', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
-      
       const savedProfile = {
         id: 'profile-1',
         name: 'Saved Profile',
@@ -380,8 +387,6 @@ describe('authSlice', () => {
       };
       
       mockLocalStorage.getItem
-        .mockReturnValueOnce('test-token')
-        .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce(JSON.stringify(savedProfile));
       
       const userWithProfiles = {
@@ -395,28 +400,23 @@ describe('authSlice', () => {
       const dispatch = jest.fn();
       const getState = jest.fn();
       
-      dispatch.mockResolvedValueOnce({
-        unwrap: () => Promise.resolve(userWithProfiles),
-      });
+      mockDispatch(dispatch, userWithProfiles);
       
       await thunk(dispatch, getState, undefined);
-      
-      expect(mockGetTokens).toHaveBeenCalled();
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'auth_token',
-        'test-token'
-      );
+
       // When saved profile exists and is valid, it doesn't call setItem for current_profile
       expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
         'current_profile',
         JSON.stringify(savedProfile)
       );
+      expect(dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'auth/initializeAuth/fulfilled',
+        }),
+      );
     });
 
     it('should use first profile if saved profile does not exist', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
-      
       const savedProfile = {
         id: 'profile-3', // This profile doesn't exist in the fetched profiles
         name: 'Non-existent Profile',
@@ -430,8 +430,6 @@ describe('authSlice', () => {
       mockLocalStorage.setItem.mockReset();
       
       mockLocalStorage.getItem
-        .mockReturnValueOnce('test-token') // auth_token
-        .mockReturnValueOnce(JSON.stringify(mockUser)) // user
         .mockReturnValueOnce(JSON.stringify(savedProfile)); // current_profile
       
       // const _firstProfile = mockUser.profiles[0];
@@ -442,32 +440,22 @@ describe('authSlice', () => {
       const dispatch = jest.fn();
       const getState = jest.fn();
       
-      dispatch.mockResolvedValueOnce({
-        unwrap: () => Promise.resolve(mockUser),
-      });
+      mockDispatch(dispatch, mockUser);
       
       await thunk(dispatch, getState, undefined);
+
+      console.log('🔍 Dispatch result:', dispatch.mock.calls);
       
-      expect(mockGetTokens).toHaveBeenCalled();
-      // The thunk should process authentication - verify setItem was called
-      // It should set auth_token and potentially current_profile
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
-      // Verify auth_token was set
-      const setItemCalls = mockLocalStorage.setItem.mock.calls;
-      const authTokenCall = setItemCalls.find(call => call[0] === 'auth_token');
-      expect(authTokenCall).toBeDefined();
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('current_profile', JSON.stringify(mockUser.profiles[0]));
+      expect(dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'auth/initializeAuth/fulfilled',
+        }),
+      );
     });
 
     it('should handle invalid saved profile JSON', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
-      
-      mockLocalStorage.getItem
-        .mockReturnValueOnce('test-token')
-        .mockReturnValueOnce(JSON.stringify(mockUser))
-        .mockReturnValueOnce('invalid-json');
-      
-      // const _firstProfile = mockUser.profiles[0];
+      mockLocalStorage.getItem.mockReturnValueOnce('invalid-json');
       
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
       
@@ -475,30 +463,25 @@ describe('authSlice', () => {
       const dispatch = jest.fn();
       const getState = jest.fn();
       
-      dispatch.mockResolvedValueOnce({
-        unwrap: () => Promise.resolve(mockUser),
-      });
+      mockDispatch(dispatch, mockUser);
       
       await thunk(dispatch, getState, undefined);
-      
-      expect(mockGetTokens).toHaveBeenCalled();
+
+      expect(dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'auth/initializeAuth/fulfilled',
+        }),
+      );
     });
   });
 
   describe('refresh token integration', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      // Reset mock to return null by default
-      mockGetTokens.mockResolvedValue(null);
     });
 
-    it('should use refreshTokenService.clearAllAuthTokens in initializeAuth error handling', async () => {
-      // Mock getTokens to return null so it falls back to localStorage
-      mockGetTokens.mockResolvedValueOnce(null);
-      
+    it('should use fiduAuthService.clearAllAuthTokens in initializeAuth error handling', async () => {
       mockLocalStorage.getItem
-        .mockReturnValueOnce('test-token')
-        .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
       
       mockAuthApi.getCurrentUser.mockRejectedValue(new Error('API Error'));
@@ -509,16 +492,14 @@ describe('authSlice', () => {
       
       await thunk(dispatch, getState, undefined);
       
-      expect(mockGetTokens).toHaveBeenCalled();
       expect(mockClearAllAuthTokens).toHaveBeenCalled();
     });
 
-    it('should use refreshTokenService.clearAllAuthTokens in logout thunk', async () => {
+    it('should use fiduAuthService.clearAllAuthTokens in logout thunk', async () => {
       const stateWithAuth: AuthState = {
         user: mockUser,
         profiles: mockUser.profiles,
         currentProfile: mockUser.profiles[0],
-        token: 'test-token',
         isAuthenticated: true,
         isLoading: false,
         isInitialized: true,
@@ -541,21 +522,19 @@ describe('authSlice', () => {
       expect(state.user).toBeNull();
       expect(state.profiles).toEqual([]);
       expect(state.currentProfile).toBeNull();
-      expect(state.token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(state.error).toBeNull();
     });
 
     it.each([
-      new Error('Network error'),
-      new Error('Authentication failed'),
-      new Error('Token expired'),
-    ])('should clear tokens consistently across all error scenarios: %s', async (error) => {
+      'Network error',
+      'Authentication failed',
+      'Token expired',
+    ])('should clear tokens consistently across all error scenarios: %s', async (error_string: string) => {
+      const error = new Error(error_string);
       jest.clearAllMocks();
       
       mockLocalStorage.getItem
-        .mockReturnValueOnce('test-token')
-        .mockReturnValueOnce(JSON.stringify(mockUser))
         .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
       
       mockAuthApi.getCurrentUser.mockRejectedValue(error);

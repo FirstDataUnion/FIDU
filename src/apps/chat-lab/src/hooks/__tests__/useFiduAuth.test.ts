@@ -84,7 +84,13 @@ describe('useFiduAuth (Simplified)', () => {
       );
 
       await waitFor(() => {
-        expect(fetchCurrentUser).toHaveBeenCalledWith('access-token-123');
+        expect(mockFiduAuthService.setTokens).toHaveBeenNthCalledWith(1, 'access-token-123', 'refresh-token-123', expect.any(Object));
+        expect(fetchCurrentUser).toHaveBeenCalled();
+        expect(mockFiduAuthService.setTokens).toHaveBeenNthCalledWith(2, 'access-token-123', 'refresh-token-123', {
+          email: 'test@example.com',
+          id: 'user-123',
+          name: 'Test User',
+        });
         expect(logoutCoordinator.markAuthenticated).toHaveBeenCalled();
         // Note: useAppDispatch is mocked, so we can't easily verify dispatch was called
         // This is tested in integration tests instead
