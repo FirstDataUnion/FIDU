@@ -11,9 +11,9 @@ import type {
 // Async thunks
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
-  async (token: string, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await authApi.getCurrentUser(token);
+      const response = await authApi.getCurrentUser();
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to get current user');
@@ -26,8 +26,7 @@ export const createProfile = createAsyncThunk(
   async (display_name: string,
     { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      const response = await authApi.createProfile(display_name, token);
+      const response = await authApi.createProfile(display_name);
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to create profile');
@@ -40,8 +39,7 @@ export const updateProfile = createAsyncThunk(
   async ({ profile_id, display_name }: { profile_id: string; display_name: string },
     { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      const response = await authApi.updateProfile(profile_id, display_name, token);
+      const response = await authApi.updateProfile(profile_id, display_name);
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to update profile');
@@ -53,8 +51,7 @@ export const deleteProfile = createAsyncThunk(
   'auth/deleteProfile',
   async (profile_id: string, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      const response = await authApi.deleteProfile(profile_id, token);
+      const response = await authApi.deleteProfile(profile_id);
       return { profile_id, success: response };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to delete profile');
@@ -141,85 +138,56 @@ export const initializeAuth = createAsyncThunk(
     try {
       const fiduAuthService = getFiduAuthService();
       
-      // First try to get tokens from HTTP-only cookies
-      let token: string | null = null;
-      let user: any = null;
-      
-      const cookieTokens = await fiduAuthService.getTokens();
-      if (cookieTokens?.access_token && cookieTokens.access_token.trim() !== '' && cookieTokens?.user) {
-        token = cookieTokens.access_token;
-        user = cookieTokens.user;
+      if (await fiduAuthService.isAuthenticated()) {
         console.log('✅ Using FIDU auth tokens from HTTP-only cookies');
-      } else {
+      } else if (await fiduAuthService.migrateFromLocalStorage()) {
         // Fallback to localStorage for backward compatibility
-        token = localStorage.getItem('auth_token');
-        user = localStorage.getItem('user');
-        
-        if (token && user) {
-          console.log('🔄 Using FIDU auth tokens from localStorage (fallback)');
-          
-          // Try to migrate to HTTP-only cookies
-          try {
-            await fiduAuthService.migrateFromLocalStorage();
-          } catch (error) {
-            console.warn('Failed to migrate tokens to HTTP-only cookies:', error);
+        console.log('🔄 Using FIDU auth tokens from localStorage (fallback)');
+      } else {
+        return null;
+      }
+
+      markAuthenticated();
+
+      // Get current user info
+      const currentUser = await dispatch(getCurrentUser()).unwrap();
+      
+      // Fetch profiles
+      const profiles = currentUser.profiles;
+      
+      // Check for existing saved profile first, then default to first profile
+      let currentProfile = null;
+      const savedProfile = localStorage.getItem('current_profile');
+      
+      if (savedProfile) {
+        try {
+          const parsedProfile = JSON.parse(savedProfile);
+          // Verify the saved profile still exists in the fetched profiles
+          const profileExists = profiles.find(p => p.id === parsedProfile.id);
+          if (profileExists) {
+            currentProfile = profileExists;
           }
+        } catch (error) {
+          console.warn('Failed to parse saved profile:', error);
         }
       }
       
-      if (token && user) {
-        markAuthenticated();
-        // Parse user if it's a string
-        if (typeof user === 'string') {
-          user = JSON.parse(user);
-        }
-        
-        // Set token in API client
-        localStorage.setItem('auth_token', token);
-        
-        // Get current user info
-        const currentUser = await dispatch(getCurrentUser(token)).unwrap();
-        
-        // Fetch profiles
-        const profiles = currentUser.profiles;
-        
-        // Check for existing saved profile first, then default to first profile
-        let currentProfile = null;
-        const savedProfile = localStorage.getItem('current_profile');
-        
-        if (savedProfile) {
-          try {
-            const parsedProfile = JSON.parse(savedProfile);
-            // Verify the saved profile still exists in the fetched profiles
-            const profileExists = profiles.find(p => p.id === parsedProfile.id);
-            if (profileExists) {
-              currentProfile = profileExists;
-            }
-          } catch (error) {
-            console.warn('Failed to parse saved profile:', error);
-          }
-        }
-        
-        // If no saved profile or saved profile doesn't exist anymore, use first profile
-        if (!currentProfile && profiles.length > 0) {
-          currentProfile = profiles[0];
-          localStorage.setItem('current_profile', JSON.stringify(currentProfile));
-        }
-        
-        return {
-          user: currentUser,
-          profiles,
-          currentProfile,
-          token,
-        };
+      // If no saved profile or saved profile doesn't exist anymore, use first profile
+      if (!currentProfile && profiles.length > 0) {
+        currentProfile = profiles[0];
+        localStorage.setItem('current_profile', JSON.stringify(currentProfile));
       }
       
-      return null;
+      return {
+        user: currentUser,
+        profiles,
+        currentProfile,
+      };
     } catch (error: any) {
       // Clear invalid auth data
       const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
-      getFiduAuthService().clearAllAuthTokens();
+      fiduAuthService.clearAllAuthTokens();
       return rejectWithValue(error.message || 'Failed to initialize auth');
     }
   }
@@ -229,7 +197,6 @@ const initialState: AuthState = {
   user: null,
   currentProfile: null,
   profiles: [],
-  token: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -341,7 +308,6 @@ const authSlice = createSlice({
           state.user = action.payload.user;
           state.profiles = action.payload.profiles;
           state.currentProfile = action.payload.currentProfile;
-          state.token = action.payload.token;
           state.isAuthenticated = true;
         } else {
           // No valid auth found - user needs to log in
@@ -365,7 +331,6 @@ const authSlice = createSlice({
         state.user = null;
         state.currentProfile = null;
         state.profiles = [];
-        state.token = null;
         state.isAuthenticated = false;
         state.error = null;
       })
@@ -375,7 +340,6 @@ const authSlice = createSlice({
         state.user = null;
         state.currentProfile = null;
         state.profiles = [];
-        state.token = null;
         state.isAuthenticated = false;
         state.error = action.payload as string;
       });

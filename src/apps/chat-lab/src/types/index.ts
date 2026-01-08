@@ -350,7 +350,6 @@ export interface AuthState {
   user: User | null;
   currentProfile: Profile | null;
   profiles: Profile[];
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;

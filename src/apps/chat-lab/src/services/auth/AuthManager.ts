@@ -104,8 +104,7 @@ export class AuthManager {
   private async _doInitialize(): Promise<void> {
     try {
       // Step 1: Check FIDU authentication
-      const fiduTokens = await this.fiduAuthService.getTokens();
-      const hasFiduAuth = !!fiduTokens?.access_token;
+      const hasFiduAuth = await this.fiduAuthService.isAuthenticated();
       
       if (!hasFiduAuth) {
         console.log('ℹ️  [AuthManager] No FIDU authentication - user needs to log in');

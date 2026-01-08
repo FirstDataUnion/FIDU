@@ -35,15 +35,11 @@ function normalizeAuthTokens(
   }
 
   const accessToken = typeof token === 'string' ? token : '';
-  let refreshToken = providedRefreshToken?.trim() || '';
-
-  if (!refreshToken) {
-    refreshToken = localStorage.getItem('fiduRefreshToken') || accessToken;
-  }
+  const refreshToken = providedRefreshToken?.trim() || accessToken;
 
   return {
     accessToken,
-    refreshToken: refreshToken || accessToken,
+    refreshToken,
   };
 }
 
@@ -59,11 +55,6 @@ async function persistAuthenticatedSession(
   }
 
   markAuthenticated();
-
-  localStorage.setItem('auth_token', tokens.accessToken);
-  localStorage.setItem('user', JSON.stringify(user));
-
-  document.cookie = `auth_token=${tokens.accessToken}; path=/; max-age=3600; samesite=lax`;
 }
 
 async function attemptCloudStorageRestoration(): Promise<boolean> {
@@ -140,8 +131,10 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
       const fiduAuthService = getFiduAuthService();
       const tokens = normalizeAuthTokens(token, refreshToken);
 
-      const user = await fetchCurrentUser(tokens.accessToken);
-
+      // TODO: This could be better - perhaps split storing tokens and users into two API calls
+      // Store the access token so that the interceptor works, then fetch the user and store again
+      await persistAuthenticatedSession(fiduAuthService, {"temporary": true}, tokens);
+      const user = await fetchCurrentUser();
       await persistAuthenticatedSession(fiduAuthService, user, tokens);
 
       const requireOAuthRedirect = await attemptCloudStorageRestoration();
