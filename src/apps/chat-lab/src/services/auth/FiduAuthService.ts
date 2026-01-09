@@ -40,6 +40,38 @@ export class TokenRefreshError extends Error {
   }
 }
 
+/**
+ * FiduAuthService - Centralized FIDU Authentication Service
+ * 
+ * This service manages the entire lifecycle of FIDU authentication tokens with strict security principles:
+ * 
+ * **Token Storage Architecture:**
+ * - **Access Token**: Lives ONLY in memory (this.cachedAccessToken)
+ *   - Never stored in localStorage, sessionStorage, or cookies
+ *   - Entire lifecycle (acquisition, refresh, clearing) managed exclusively by this service
+ *   - Automatically refreshed when expired preemptively or via interceptors
+ *   - Cleared on logout or authentication failure
+ * 
+ * - **Refresh Token**: Lives ONLY in HTTP-only cookies
+ *   - Managed by the backend server for security
+ *   - Not accessible to JavaScript code
+ *   - Used to obtain new access tokens when they expire
+ * 
+ * **Interceptor-Based Authentication:**
+ * - All API calls requiring FIDU auth use axios interceptors provided by createAuthInterceptor()
+ * - Ensures consistent behavior across all call sites
+ * - First 401 on any request triggers automatic token refresh and request retry
+ * - If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
+ * 
+ * **Key Methods:**
+ * - setTokens(): Store tokens (access token cached in memory, refresh token in HTTP-only cookie)
+ * - ensureAccessToken(): Ensure access token is available (from memory or via refresh)
+ * - clearTokens(): Clear all tokens (memory cache and cookies)
+ * - createAuthInterceptor(): Create axios interceptors for automatic token management
+ * 
+ * **Important**: Never access or store FIDU access tokens outside of this service.
+ * Always use the interceptors provided by createAuthInterceptor() for API calls.
+ */
 export class FiduAuthService {
   private basePath: string;
   private environment: string;
@@ -60,6 +92,18 @@ export class FiduAuthService {
     this.environment = detectRuntimeEnvironment();
   }
 
+  /**
+   * Store FIDU authentication tokens
+   * 
+   * **Token Storage:**
+   * - Access token: Stored in memory
+   * - Refresh token: Stored in HTTP-only cookie by backend (not accessible to JavaScript)
+   * 
+   * @param accessToken - FIDU access token (JWT)
+   * @param refreshToken - FIDU refresh token
+   * @param user - User information
+   * @returns true if tokens were stored successfully
+   */
   async setTokens(accessToken: string, refreshToken: string, user: User): Promise<boolean> {
     try {
       console.log(`🔑 Storing FIDU auth tokens in HTTP-only cookies for ${this.environment} environment...`);
@@ -207,6 +251,16 @@ export class FiduAuthService {
     await this.waitForPromise(this.refreshPromise, timeoutMs);
   }
 
+  /**
+   * Clear all FIDU authentication tokens
+   * 
+   * **Clears:**
+   * - Access token from memory (this.cachedAccessToken)
+   * - Refresh token from HTTP-only cookies (via backend)
+   * - All cached state
+   * 
+   * @returns true if tokens were cleared successfully
+   */
   async clearTokens(): Promise<boolean> {
     try {
       const response = await fetch(`${this.basePath}/api/auth/fidu/clear-tokens?env=${this.environment}`, {
@@ -538,7 +592,45 @@ export class FiduAuthService {
   }
 
   /**
-   * Create an axios interceptor that automatically handles token refresh
+   * Create axios interceptors for automatic FIDU authentication
+   * 
+   * **Usage**: All API calls requiring FIDU auth should use these interceptors.
+   * 
+   * **Example:**
+   * ```typescript
+   * const authInterceptor = getFiduAuthService().createAuthInterceptor();
+   * 
+   * // Add auth interceptor first
+   * client.interceptors.request.use(
+   *   authInterceptor.request,
+   *   (error) => Promise.reject(error)
+   * );
+   * 
+   * client.interceptors.response.use(
+   *   authInterceptor.response,
+   *   authInterceptor.error
+   * );
+   * 
+   * // Additional interceptors run after authInterceptor
+   * client.interceptors.response.use(
+   *   client_specific_interceptor.response,
+   *   client_specific_interceptor.error
+   * );
+   * ```
+   * 
+   * **Behavior:**
+   * - Request interceptor: Ensures access token is available (from memory or via refresh) and adds to Authorization header
+   * - Response interceptor: Passes through successful responses
+   * - Error interceptor: 
+   *   - On 401: Automatically refreshes token and retries the request
+   *   - If the token refresh returns 401, or if the retried request returns 401: Triggers automatic logout
+   * 
+   * **Token Management:**
+   * - Access token retrieved from memory (this.cachedAccessToken)
+   * - Refresh token retrieved from HTTP-only cookies (via backend)
+   * - All token operations happen automatically - no manual intervention needed
+   * 
+   * @returns Object with request, response, and error interceptor functions
    */
   createAuthInterceptor() {
     return {

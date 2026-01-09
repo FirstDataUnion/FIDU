@@ -218,24 +218,60 @@ interface ContextDataPacket {
 }
 ```
 
-### Refresh Token Service (`refreshTokenService.ts`)
+### FIDU Authentication (`FiduAuthService`)
 
-**Purpose**: Automatic token refresh and authentication management
+**Purpose**: Centralized FIDU authentication token management with automatic refresh and retry logic
+
+**Key Architecture Principles:**
+- **Access Token Storage**: FIDU access tokens exist **only in memory** within `FiduAuthService`
+  - Never stored in localStorage, sessionStorage, or cookies
+  - Entire lifecycle (acquisition, refresh, clearing) managed exclusively by `FiduAuthService`
+- **Refresh Token Storage**: FIDU refresh tokens exist **only in HTTP-only cookies**
+  - Managed by the backend server for security
+  - Not accessible to JavaScript code
+- **Interceptor-Based Authentication**: All API calls requiring FIDU auth use axios interceptors provided by `FiduAuthService`
+  - Ensures consistent behavior across all call sites
+  - First 401 on any request triggers automatic token refresh and request retry
+  - If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
 
 **Key Features:**
-- **Automatic Refresh**: Handles token expiration
-- **Interceptor Integration**: Seamless integration with API clients
-- **Error Handling**: Graceful handling of refresh failures
-- **Storage Management**: Token persistence across sessions
+- **Automatic Token Refresh**: Handles token expiration and refresh transparently
+- **401 Error Handling**: First 401 on any request triggers automatic token refresh and request retry
+- **Request Retry**: Failed requests are automatically retried after token refresh
+- **Logout on Auth Failure**: If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
+- **Memory-Only Access Tokens**: Access tokens never persist to storage, improving security
 
 **Usage:**
 ```typescript
-// Create auth interceptor for API clients
-const authInterceptor = refreshTokenService.createAuthInterceptor();
+import { getFiduAuthService } from '../auth/FiduAuthService';
 
-// Add to axios instance
-client.interceptors.request.use(authInterceptor);
+// Create auth interceptor for API clients
+const authInterceptor = getFiduAuthService().createAuthInterceptor();
+
+// Add auth interceptor first (request, response, and error interceptors)
+client.interceptors.request.use(
+  authInterceptor.request,
+  (error) => Promise.reject(error)
+);
+
+client.interceptors.response.use(
+  authInterceptor.response,
+  authInterceptor.error
+);
+
+// these interceptors run after the authInterceptor
+// response is run if authInterceptor resolves and error if it rejects
+client.interceptors.response.use(
+  client_specific_interceptor.response,
+  client_specific_interceptor.error
+)
 ```
+
+**Important Notes:**
+- **Never access access tokens directly** - always use `FiduAuthService` methods
+- **Never store access tokens** in localStorage, sessionStorage, or anywhere else
+- **All FIDU-authenticated API calls** must use the interceptors provided by `FiduAuthService`
+- **Token refresh and clearing** happens automatically through interceptors - no manual intervention needed
 
 ## Design Patterns
 
@@ -260,9 +296,11 @@ client.interceptors.request.use(authInterceptor);
 - **Memory Management**: Automatic cleanup
 
 ### 5. Authentication Flow
-- **Token Management**: Automatic refresh handling
-- **Interceptor Pattern**: Seamless integration
-- **Session Persistence**: Cross-session token management
+- **Token Management**: Access tokens live only in memory in `FiduAuthService`, refresh tokens in HTTP-only cookies
+- **Interceptor Pattern**: All FIDU-authenticated calls use `FiduAuthService` interceptors for consistent behavior
+- **Automatic Refresh**: First 401 on any request triggers automatic token refresh and request retry
+- **Automatic Logout**: If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
+- **Security**: Access tokens never persist to storage, reducing attack surface
 
 ## Configuration Management
 
@@ -350,10 +388,14 @@ const gatewayUrl = getGatewayUrl();
 
 ### Authentication Security
 
-1. **Token Security**: Secure token storage and transmission
-2. **Refresh Logic**: Secure token refresh mechanism
-3. **Session Management**: Proper session handling
+1. **Token Security**: 
+   - Access tokens stored only in memory (never in localStorage/sessionStorage/cookies)
+   - Refresh tokens stored in HTTP-only cookies (not accessible to JavaScript)
+   - Entire token lifecycle managed by `FiduAuthService`
+2. **Refresh Logic**: Secure token refresh mechanism with automatic retry
+3. **Session Management**: Proper session handling with automatic logout on auth failure
 4. **CORS Configuration**: Appropriate CORS settings
+5. **Consistent Behavior**: All FIDU auth handled through interceptors, ensuring consistent security across all API calls
 
 ## Future Enhancements
 
