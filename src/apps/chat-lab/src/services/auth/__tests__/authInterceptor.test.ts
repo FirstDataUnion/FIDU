@@ -90,7 +90,6 @@ describe('FiduAuthService Auth Interceptor', () => {
 
   afterEach((done) => {
     jest.clearAllMocks();
-    localStorage.clear();
     mockServer.close(() => {
       done();
     });

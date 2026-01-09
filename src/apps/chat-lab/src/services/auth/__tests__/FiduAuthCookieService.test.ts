@@ -17,7 +17,6 @@ describe('FiduAuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.clear();
     authService = new FiduAuthService();
   });
 

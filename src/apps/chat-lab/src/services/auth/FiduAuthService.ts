@@ -383,12 +383,6 @@ export class FiduAuthService {
       // Track expiration
       if (typeof expiresIn === 'number') {
         this.tokenExpiresAt = Date.now() + (expiresIn * 1000);
-        localStorage.setItem('token_expires_at', String(this.tokenExpiresAt));
-      }
-
-      localStorage.setItem('auth_token', accessToken);
-      if (typeof expiresIn === 'number') {
-        localStorage.setItem('token_expires_in', String(expiresIn));
       }
 
       this.cachedAccessToken = accessToken;
@@ -439,9 +433,7 @@ export class FiduAuthService {
     this.cachedRefreshTokenAvailable = null;
     this.lastRefreshError = null;
     this.tokenExpiresAt = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('token_expires_in');
-    localStorage.removeItem('token_expires_at');
+    this.deleteThingsThatShouldNotExist();
   }
 
   /**
@@ -453,14 +445,7 @@ export class FiduAuthService {
     this.stopProactiveRefresh();
     
     if (!this.tokenExpiresAt) {
-      // Try to get expiration from localStorage
-      const storedExpiresAt = localStorage.getItem('token_expires_at');
-      if (storedExpiresAt) {
-        this.tokenExpiresAt = parseInt(storedExpiresAt, 10);
-      } else {
-        // No expiration info, can't schedule refresh
-        return;
-      }
+      return;
     }
     
     const now = Date.now();
@@ -741,6 +726,17 @@ export class FiduAuthService {
    * Clear all authentication tokens and data
    */
   clearAllAuthTokens(): void {
+    this.deleteThingsThatShouldNotExist();
+
+    this.resetCache();
+  }
+
+  /**
+   * Things that have previously been stored in localStorage or cookies but
+   * shouldn't be there anymore. This is a cleanup step to ensure we're not
+   * leaving things on people's machines forever.
+   */
+  private deleteThingsThatShouldNotExist(): void {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('fiduRefreshToken');
     localStorage.removeItem('token_expires_in');
@@ -752,8 +748,6 @@ export class FiduAuthService {
     document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
-
-    this.resetCache();
   }
 
   /**

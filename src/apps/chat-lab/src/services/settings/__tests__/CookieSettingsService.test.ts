@@ -113,7 +113,6 @@ describe('CookieSettingsService', () => {
     });
     
     service = new CookieSettingsService(testBaseUrl);
-    localStorage.clear();
     const fiduService = getFiduAuthService() as any;
     fiduService.cachedAccessToken = null;
     fiduService.cachedRefreshTokenAvailable = null;
