@@ -59,6 +59,7 @@ import type { Profile } from '../../types';
 import GoogleDriveStatus from '../auth/GoogleDriveStatus';
 import UnsyncedDataIndicator from './UnsyncedDataIndicator';
 import { AutoSyncCountdown } from './AutoSyncCountdown';
+import { SyncHealthIndicator } from './SyncHealthIndicator';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
@@ -483,6 +484,13 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                  {isCloudStorageMode && (
                    <Box sx={{ mr: 2 }}>
                      <GoogleDriveStatus variant="compact" />
+                   </Box>
+                 )}
+                 
+                 {/* Sync Health Indicator - shows last successful sync and health status */}
+                 {isCloudStorageMode && (
+                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                     <SyncHealthIndicator variant="compact" />
                    </Box>
                  )}
                  

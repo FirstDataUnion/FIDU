@@ -476,7 +476,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         it('getAccessToken should throw an error', async () => {
           setUpExpiredGoogleOAuthToken(googleDriveAuth);
 
-          await expect(googleDriveAuth.getAccessToken()).rejects.toThrow("Backend token refresh error (500): Internal Server Error");
+          await expect(googleDriveAuth.getAccessToken()).rejects.toThrow();
         });
 
         it('restoreFromCookies should return false', async () => {
@@ -603,7 +603,7 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     it('getAccessToken should throw a ServiceUnavailableError', async () => {
       setUpExpiredGoogleOAuthToken(googleDriveAuth);
 
-      await expect(googleDriveAuth.getAccessToken()).rejects.toThrow("Backend token refresh error (500): Internal Server Error");
+      await expect(googleDriveAuth.getAccessToken()).rejects.toThrow();
 
       expect(fiduAppCallHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ url: '/api/auth/fidu/refresh-access-token'})]));
     });

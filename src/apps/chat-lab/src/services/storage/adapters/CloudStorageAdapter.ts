@@ -110,11 +110,15 @@ export class CloudStorageAdapter implements StorageAdapter {
     const settings = this.loadSettingsFromStorage();
     const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 5;
     
-    this.smartAutoSyncService = new SmartAutoSyncService(this.syncService, {
-      delayMinutes,               // Use setting from localStorage or default to 5 minutes
-      maxRetries: 3,            // Max 3 retry attempts
-      retryDelayMinutes: 10     // Wait 10 minutes between retries
-    });
+    this.smartAutoSyncService = new SmartAutoSyncService(
+      this.syncService, 
+      {
+        delayMinutes,               // Use setting from localStorage or default to 5 minutes
+        retryDelayMinutes: 10,      // Base delay between retries (exponential backoff)
+        maxRetryDelayMinutes: 60    // Cap retry delay at 60 minutes
+      },
+      this.config.workspaceId || 'default' // Workspace ID for sync health tracking
+    );
     
     // Perform initial sync from Google Drive
     // For shared workspaces, use file IDs from workspace registry to avoid creating duplicate files

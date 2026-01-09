@@ -443,8 +443,6 @@ describe('authSlice', () => {
       mockDispatch(dispatch, mockUser);
       
       await thunk(dispatch, getState, undefined);
-
-      console.log('🔍 Dispatch result:', dispatch.mock.calls);
       
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith('current_profile', JSON.stringify(mockUser.profiles[0]));
       expect(dispatch).toHaveBeenLastCalledWith(

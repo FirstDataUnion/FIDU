@@ -48,6 +48,9 @@ export class FiduAuthService {
   private cachedRefreshTokenAvailable: boolean | null = null;
   private refreshPromise: Promise<void> | null = null;
   private lastRefreshError: Error | null = null;
+  private tokenExpiresAt: number | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
+  private validationInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.basePath = window.location.pathname.includes('/fidu-chat-lab')
@@ -84,6 +87,11 @@ export class FiduAuthService {
       this.cachedAccessToken = accessToken;
       this.cachedRefreshTokenAvailable = refreshToken.trim() !== '';
       this.lastRefreshError = null;
+      
+      // Start proactive refresh and periodic validation
+      this.startProactiveRefresh();
+      this.startPeriodicValidation();
+      
       return true;
     } catch (error) {
       console.error('❌ Error storing FIDU auth tokens:', error);
@@ -93,17 +101,25 @@ export class FiduAuthService {
 
   private async getTokens(): Promise<FiduAuthTokens | null> {
     try {
-      const response = await fetch(`${this.basePath}/api/auth/fidu/get-tokens?env=${this.environment}`, {
+      const url = `${this.basePath}/api/auth/fidu/get-tokens?env=${this.environment}`;
+      console.log(`🔄 [FiduAuth] Fetching tokens from: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
       });
 
       if (!response.ok) {
-        console.warn('⚠️ Failed to retrieve FIDU auth tokens:', response.status);
+        console.warn('⚠️ [FiduAuth] Failed to retrieve FIDU auth tokens:', response.status);
         return null;
       }
 
       const data: FiduAuthTokens = await response.json();
+      console.log(`📦 [FiduAuth] Received token data:`, {
+        hasAccessToken: !!(data.access_token && data.access_token.trim() !== ''),
+        hasRefreshToken: !!(data.refresh_token && data.refresh_token.trim() !== ''),
+        hasUser: !!data.user,
+      });
 
       if (data.access_token && data.access_token.trim() !== '') {
         this.cachedAccessToken = data.access_token;
@@ -113,9 +129,10 @@ export class FiduAuthService {
         this.cachedRefreshTokenAvailable = data.refresh_token.trim() !== '';
       }
 
-      return data.access_token || data.refresh_token || data.user ? data : null;
+      const hasTokens = !!(data.access_token || data.refresh_token || data.user);
+      return hasTokens ? data : null;
     } catch (error) {
-      console.warn('⚠️ Error retrieving FIDU auth tokens:', error);
+      console.error('❌ [FiduAuth] Error retrieving tokens from cookies:', error);
       return null;
     }
   }
@@ -203,6 +220,11 @@ export class FiduAuthService {
       }
 
       this.resetCache();
+      
+      // Stop proactive refresh and periodic validation
+      this.stopProactiveRefresh();
+      this.stopPeriodicValidation();
+      
       console.log('✅ FIDU auth tokens cleared successfully');
       return true;
     } catch (error) {
@@ -304,12 +326,22 @@ export class FiduAuthService {
       const accessToken: string = data.access_token;
       const expiresIn: number | undefined = data.expires_in;
 
+      // Track expiration
+      if (typeof expiresIn === 'number') {
+        this.tokenExpiresAt = Date.now() + (expiresIn * 1000);
+        localStorage.setItem('token_expires_at', String(this.tokenExpiresAt));
+      }
+
       localStorage.setItem('auth_token', accessToken);
       if (typeof expiresIn === 'number') {
         localStorage.setItem('token_expires_in', String(expiresIn));
       }
 
       this.cachedAccessToken = accessToken;
+      
+      // Start proactive refresh with new expiration
+      this.startProactiveRefresh();
+      
       return accessToken;
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {
@@ -352,8 +384,111 @@ export class FiduAuthService {
     this.cachedAccessToken = null;
     this.cachedRefreshTokenAvailable = null;
     this.lastRefreshError = null;
+    this.tokenExpiresAt = null;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('token_expires_in');
+    localStorage.removeItem('token_expires_at');
+  }
+
+  /**
+   * Start proactive token refresh
+   * Refreshes token 10 minutes before expiration
+   */
+  private startProactiveRefresh(): void {
+    // Clear existing timer
+    this.stopProactiveRefresh();
+    
+    if (!this.tokenExpiresAt) {
+      // Try to get expiration from localStorage
+      const storedExpiresAt = localStorage.getItem('token_expires_at');
+      if (storedExpiresAt) {
+        this.tokenExpiresAt = parseInt(storedExpiresAt, 10);
+      } else {
+        // No expiration info, can't schedule refresh
+        return;
+      }
+    }
+    
+    const now = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+    const timeUntilExpiration = this.tokenExpiresAt - now;
+    
+    if (timeUntilExpiration <= tenMinutes) {
+      // Less than 10 minutes remaining, refresh immediately
+      console.log('🔄 Token expires soon, refreshing immediately...');
+      this.refreshAccessTokenInternal().catch(error => {
+        console.warn('⚠️ Proactive refresh failed:', error);
+        // Retry after 1 minute
+        setTimeout(() => {
+          this.startProactiveRefresh();
+        }, 60 * 1000);
+      });
+    } else {
+      // Schedule refresh 10 minutes before expiration
+      const delay = timeUntilExpiration - tenMinutes;
+      console.log(`⏰ Scheduling proactive refresh in ${Math.round(delay / 1000 / 60)} minutes`);
+      
+      this.refreshTimer = setTimeout(() => {
+        console.log('🔄 Proactive token refresh triggered');
+        this.refreshAccessTokenInternal()
+          .then(() => {
+            // Restart proactive refresh with new expiration
+            this.startProactiveRefresh();
+          })
+          .catch(error => {
+            console.warn('⚠️ Proactive refresh failed:', error);
+            // Retry after 1 minute
+            setTimeout(() => {
+              this.startProactiveRefresh();
+            }, 60 * 1000);
+          });
+      }, delay);
+    }
+  }
+
+  /**
+   * Stop proactive token refresh
+   */
+  private stopProactiveRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  /**
+   * Start periodic token validation
+   * Checks token validity every 5 minutes
+   */
+  private startPeriodicValidation(): void {
+    // Clear existing interval
+    this.stopPeriodicValidation();
+    
+    console.log('🔄 Starting periodic token validation (every 5 minutes)');
+    
+    this.validationInterval = setInterval(async () => {
+      try {
+        const authenticated = await this.isAuthenticated();
+        if (!authenticated) {
+          console.warn('⚠️ Periodic validation: Authentication lost');
+          // Could emit event here if needed
+        } else {
+          console.log('✅ Periodic validation: Authentication valid');
+        }
+      } catch (error) {
+        console.warn('⚠️ Periodic validation error:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  /**
+   * Stop periodic token validation
+   */
+  private stopPeriodicValidation(): void {
+    if (this.validationInterval) {
+      clearInterval(this.validationInterval);
+      this.validationInterval = null;
+    }
   }
 
 
@@ -525,6 +660,8 @@ export class FiduAuthService {
     document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
     document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
+
+    this.resetCache();
   }
 
   /**

@@ -52,22 +52,18 @@ Object.defineProperty(global, 'crypto', {
 });
 
 // Mock import.meta.env for tests
-Object.defineProperty(global, 'import', {
-  value: {
-    meta: {
-      env: {
-        DEV: true,
-        PROD: false,
-        MODE: 'test',
-        BASE_URL: '/',
-        VITE_GOOGLE_CLIENT_ID: 'test_client_id',
-        VITE_GOOGLE_CLIENT_SECRET: 'test_client_secret',
-        VITE_GOOGLE_REDIRECT_URI: 'http://localhost:3000/callback',
-        VITE_DISABLE_INSECURE_FALLBACK: 'false',
-      },
-    },
-  },
-});
+// Our custom transformer replaces import.meta.env with globalThis.__import_meta_env__
+(globalThis as any).__import_meta_env__ = {
+  DEV: true,
+  PROD: false,
+  MODE: 'test',
+  BASE_URL: '/',
+  VITE_GOOGLE_CLIENT_ID: 'test_client_id',
+  VITE_GOOGLE_CLIENT_SECRET: 'test_client_secret',
+  VITE_GOOGLE_REDIRECT_URI: 'http://localhost:3000/callback',
+  VITE_DISABLE_INSECURE_FALLBACK: 'false',
+  VITE_APP_VERSION: '0.0.0-test',
+};
 
 // Mock localStorage with actual storage behavior
 const createLocalStorageMock = () => {

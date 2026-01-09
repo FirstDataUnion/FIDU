@@ -20,10 +20,7 @@ export default {
       '<rootDir>/src/__mocks__/fileMock.js',
   },
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.jest.json',
-      useESM: true,
-    }],
+    '^.+\\.(ts|tsx)$': '<rootDir>/jest.transform.cjs',
   },
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.(ts|tsx|js)',

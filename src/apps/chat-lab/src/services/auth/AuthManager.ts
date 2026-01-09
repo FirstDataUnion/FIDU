@@ -181,27 +181,45 @@ export class AuthManager {
     try {
       console.log('🔄 [AuthManager] Checking authentication status...');
 
-      // Check if we have a Google Drive auth service
-      if (!this.googleDriveAuthService) {
-        console.log('ℹ️  [AuthManager] Google Drive auth service not ready');
+      // Check FIDU authentication first
+      let fiduAuthenticated;
+      try {
+        fiduAuthenticated = await this.fiduAuthService.isAuthenticated();
+      } catch (error) {
+        console.warn('⚠️ [AuthManager] FIDU authentication failed:', error);
+      }
+      
+      if (!fiduAuthenticated) {
+        console.log('ℹ️  [AuthManager] FIDU authentication lost');
+        this.notifySubscribers('auth-lost', this.getAuthStatus());
+        await this.syncToRedux();
         return false;
       }
 
-      // If already authenticated, nothing to do
-      if (this.googleDriveAuthService.isAuthenticated()) {
-        console.log('✅ [AuthManager] Authentication still valid');
-        return true;
+      // Check if we have a Google Drive auth service
+      if (!this.googleDriveAuthService) {
+        console.log('ℹ️  [AuthManager] Google Drive auth service not ready');
+        // FIDU auth is valid, but we can't verify Google Drive auth yet
+        // Return false silently (no notification) - this is a transient state
+        return false;
       }
 
-      // Try to restore from cookies
-      console.log('🔄 [AuthManager] Attempting to restore authentication...');
-      const restored = await this.googleDriveAuthService.restoreFromCookiesWithRetry(2);
+      // Use ensureAuthenticated() which attempts restoration
+      const googleDriveAuthenticated = await this.googleDriveAuthService.ensureAuthenticated();
 
-      if (restored) {
-        console.log('✅ [AuthManager] Authentication restored successfully');
+      if (fiduAuthenticated && googleDriveAuthenticated) {
+        console.log('✅ [AuthManager] All authentication valid');
         this.notifySubscribers('auth-restored', this.getAuthStatus());
         await this.syncToRedux();
         return true;
+      }
+
+      // FIDU is valid but Google Drive is not - don't logout, just notify
+      if (fiduAuthenticated && !googleDriveAuthenticated) {
+        console.log('ℹ️  [AuthManager] FIDU authentication valid, but Google Drive authentication lost');
+        this.notifySubscribers('auth-lost', this.getAuthStatus());
+        await this.syncToRedux();
+        return false;
       }
 
       console.log('ℹ️  [AuthManager] Could not restore authentication');
