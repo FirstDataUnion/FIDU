@@ -62,6 +62,7 @@ import { getAllModels } from '../data/models';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { fetchDocuments } from '../store/slices/documentsSlice';
 import type { MarkdownDocument } from '../types';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
@@ -746,6 +747,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const unifiedStorage = useUnifiedStorage();
   const documents = useAppSelector((state) => state.documents.items);
   const dispatch = useAppDispatch();
+  const isOutputToDocumentEnabled = useFeatureFlag('background_agent_to_document');
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1531,6 +1533,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
+                  {isOutputToDocumentEnabled &&
                   <MenuItem value="update_document">
                     <Box>
                       <Typography variant="body1">Update Document</Typography>
@@ -1539,6 +1542,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
+                  }
                 </Select>
               </FormControl>
               <FormControl fullWidth>
@@ -1891,7 +1895,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
-                  <MenuItem value="update_document">
+                  {isOutputToDocumentEnabled && <MenuItem value="update_document">
                     <Box>
                       <Typography variant="body1">Update Document</Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -1899,6 +1903,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       </Typography>
                     </Box>
                   </MenuItem>
+                  }
                 </Select>
               </FormControl>
               <FormControl fullWidth>

@@ -91,6 +91,7 @@ import { MetricsService } from '../services/metrics/MetricsService';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { truncateTitle } from '../utils/stringUtils';
 import { getContextTokenCount } from '../utils/tokenEstimation';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (model: string, status: 'success' | 'error'): void => {
@@ -1721,6 +1722,16 @@ export default function PromptLabPage() {
   const { settings } = useAppSelector((state) => state.settings);
   const { items: documents } = useAppSelector((state) => state.documents);
   const unifiedStorage = useUnifiedStorage();
+  const isSystemPromptsEnabled = useFeatureFlag('system_prompts');
+  const isModelSelectionEnabled = useFeatureFlag('model_selection');
+  const isContextsEnabled = useFeatureFlag('context');
+  const isViewCopyFullPromptEnabled = useFeatureFlag('view_copy_full_prompt');
+  const isRecentConversationsInChatPageEnabled = useFeatureFlag('recent_conversations_in_chat_page');
+  const isNewChatButtonInChatPageEnabled = useFeatureFlag('new_chat_button_in_chat_page');
+  const isBackgroundAgentsEnabled = useFeatureFlag('background_agents');
+  const isPromptWizardEnabled = useFeatureFlag('prompt_wizard');
+  const isSystemPromptLibrarianEnabled = useFeatureFlag('system_prompt_librarian');
+
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
   const STORAGE_KEYS = useMemo(() => ({
@@ -3560,7 +3571,7 @@ export default function PromptLabPage() {
           }}
         >
           {/* New Conversation Button - Top Right (when context is selected and messages exist) - Desktop Only */}
-          {!isMobile && selectedContexts.length > 0 && messages.length > 0 && (
+          {!isMobile && selectedContexts.length > 0 && messages.length > 0 && isNewChatButtonInChatPageEnabled && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -3588,7 +3599,7 @@ export default function PromptLabPage() {
           )}
 
           {/* New Conversation Button - Top Right (when no context selected and messages exist) - Desktop Only */}
-          {!isMobile && messages.length > 0 && selectedContexts.length === 0 && (
+          {!isMobile && messages.length > 0 && selectedContexts.length === 0 && isNewChatButtonInChatPageEnabled && (
             <Box sx={{ 
               position: 'absolute', 
               top: 60, 
@@ -4102,7 +4113,7 @@ export default function PromptLabPage() {
             px: isMobile ? 0 : 2
           }}>
             {/* System Prompts Sliding Drawer - Desktop Only */}
-            {!isMobile && (
+            {!isMobile && isSystemPromptsEnabled && (
             <Box sx={{ 
               position: 'relative',
               mb: 2
@@ -4215,6 +4226,7 @@ export default function PromptLabPage() {
                   </Box>
 
                   {/* System Prompt Suggestor Wizard Button */}
+                  {isSystemPromptLibrarianEnabled &&
                   <Box sx={{ mb: 3 }}>
                     <Box sx={{ 
                       display: 'flex', 
@@ -4253,6 +4265,7 @@ export default function PromptLabPage() {
                       </Button>
                     </Box>
                   </Box>
+                  }
 
                   {/* Selected System Prompts List */}
                   <Box sx={{ mb: 3 }}>
@@ -4447,6 +4460,7 @@ export default function PromptLabPage() {
                 />
 
                 {/* Wizard Button - Inside text box */}
+                {isPromptWizardEnabled &&
                 <Tooltip title="Open Prompt Wizard">
                   <IconButton
                     onClick={handleOpenWizard}
@@ -4472,6 +4486,7 @@ export default function PromptLabPage() {
                     <WizardIcon sx={{ fontSize: isMobile ? 20 : 16 }} />
                   </IconButton>
                 </Tooltip>
+                }
 
                 {/* Send Button - Inside text box */}
                 <IconButton
@@ -4517,6 +4532,7 @@ export default function PromptLabPage() {
                   flexWrap: 'wrap', 
                   mt: 1 
                 }}>
+                  {isModelSelectionEnabled &&
                   <Button
                     variant="outlined"
                     size="small"
@@ -4538,7 +4554,8 @@ export default function PromptLabPage() {
                   >
                     model: {selectedModel} ▾
                   </Button>
-                  
+                  }
+                  {isContextsEnabled &&
                   <Button
                     variant="outlined"
                     size="small"
@@ -4560,7 +4577,8 @@ export default function PromptLabPage() {
                   >
                     Context: {selectedContexts.length > 0 ? (selectedContexts.length === 1 ? selectedContexts[0].title : `${selectedContexts.length} selected`) : 'None'} ▾
                   </Button>
-
+                  }
+                  {isViewCopyFullPromptEnabled &&
                   <Button
                     variant="outlined"
                     size="small"
@@ -4582,6 +4600,7 @@ export default function PromptLabPage() {
                   >
                     View/Copy Full Prompt
                   </Button>
+                  }
                 </Box>
               ) : (
                 // Mobile controls - Collapsible
@@ -4593,6 +4612,7 @@ export default function PromptLabPage() {
                     mt: 1.5,
                     px: 0.5
                   }}>
+                    {isModelSelectionEnabled &&
                     <Button
                       variant="outlined"
                       size="small"
@@ -4614,7 +4634,8 @@ export default function PromptLabPage() {
                     >
                       model: {selectedModel} ▾
                     </Button>
-                    
+                    }
+                    {isContextsEnabled &&
                     <Button
                       variant="outlined"
                       size="small"
@@ -4636,7 +4657,8 @@ export default function PromptLabPage() {
                     >
                       Context: {selectedContexts.length > 0 ? (selectedContexts.length === 1 ? selectedContexts[0].title : `${selectedContexts.length} selected`) : 'None'} ▾
                     </Button>
-
+                    }
+                    {isSystemPromptLibrarianEnabled &&
                     <Button
                       variant="outlined"
                       size="small"
@@ -4658,7 +4680,8 @@ export default function PromptLabPage() {
                     >
                       System Prompts ({selectedSystemPrompts.length}) ▾
                     </Button>
-
+                    }
+                    {isViewCopyFullPromptEnabled &&
                     <Button
                       variant="outlined"
                       size="small"
@@ -4680,7 +4703,8 @@ export default function PromptLabPage() {
                     >
                       View Full Prompt
                     </Button>
-
+                    }
+                    {isRecentConversationsInChatPageEnabled &&
                     <Button
                       variant="outlined"
                       size="small"
@@ -4702,6 +4726,7 @@ export default function PromptLabPage() {
                     >
                       Recent Conversations
                     </Button>
+                    }
                   </Box>
                 </Collapse>
               )}
@@ -4718,7 +4743,7 @@ export default function PromptLabPage() {
                   px: 2,
                 }}>
                   {/* New Chat Button - Positioned at 1/4 from left */}
-                  {messages.length > 0 && (
+                  {messages.length > 0 && isNewChatButtonInChatPageEnabled && (
                     <Box sx={{
                       position: 'absolute',
                       left: '20%',
@@ -4769,7 +4794,8 @@ export default function PromptLabPage() {
         </Box>
                   </Box>
 
-            {/* Right Sidebar - Recent Conversations */}
+      {/* Right Sidebar - Recent Conversations */}
+      {isRecentConversationsInChatPageEnabled &&
       <Drawer
         anchor="right"
         open={conversationsDrawerOpen}
@@ -4881,9 +4907,9 @@ export default function PromptLabPage() {
           )}
         </Box>
       </Drawer>
-
+      }
       {/* Chat History Tab - Desktop Only */}
-      {!isMobile && (
+      {!isMobile && isRecentConversationsInChatPageEnabled && (
       <Tooltip title="Recent Conversations" placement="left">
         <Box
           onClick={() => setConversationsDrawerOpen(!conversationsDrawerOpen)}
@@ -4932,7 +4958,7 @@ export default function PromptLabPage() {
       )}
 
       {/* Wizard Tab - Desktop Only */}
-      {!isMobile && wizardMessages.length > 0 && (
+      {!isMobile && wizardMessages.length > 0 && isPromptWizardEnabled && (
       <Tooltip title="Prompt Wizard" placement="left">
         <Box
           onClick={wizardOpen ? handleMinimizeWizard : handleMaximizeWizard}
@@ -4980,7 +5006,7 @@ export default function PromptLabPage() {
       )}
 
       {/* System Prompt Suggestor Tab - Desktop Only */}
-      {!isMobile && systemPromptSuggestorMessages.length > 0 && (
+      {!isMobile && systemPromptSuggestorMessages.length > 0 && isSystemPromptLibrarianEnabled && (
       <Tooltip title="System Prompt Librarian" placement="left">
         <Box
           onClick={systemPromptSuggestorOpen ? handleMinimizeSystemPromptSuggestor : handleMaximizeSystemPromptSuggestor}
@@ -5106,7 +5132,7 @@ export default function PromptLabPage() {
         </DialogActions>
       </Dialog>
 
-              <SystemPromptSelectionModal
+      <SystemPromptSelectionModal
           open={systemPromptModalOpen}
           onClose={() => {
             setSystemPromptModalOpen(false);
@@ -5225,7 +5251,8 @@ export default function PromptLabPage() {
         </Alert>
       </Snackbar>
 
-      {/* Background Agents Floating Button */}
+      {/* Background Agents Floating Button */} 
+      {isBackgroundAgentsEnabled &&
       <Tooltip 
         title={
           backgroundAgentsEvaluating 
@@ -5305,6 +5332,7 @@ export default function PromptLabPage() {
           </IconButton>
         </Box>
       </Tooltip>
+      }
 
       {/* Background Agents Dialog */}
       <Dialog

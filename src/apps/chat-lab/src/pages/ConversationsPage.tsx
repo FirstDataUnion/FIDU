@@ -50,6 +50,7 @@ import {
   selectAllTags,
   selectSortedConversations
 } from '../store/selectors/conversationsSelectors';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const ConversationsPage: React.FC = React.memo(() => {
   const theme = useTheme();
@@ -144,7 +145,7 @@ const ConversationsPage: React.FC = React.memo(() => {
     dispatch(setFilters({ sortOrder } as any));
   }, [dispatch]);
 
-
+  const isContextsEnabled = useFeatureFlag('context');
 
   useEffect(() => {
     let isMounted = true;
@@ -621,7 +622,7 @@ const ConversationsPage: React.FC = React.memo(() => {
               <IconButton onClick={handleMobileBack} aria-label="Back to conversations">
                 <ArrowBackIcon />
               </IconButton>
-              {selectedConversation && (
+              {selectedConversation && isContextsEnabled && (
                 <Button
                   variant="outlined"
                   size="small"
@@ -1021,6 +1022,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                 Conversation Details
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {isContextsEnabled &&
                 <Button
                   variant="outlined"
                   size="small"
@@ -1040,6 +1042,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                 >
                   Add to Context
                 </Button>
+                }
                 <IconButton 
                   onClick={() => {
                     setSelectedConversation(null);

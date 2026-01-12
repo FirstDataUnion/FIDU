@@ -39,6 +39,11 @@ export const combineSystemFlagsWithOverrides = (
     return null;
   }
 
+  // Don't apply user overrides if the user can't change them
+  if ('feature_flag_page' in systemFlags && !systemFlags['feature_flag_page'].enabled) {
+    return systemFlags;
+  }
+
   // Create a deep copy of system flags
   const combined: FeatureFlagsMap = {} as FeatureFlagsMap;
 
