@@ -14,7 +14,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -332,14 +332,6 @@ def clear_cookie(response: Response, name: str):
             ".firstdataunion.org" if ENVIRONMENT == "prod" else None
         ),  # Match the setting in set_secure_cookie
     )
-
-
-def clear_cookies_on_identity_service_401(response: Response):
-    """Clear relevant cookies when the identity service returns a 401."""
-    clear_cookie(response, "auth_token")
-    # This might be too aggressive - a 401 just means that the auth token should be refreshed
-    # but I still don't understand the entire flow well enough and this seems to work for now
-    clear_cookie(response, "fidu_refresh_token")
 
 
 # Add request logging and metrics middleware
@@ -732,12 +724,10 @@ async def exchange_oauth_code(
                         "Failed to encrypt refresh token during OAuth exchange due to 401: %s",
                         e,
                     )
-                    failure_response = JSONResponse(
+                    return JSONResponse(
                         status_code=401,
                         content={"detail": "Authentication to identity service failed"},
                     )
-                    clear_cookies_on_identity_service_401(failure_response)
-                    return failure_response
                 except Exception as e:
                     logger.error(
                         "Failed to encrypt refresh token during OAuth exchange: %s", e
@@ -811,12 +801,10 @@ async def refresh_oauth_token(request: Request):
                 )
             except IdentityServiceUnauthorizedError as e:
                 logger.error("Failed to decrypt refresh token due to 401: %s", e)
-                failure_response = JSONResponse(
+                return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
                 )
-                clear_cookies_on_identity_service_401(failure_response)
-                return failure_response
             except Exception as e:
                 logger.error("Failed to decrypt refresh token: %s", e)
                 raise HTTPException(
@@ -834,12 +822,10 @@ async def refresh_oauth_token(request: Request):
                 )
             except IdentityServiceUnauthorizedError as e:
                 logger.error("Failed to decrypt refresh token due to 401: %s", e)
-                failure_response = JSONResponse(
+                return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
                 )
-                clear_cookies_on_identity_service_401(failure_response)
-                return failure_response
             except Exception as exc:
                 # No fallback - if encryption fails, the token is invalid
                 logger.error("Failed to decrypt refresh token with encryption service")
@@ -1004,12 +990,10 @@ async def get_oauth_tokens(request: Request):
                 logger.error(
                     "Failed to decrypt Google Drive refresh token due to 401: %s", e
                 )
-                failure_response = JSONResponse(
+                return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
                 )
-                clear_cookies_on_identity_service_401(failure_response)
-                return failure_response
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Failed to decrypt Google Drive refresh token: %s", e)
                 # Clear the corrupted token cookie
@@ -1037,12 +1021,10 @@ async def get_oauth_tokens(request: Request):
                     "Failed to decrypt refresh token with encryption service due to 401: %s",
                     e,
                 )
-                failure_response = JSONResponse(
+                return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
                 )
-                clear_cookies_on_identity_service_401(failure_response)
-                return failure_response
             except Exception as exc:
                 # No fallback - if encryption fails, the token is invalid
                 logger.error("Failed to decrypt refresh token with encryption service")
@@ -1063,221 +1045,6 @@ async def get_oauth_tokens(request: Request):
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to get Google Drive tokens: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-# Authentication cookie management endpoints
-@app.post(f"{BASE_PATH}/api/auth/set-token")
-async def set_auth_token(request: Request):
-    """
-    Set authentication token in HTTP-only cookie.
-
-    Request body:
-        - token: Authentication token
-        - expires_in: Token expiration time in seconds
-        - user: User information (optional)
-        - profile: Current profile (optional)
-
-    Returns:
-        - success: Boolean indicating success
-    """
-    try:
-        data = await request.json()
-        token = data.get("token")
-        expires_in = data.get("expires_in", 3600)  # Default 1 hour
-        user = data.get("user")
-        profile = data.get("profile")
-
-        if not token:
-            raise HTTPException(status_code=400, detail="Missing authentication token")
-
-        # Get user ID for encryption
-        user_id = get_user_id_from_request(request)
-        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-
-        # Validate auth token is present and not empty
-        if not auth_token or auth_token.strip() == "":
-            logger.warning(
-                "Empty or missing auth token when setting tokens for user %s", user_id
-            )
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required: valid auth token must be provided",
-            )
-
-        # Create response
-        fastapi_response = JSONResponse(content={"success": True})
-
-        # Set authentication token cookie
-        set_secure_cookie(fastapi_response, "auth_token", token, max_age=expires_in)
-
-        # Set refresh token cookie if provided
-        if data.get("refresh_token"):
-            encrypted_refresh = await encrypt_refresh_token(
-                data["refresh_token"], user_id, auth_token
-            )
-            set_secure_cookie(
-                fastapi_response,
-                "fiduRefreshToken",
-                encrypted_refresh,
-                max_age=30 * 24 * 60 * 60,  # 30 days
-            )
-
-        # Set user info cookie if provided
-        if user:
-            encrypted_user = await encrypt_refresh_token(
-                json.dumps(user), user_id, auth_token
-            )
-            set_secure_cookie(
-                fastapi_response, "user", encrypted_user, max_age=expires_in
-            )
-
-        # Set profile cookie if provided
-        if profile:
-            encrypted_profile = await encrypt_refresh_token(
-                json.dumps(profile), user_id, auth_token
-            )
-            set_secure_cookie(
-                fastapi_response,
-                "current_profile",
-                encrypted_profile,
-                max_age=expires_in,
-            )
-
-        logger.info(
-            "✅ Authentication tokens set in HTTP-only cookies for user %s", user_id
-        )
-        return fastapi_response
-
-    except IdentityServiceUnauthorizedError as e:
-        logger.error("Failed to set auth token due to 401: %s", e)
-        failure_response = JSONResponse(
-            status_code=401,
-            content={"detail": "Authentication to identity service failed"},
-        )
-        clear_cookies_on_identity_service_401(failure_response)
-        return failure_response
-    except HTTPException:
-        raise
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Failed to set auth token: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@app.post(f"{BASE_PATH}/api/auth/clear-tokens")
-async def clear_auth_tokens():
-    """
-    Clear all authentication cookies.
-
-    Returns:
-        - success: Boolean indicating success
-    """
-    try:
-        logger.info("Clearing all authentication cookies...")
-
-        # Create response to clear all auth cookies
-        fastapi_response = JSONResponse(content={"success": True})
-
-        # Clear all authentication-related cookies
-        auth_cookies = [
-            "auth_token",
-            "fiduRefreshToken",
-            "token_expires_in",
-            "user",
-            "current_profile",
-            "google_refresh_token",
-        ]
-
-        for cookie_name in auth_cookies:
-            clear_cookie(fastapi_response, cookie_name)
-
-        logger.info("✅ All authentication cookies cleared")
-        return fastapi_response
-
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Failed to clear auth tokens: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@app.get(f"{BASE_PATH}/api/auth/get-tokens")
-async def get_auth_tokens(request: Request):
-    """
-    Get authentication tokens from HTTP-only cookies.
-
-    Returns:
-        - auth_token: Authentication token
-        - refresh_token: Refresh token (if available)
-        - user: User information (if available)
-        - profile: Current profile (if available)
-    """
-    try:
-        # Get user ID for decryption
-        user_id = get_user_id_from_request(request)
-        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-
-        # Validate auth token is present and not empty
-        if not auth_token or auth_token.strip() == "":
-            logger.warning(
-                "Empty or missing auth token in request from user %s", user_id
-            )
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required: valid auth token must be provided",
-            )
-
-        response_data = {}
-
-        # Get authentication token
-        auth_token_cookie = get_cookie_value(request, "auth_token")
-        if auth_token_cookie:
-            response_data["auth_token"] = auth_token_cookie
-
-        # Get refresh token (encrypted)
-        refresh_token_cookie = get_cookie_value(request, "fiduRefreshToken")
-        if refresh_token_cookie:
-            try:
-                refresh_token = await decrypt_refresh_token(
-                    refresh_token_cookie, user_id, auth_token
-                )
-                response_data["refresh_token"] = refresh_token
-            except (ValueError, RuntimeError) as e:
-                logger.warning("Failed to decrypt refresh token: %s", e)
-
-        # Get user info (encrypted)
-        user_cookie = get_cookie_value(request, "user")
-        if user_cookie:
-            try:
-                user_data = await decrypt_refresh_token(
-                    user_cookie, user_id, auth_token
-                )
-                response_data["user"] = json.loads(user_data)
-            except (ValueError, RuntimeError, json.JSONDecodeError) as e:
-                logger.warning("Failed to decrypt user data: %s", e)
-
-        # Get profile info (encrypted)
-        profile_cookie = get_cookie_value(request, "current_profile")
-        if profile_cookie:
-            try:
-                profile_data = await decrypt_refresh_token(
-                    profile_cookie, user_id, auth_token
-                )
-                response_data["profile"] = json.loads(profile_data)
-            except (ValueError, RuntimeError, json.JSONDecodeError) as e:
-                logger.warning("Failed to decrypt profile data: %s", e)
-
-        logger.info("Retrieved authentication data from cookies for user %s", user_id)
-        return response_data
-
-    except IdentityServiceUnauthorizedError as e:
-        logger.error("Failed to get auth tokens due to 401: %s", e)
-        failure_response = JSONResponse(
-            status_code=401,
-            content={"detail": "Authentication to identity service failed"},
-        )
-        clear_cookies_on_identity_service_401(failure_response)
-        return failure_response
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Failed to get auth tokens: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -1331,12 +1098,10 @@ async def set_user_settings(request: Request):
             )
         except IdentityServiceUnauthorizedError as e:
             logger.error("Failed to encrypt settings due to 401: %s", e)
-            failure_response = JSONResponse(
+            return JSONResponse(
                 status_code=401,
                 content={"detail": "Authentication to identity service failed"},
             )
-            clear_cookies_on_identity_service_401(failure_response)
-            return failure_response
         except Exception as e:
             logger.error("Failed to encrypt settings: %s", e)
             raise HTTPException(
@@ -1418,12 +1183,10 @@ async def get_user_settings(request: Request):
                     environment,
                     e,
                 )
-                failure_response = JSONResponse(
+                return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication to identity service failed"},
                 )
-                clear_cookies_on_identity_service_401(failure_response)
-                return failure_response
             except (ValueError, RuntimeError, json.JSONDecodeError) as e:
                 logger.warning(
                     "Failed to decrypt settings data for %s environment: %s",
@@ -1704,173 +1467,6 @@ async def refresh_fidu_access_token(request: Request):
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to refresh FIDU access token: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@app.post(f"{BASE_PATH}/api/auth/refresh-all")
-async def refresh_all_tokens(
-    request: Request,
-):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-    """
-    Batch refresh both FIDU and Google Drive tokens in a single request.
-
-    This optimization reduces HTTP overhead by refreshing both token types
-    simultaneously instead of requiring separate calls.
-
-    Query params:
-        - env: Environment identifier (dev, prod, local)
-
-    Returns:
-        - fidu: Object with access_token and expires_in (if FIDU token exists)
-        - google_drive: Object with access_token and expires_in (if Google token exists)
-        - errors: Object with any errors that occurred
-    """
-    try:
-        environment = request.query_params.get("env", "prod")
-
-        result: Dict[str, Any] = {"fidu": None, "google_drive": None, "errors": {}}
-
-        # Attempt to refresh FIDU token
-        try:
-            suffix = "_" + environment if environment != "prod" else ""
-            fidu_refresh_cookie_name = f"fidu_refresh_token{suffix}"
-            fidu_refresh_token = get_cookie_value(request, fidu_refresh_cookie_name)
-
-            if fidu_refresh_token:
-                logger.info("Refreshing FIDU access token in batch...")
-
-                # Call FIDU identity service
-                id_service_url = encryption_service.identity_service_url
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        f"{id_service_url}/refresh",
-                        json={"refresh_token": fidu_refresh_token},
-                        timeout=30.0,
-                    )
-
-                    if response.is_success:
-                        token_data = response.json()
-                        result["fidu"] = {
-                            "access_token": token_data["access_token"],
-                            "expires_in": token_data["expires_in"],
-                        }
-                        logger.info("✅ FIDU token refreshed in batch")
-                    else:
-                        result["errors"][
-                            "fidu"
-                        ] = f"Refresh failed with status {response.status_code}"
-                        logger.warning(
-                            "FIDU token refresh failed in batch: %s",
-                            response.status_code,
-                        )
-            else:
-                logger.debug("No FIDU refresh token found for batch refresh")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            result["errors"]["fidu"] = str(e)
-            logger.warning("FIDU token refresh failed in batch: %s", e)
-
-        # Attempt to refresh Google Drive token
-        try:
-            suffix = "_" + environment if environment != "prod" else ""
-            google_refresh_cookie_name = f"google_refresh_token{suffix}"
-            encrypted_token = get_cookie_value(request, google_refresh_cookie_name)
-
-            if encrypted_token:
-                logger.info("Refreshing Google Drive access token in batch...")
-
-                # Get user ID and auth token for decryption
-                user_id = get_user_id_from_request(request)
-                auth_token = request.headers.get("Authorization", "").replace(
-                    "Bearer ", ""
-                )
-
-                # Decrypt the refresh token
-                if auth_token:
-                    refresh_token = await decrypt_refresh_token(
-                        encrypted_token, user_id, auth_token
-                    )
-                else:
-                    encryption_key = await encryption_service.get_user_encryption_key(
-                        user_id, ""
-                    )
-                    refresh_token = encryption_service.decrypt_refresh_token(
-                        encrypted_token, encryption_key
-                    )
-
-                # Refresh token using Google OAuth2
-                if chatlab_secrets and chatlab_secrets.google_client_secret:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            "https://oauth2.googleapis.com/token",
-                            data={
-                                "client_id": chatlab_secrets.google_client_id,
-                                "client_secret": chatlab_secrets.google_client_secret,
-                                "refresh_token": refresh_token,
-                                "grant_type": "refresh_token",
-                            },
-                            timeout=30.0,
-                        )
-
-                        if response.is_success:
-                            token_data = response.json()
-                            result["google_drive"] = {
-                                "access_token": token_data["access_token"],
-                                "expires_in": token_data["expires_in"],
-                            }
-                            logger.info("✅ Google Drive token refreshed in batch")
-                        else:
-                            result["errors"][
-                                "google_drive"
-                            ] = f"Refresh failed with status {response.status_code}"
-                            logger.warning(
-                                "Google Drive token refresh failed in batch: %s",
-                                response.status_code,
-                            )
-                else:
-                    result["errors"]["google_drive"] = "OAuth not configured on server"
-            else:
-                logger.debug("No Google Drive refresh token found for batch refresh")
-        except IdentityServiceUnauthorizedError as e:
-            logger.error("Google Drive token refresh failed in batch due to 401: %s", e)
-            failure_response = JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication to identity service failed"},
-            )
-            clear_cookies_on_identity_service_401(failure_response)
-            return failure_response
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            result["errors"]["google_drive"] = str(e)
-            logger.warning("Google Drive token refresh failed in batch: %s", e)
-
-        # Create response with updated cookies
-        fastapi_response = JSONResponse(content=result)
-
-        # Set FIDU access token cookie if refreshed
-        fidu_tokens = result.get("fidu")
-        if fidu_tokens and isinstance(fidu_tokens, dict):
-            fidu_access_cookie_name = (
-                f"fidu_access_token{'_' + environment if environment != 'prod' else ''}"
-            )
-            set_secure_cookie(
-                fastapi_response,
-                fidu_access_cookie_name,
-                fidu_tokens["access_token"],
-                max_age=fidu_tokens["expires_in"],
-            )
-
-        # Google Drive tokens are not stored in cookies (only access token in localStorage)
-        # So we don't need to set a cookie here
-
-        logger.info(
-            "✅ Batch token refresh complete (FIDU: %s, Google: %s)",
-            "success" if result["fidu"] else "skipped",
-            "success" if result["google_drive"] else "skipped",
-        )
-
-        return fastapi_response
-
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Failed to batch refresh tokens: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
