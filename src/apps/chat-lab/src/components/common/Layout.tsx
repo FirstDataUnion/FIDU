@@ -47,6 +47,7 @@ import {
   Help as HelpIcon,
   DeleteForever as DeleteAccountIcon,
   FolderSpecial as WorkspacesIcon,
+  PrecisionManufacturing as FeatureFlagIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -86,7 +87,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const dispatch = useAppDispatch();
   const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
   const unifiedStorage = useUnifiedStorage();
-  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
   
   // Check if we're in a shared workspace (profiles should be disabled)
   const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
@@ -213,15 +213,15 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   }, []);
 
   const mainMenuItems = [
-    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab' },
-    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
+    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab', enabled: true },
+    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations', enabled: true },
   ];
 
   const advancedMenuItems = [
-    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts' },
-    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts' },
-    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents' },
-    { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
+    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts', enabled: useFeatureFlag('context') },
+    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts', enabled: useFeatureFlag('system_prompts') },
+    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents', enabled: useFeatureFlag('background_agents') },
+    { text: 'Documents', icon: <DocumentIcon />, path: '/documents', enabled: useFeatureFlag('documents') },
   ];
 
 
@@ -230,9 +230,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
-    ...(isSharedWorkspacesEnabled ? [{ text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces' }] : []),
-    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces', enabled: useFeatureFlag('shared_workspaces') },
+    { text: 'Feature Flags', icon: <FeatureFlagIcon />, path: '/feature-flags', enabled: useFeatureFlag('feature_flag_page') },
+    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export', enabled: true },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings', enabled: true },
   ];
 
 
@@ -252,7 +253,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   };
 
   const renderMenuSection = (title: string, items: any[]) => (
+    items.some(item => item.enabled) && (
     <>
+      <Divider sx={{ my: 1 }} />
       {title && (
         <Typography 
           variant="overline" 
@@ -269,7 +272,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         </Typography> 
       )}
       <List dense>
-        {items.map((item) => (
+        {items.map((item) => ( item.enabled && (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
@@ -302,9 +305,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               />
             </ListItemButton>
           </ListItem>
-        ))}
+        )))}
       </List>
     </>
+    )
   );
 
   const drawer = (
@@ -315,14 +319,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             FIDU Chat Lab
           </Typography>
         </Toolbar>
-        <Divider />
         
         {renderMenuSection('', mainMenuItems)}
         
-        <Divider sx={{ my: 1 }} />
         {renderMenuSection('Advanced', advancedMenuItems)}
         
-        <Divider sx={{ my: 1 }} />
         {renderMenuSection('System', systemMenuItems)}
       </Box>
       

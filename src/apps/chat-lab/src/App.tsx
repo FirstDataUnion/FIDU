@@ -62,6 +62,7 @@ const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
 const WhatsNewPage = React.lazy(() => import('./pages/WhatsNewPage'));
 const DocumentsPage = React.lazy(() => import('./pages/DocumentsPage'));
 const DeleteAccountPage = React.lazy(() => import('./pages/DeleteAccountPage'));
+const FeatureFlagPage = React.lazy(() => import('./pages/FeatureFlagPage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -922,6 +923,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                       </StorageFeatureGuard>
                     } 
                   />
+                  <Route path="/feature-flags" element={<FeatureFlagPage />} />
                   <Route path="/import-export" element={<ImportExportPage />} />
                   {isSharedWorkspacesEnabled && (
                     <Route path="/workspaces" element={<WorkspacesPage />} />
