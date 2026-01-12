@@ -3,7 +3,7 @@
  * Dialog for creating new shared workspaces
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,7 +21,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { getWorkspaceCreationService, type CreateWorkspaceOptions, type WorkspaceCreationProgress } from '../../services/workspace/WorkspaceCreationService';
-import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 
 interface CreateWorkspaceDialogProps {
   open: boolean;
@@ -41,8 +40,6 @@ export default function CreateWorkspaceDialog({
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<WorkspaceCreationProgress | null>(null);
-  const [hasDriveFileScope, setHasDriveFileScope] = useState<boolean | null>(null);
-  const [isCheckingScope, setIsCheckingScope] = useState(false);
   const [emailValidationErrors, setEmailValidationErrors] = useState<Map<number, string>>(new Map());
   
   // Debounce timer for email validation
@@ -54,28 +51,6 @@ export default function CreateWorkspaceDialog({
   useEffect(() => {
     memberEmailsRef.current = memberEmails;
   }, [memberEmails]);
-
-  // Check for drive.file scope when dialog opens
-  const checkDriveFileScope = useCallback(async () => {
-    setIsCheckingScope(true);
-    try {
-      const authService = await getGoogleDriveAuthService();
-      const hasScope = await authService.hasDriveFileScope();
-      setHasDriveFileScope(hasScope);
-      console.log('🔍 Drive.file scope check result:', hasScope);
-    } catch (error) {
-      console.error('Failed to check drive.file scope:', error);
-      setHasDriveFileScope(false);
-    } finally {
-      setIsCheckingScope(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      checkDriveFileScope();
-    }
-  }, [open, checkDriveFileScope]);
 
   const handleAddMember = () => {
     setMemberEmails([...memberEmails, '']);
@@ -274,18 +249,6 @@ export default function CreateWorkspaceDialog({
     }
   }, [workspaceName, memberEmails, folderName, onSuccess, onClose]);
 
-  const handleRequestDriveFileScope = async () => {
-    try {
-      const authService = await getGoogleDriveAuthService();
-      await authService.requestAdditionalScopes(['https://www.googleapis.com/auth/drive.file']);
-      // After re-authentication, check scope again
-      await checkDriveFileScope();
-    } catch (error) {
-      console.error('Failed to request drive.file scope:', error);
-      setError('Failed to request additional permissions. Please try again.');
-    }
-  };
-
   const handleClose = () => {
     if (!isCreating) {
       // Clear progress callback if set (set to no-op)
@@ -344,33 +307,6 @@ export default function CreateWorkspaceDialog({
       </DialogTitle>
 
       <DialogContent>
-        {/* Drive.file scope check */}
-        {isCheckingScope && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2">
-                Checking permissions...
-              </Typography>
-            </Box>
-          </Alert>
-        )}
-        {!isCheckingScope && hasDriveFileScope === false && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Additional permissions required:</strong> To create shared workspaces, the app needs access to create and manage files in your Google Drive.
-            </Typography>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleRequestDriveFileScope}
-              sx={{ mt: 1 }}
-            >
-              Grant Access
-            </Button>
-          </Alert>
-        )}
-
         {/* Progress indicator */}
         {isCreating && progress && (
           <Box sx={{ mb: 2 }}>
@@ -469,7 +405,6 @@ export default function CreateWorkspaceDialog({
           variant="contained"
           disabled={
             isCreating || 
-            hasDriveFileScope === false || 
             !workspaceName.trim()
           }
           startIcon={isCreating ? <CircularProgress size={16} /> : null}
@@ -480,4 +415,3 @@ export default function CreateWorkspaceDialog({
     </Dialog>
   );
 }
-

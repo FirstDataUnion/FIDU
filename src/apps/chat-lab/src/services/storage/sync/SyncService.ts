@@ -144,9 +144,6 @@ export class SyncService {
       // Upload changes to Drive
       await this.syncToDrive(options);
 
-      this.lastSyncTime = new Date();
-      this.storeLastSyncTime();
-
       console.log('Full sync completed successfully');
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Unknown sync error';
@@ -320,6 +317,9 @@ export class SyncService {
           await this.driveService.uploadAPIKeysDB(apiKeysData, version);
         }
       }
+
+      this.lastSyncTime = new Date();
+      this.storeLastSyncTime();
 
       // Mark all pending changes as synced
       const pendingDataPackets = await this.dbManager.getPendingDataPackets();
