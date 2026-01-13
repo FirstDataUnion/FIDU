@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
             vendor: ['react', 'react-dom'],
             mui: ['@mui/material', '@mui/icons-material'],
             redux: ['@reduxjs/toolkit', 'react-redux'],
-            utils: ['dayjs', 'uuid']
+            utils: ['uuid']
           }
         }
       },
