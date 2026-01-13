@@ -366,5 +366,3 @@ export const WelcomeLandingPage: React.FC = () => {
   );
 };
 
-export default WelcomeLandingPage;
-

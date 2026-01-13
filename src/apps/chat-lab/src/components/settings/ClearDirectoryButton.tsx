@@ -141,5 +141,3 @@ export const ClearDirectoryButton: React.FC<ClearDirectoryButtonProps> = ({
     </Box>
   );
 };
-
-export default ClearDirectoryButton;

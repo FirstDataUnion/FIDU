@@ -59,5 +59,3 @@ export const DirectoryPickerButton: React.FC<DirectoryPickerButtonProps> = ({
     </Box>
   );
 };
-
-export default DirectoryPickerButton;

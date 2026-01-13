@@ -372,5 +372,3 @@ export const StorageModeSelector: React.FC = () => {
     </Card>
   );
 };
-
-export default StorageModeSelector;

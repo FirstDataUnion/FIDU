@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import EnhancedMarkdown from '../components/common/EnhancedMarkdown';
+import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
 import {
   Box,
   Typography,
@@ -33,7 +33,7 @@ import {
   Badge,
   Slider,
 } from '@mui/material';
-import CategoryFilter from '../components/common/CategoryFilter';
+import { CategoryFilter } from '../components/common/CategoryFilter';
 import {
   ContentCopy as ContentCopyIcon,
   Add as AddIcon,
@@ -73,7 +73,7 @@ import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 import { WizardWindow } from '../components/wizards/WizardWindow';
-import LongRequestWarning from '../components/common/LongRequestWarning';
+import { LongRequestWarning } from '../components/common/LongRequestWarning';
 import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import { subscribeToAgentAlerts, getUnreadAlertCount, markAlertAsRead } from '../services/agents/agentAlerts';

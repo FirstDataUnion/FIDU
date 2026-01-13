@@ -229,5 +229,3 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
   );
 };
 
-export default SyncHealthIndicator;
-

@@ -2,12 +2,12 @@
  * Settings components exports
  */
 
-export { default as DirectoryPickerButton } from './DirectoryPickerButton';
-export { default as PermissionStatusIndicator } from './PermissionStatusIndicator';
-export { default as DirectoryPathDisplay } from './DirectoryPathDisplay';
-export { default as ClearDirectoryButton } from './ClearDirectoryButton';
-export { default as StorageModeSelector } from './StorageModeSelector';
-export { default as StorageMigrationWizard } from './StorageMigrationWizard';
+export { DirectoryPickerButton } from './DirectoryPickerButton';
+export { PermissionStatusIndicator } from './PermissionStatusIndicator';
+export { DirectoryPathDisplay } from './DirectoryPathDisplay';
+export { ClearDirectoryButton } from './ClearDirectoryButton';
+export { StorageModeSelector } from './StorageModeSelector';
+export { StorageMigrationWizard } from './StorageMigrationWizard';
 export { SyncSettings } from './SyncSettings';
 export { APIKeyManager } from './APIKeyManager';
 

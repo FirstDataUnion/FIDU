@@ -24,7 +24,7 @@ import {
   Clear as ClearIcon,
   Add as AddIcon
 } from '@mui/icons-material';
-import EnhancedMarkdown from '../common/EnhancedMarkdown';
+import { EnhancedMarkdown } from '../common/EnhancedMarkdown';
 import type { WizardWindowProps, WizardMessage } from '../../types/wizard';
 
 // Wizard input component with internal state management

@@ -79,5 +79,3 @@ export const StorageMigrationWizard: React.FC<MigrationWizardProps> = ({
     </Dialog>
   );
 };
-
-export default StorageMigrationWizard;

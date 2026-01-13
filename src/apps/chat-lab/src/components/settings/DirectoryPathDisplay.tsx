@@ -81,5 +81,3 @@ export const DirectoryPathDisplay: React.FC<DirectoryPathDisplayProps> = ({
     </Paper>
   );
 };
-
-export default DirectoryPathDisplay;

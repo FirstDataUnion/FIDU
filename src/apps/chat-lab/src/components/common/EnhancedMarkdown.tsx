@@ -493,5 +493,3 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
     </Box>
   );
 };
-
-export default EnhancedMarkdown;
