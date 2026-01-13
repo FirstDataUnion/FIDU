@@ -62,6 +62,7 @@ import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import { updateConversationWithMessages } from '../store/slices/conversationsSlice';
+import { setCurrentPrompt, clearCurrentPrompt } from '../store/slices/promptLabSlice';
 import { conversationsService } from '../services/conversationsService';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../data/backgroundAgents';
@@ -1716,6 +1717,7 @@ export default function PromptLabPage() {
   const spacing = useResponsiveSpacing();
   
   // Redux state
+  const { currentPrompt } = useAppSelector((state) => state.promptLab);
   const { currentProfile } = useAppSelector((state) => state.auth);
   const { items: contexts, loading: contextsLoading, error: contextsError } = useAppSelector((state) => state.contexts);
   const { items: systemPrompts, loading: systemPromptsLoading, error: systemPromptsError } = useAppSelector((state) => state.systemPrompts);
@@ -1771,7 +1773,6 @@ export default function PromptLabPage() {
 
   // State for the chat interface - initialize from sessionStorage
   const [messages, setMessages] = useState<Message[]>(() => loadFromSession(STORAGE_KEYS.messages) || []);
-  const [currentMessage, setCurrentMessage] = useState('');
   const [selectedModel, setSelectedModel] = useState(settings.lastUsedModel || 'auto-router');
   const [selectedContexts, setSelectedContexts] = useState<Context[]>(() => {
     const STORAGE_KEYS_TEMP = {
@@ -1825,7 +1826,7 @@ export default function PromptLabPage() {
   const [alertToExpand, setAlertToExpand] = useState<string | null>(null); // Alert ID to auto-expand when modal opens
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
   const [backgroundAgentsEvaluating, setBackgroundAgentsEvaluating] = useState(false);
-  
+
   // Set up alert click handler for the toaster
   const alertClickContext = useAlertClick();
   useEffect(() => {
@@ -2473,7 +2474,7 @@ export default function PromptLabPage() {
       if (location.state.startNew) {
         // Start new conversation - clear existing state
         setMessages([]);
-        setCurrentMessage('');
+        dispatch(clearCurrentPrompt());
         setSelectedContexts([]);
         setSelectedSystemPrompts([systemPrompt]);
         setCurrentConversation(null);
@@ -2508,7 +2509,7 @@ export default function PromptLabPage() {
       // Clear the navigation state to prevent reloading on subsequent renders
       navigate('/prompt-lab', { replace: true });
     }
-  }, [location.state, navigate, clearSession]);
+  }, [location.state, navigate, clearSession, dispatch]);
 
   // Handle librarian wizard opening from navigation
   useEffect(() => {
@@ -2638,7 +2639,7 @@ export default function PromptLabPage() {
 
   // Handle sending a message
   const handleSendMessage = async () => {
-    if (!currentMessage.trim() || !selectedModel || !selectedSystemPrompts.length || !currentProfile) return;
+    if (!currentPrompt.trim() || !selectedModel || !selectedSystemPrompts.length || !currentProfile) return;
 
     // Close the system prompt drawer when sending a message
     if (systemPromptDrawerOpen) {
@@ -2656,7 +2657,7 @@ export default function PromptLabPage() {
       // Create a conversation object immediately so it exists from the first message
       const newConversation: Conversation = {
         id: conversationId,
-        title: currentMessage.substring(0, 40) || 'New Conversation',
+        title: currentPrompt.substring(0, 40) || 'New Conversation',
         platform: selectedModel as any,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -2669,7 +2670,7 @@ export default function PromptLabPage() {
         status: 'active',
         modelsUsed: [],
         originalPrompt: {
-          promptText: currentMessage,
+          promptText: currentPrompt,
           contexts: selectedContexts,
           context: selectedContexts[0] || null, // Keep for backward compatibility
           systemPrompts: selectedSystemPrompts,
@@ -2711,7 +2712,7 @@ export default function PromptLabPage() {
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
       conversationId: conversationId,
-      content: currentMessage,
+      content: currentPrompt,
       role: 'user',
       timestamp: new Date().toISOString(),
       platform: selectedModel, // Store the selected model ID
@@ -2719,7 +2720,7 @@ export default function PromptLabPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setCurrentMessage('');
+    dispatch(clearCurrentPrompt());
     setIsLoading(true);
     setError(null);
     setIsRequestCancelled(false);
@@ -2728,7 +2729,7 @@ export default function PromptLabPage() {
     const contextLength = selectedContexts.reduce((total, ctx) => total + JSON.stringify(ctx).length, 0);
     const conversationLength = messages.reduce((total, msg) => total + msg.content.length, 0);
     const analysis = analyzeRequestDuration(
-      currentMessage,
+      currentPrompt,
       selectedModel,
       contextLength,
       conversationLength
@@ -2747,7 +2748,7 @@ export default function PromptLabPage() {
       const response = await promptsApi.executePrompt(
         messages, // Pass existing conversation history
         selectedContexts,
-        currentMessage,
+        currentPrompt,
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
@@ -2957,7 +2958,7 @@ export default function PromptLabPage() {
     // Only copy current message and initialize greeting for fresh wizard conversations
     if (wizardMessages.length === 0) {
       // Copy current message to wizard initial message for new conversations
-      setWizardInitialMessage(currentMessage);
+      setWizardInitialMessage(currentPrompt);
       
       // Initialize wizard with greeting
       const greetingMessage: WizardMessage = {
@@ -3070,7 +3071,7 @@ export default function PromptLabPage() {
   };
 
   const handleCopyWizardResult = (content: string) => {
-    setCurrentMessage(content);
+    dispatch(setCurrentPrompt(content));
     showToast('Prompt copied to chat input!');
     setWizardMinimized(true);
   };
@@ -3374,7 +3375,7 @@ export default function PromptLabPage() {
       // Show confirmation dialog
       if (window.confirm(`Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point and load the message into the input box.`)) {
         // Load the message content into the chat text box
-        setCurrentMessage(targetMessage.content);
+        dispatch(setCurrentPrompt(targetMessage.content));
         // Remove all messages after this point (including the target message)
         setMessages(prev => prev.slice(0, messageIndex));
         // Clear any errors
@@ -3385,7 +3386,7 @@ export default function PromptLabPage() {
         showToast('Conversation rewound successfully!');
       }
     }
-  }, [messages, scrollToBottom, showToast]);
+  }, [messages, scrollToBottom, showToast, dispatch]);
 
   // Handle retry for failed messages
   const handleRetryMessage = useCallback(async (errorMessageIndex: number) => {
@@ -3405,7 +3406,7 @@ export default function PromptLabPage() {
     setError(null);
     
     // Set the user message content for resending
-    setCurrentMessage(lastUserMessage.content);
+    dispatch(setCurrentPrompt(lastUserMessage.content));
     
     // Show loading state
     setIsLoading(true);
@@ -3488,9 +3489,9 @@ export default function PromptLabPage() {
       }, 100);
     } finally {
       setIsLoading(false);
-      setCurrentMessage(''); // Clear the input after retry
+      dispatch(clearCurrentPrompt()); // Clear the input after retry
     }
-  }, [messages, selectedContexts, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast, currentConversation?.id]);
+  }, [messages, selectedContexts, selectedModel, currentProfile, selectedSystemPrompts, saveConversation, showToast, currentConversation?.id, dispatch]);
 
   // Construct the full prompt as it would be sent to the model
   const constructFullPrompt = useCallback(() => {
@@ -3500,9 +3501,9 @@ export default function PromptLabPage() {
       [], // Embellishments removed
       selectedContexts,
       messages,
-      currentMessage.trim() || (messages.length > 0 ? messages.filter(m => m.role === 'user').pop()?.content || '' : '')
+      currentPrompt.trim() || (messages.length > 0 ? messages.filter(m => m.role === 'user').pop()?.content || '' : '')
     );
-  }, [selectedSystemPrompts, selectedContexts, messages, currentMessage]);
+  }, [selectedSystemPrompts, selectedContexts, messages, currentPrompt]);
 
   return (
     <Box sx={{ 
@@ -4426,8 +4427,8 @@ export default function PromptLabPage() {
                   minRows={isMobile ? 2 : 1}
                   maxRows={isMobile ? 4 : 6}
                   placeholder={isMobile ? "Type your message..." : "Type your message..."}
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  value={currentPrompt}
+                  onChange={(e) => dispatch(setCurrentPrompt(e.target.value))}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -4491,7 +4492,7 @@ export default function PromptLabPage() {
                 {/* Send Button - Inside text box */}
                 <IconButton
                   onClick={handleSendMessage}
-                  disabled={!currentMessage.trim() || isLoading}
+                  disabled={!currentPrompt.trim() || isLoading}
                   sx={{
                     position: 'absolute',
                     right: isMobile ? 10 : 8,
