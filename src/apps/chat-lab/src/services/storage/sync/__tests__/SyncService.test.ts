@@ -7,11 +7,16 @@ import { SyncService, MergeResult } from '../SyncService';
 import { BrowserSQLiteManager } from '../../database/BrowserSQLiteManager';
 import { GoogleDriveService } from '../../drive/GoogleDriveService';
 import { GoogleDriveAuthService } from '../../../auth/GoogleDriveAuth';
+import { refreshAllDataFromStorage } from '../../../../store/refreshAllData';
 
 // Mock dependencies
 jest.mock('../../database/BrowserSQLiteManager');
 jest.mock('../../drive/GoogleDriveService');
 jest.mock('../../../auth/GoogleDriveAuth');
+jest.mock('../../../../store/refreshAllData');
+
+// Get typed mock
+const mockRefreshAllDataFromStorage = jest.mocked(refreshAllDataFromStorage);
 
 describe('SyncService', () => {
   let mockDbManager: jest.Mocked<BrowserSQLiteManager>;
@@ -68,6 +73,9 @@ describe('SyncService', () => {
       isAuthenticated: jest.fn().mockReturnValue(true),
       getCachedUser: jest.fn().mockReturnValue({ name: 'Test User', email: 'test@example.com' }),
     } as unknown as jest.Mocked<GoogleDriveAuthService>;
+
+    // Setup mock refreshAllDataFromStorage
+    mockRefreshAllDataFromStorage.mockResolvedValue(undefined);
   });
 
   describe('Constructor', () => {
@@ -252,6 +260,30 @@ describe('SyncService', () => {
       expect(mockDriveService.downloadConversationsDB).toHaveBeenCalled();
       expect(mockDriveService.downloadAPIKeysDB).not.toHaveBeenCalled();
     });
+
+    it('should refresh Redux state after successful sync', async () => {
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockResolvedValue(undefined);
+      
+      const service = createSyncService(false, 'personal');
+      await service.initialize();
+      
+      await service.syncFromDrive('1');
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
+
+    it('should complete successfully even if refreshAllDataFromStorage fails', async () => {
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockRejectedValue(new Error('Mock: Failed to refresh Redux state'));
+      
+      const service = createSyncService(false, 'personal');
+      await service.initialize();
+      
+      await service.syncFromDrive('1');
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
   });
 
   describe('syncFromDrive - Shared Workspace', () => {
@@ -329,6 +361,32 @@ describe('SyncService', () => {
         'alice', // username extracted from email
         true // isSharedWorkspace
       );
+    });
+
+    it('should refresh Redux state after successful sync', async () => {
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockResolvedValue(undefined);
+      
+      const service = createSyncService(true, 'shared-123');
+      await service.initialize();
+      
+      const fileIds = { conversationsDbId: 'file-abc' };
+      await service.syncFromDrive('1', fileIds);
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
+
+    it('should complete successfully even if refreshAllDataFromStorage fails', async () => {
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockRejectedValue(new Error('Mock: Failed to refresh Redux state'));
+      
+      const service = createSyncService(true, 'shared-123');
+      await service.initialize();
+      
+      const fileIds = { conversationsDbId: 'file-abc' };
+      await service.syncFromDrive('1', fileIds);
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
     });
   });
 
@@ -417,6 +475,36 @@ describe('SyncService', () => {
         false // isSharedWorkspace
       );
     });
+
+    it('should refresh Redux state after successful sync', async () => {
+      mockDbManager.getPendingChangesCount.mockResolvedValue({ dataPackets: 1, apiKeys: 0 });
+      mockDbManager.getPendingDataPackets.mockResolvedValue([{ id: 'dp-1' }]);
+      
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockResolvedValue(undefined);
+      
+      const service = createSyncService(false, 'personal');
+      await service.initialize();
+      
+      await service.syncToDrive();
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
+
+    it('should complete successfully even if refreshAllDataFromStorage fails', async () => {
+      mockDbManager.getPendingChangesCount.mockResolvedValue({ dataPackets: 1, apiKeys: 0 });
+      mockDbManager.getPendingDataPackets.mockResolvedValue([{ id: 'dp-1' }]);
+      
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockRejectedValue(new Error('Mock: Failed to refresh Redux state'));
+      
+      const service = createSyncService(false, 'personal');
+      await service.initialize();
+      
+      await service.syncToDrive();
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
   });
 
   describe('syncToDrive - Shared Workspace', () => {
@@ -466,6 +554,36 @@ describe('SyncService', () => {
         'bob', // username
         true // isSharedWorkspace
       );
+    });
+
+    it('should refresh Redux state after successful sync', async () => {
+      mockDbManager.getPendingChangesCount.mockResolvedValue({ dataPackets: 1, apiKeys: 0 });
+      mockDbManager.getPendingDataPackets.mockResolvedValue([{ id: 'dp-1' }]);
+      
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockResolvedValue(undefined);
+      
+      const service = createSyncService(true, 'shared-123');
+      await service.initialize();
+      
+      await service.syncToDrive();
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
+    });
+
+    it('should complete successfully even if refreshAllDataFromStorage fails', async () => {
+      mockDbManager.getPendingChangesCount.mockResolvedValue({ dataPackets: 1, apiKeys: 0 });
+      mockDbManager.getPendingDataPackets.mockResolvedValue([{ id: 'dp-1' }]);
+      
+      mockRefreshAllDataFromStorage.mockClear();
+      mockRefreshAllDataFromStorage.mockRejectedValue(new Error('Mock: Failed to refresh Redux state'));
+      
+      const service = createSyncService(true, 'shared-123');
+      await service.initialize();
+      
+      await service.syncToDrive();
+      
+      expect(mockRefreshAllDataFromStorage).toHaveBeenCalled();
     });
   });
 

@@ -8,7 +8,6 @@ const tsJest = require('ts-jest').default;
 const tsJestTransformer = tsJest.createTransformer({
   tsconfig: 'tsconfig.jest.json',
   useESM: true,
-  isolatedModules: true,
 });
 
 module.exports = {

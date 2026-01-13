@@ -27,6 +27,8 @@ jest.mock('../../../utils/environment', () => ({
   }),
   getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
   getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+  isDevEnvironment: jest.fn(() => true),
+  detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 
 // Mock GoogleDriveAuth service

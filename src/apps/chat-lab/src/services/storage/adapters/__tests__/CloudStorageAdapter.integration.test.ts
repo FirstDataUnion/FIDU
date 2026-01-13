@@ -19,6 +19,8 @@ jest.mock('../../../../utils/environment', () => ({
   })),
   getIdentityServiceUrl: jest.fn(() => 'https://identity.firstdataunion.org'),
   getGatewayUrl: jest.fn(() => 'https://gateway.firstdataunion.org'),
+  isDevEnvironment: jest.fn(() => true),
+  detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 
 // Only mock browser APIs and external services
@@ -268,7 +270,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
         isArchived: false,
         isFavorite: false,
         messageCount: 2,
-      };
+      } as Conversation;
 
       const messages = [
         {
