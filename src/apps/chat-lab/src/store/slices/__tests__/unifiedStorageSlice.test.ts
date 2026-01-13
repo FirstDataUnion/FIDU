@@ -27,6 +27,7 @@ jest.mock('../../../utils/environment', () => ({
   }),
   getIdentityServiceUrl: () => 'http://localhost:9877',
   getGatewayUrl: () => 'http://localhost:9878',
+  isDevEnvironment: jest.fn(() => true),
   detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 

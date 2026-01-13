@@ -144,6 +144,15 @@ export class BrowserSQLiteManager {
       )
     `);
 
+    // Create tombstones table to track deleted data packets
+    // No foreign key constraint - the tombstone marks deleted resources that no longer exist in data_packets table
+    this.conversationsDb.exec(`
+      CREATE TABLE IF NOT EXISTS tombstones (
+        data_packet_id TEXT PRIMARY KEY,
+        deleted_at TEXT NOT NULL
+      )
+    `);
+
     // Create indexes for efficient querying
     this.conversationsDb.exec(`
       CREATE INDEX IF NOT EXISTS idx_data_packets_profile_id
@@ -231,6 +240,13 @@ export class BrowserSQLiteManager {
         data_packet_id TEXT NOT NULL,
         update_timestamp TEXT NOT NULL,
         FOREIGN KEY (data_packet_id) REFERENCES data_packets (id) ON DELETE CASCADE
+      )
+    `);
+
+    this.conversationsDb.exec(`
+      CREATE TABLE IF NOT EXISTS tombstones (
+        data_packet_id TEXT PRIMARY KEY,
+        deleted_at TEXT NOT NULL
       )
     `);
 
@@ -648,17 +664,30 @@ export class BrowserSQLiteManager {
       throw new Error('Database not initialized');
     }
 
-    const stmt = this.conversationsDb.prepare(`
+    const deleteStmt = this.conversationsDb.prepare(`
       DELETE FROM data_packets WHERE id = ?
     `);
 
     try {
-      const result = stmt.run([id]);
+      const result = deleteStmt.run([id]);
       if (result.changes === 0) {
         throw new Error(`Data packet with ID ${id} not found`);
       }
+
+      // After deleting the data packet, insert a tombstone record
+      const tombstoneStmt = this.conversationsDb.prepare(`
+        INSERT OR REPLACE INTO tombstones (data_packet_id, deleted_at)
+        VALUES (?, ?)
+      `);
+      
+      try {
+        const deletedAt = new Date().toISOString();
+        tombstoneStmt.run([id, deletedAt]);
+      } finally {
+        tombstoneStmt.free();
+      }
     } finally {
-      stmt.free();
+      deleteStmt.free();
     }
   }
 
@@ -1288,8 +1317,15 @@ export class BrowserSQLiteManager {
     lastSyncTimestamp?: string,
     currentUserName?: string,
     isSharedWorkspace: boolean = true
-  ): Promise<{ inserted: number; updated: number; forked: number }> {
+  ): Promise<{ inserted: number; updated: number; forked: number; deleted: number }> {
     
+    sourceDb.exec(`
+      CREATE TABLE IF NOT EXISTS tombstones (
+        data_packet_id TEXT PRIMARY KEY,
+        deleted_at TEXT NOT NULL
+      )
+    `);
+
     // Get all data packets from source database (remote/cloud)
     // Include create_request_id as it's required for insertion
     const sourceStmt = sourceDb.prepare(`
@@ -1310,11 +1346,19 @@ export class BrowserSQLiteManager {
       FROM data_packet_tags 
       WHERE data_packet_id = ?
     `);
+
+    // Prepare statement to check for local tombstones
+    const localTombstoneStmt = targetDb.prepare(`
+      SELECT data_packet_id, deleted_at
+      FROM tombstones
+      WHERE data_packet_id = ?
+    `);
     
     let sourceRow;
     let inserted = 0;
     let updated = 0;
     let forked = 0;
+    let deleted = 0;
     
     // Parse lastSyncTimestamp - if null/undefined, we can't detect conflicts properly
     // In that case, just use timestamp comparison without conflict detection
@@ -1370,17 +1414,128 @@ export class BrowserSQLiteManager {
           continue;
         }
       } else {
-        // Packet doesn't exist locally - insert it
-        await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
-        inserted++;
+        // Packet doesn't exist locally - check if there's a tombstone
+        localTombstoneStmt.bind([packetId]);
+        const tombstoneResult = localTombstoneStmt.step() ? localTombstoneStmt.get() : null;
+        localTombstoneStmt.reset();
+
+        if (tombstoneResult) {
+          // Tombstone exists - check if we should restore based on timestamps
+          if (!hasValidLastSync || remoteUpdateTime > lastSyncTime) {
+            await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+            const deleteTombstoneStmt = targetDb.prepare(`
+              DELETE FROM tombstones WHERE data_packet_id = ?
+            `);
+            deleteTombstoneStmt.run([packetId]);
+            deleteTombstoneStmt.free();
+            inserted++;
+          } else {
+            // Remote is older than last sync so leave local copy deleted
+            continue;
+          }
+        } else {
+          // No tombstone - this is a new resource, insert it
+          await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+          inserted++;
+        }
       }
     }
     
     sourceStmt.free();
     sourceTagsStmt.free();
     localTagsStmt.free();
+    localTombstoneStmt.free();
     
-    return { inserted, updated, forked };
+    // Step 2: Process remote tombstones AFTER processing all remote data packets
+    const remoteTombstonesStmt = sourceDb.prepare(`
+      SELECT data_packet_id, deleted_at
+      FROM tombstones
+      ORDER BY deleted_at
+    `);
+
+    // Prepare statements for checking local state
+    const checkLocalTombstoneStmt = targetDb.prepare(`
+      SELECT data_packet_id FROM tombstones WHERE data_packet_id = ?
+    `);
+    
+    const checkLocalPacketStmt = targetDb.prepare(`
+      SELECT update_timestamp FROM data_packets WHERE id = ?
+    `);
+
+    while (remoteTombstonesStmt.step()) {
+      const tombstoneRow = remoteTombstonesStmt.get();
+      const tombstoneId = tombstoneRow[0];
+
+      // Check if local tombstone exists
+      checkLocalTombstoneStmt.bind([tombstoneId]);
+      const localTombstoneExists = checkLocalTombstoneStmt.step() ? true : false;
+      checkLocalTombstoneStmt.reset();
+
+      if (localTombstoneExists) {
+        // Local tombstone exists (same ID) - do nothing (both sides deleted)
+        continue;
+      }
+
+      // Check if local data packet exists
+      checkLocalPacketStmt.bind([tombstoneId]);
+      const localPacketResult = checkLocalPacketStmt.step() ? checkLocalPacketStmt.get() : null;
+      checkLocalPacketStmt.reset();
+
+      if (!localPacketResult) {
+        // No local tombstone and no local data packet - insert the tombstone (propagate deletion)
+        const insertTombstoneStmt = targetDb.prepare(`
+          INSERT INTO tombstones (data_packet_id, deleted_at)
+          VALUES (?, ?)
+        `);
+        insertTombstoneStmt.run([tombstoneRow[0], tombstoneRow[1]]);
+        insertTombstoneStmt.free();
+      } else {
+        // Local data packet exists (same ID) - check timestamps
+        const localUpdateTimestamp = localPacketResult[0];
+        const localUpdateTime = new Date(localUpdateTimestamp).getTime();
+
+        if (!hasValidLastSync) {
+          // No lastSyncTime - default to keeping local packet (safety: keep data when in doubt)
+          // Do nothing - keep the local packet, ignore remote tombstone
+          continue;
+        }
+
+        if (localUpdateTime < lastSyncTime) {
+          // Local packet was last updated before last sync - remote deletion wins
+          // Delete local data packet and its tags first
+          const deleteTagsStmt = targetDb.prepare(`
+            DELETE FROM data_packet_tags WHERE data_packet_id = ?
+          `);
+          deleteTagsStmt.run([tombstoneId]);
+          deleteTagsStmt.free();
+
+          const deletePacketStmt = targetDb.prepare(`
+            DELETE FROM data_packets WHERE id = ?
+          `);
+          deletePacketStmt.run([tombstoneId]);
+          deletePacketStmt.free();
+
+          // Then insert tombstone to maintain mutual exclusivity
+          const insertTombstoneStmt = targetDb.prepare(`
+            INSERT INTO tombstones (data_packet_id, deleted_at)
+            VALUES (?, ?)
+          `);
+          insertTombstoneStmt.run([tombstoneRow[0], tombstoneRow[1]]);
+          insertTombstoneStmt.free();
+          deleted++;
+        } else {
+          // Local packet was updated after last sync - local changes win
+          // Keep local data packet, ignore remote tombstone
+          // Do nothing
+        }
+      }
+    }
+
+    remoteTombstonesStmt.free();
+    checkLocalTombstoneStmt.free();
+    checkLocalPacketStmt.free();
+    
+    return { inserted, updated, forked, deleted };
   }
 
   // Helper method to insert a data packet from source database

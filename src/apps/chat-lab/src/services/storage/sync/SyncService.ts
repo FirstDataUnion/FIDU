@@ -6,6 +6,7 @@
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import { GoogleDriveService, InsufficientPermissionsError } from '../drive/GoogleDriveService';
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
+import { refreshAllDataFromStorage } from '../../../store/refreshAllData';
 
 export interface SyncStatus {
   lastSyncTime: Date | null;
@@ -103,6 +104,16 @@ export class SyncService {
   }
 
   /**
+   * Refresh Redux state from storage after sync operations
+   * Called fire-and-forget style so sync operations don't wait for UI updates
+   */
+  private refreshReduxState(): void {
+    refreshAllDataFromStorage().catch(err => {
+      console.error('Failed to refresh Redux state after sync:', err);
+    });
+  }
+
+  /**
    * Initialize the sync service
    */
   async initialize(): Promise<void> {
@@ -143,9 +154,6 @@ export class SyncService {
 
       // Upload changes to Drive
       await this.syncToDrive(options);
-
-      this.lastSyncTime = new Date();
-      this.storeLastSyncTime();
 
       console.log('Full sync completed successfully');
     } catch (error) {
@@ -230,7 +238,8 @@ export class SyncService {
           await this.dbManager.importAPIKeysDB(apiKeysData);
         }
       }
-      
+
+      this.refreshReduxState();
       return mergeResult;
     } catch (error) {
       console.error('Failed to sync from Drive:', error);
@@ -321,6 +330,9 @@ export class SyncService {
         }
       }
 
+      this.lastSyncTime = new Date();
+      this.storeLastSyncTime();
+
       // Mark all pending changes as synced
       const pendingDataPackets = await this.dbManager.getPendingDataPackets();
       const pendingAPIKeys = this.isSharedWorkspace ? [] : await this.dbManager.getPendingAPIKeys();
@@ -345,6 +357,8 @@ export class SyncService {
         syncedAPIKeys: pendingAPIKeys.length
       };
       await this.driveService.uploadMetadata(metadata, version);
+
+      this.refreshReduxState();
     } catch (error) {
       console.error('Failed to sync to Drive:', error);
       

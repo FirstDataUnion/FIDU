@@ -537,7 +537,7 @@ export default function ContextsPage() {
             {searchQuery ? 'Try adjusting your search' : 'Create your first context to get started'}
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateContext}>
-            Create Context
+            Add Context
           </Button>
         </Box>
       )}

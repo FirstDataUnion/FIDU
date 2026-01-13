@@ -70,146 +70,6 @@ export class DrivePicker {
   }
 
   /**
-   * Pick a folder using Google Picker
-   * Returns the folder ID if a folder is selected, null if cancelled
-   */
-  async pickFolder(): Promise<string | null> {
-    try {
-      await this.loadPickerApi();
-      const accessToken = await this.authService.getAccessToken();
-
-      if (!window.google?.picker) {
-        throw new Error('Google Picker API not loaded');
-      }
-
-      // Store reference for use in Promise callback
-      const googlePicker = window.google.picker;
-
-      return new Promise((resolve) => {
-        // Set up MutationObserver to catch picker iframe when it's created
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                
-                // Check if it's a picker iframe
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-                
-                // Recursively check children for iframes
-                const childIframes = element.querySelectorAll('iframe');
-                childIframes.forEach((iframe) => {
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    (iframe as HTMLElement).style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          });
-        });
-        
-        // Start observing
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-        
-        // Get client ID for setAppId - CRITICAL for drive.file scope!
-        const clientId = this.authService.getClientId();
-        
-        // Note: The callback can fire multiple times:
-        // 1. "loaded" - when picker UI loads (ignore this)
-        // 2. "picked" - when user selects a folder (process this)
-        // 3. "cancel" - when user cancels (process this)
-        let callbackFired = false;
-        const picker = new googlePicker.PickerBuilder()
-          .setOAuthToken(accessToken)
-          .setAppId(clientId)  // Critical: links Picker selection to our app for drive.file access
-          .addView(googlePicker.ViewId.FOLDERS)
-          .setCallback((data: any) => {
-            const action = data[googlePicker.Response.ACTION];
-            
-            // Ignore "loaded" action - this fires when picker opens, not when user selects
-            if (action === 'loaded') {
-              console.log('ℹ️ [DrivePicker] Picker loaded, waiting for user selection...');
-              return; // Don't resolve, wait for actual pick or cancel
-            }
-            
-            // Stop observing when picker closes (on pick or cancel)
-            observer.disconnect();
-            
-            // Prevent multiple callbacks from resolving
-            if (callbackFired) {
-              console.warn('⚠️ [DrivePicker] Callback already fired, ignoring duplicate');
-              return;
-            }
-            callbackFired = true;
-            
-            if (action === googlePicker.Action.PICKED) {
-              const folder = data[googlePicker.Response.DOCUMENTS][0];
-              MetricsService.recordGoogleApiRequest('drive', 'picker_folder', 'success');
-              resolve(folder.id);
-            } else {
-              // User cancelled - don't record as error, just resolve with null
-              console.log('ℹ️ [DrivePicker] User cancelled folder selection');
-              resolve(null);
-            }
-          })
-          .build();
-        picker.setVisible(true);
-        
-        // Also try immediate check and periodic checks as fallback
-        const checkAndSetZIndex = () => {
-          const pickerIframes = document.querySelectorAll('iframe');
-          pickerIframes.forEach((iframe) => {
-            if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-              (iframe as HTMLElement).style.zIndex = '10001';
-              if (iframe.parentElement) {
-                iframe.parentElement.style.zIndex = '10001';
-                if (iframe.parentElement.parentElement) {
-                  iframe.parentElement.parentElement.style.zIndex = '10001';
-                }
-              }
-            }
-          });
-        };
-        
-        // Check immediately and then periodically
-        checkAndSetZIndex();
-        const intervalId = setInterval(checkAndSetZIndex, 100);
-        
-        // Clean up interval when picker closes (we'll detect this in the callback)
-        // But also set a timeout to clean up if callback never fires
-        setTimeout(() => {
-          clearInterval(intervalId);
-          observer.disconnect();
-        }, 300000); // 5 minutes max
-      });
-    } catch (error) {
-      MetricsService.recordGoogleApiRequest('drive', 'picker_folder', 'error');
-      console.error('Failed to pick folder:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Create a new folder in Google Drive
    * Note: drive.file scope allows creating folders (folders are files with special mimeType)
    * 
@@ -560,57 +420,6 @@ export class DrivePicker {
       const googlePicker = window.google.picker;
 
       return new Promise((resolve) => {
-        // Set up MutationObserver to catch picker iframe when it's created
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                
-                // Check if it's a picker iframe or container
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    // Also set on parent and grandparent if they exist
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-                
-                // Check for picker-related containers
-                if (element.id?.includes('picker') || element.className?.includes('picker')) {
-                  element.style.zIndex = '10001';
-                }
-                
-                // Recursively check children for iframes
-                const childIframes = element.querySelectorAll('iframe');
-                childIframes.forEach((iframe) => {
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    (iframe as HTMLElement).style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          });
-        });
-        
-        // Start observing
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-        
         // Get client ID for setAppId - CRITICAL for drive.file scope!
         const clientId = this.authService.getClientId();
         
@@ -651,27 +460,6 @@ export class DrivePicker {
         
         builder.addView(myDriveView);
         
-        // Also try immediate check and periodic checks as fallback
-        const checkAndSetZIndex = () => {
-          const pickerIframes = document.querySelectorAll('iframe');
-          pickerIframes.forEach((iframe) => {
-            if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-              (iframe as HTMLElement).style.zIndex = '10001';
-              if (iframe.parentElement) {
-                iframe.parentElement.style.zIndex = '10001';
-                // Also check grandparent
-                if (iframe.parentElement.parentElement) {
-                  iframe.parentElement.parentElement.style.zIndex = '10001';
-                }
-              }
-            }
-          });
-        };
-        
-        // Check immediately and then periodically
-        checkAndSetZIndex();
-        const intervalId = setInterval(checkAndSetZIndex, 100);
-        
         // Set callback
         // Note: The callback can fire multiple times:
         // 1. "loaded" - when picker UI loads (ignore this)
@@ -687,10 +475,6 @@ export class DrivePicker {
             console.log('ℹ️ [DrivePicker] Picker loaded, waiting for user selection...');
             return; // Don't resolve, wait for actual pick or cancel
           }
-          
-          // Stop observing and interval when picker closes (on pick or cancel)
-          observer.disconnect();
-          clearInterval(intervalId);
           
           // Prevent multiple callbacks from resolving
           if (callbackFired) {
@@ -737,12 +521,6 @@ export class DrivePicker {
 
         const picker = builder.build();
         picker.setVisible(true);
-        
-        // Clean up interval if callback never fires (safety timeout)
-        setTimeout(() => {
-          clearInterval(intervalId);
-          observer.disconnect();
-        }, 300000); // 5 minutes max
       });
     } catch (error) {
       MetricsService.recordGoogleApiRequest('drive', 'picker_shared_folder', 'error');
@@ -797,34 +575,6 @@ export class DrivePicker {
       const googlePicker = window.google.picker;
 
       return new Promise((resolve) => {
-        // Set up MutationObserver for z-index management
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const element = node as HTMLElement;
-                if (element.tagName === 'IFRAME') {
-                  const iframe = element as HTMLIFrameElement;
-                  if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-                    iframe.style.zIndex = '10001';
-                    if (iframe.parentElement) {
-                      iframe.parentElement.style.zIndex = '10001';
-                      if (iframe.parentElement.parentElement) {
-                        iframe.parentElement.parentElement.style.zIndex = '10001';
-                      }
-                    }
-                  }
-                }
-              }
-            });
-          });
-        });
-        
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-        
         // Get client ID for setAppId - CRITICAL for drive.file scope!
         // Without setAppId, the Picker selection doesn't grant app access to files
         const clientId = this.authService.getClientId();
@@ -848,25 +598,6 @@ export class DrivePicker {
         
         builder.addView(filesView);
         
-        // Z-index management
-        const checkAndSetZIndex = () => {
-          const pickerIframes = document.querySelectorAll('iframe');
-          pickerIframes.forEach((iframe) => {
-            if (iframe.src && (iframe.src.includes('picker') || iframe.src.includes('drive') || iframe.src.includes('googleapis.com'))) {
-              (iframe as HTMLElement).style.zIndex = '10001';
-              if (iframe.parentElement) {
-                iframe.parentElement.style.zIndex = '10001';
-                if (iframe.parentElement.parentElement) {
-                  iframe.parentElement.parentElement.style.zIndex = '10001';
-                }
-              }
-            }
-          });
-        };
-        
-        checkAndSetZIndex();
-        const intervalId = setInterval(checkAndSetZIndex, 100);
-        
         let callbackFired = false;
         builder.setCallback((data: any) => {
           const action = data[googlePicker.Response.ACTION];
@@ -876,10 +607,7 @@ export class DrivePicker {
             console.log('ℹ️ [DrivePicker] File picker loaded, waiting for user selection...');
             return;
           }
-          
-          observer.disconnect();
-          clearInterval(intervalId);
-          
+
           if (callbackFired) {
             console.warn('⚠️ [DrivePicker] Callback already fired, ignoring duplicate');
             return;
@@ -914,12 +642,6 @@ export class DrivePicker {
 
         const picker = builder.build();
         picker.setVisible(true);
-        
-        // Safety timeout
-        setTimeout(() => {
-          clearInterval(intervalId);
-          observer.disconnect();
-        }, 300000); // 5 minutes max
       });
     } catch (error) {
       MetricsService.recordGoogleApiRequest('drive', 'picker_workspace_files', 'error');
@@ -977,4 +699,3 @@ interface DocsViewInstance {
   setQuery(query: string): DocsViewInstance;
   setParent(parentId: string): DocsViewInstance;
 }
-

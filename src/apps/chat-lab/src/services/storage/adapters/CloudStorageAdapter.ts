@@ -136,8 +136,6 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
     
     try {
-      // Use fullSync instead of syncFromDrive to ensure lastSyncTime is set
-      // This is critical for conflict detection on subsequent syncs
       await this.syncService.fullSync({ 
         version: '1', 
         fileIds // Pass file IDs for shared workspaces
@@ -937,14 +935,24 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
     await this.ensureFullyReady();
 
-    const documentQueryParams = {
-      user_id: this.ensureUserId(),
-      profile_id: profileId,
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
+    // For shared workspaces, don't filter by user_id or profile_id (all team members see all data)
+    // For personal workspaces, filter by user_id and profile_id
+    const documentQueryParams: any = {
       tags: ['FIDU-CHAT-LAB-Document'],
       limit: limit,
       offset: (page - 1) * limit,
       sort_order: 'desc'
     };
+
+    if (!isSharedWorkspace) {
+      documentQueryParams.user_id = this.ensureUserId();
+      if (profileId) {
+        documentQueryParams.profile_id = profileId;
+      }
+    }
+
     try {
       const dataPackets = await this.dbManager!.listDataPackets(documentQueryParams);
       const documents = dataPackets.map((packet: any) => this.transformDataPacketToDocument(packet));

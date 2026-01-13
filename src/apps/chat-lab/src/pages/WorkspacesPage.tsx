@@ -3,7 +3,7 @@
  * Manage and switch between workspaces
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -64,6 +64,8 @@ const WorkspacesPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDriveFolder, setDeleteDriveFolder] = useState(true);
   const [isSwitching, setIsSwitching] = useState<string | null>(null);
+  const [hasDriveFileScope, setHasDriveFileScope] = useState<boolean | null>(null);
+  const [isCheckingScope, setIsCheckingScope] = useState(false);
   
   // Invitation state
   const { invitations, isLoading: invitationsLoading, refresh: refreshInvitations } = useWorkspaceInvitations();
@@ -75,6 +77,38 @@ const WorkspacesPage: React.FC = () => {
   useEffect(() => {
     loadWorkspaces();
   }, []);
+
+  // Check for drive.file scope when dialog opens
+  const checkDriveFileScope = useCallback(async () => {
+    setIsCheckingScope(true);
+    try {
+      const authService = await getGoogleDriveAuthService();
+      const hasScope = await authService.hasDriveFileScope();
+      setHasDriveFileScope(hasScope);
+      console.log('🔍 Drive.file scope check result:', hasScope);
+    } catch (error) {
+      console.error('Failed to check drive.file scope:', error);
+      setHasDriveFileScope(false);
+    } finally {
+      setIsCheckingScope(false);
+    }
+  }, []);
+
+  useEffect(() => {
+      checkDriveFileScope();
+  }, [checkDriveFileScope]);
+
+  const handleRequestDriveFileScope = async () => {
+    try {
+      const authService = await getGoogleDriveAuthService();
+      await authService.requestAdditionalScopes(['https://www.googleapis.com/auth/drive.file']);
+      // After re-authentication, check scope again
+      await checkDriveFileScope();
+    } catch (error) {
+      console.error('Failed to request drive.file scope:', error);
+      setError('Failed to request additional permissions. Please try again.');
+    }
+  };
 
   // Handle accepting invitation
   const handleAcceptInvitation = async (invitation: { workspace_id: string; workspace_name: string; drive_folder_id: string }) => {
@@ -121,6 +155,7 @@ const WorkspacesPage: React.FC = () => {
       console.error('Failed to accept invitation:', err);
       setError(err.message || 'Failed to accept invitation');
       setAcceptProgress(null);
+      setShowAcceptDialog(false);
     } finally {
       setAcceptingInvitationId(null);
     }
@@ -360,7 +395,7 @@ const WorkspacesPage: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateWorkspace}
-            disabled={unifiedStorage.mode !== 'cloud'}
+            disabled={unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false}
           >
             Create Workspace
           </Button>
@@ -378,6 +413,33 @@ const WorkspacesPage: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      {/* drive.file scope check */}
+      {isCheckingScope && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CircularProgress size={16} />
+              <Typography variant="body2">
+                Checking permissions...
+              </Typography>
+            </Box>
+          </Alert>
+        )}
+        {!isCheckingScope && hasDriveFileScope === false && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Additional permissions required:</strong> To create or join shared workspaces, the app needs access to create and manage files in your Google Drive (or those shared with you).
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleRequestDriveFileScope}
+              sx={{ mt: 1 }}
+            >
+              Grant Access
+            </Button>
+          </Alert>
+        )}
 
       {/* Pending Invitations Section */}
       {invitations.length > 0 && (
@@ -423,7 +485,7 @@ const WorkspacesPage: React.FC = () => {
                     <Button
                       variant="contained"
                       onClick={() => handleAcceptInvitation(invitation)}
-                      disabled={acceptingInvitationId !== null}
+                      disabled={acceptingInvitationId !== null || hasDriveFileScope === false}
                       size="small"
                     >
                       {acceptingInvitationId === invitation.workspace_id ? 'Accepting...' : 'Accept'}

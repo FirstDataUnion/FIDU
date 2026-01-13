@@ -20,7 +20,8 @@ fi
 echo "🚀 Setting up development environment..."
 
 # Check Python version
-python_version=$(python3.13 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+PYTHON_COMMAND="python3.14"
+python_version=$($PYTHON_COMMAND -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
 required_version="3.10"
 
 if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
@@ -36,14 +37,14 @@ if [ -d ".venv" ]; then
         echo "⚠️  Existing virtual environment uses Python $venv_python_version, but $required_version+ is required"
         echo "📦 Removing old virtual environment..."
         rm -rf .venv
-        echo "📦 Creating new virtual environment with python3.13..."
-        python3.13 -m venv .venv
+        echo "📦 Creating new virtual environment with $PYTHON_COMMAND..."
+        $PYTHON_COMMAND -m venv .venv
     else
         echo "✅ Virtual environment already exists with Python $venv_python_version"
     fi
 else
     echo "📦 Creating virtual environment..."
-    python3.13 -m venv .venv
+    $PYTHON_COMMAND -m venv .venv
 fi
 
 # Activate virtual environment
