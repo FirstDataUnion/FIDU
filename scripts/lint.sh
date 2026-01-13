@@ -42,6 +42,12 @@ echo "🧪 Running pytest with coverage..."
 pytest --cov=src
 
 
+# Run npm install in chat-lab to ensure installed dependencies match package.json
+echo "🔄 Running npm install in chat-lab"
+pushd src/apps/chat-lab
+npm install
+popd
+
 # Run eslint in chat-lab
 echo "🧹 Running eslint in chat-lab"
 pushd src/apps/chat-lab
