@@ -10,10 +10,11 @@
 import { useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from './redux';
 import { initializeAuth, logout } from '../store/slices/authSlice';
-import { fetchCurrentUser } from '../services/api/apiClientIdentityService';
+import { externalUserToInternalUser } from '../services/api/apiClientIdentityService';
 import { getFiduAuthService } from '../services/auth/FiduAuthService';
 import { beginLogout, currentLogoutSource, markAuthenticated } from '../services/auth/logoutCoordinator';
 import { getEnvironmentInfo } from '../utils/environment';
+import type { IdentityServiceUser, User } from '../types';
 
 const AUTH_RESTORE_TIMEOUT_MS = 6000;
 
@@ -22,30 +23,9 @@ interface NormalizedTokens {
   refreshToken: string;
 }
 
-// TODO: We control the ID Service, SDK and frontend, so we shouldn't need this
-function normalizeAuthTokens(
-  token: string | { access_token?: string; refresh_token?: string } | null,
-  providedRefreshToken?: string
-): NormalizedTokens {
-  if (token && typeof token === 'object' && token.access_token) {
-    return {
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token || token.access_token,
-    };
-  }
-
-  const accessToken = typeof token === 'string' ? token : '';
-  const refreshToken = providedRefreshToken?.trim() || accessToken;
-
-  return {
-    accessToken,
-    refreshToken,
-  };
-}
-
 async function persistAuthenticatedSession(
   fiduAuthService: ReturnType<typeof getFiduAuthService>,
-  user: any,
+  user: User,
   tokens: NormalizedTokens
 ): Promise<void> {
   const success = await fiduAuthService.setTokens(tokens.accessToken, tokens.refreshToken, user);
@@ -112,7 +92,7 @@ async function attemptCloudStorageRestoration(): Promise<boolean> {
 }
 
 interface UseFiduAuthReturn {
-  handleAuthSuccess: (user: any, token: string | any, portalUrl: any, refreshToken?: string) => Promise<void>;
+  handleAuthSuccess: (user: IdentityServiceUser, token: string, portalUrl: any, refreshToken: string) => Promise<void>;
   handleAuthError: (err: any) => void;
   handleLogout: () => void;
 }
@@ -122,20 +102,20 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const handleAuthSuccess = useCallback(async (
-    _user: any,
+    user: IdentityServiceUser,
     token: string | any,
     _portalUrl: any,
-    refreshToken?: string
+    refreshToken: string
   ) => {
     try {
       const fiduAuthService = getFiduAuthService();
-      const tokens = normalizeAuthTokens(token, refreshToken);
+      const tokens = {
+        accessToken: token,
+        refreshToken: refreshToken,
+      };
 
-      // TODO: This could be better - perhaps split storing tokens and users into two API calls
-      // Store the access token so that the interceptor works, then fetch the user and store again
-      await persistAuthenticatedSession(fiduAuthService, {"temporary": true}, tokens);
-      const user = await fetchCurrentUser();
-      await persistAuthenticatedSession(fiduAuthService, user, tokens);
+      const internalUser = externalUserToInternalUser(user);
+      await persistAuthenticatedSession(fiduAuthService, internalUser, tokens);
 
       const requireOAuthRedirect = await attemptCloudStorageRestoration();
 

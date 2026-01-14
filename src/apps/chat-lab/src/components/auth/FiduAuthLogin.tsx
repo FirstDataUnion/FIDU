@@ -24,6 +24,7 @@ import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/ma
 import { useFiduSDK } from '../../hooks/useFiduSDK';
 import { useFiduAuth } from '../../hooks/useFiduAuth';
 import { getFiduAuthService } from '../../services/auth/FiduAuthService';
+import type { IdentityServiceUser } from '../../types';
 
 const FiduAuthLogin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -39,10 +40,10 @@ const FiduAuthLogin: React.FC = () => {
   }, [sdkError]);
 
   // Wrap auth handlers to track loading state
-  const wrappedHandleAuthSuccess = useCallback(async (user: any, token: any, portalUrl: any, refreshToken?: string) => {
+  const wrappedHandleAuthSuccess = useCallback(async (user: IdentityServiceUser, accessToken: string, portalUrl: any, refreshToken: string) => {
     setIsAuthenticating(true);
     try {
-      await handleAuthSuccess(user, token, portalUrl, refreshToken);
+      await handleAuthSuccess(user, accessToken, portalUrl, refreshToken);
     } finally {
       // Don't set false here - let Redux state take over
       // setIsAuthenticating(false) would be called but we'll transition to app

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
-import type { Profile, User } from "../../types";
+import type { IdentityServiceProfile, IdentityServiceUser, Profile, User } from "../../types";
 import { getIdentityServiceUrl } from "../../utils/environment";
 import { getFiduAuthService } from "../auth/FiduAuthService";
 import { ApiError, type ErrorResponse } from './apiClients';
@@ -362,18 +362,22 @@ export async function fetchCurrentUser() {
   return await identityServiceAPIClient.fetchCurrentUser();
 }
 
-function createUserFromResponse(externalUser: any): User {
+function createUserFromResponse(externalUser: {user: IdentityServiceUser}): User {
+  return externalUserToInternalUser(externalUser.user);
+}
+
+export function externalUserToInternalUser(externalUser: IdentityServiceUser): User {
   return {
-    id: externalUser.user.id,
-    email: externalUser.user.email,
-    name: externalUser.user.name,
-    create_timestamp: externalUser.user.created_at,
-    update_timestamp: externalUser.user.updated_at,
-    profiles: externalUser.user.profiles.map(externalProfileToInternalProfile)
+    id: externalUser.id,
+    email: externalUser.email,
+    name: externalUser.name,
+    create_timestamp: externalUser.created_at,
+    update_timestamp: externalUser.updated_at,
+    profiles: externalUser.profiles.map(externalProfileToInternalProfile)
   };
 }
 
-export function externalProfileToInternalProfile(externalProfile: any): Profile {
+export function externalProfileToInternalProfile(externalProfile: IdentityServiceProfile): Profile {
   return {
     id: externalProfile.id,
     user_id: externalProfile.user_id,
