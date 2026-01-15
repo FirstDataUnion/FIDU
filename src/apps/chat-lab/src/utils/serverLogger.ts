@@ -112,4 +112,3 @@ class ServerLogger {
 
 // Export singleton instance
 export const serverLogger = new ServerLogger();
-export default serverLogger;

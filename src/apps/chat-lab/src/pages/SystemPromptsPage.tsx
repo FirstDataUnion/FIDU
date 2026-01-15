@@ -29,7 +29,7 @@ import {
   Alert,
   IconButton,
 } from '@mui/material';
-import CategoryFilter from '../components/common/CategoryFilter';
+import { CategoryFilter } from '../components/common/CategoryFilter';
 import {
   Add as AddIcon,
   Search as SearchIcon,

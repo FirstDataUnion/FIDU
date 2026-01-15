@@ -110,5 +110,3 @@ export const PermissionStatusIndicator: React.FC<PermissionStatusIndicatorProps>
     </Box>
   );
 };
-
-export default PermissionStatusIndicator;

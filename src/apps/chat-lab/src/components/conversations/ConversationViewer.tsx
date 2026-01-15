@@ -27,7 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import type { Conversation, BackgroundAgentAlertMetadata } from '../../types';
 import { getPlatformColor, calculatePrimaryModelsDisplay, calculatePrimaryModelsFromMessages, getModelDisplayName } from '../../utils/conversationUtils';
-import EnhancedMarkdown from '../common/EnhancedMarkdown';
+import { EnhancedMarkdown } from '../common/EnhancedMarkdown';
 
 interface ConversationViewerProps {
   conversation: Conversation;

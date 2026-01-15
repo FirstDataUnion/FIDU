@@ -167,5 +167,3 @@ export const LongRequestWarning: React.FC<LongRequestWarningProps> = ({
   );
 };
 
-export default LongRequestWarning;
-
