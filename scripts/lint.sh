@@ -48,6 +48,15 @@ pushd src/apps/chat-lab
 npm install
 popd
 
+# Run prettier check in chat-lab
+echo "💅 Running prettier check in chat-lab"
+pushd src/apps/chat-lab
+if ! npm run format:check; then
+    echo "❌ Prettier found formatting issues in your code. Please run 'npm run format' to fix them."
+    exit 1
+fi
+popd
+
 # Run eslint in chat-lab
 echo "🧹 Running eslint in chat-lab"
 pushd src/apps/chat-lab

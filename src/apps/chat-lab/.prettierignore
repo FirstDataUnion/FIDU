@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+coverage/
+*.tsbuildinfo
+backup/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Package manager files
+package-lock.json
+
+# Generated files
+*.min.js
+*.min.css
