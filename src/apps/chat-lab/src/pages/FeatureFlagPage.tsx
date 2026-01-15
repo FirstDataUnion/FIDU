@@ -3,6 +3,7 @@ import {
     CheckCircle as EnabledIcon,
     Cancel as DisabledIcon,
     HelpOutline as HelpOutlineIcon,
+    Warning as ExperimentalIcon,
 } from '@mui/icons-material';
 import { Box, Link, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import React, { useMemo, useState } from 'react';
@@ -82,9 +83,72 @@ export default function FeatureFlagPage(): React.JSX.Element {
     return resolveFlagEnabled(combined, key);
   }
 
+  function displayFeatureFlagToggles(mapKey: FeatureFlagKey, mapValue: FeatureFlagDefinition) {
+    const key = mapKey as keyof typeof configurableFlags;
+    const value = mapValue as FeatureFlagDefinition;
+    const canBeEnabled = canFlagBeEnabled(key);
+    return (
+        <Box key={key}>
+            <Typography variant="h5">{names[key as keyof typeof names]}</Typography>
+            {key in helpModals && (
+                <>
+                <Link
+                    component="button"
+                    variant="body2"
+                    onClick={() => handleHelpModalOpen(key as keyof typeof helpModals)}
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                    }}
+                >
+                    <HelpOutlineIcon fontSize="small" />
+                    What are "{names[key as keyof typeof names]}"?
+                </Link>
+                {helpModals[key as keyof typeof helpModals]({
+                    open: helpModalOpen === key,
+                    onClose: handleHelpModalClose,
+                })}
+                </>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Default:</Typography>
+                {
+                    value.default_enabled
+                    ? <EnabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} />
+                    : <DisabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} />
+                }
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Your choice:</Typography>
+                <ToggleButtonGroup
+                    disabled={!canBeEnabled}
+                    exclusive
+                    value={`${canBeEnabled ? userFlags[key] ?? "null" : "false"}`}
+                    onChange={(_, value) => handleToggleButtonChange(key, value)}
+                >
+                    <ToggleButton value={"false"}><DisabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
+                    <ToggleButton value={"null"}><DefaultIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
+                    <ToggleButton value={"true"}><EnabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
+                </ToggleButtonGroup>
+            </Box>
+        </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 5 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
+            <ExperimentalIcon sx={{ fontSize: '2rem', verticalAlign: 'middle', mr: 1, color: 'warning.main' }} />
+            Warning: Experimental
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+            This page lets you change which features are enabled throughout the rest of the ChatLab.
+            However, the changes only affect the UI (the way you see the app), not the actual functionality.
+            For example, if you enable a Background Agent to write to a Document and then turn off the Background Agent
+            and Document features, the agent will still run on each prompt and write to the document, but you
+            won't be able to see either of them! Similarly, if you choose a specific model and then turn off the Model Selection feature,
+            the model will still be used, but you won't be able to change it.
+        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 600, fontSize: { xs: '1.75rem', sm: '2.125rem' }, mt: 4 }}>
             Optional features:
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
@@ -102,56 +166,20 @@ export default function FeatureFlagPage(): React.JSX.Element {
         </ul>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {configurableFlags && flagsToDisplay.map(([mapKey, mapValue]) => {
-                const key = mapKey as keyof typeof configurableFlags;
-                const value = mapValue as FeatureFlagDefinition;
-                const canBeEnabled = canFlagBeEnabled(key);
-                return (
-                    <Box key={key}>
-                        <Typography variant="h5">{names[key as keyof typeof names]}</Typography>
-                        {key in helpModals && (
-                            <>
-                            <Link
-                                component="button"
-                                variant="body2"
-                                onClick={() => handleHelpModalOpen(key as keyof typeof helpModals)}
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
-                                }}
-                            >
-                                <HelpOutlineIcon fontSize="small" />
-                                What are "{names[key as keyof typeof names]}"?
-                            </Link>
-                            {helpModals[key as keyof typeof helpModals]({
-                                open: helpModalOpen === key,
-                                onClose: handleHelpModalClose,
-                            })}
-                            </>
-                        )}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Default:</Typography>
-                            {
-                                value.default_enabled
-                                ? <EnabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} />
-                                : <DisabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} />
-                            }
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Your choice:</Typography>
-                            <ToggleButtonGroup
-                                disabled={!canBeEnabled}
-                                exclusive
-                                value={`${canBeEnabled ? userFlags[key] ?? "null" : "false"}`}
-                                onChange={(_, value) => handleToggleButtonChange(key, value)}
-                            >
-                                <ToggleButton value={"false"}><DisabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
-                                <ToggleButton value={"null"}><DefaultIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
-                                <ToggleButton value={"true"}><EnabledIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle' }} /></ToggleButton>
-                            </ToggleButtonGroup>
-                        </Box>
-                    </Box>
-                );
-            })}
+            {configurableFlags && flagsToDisplay.filter(([_, value]) => value.default_enabled).map(([mapKey, mapValue]) => displayFeatureFlagToggles(mapKey, mapValue))}
+        </Box>
+
+        <Typography variant="h5" sx={{ fontWeight: 600, fontSize: { xs: '1.75rem', sm: '2.125rem' }, mt: 4 }}>
+            <ExperimentalIcon sx={{ fontSize: '2rem', verticalAlign: 'middle', mr: 1, color: 'warning.main' }} />
+            <ExperimentalIcon sx={{ fontSize: '2rem', verticalAlign: 'middle', mr: 1, color: 'warning.main' }} />
+            Experimental features:
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+            This section is doubly experimental in that changing features is experimental and these features themselves are also experimental.
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {configurableFlags && flagsToDisplay.filter(([_, value]) => !value.default_enabled).map(([mapKey, mapValue]) => displayFeatureFlagToggles(mapKey, mapValue))}
         </Box>
     </Box>
     );

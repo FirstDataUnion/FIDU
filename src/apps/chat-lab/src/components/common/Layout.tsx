@@ -231,9 +231,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
     { text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces', enabled: useFeatureFlag('shared_workspaces') },
-    { text: 'Feature Flags', icon: <FeatureFlagIcon />, path: '/feature-flags', enabled: useFeatureFlag('feature_flag_page') },
     { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export', enabled: true },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings', enabled: true },
+    { text: 'Feature Flags', icon: <FeatureFlagIcon />, path: '/feature-flags', enabled: useFeatureFlag('feature_flag_page') },
   ];
 
 

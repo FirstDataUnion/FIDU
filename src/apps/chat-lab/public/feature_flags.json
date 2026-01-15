@@ -1,6 +1,6 @@
 {
     "feature_flag_page": {
-        "enabled": false
+        "enabled": true
     },
     "context": {
         "enabled": true,
@@ -58,8 +58,8 @@
         "enabled": true
     },
     "shared_workspaces": {
-        "enabled": false,
-        "user_configurable": false,
+        "enabled": true,
+        "user_configurable": true,
         "default_enabled": false
     }    
 }
