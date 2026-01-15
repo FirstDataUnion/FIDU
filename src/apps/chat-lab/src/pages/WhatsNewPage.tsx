@@ -23,7 +23,7 @@ import { APP_VERSION } from '../utils/version';
 
 /**
  * What's New Page
- * 
+ *
  * Displays the changelog by loading the CHANGELOG.md file.
  * This ensures a single source of truth for feature updates and fixes.
  */
@@ -39,7 +39,7 @@ const WhatsNewPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch the markdown file from the public URL
         // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
@@ -51,16 +51,20 @@ const WhatsNewPage: React.FC = () => {
             'Cache-Control': 'no-cache',
           },
         });
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to load changelog: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to load changelog: ${response.status} ${response.statusText}`
+          );
         }
-        
+
         const text = await response.text();
         setContent(text);
       } catch (err) {
         console.error('Error loading changelog:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load changelog');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load changelog'
+        );
       } finally {
         setLoading(false);
       }
@@ -119,10 +123,10 @@ const WhatsNewPage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Header with navigation and actions */}
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
         mb={3}
         sx={{
           '@media print': {
@@ -137,7 +141,7 @@ const WhatsNewPage: React.FC = () => {
         >
           Back
         </Button>
-        
+
         <Box display="flex" gap={1}>
           <Tooltip title="Print Changelog">
             <IconButton onClick={handlePrint} size="small">
@@ -153,10 +157,10 @@ const WhatsNewPage: React.FC = () => {
       </Box>
 
       {/* Page Title with Icon */}
-      <Box 
-        display="flex" 
-        alignItems="center" 
-        gap={2} 
+      <Box
+        display="flex"
+        alignItems="center"
+        gap={2}
         mb={3}
         sx={{
           '@media print': {
@@ -164,22 +168,17 @@ const WhatsNewPage: React.FC = () => {
           },
         }}
       >
-        <NewReleasesIcon 
-          sx={{ 
-            fontSize: 40, 
+        <NewReleasesIcon
+          sx={{
+            fontSize: 40,
             color: 'primary.main',
             '@media print': {
               display: 'none',
             },
-          }} 
+          }}
         />
         <Box>
-          <Typography 
-            variant="h3" 
-            component="h1" 
-            gutterBottom 
-            sx={{ mb: 0.5 }}
-          >
+          <Typography variant="h3" component="h1" gutterBottom sx={{ mb: 0.5 }}>
             What's New
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -189,7 +188,7 @@ const WhatsNewPage: React.FC = () => {
       </Box>
 
       {/* Info chip */}
-      <Box 
+      <Box
         mb={3}
         sx={{
           '@media print': {
@@ -197,10 +196,10 @@ const WhatsNewPage: React.FC = () => {
           },
         }}
       >
-        <Chip 
-          label="Updated regularly with new features" 
-          size="small" 
-          color="primary" 
+        <Chip
+          label="Updated regularly with new features"
+          size="small"
+          color="primary"
           variant="outlined"
         />
       </Box>
@@ -254,7 +253,10 @@ const WhatsNewPage: React.FC = () => {
       >
         <Typography variant="body2" color="text.secondary" align="center">
           Have suggestions or feedback?{' '}
-          <a href="mailto:feedback@firstdataunion.org" style={{ color: 'inherit' }}>
+          <a
+            href="mailto:feedback@firstdataunion.org"
+            style={{ color: 'inherit' }}
+          >
             Let us know
           </a>
         </Typography>
@@ -264,4 +266,3 @@ const WhatsNewPage: React.FC = () => {
 };
 
 export default WhatsNewPage;
-

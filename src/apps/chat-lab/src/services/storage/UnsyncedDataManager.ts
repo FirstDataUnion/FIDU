@@ -7,7 +7,8 @@ type UnsyncedStateChangeListener = (hasUnsynced: boolean) => void;
 
 class UnsyncedDataManager {
   private hasUnsyncedData = false;
-  private beforeUnloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
+  private beforeUnloadHandler: ((event: BeforeUnloadEvent) => void) | null =
+    null;
   private listeners: Set<UnsyncedStateChangeListener> = new Set();
 
   constructor() {
@@ -25,12 +26,17 @@ class UnsyncedDataManager {
    * Mark that we have unsynced data (called when creating new data)
    */
   markAsUnsynced(): void {
-    console.log('📝 [UnsyncedDataManager] markAsUnsynced called, current state:', this.hasUnsyncedData);
+    console.log(
+      '📝 [UnsyncedDataManager] markAsUnsynced called, current state:',
+      this.hasUnsyncedData
+    );
     if (!this.hasUnsyncedData) {
       this.hasUnsyncedData = true;
       this.notifyListeners();
     } else {
-      console.log('📝 [UnsyncedDataManager] Already marked as unsynced, skipping notification');
+      console.log(
+        '📝 [UnsyncedDataManager] Already marked as unsynced, skipping notification'
+      );
     }
   }
 
@@ -59,7 +65,12 @@ class UnsyncedDataManager {
    * Notify all listeners of state change
    */
   private notifyListeners(): void {
-    console.log('🔔 [UnsyncedDataManager] Notifying listeners, hasUnsynced:', this.hasUnsyncedData, 'listeners:', this.listeners.size);
+    console.log(
+      '🔔 [UnsyncedDataManager] Notifying listeners, hasUnsynced:',
+      this.hasUnsyncedData,
+      'listeners:',
+      this.listeners.size
+    );
     this.listeners.forEach(listener => {
       try {
         listener(this.hasUnsyncedData);
@@ -76,11 +87,12 @@ class UnsyncedDataManager {
     this.beforeUnloadHandler = (event: BeforeUnloadEvent) => {
       if (this.hasUnsyncedData) {
         // Modern browsers ignore custom messages, but we can still show a warning
-        const message = 'You have unsaved changes that will be lost if you leave this page.';
-        
+        const message =
+          'You have unsaved changes that will be lost if you leave this page.';
+
         // Set returnValue for older browsers
         event.returnValue = message;
-        
+
         // Return the message for modern browsers
         return message;
       }

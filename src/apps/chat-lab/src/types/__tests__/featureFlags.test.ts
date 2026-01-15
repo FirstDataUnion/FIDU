@@ -4,13 +4,12 @@ import {
   validateFeatureFlagsPayload,
 } from '../featureFlags';
 
-const clonePayload = () =>
-  JSON.parse(JSON.stringify(featureFlagsFixture));
+const clonePayload = () => JSON.parse(JSON.stringify(featureFlagsFixture));
 
 describe('validateFeatureFlagsPayload', () => {
   it('accepts the checked-in feature flags payload', () => {
     expect(validateFeatureFlagsPayload(clonePayload())).toEqual(
-      featureFlagsFixture,
+      featureFlagsFixture
     );
   });
 
@@ -42,4 +41,3 @@ describe('validateFeatureFlagsPayload', () => {
     expect(validated.context.enabled).toBe(false);
   });
 });
-

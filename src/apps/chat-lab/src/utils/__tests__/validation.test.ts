@@ -11,9 +11,15 @@ import {
 describe('validation', () => {
   describe('sanitizeString', () => {
     it('should throw error for non-string input', () => {
-      expect(() => sanitizeString(null as any)).toThrow('Input must be a string');
-      expect(() => sanitizeString(undefined as any)).toThrow('Input must be a string');
-      expect(() => sanitizeString(123 as any)).toThrow('Input must be a string');
+      expect(() => sanitizeString(null as any)).toThrow(
+        'Input must be a string'
+      );
+      expect(() => sanitizeString(undefined as any)).toThrow(
+        'Input must be a string'
+      );
+      expect(() => sanitizeString(123 as any)).toThrow(
+        'Input must be a string'
+      );
     });
 
     it('should remove control characters', () => {
@@ -25,7 +31,9 @@ describe('validation', () => {
     it('should escape HTML characters', () => {
       const input = '<script>alert("xss")</script>';
       const result = sanitizeString(input);
-      expect(result).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
     });
 
     it('should limit string length', () => {
@@ -48,8 +56,12 @@ describe('validation', () => {
 
   describe('validateApiKey', () => {
     it('should throw error for non-string input', () => {
-      expect(() => validateApiKey(null as any)).toThrow('API key must be a string');
-      expect(() => validateApiKey(123 as any)).toThrow('API key must be a string');
+      expect(() => validateApiKey(null as any)).toThrow(
+        'API key must be a string'
+      );
+      expect(() => validateApiKey(123 as any)).toThrow(
+        'API key must be a string'
+      );
     });
 
     it('should validate correct API key format', () => {
@@ -80,12 +92,16 @@ describe('validation', () => {
     });
 
     it('should reject keys that are too short', () => {
-      expect(() => validateApiKey('short')).toThrow('API key length must be between 10 and 1000 characters');
+      expect(() => validateApiKey('short')).toThrow(
+        'API key length must be between 10 and 1000 characters'
+      );
     });
 
     it('should reject keys that are too long', () => {
       const longKey = 'a'.repeat(1001);
-      expect(() => validateApiKey(longKey)).toThrow('API key length must be between 10 and 1000 characters');
+      expect(() => validateApiKey(longKey)).toThrow(
+        'API key length must be between 10 and 1000 characters'
+      );
     });
 
     it('should trim whitespace', () => {
@@ -97,7 +113,9 @@ describe('validation', () => {
 
   describe('validateProviderName', () => {
     it('should throw error for non-string input', () => {
-      expect(() => validateProviderName(null as any)).toThrow('Provider name must be a string');
+      expect(() => validateProviderName(null as any)).toThrow(
+        'Provider name must be a string'
+      );
     });
 
     it('should validate correct provider names', () => {
@@ -119,11 +137,13 @@ describe('validation', () => {
         'Provider@#$',
         'Provider<script>',
         'Provider"test"',
-        'Provider\'test\'',
+        "Provider'test'",
       ];
 
       invalidNames.forEach(name => {
-        expect(() => validateProviderName(name)).toThrow('Invalid provider name');
+        expect(() => validateProviderName(name)).toThrow(
+          'Invalid provider name'
+        );
       });
     });
 
@@ -136,7 +156,9 @@ describe('validation', () => {
 
   describe('validateConversationTitle', () => {
     it('should throw error for non-string input', () => {
-      expect(() => validateConversationTitle(null as any)).toThrow('Title must be a string');
+      expect(() => validateConversationTitle(null as any)).toThrow(
+        'Title must be a string'
+      );
     });
 
     it('should validate correct titles', () => {
@@ -152,8 +174,12 @@ describe('validation', () => {
     });
 
     it('should reject empty titles', () => {
-      expect(() => validateConversationTitle('')).toThrow('Title cannot be empty');
-      expect(() => validateConversationTitle('   ')).toThrow('Title cannot be empty');
+      expect(() => validateConversationTitle('')).toThrow(
+        'Title cannot be empty'
+      );
+      expect(() => validateConversationTitle('   ')).toThrow(
+        'Title cannot be empty'
+      );
     });
 
     it('should limit length to 200 characters', () => {
@@ -165,13 +191,17 @@ describe('validation', () => {
     it('should sanitize HTML characters', () => {
       const title = '<script>alert("xss")</script>';
       const result = validateConversationTitle(title);
-      expect(result).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
     });
   });
 
   describe('validateSearchQuery', () => {
     it('should throw error for non-string input', () => {
-      expect(() => validateSearchQuery(null as any)).toThrow('Search query must be a string');
+      expect(() => validateSearchQuery(null as any)).toThrow(
+        'Search query must be a string'
+      );
     });
 
     it('should validate correct search queries', () => {
@@ -205,7 +235,9 @@ describe('validation', () => {
   describe('validateJsonData', () => {
     it('should throw error for non-object input', () => {
       expect(() => validateJsonData(null)).toThrow('Data must be an object');
-      expect(() => validateJsonData('string')).toThrow('Data must be an object');
+      expect(() => validateJsonData('string')).toThrow(
+        'Data must be an object'
+      );
       expect(() => validateJsonData(123)).toThrow('Data must be an object');
     });
 
@@ -222,7 +254,9 @@ describe('validation', () => {
 
     it('should reject data that is too large', () => {
       const largeData = { data: 'x'.repeat(1000001) };
-      expect(() => validateJsonData(largeData)).toThrow('Data too large (max 1MB)');
+      expect(() => validateJsonData(largeData)).toThrow(
+        'Data too large (max 1MB)'
+      );
     });
 
     it('should sanitize string values in objects', () => {
@@ -232,7 +266,9 @@ describe('validation', () => {
       };
 
       const result = validateJsonData(data);
-      expect(result.title).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result.title).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
       expect(result.content).toBe('Hello &lt;b&gt;world&lt;/b&gt;');
     });
 
@@ -247,7 +283,9 @@ describe('validation', () => {
       };
 
       const result = validateJsonData(data);
-      expect(result.user.name).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result.user.name).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
       expect(result.user.profile.bio).toBe('Hello &lt;b&gt;world&lt;/b&gt;');
     });
 
@@ -257,7 +295,9 @@ describe('validation', () => {
       };
 
       const result = validateJsonData(data);
-      expect(result.items[0]).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result.items[0]).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
       expect(result.items[1]).toBe('normal text');
     });
   });
@@ -299,7 +339,9 @@ describe('validation', () => {
 
       expect(() => validateFormData(formData)).not.toThrow();
       const result = validateFormData(formData);
-      expect(result.invalidField).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(result.invalidField).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
     });
 
     it('should preserve non-string values', () => {

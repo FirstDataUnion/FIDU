@@ -65,8 +65,11 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-1' }),
         createMockAlert({ id: 'alert-2' }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       const history = loadAlertHistory();
       expect(history).toHaveLength(2);
       expect(history[0].id).toBe('alert-1');
@@ -74,11 +77,29 @@ describe('agentAlertHistory', () => {
 
     it('should ensure all alerts have required fields', () => {
       const alerts = [
-        { id: 'alert-1', agentId: 'agent-1', createdAt: '2024-01-01', rating: 50, severity: 'warn', message: 'test' },
-        { id: 'alert-2', agentId: 'agent-2', createdAt: '2024-01-02', rating: 60, severity: 'info', message: 'test', read: true },
+        {
+          id: 'alert-1',
+          agentId: 'agent-1',
+          createdAt: '2024-01-01',
+          rating: 50,
+          severity: 'warn',
+          message: 'test',
+        },
+        {
+          id: 'alert-2',
+          agentId: 'agent-2',
+          createdAt: '2024-01-02',
+          rating: 60,
+          severity: 'info',
+          message: 'test',
+          read: true,
+        },
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       const history = loadAlertHistory();
       expect(history[0].read).toBe(false);
       expect(history[0].details).toEqual({});
@@ -88,10 +109,10 @@ describe('agentAlertHistory', () => {
 
     it('should handle corrupted JSON gracefully', () => {
       localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, 'invalid json{');
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const history = loadAlertHistory();
-      
+
       expect(history).toEqual([]);
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
@@ -102,7 +123,7 @@ describe('agentAlertHistory', () => {
     it('should add alert to empty history', () => {
       const alert = createMockAlert({ id: 'alert-1' });
       addAlertToHistory(alert);
-      
+
       const history = JSON.parse(localStorageMock.setItem.mock.calls[0][1]);
       expect(history).toHaveLength(1);
       expect(history[0].id).toBe('alert-1');
@@ -110,27 +131,41 @@ describe('agentAlertHistory', () => {
 
     it('should append alert to existing history', () => {
       const existing = [createMockAlert({ id: 'alert-1' })];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(existing));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(existing)
+      );
+
       const newAlert = createMockAlert({ id: 'alert-2' });
       addAlertToHistory(newAlert);
-      
-      const history = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const history = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(history).toHaveLength(2);
       expect(history[1].id).toBe('alert-2');
     });
 
     it('should limit stored alerts to MAX_STORED_ALERTS (500)', () => {
       // Create 600 alerts
-      const alerts = Array.from({ length: 600 }, (_, i) => 
+      const alerts = Array.from({ length: 600 }, (_, i) =>
         createMockAlert({ id: `alert-${i}` })
       );
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       // Add one more
       addAlertToHistory(createMockAlert({ id: 'alert-600' }));
-      
-      const stored = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const stored = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(stored).toHaveLength(500);
       expect(stored[0].id).toBe('alert-101'); // Oldest removed
       expect(stored[499].id).toBe('alert-600'); // Newest added
@@ -143,19 +178,33 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-1', read: false }),
         createMockAlert({ id: 'alert-2', read: false }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       markAlertAsRead('alert-1');
-      
-      const history = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
-      expect(history.find((a: AgentAlert) => a.id === 'alert-1')?.read).toBe(true);
-      expect(history.find((a: AgentAlert) => a.id === 'alert-2')?.read).toBe(false);
+
+      const history = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
+      expect(history.find((a: AgentAlert) => a.id === 'alert-1')?.read).toBe(
+        true
+      );
+      expect(history.find((a: AgentAlert) => a.id === 'alert-2')?.read).toBe(
+        false
+      );
     });
 
     it('should handle non-existent alert gracefully', () => {
       const alerts = [createMockAlert({ id: 'alert-1' })];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       markAlertAsRead('non-existent');
       // Should not throw
       expect(localStorageMock.setItem).toHaveBeenCalled();
@@ -169,11 +218,18 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-2', read: false }),
         createMockAlert({ id: 'alert-3', read: true }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       markAllAlertsAsRead();
-      
-      const history = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const history = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(history.every((a: AgentAlert) => a.read)).toBe(true);
     });
   });
@@ -184,22 +240,36 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-1' }),
         createMockAlert({ id: 'alert-2' }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       deleteAlert('alert-1');
-      
-      const history = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const history = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(history).toHaveLength(1);
       expect(history[0].id).toBe('alert-2');
     });
 
     it('should handle deleting non-existent alert gracefully', () => {
       const alerts = [createMockAlert({ id: 'alert-1' })];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       deleteAlert('non-existent');
-      
-      const history = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const history = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(history).toHaveLength(1);
     });
   });
@@ -207,21 +277,26 @@ describe('agentAlertHistory', () => {
   describe('clearAlertHistory', () => {
     it('should remove all alerts from localStorage', () => {
       const alerts = [createMockAlert({ id: 'alert-1' })];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       clearAlertHistory();
-      
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith(ALERT_HISTORY_STORAGE_KEY);
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith(
+        ALERT_HISTORY_STORAGE_KEY
+      );
     });
 
     it('should handle errors gracefully', () => {
       localStorageMock.removeItem.mockImplementationOnce(() => {
         throw new Error('Storage error');
       });
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       clearAlertHistory();
-      
+
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
@@ -234,8 +309,11 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-2', read: false }),
         createMockAlert({ id: 'alert-3', read: true }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       const count = getUnreadAlertCount();
       expect(count).toBe(2);
     });
@@ -245,8 +323,11 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-1', read: true }),
         createMockAlert({ id: 'alert-2', read: true }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       const count = getUnreadAlertCount();
       expect(count).toBe(0);
     });
@@ -255,12 +336,47 @@ describe('agentAlertHistory', () => {
   describe('getFilteredAlerts', () => {
     beforeEach(() => {
       const alerts: AgentAlert[] = [
-        createMockAlert({ id: 'alert-1', agentId: 'agent-1', severity: 'error', read: false, conversationId: 'conv-1', messageId: 'msg-1', createdAt: '2024-01-03T00:00:00Z' }),
-        createMockAlert({ id: 'alert-2', agentId: 'agent-1', severity: 'warn', read: false, conversationId: 'conv-1', messageId: 'msg-2', createdAt: '2024-01-02T00:00:00Z' }),
-        createMockAlert({ id: 'alert-3', agentId: 'agent-2', severity: 'error', read: true, conversationId: 'conv-2', messageId: 'msg-3', createdAt: '2024-01-01T00:00:00Z' }),
-        createMockAlert({ id: 'alert-4', agentId: 'agent-1', severity: 'info', read: false, conversationId: 'conv-1', messageId: 'msg-1', createdAt: '2024-01-04T00:00:00Z' }),
+        createMockAlert({
+          id: 'alert-1',
+          agentId: 'agent-1',
+          severity: 'error',
+          read: false,
+          conversationId: 'conv-1',
+          messageId: 'msg-1',
+          createdAt: '2024-01-03T00:00:00Z',
+        }),
+        createMockAlert({
+          id: 'alert-2',
+          agentId: 'agent-1',
+          severity: 'warn',
+          read: false,
+          conversationId: 'conv-1',
+          messageId: 'msg-2',
+          createdAt: '2024-01-02T00:00:00Z',
+        }),
+        createMockAlert({
+          id: 'alert-3',
+          agentId: 'agent-2',
+          severity: 'error',
+          read: true,
+          conversationId: 'conv-2',
+          messageId: 'msg-3',
+          createdAt: '2024-01-01T00:00:00Z',
+        }),
+        createMockAlert({
+          id: 'alert-4',
+          agentId: 'agent-1',
+          severity: 'info',
+          read: false,
+          conversationId: 'conv-1',
+          messageId: 'msg-1',
+          createdAt: '2024-01-04T00:00:00Z',
+        }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
     });
 
     it('should return all alerts when no filters applied', () => {
@@ -325,8 +441,11 @@ describe('agentAlertHistory', () => {
         createMockAlert({ id: 'alert-1', conversationId: undefined }),
         createMockAlert({ id: 'alert-2', conversationId: 'conv-1' }),
       ];
-      localStorageMock.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alerts));
-      
+      localStorageMock.setItem(
+        ALERT_HISTORY_STORAGE_KEY,
+        JSON.stringify(alerts)
+      );
+
       const filtered = getFilteredAlerts({ conversationId: 'conv-1' });
       // Filter logic: a.conversationId === filters.conversationId
       // Only alerts with matching conversationId are included (excludes legacy alerts without conversationId)
@@ -345,4 +464,3 @@ describe('agentAlertHistory', () => {
     });
   });
 });
-

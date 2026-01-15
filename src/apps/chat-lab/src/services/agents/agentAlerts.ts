@@ -19,7 +19,9 @@ export type AgentAlertListener = (alert: AgentAlert) => void;
 
 const listeners = new Set<AgentAlertListener>();
 
-export function subscribeToAgentAlerts(listener: AgentAlertListener): () => void {
+export function subscribeToAgentAlerts(
+  listener: AgentAlertListener
+): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
@@ -27,7 +29,7 @@ export function subscribeToAgentAlerts(listener: AgentAlertListener): () => void
 export function addAgentAlert(alert: AgentAlert): void {
   // Persist to history
   addAlertToHistory(alert);
-  
+
   // Notify listeners (e.g., toaster, UI components)
   for (const listener of Array.from(listeners)) {
     try {

@@ -9,8 +9,7 @@ import featureFlagsFixture from '../../../../public/feature_flags.json';
 
 const baseFlags = featureFlagsFixture as FeatureFlagsMap;
 
-const cloneFlags = (): FeatureFlagsMap =>
-  JSON.parse(JSON.stringify(baseFlags));
+const cloneFlags = (): FeatureFlagsMap => JSON.parse(JSON.stringify(baseFlags));
 
 describe('systemFeatureFlagsSlice', () => {
   const nowSpy = jest.spyOn(Date, 'now');
@@ -33,7 +32,10 @@ describe('systemFeatureFlagsSlice', () => {
   });
 
   it('should handle fetchSystemFeatureFlags.pending', () => {
-    const state = reducer(undefined, fetchSystemFeatureFlags.pending('', undefined));
+    const state = reducer(
+      undefined,
+      fetchSystemFeatureFlags.pending('', undefined)
+    );
     expect(state.loading).toBe(true);
     expect(state.error).toBeNull();
   });
@@ -82,4 +84,3 @@ describe('systemFeatureFlagsSlice', () => {
     expect(state.error).toBeNull();
   });
 });
-

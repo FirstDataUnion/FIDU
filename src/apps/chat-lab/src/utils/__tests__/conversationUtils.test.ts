@@ -229,7 +229,8 @@ describe('conversationUtils', () => {
     });
 
     it('should handle complex content with multiple formatting', () => {
-      const content = '# Header\n\n**Bold text**\n\n1. First item\n- Bullet point\n\n```code```';
+      const content =
+        '# Header\n\n**Bold text**\n\n1. First item\n- Bullet point\n\n```code```';
       const result = formatMessageContent(content);
       expect(result).toContain('# Header');
       expect(result).toContain('**Bold text**');
@@ -255,7 +256,9 @@ describe('conversationUtils', () => {
     });
 
     it('should return correct names for Anthropic models', () => {
-      expect(getModelDisplayName('claude-3.5-sonnet')).toBe('Claude 3.5 Sonnet');
+      expect(getModelDisplayName('claude-3.5-sonnet')).toBe(
+        'Claude 3.5 Sonnet'
+      );
       expect(getModelDisplayName('claude-3-opus')).toBe('Claude 3 Opus');
       expect(getModelDisplayName('claude-3-sonnet')).toBe('Claude 3 Sonnet');
       expect(getModelDisplayName('claude-3-haiku')).toBe('Claude 3 Haiku');
@@ -277,7 +280,9 @@ describe('conversationUtils', () => {
     });
 
     it('should format unknown model IDs with capitalization', () => {
-      expect(getModelDisplayName('custom-model-name')).toBe('Custom Model Name');
+      expect(getModelDisplayName('custom-model-name')).toBe(
+        'Custom Model Name'
+      );
       expect(getModelDisplayName('my_custom_model')).toBe('My Custom Model');
     });
   });
@@ -291,7 +296,7 @@ describe('conversationUtils', () => {
         providerRaw: 'mistralai',
         modelRaw: 'mistral-nemo',
         providerDisplay: 'Mistral AI',
-        modelDisplay: 'Mistral Nemo'
+        modelDisplay: 'Mistral Nemo',
       });
     });
 
@@ -377,31 +382,58 @@ describe('conversationUtils', () => {
     it('should return single model name for one model', () => {
       expect(calculatePrimaryModelsDisplay(['gpt-4o'])).toBe('GPT-4o');
       expect(calculatePrimaryModelsDisplay(['autorouter'])).toBe('AutoRouter');
-      expect(calculatePrimaryModelsDisplay(['claude-3-5-sonnet'])).toBe('Claude 3.5 Sonnet');
+      expect(calculatePrimaryModelsDisplay(['claude-3-5-sonnet'])).toBe(
+        'Claude 3.5 Sonnet'
+      );
     });
 
     it('should return two models separated by "/" for two models', () => {
-      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet'])).toBe('GPT-4o/Claude 3.5 Sonnet');
-      expect(calculatePrimaryModelsDisplay(['autorouter', 'gpt-4o'])).toBe('AutoRouter/GPT-4o');
+      expect(
+        calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet'])
+      ).toBe('GPT-4o/Claude 3.5 Sonnet');
+      expect(calculatePrimaryModelsDisplay(['autorouter', 'gpt-4o'])).toBe(
+        'AutoRouter/GPT-4o'
+      );
     });
 
     it('should return "Multiple Models" for three or more models', () => {
-      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet', 'gemini-flash'])).toBe('Multiple Models');
-      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'claude-3-5-sonnet', 'gemini-flash', 'gpt-3.5-turbo'])).toBe('Multiple Models');
+      expect(
+        calculatePrimaryModelsDisplay([
+          'gpt-4o',
+          'claude-3-5-sonnet',
+          'gemini-flash',
+        ])
+      ).toBe('Multiple Models');
+      expect(
+        calculatePrimaryModelsDisplay([
+          'gpt-4o',
+          'claude-3-5-sonnet',
+          'gemini-flash',
+          'gpt-3.5-turbo',
+        ])
+      ).toBe('Multiple Models');
     });
 
     it('should handle duplicates by returning unique models', () => {
-      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'gpt-4o', 'claude-3-5-sonnet'])).toBe('GPT-4o/Claude 3.5 Sonnet');
+      expect(
+        calculatePrimaryModelsDisplay(['gpt-4o', 'gpt-4o', 'claude-3-5-sonnet'])
+      ).toBe('GPT-4o/Claude 3.5 Sonnet');
     });
 
     it('should return "Unknown" for empty or invalid models', () => {
       expect(calculatePrimaryModelsDisplay([])).toBe('Unknown');
-      expect(calculatePrimaryModelsDisplay(['unknown', 'other'])).toBe('Unknown');
+      expect(calculatePrimaryModelsDisplay(['unknown', 'other'])).toBe(
+        'Unknown'
+      );
     });
 
     it('should filter out invalid models before calculating', () => {
-      expect(calculatePrimaryModelsDisplay(['gpt-4o', 'unknown', 'other'])).toBe('GPT-4o');
-      expect(calculatePrimaryModelsDisplay(['unknown', 'other', 'gpt-4o'])).toBe('GPT-4o');
+      expect(
+        calculatePrimaryModelsDisplay(['gpt-4o', 'unknown', 'other'])
+      ).toBe('GPT-4o');
+      expect(
+        calculatePrimaryModelsDisplay(['unknown', 'other', 'gpt-4o'])
+      ).toBe('GPT-4o');
     });
   });
 

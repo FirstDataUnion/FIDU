@@ -24,7 +24,9 @@ jest.mock('../../auth/FiduAuthService', () => ({
   getFiduAuthService: jest.fn(() => mockFiduAuthService),
 }));
 
-const mockFiduVaultAPIClient = fiduVaultAPIClient as jest.Mocked<typeof fiduVaultAPIClient>;
+const mockFiduVaultAPIClient = fiduVaultAPIClient as jest.Mocked<
+  typeof fiduVaultAPIClient
+>;
 
 const mockConversationDataPacket: ConversationDataPacket = {
   id: '1',
@@ -111,11 +113,11 @@ describe('conversationsApi', () => {
         data: [mockConversationDataPacket],
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
-      
+
       expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith('/data-packets', {
         params: {
           tags: ['Chat-Bot-Conversation'],
@@ -128,7 +130,7 @@ describe('conversationsApi', () => {
         },
         paramsSerializer: expect.any(Object),
       });
-      
+
       expect(result.conversations).toHaveLength(1);
       expect(result.conversations[0].title).toBe('Test Conversation');
       expect(result.total).toBe(1);
@@ -141,9 +143,9 @@ describe('conversationsApi', () => {
         data: [mockConversationDataPacket],
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const filters = {
         tags: ['ai'],
         dateRange: {
@@ -151,9 +153,9 @@ describe('conversationsApi', () => {
           end: new Date('2024-01-31T23:59:59Z'),
         },
       };
-      
+
       await conversationsApi.getAll(filters, 2, 50, 'profile-1');
-      
+
       expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith('/data-packets', {
         params: {
           tags: ['Chat-Bot-Conversation', 'ai'],
@@ -175,11 +177,11 @@ describe('conversationsApi', () => {
         data: null,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
-      
+
       expect(result.conversations).toEqual([]);
       expect(result.total).toBe(0);
     });
@@ -189,11 +191,11 @@ describe('conversationsApi', () => {
         data: { invalid: 'data' },
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
-      
+
       expect(result.conversations).toEqual([]);
       expect(result.total).toBe(0);
     });
@@ -201,8 +203,10 @@ describe('conversationsApi', () => {
     it('should handle API errors', async () => {
       const error = new Error('API Error');
       mockFiduVaultAPIClient.get.mockRejectedValue(error);
-      
-      await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('API Error');
+
+      await expect(
+        conversationsApi.getAll({}, 1, 20, 'profile-1')
+      ).rejects.toThrow('API Error');
     });
   });
 
@@ -212,12 +216,14 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
-      expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith('/data-packets/1');
+
+      expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith(
+        '/data-packets/1'
+      );
       expect(result.title).toBe('Test Conversation');
       expect(result.platform).toBe('chatgpt');
     });
@@ -225,7 +231,7 @@ describe('conversationsApi', () => {
     it('should handle API errors', async () => {
       const error = new Error('Not found');
       mockFiduVaultAPIClient.get.mockRejectedValue(error);
-      
+
       await expect(conversationsApi.getById('1')).rejects.toThrow('Not found');
     });
   });
@@ -236,12 +242,14 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getMessages('1');
-      
-      expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith('/data-packets/1');
+
+      expect(mockFiduVaultAPIClient.get).toHaveBeenCalledWith(
+        '/data-packets/1'
+      );
       expect(result).toHaveLength(2);
       expect(result[0].content).toBe('Hello');
       expect(result[0].role).toBe('user');
@@ -260,19 +268,21 @@ describe('conversationsApi', () => {
         },
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getMessages('1');
-      
+
       expect(result).toEqual([]);
     });
 
     it('should handle API errors', async () => {
       const error = new Error('Failed to fetch messages');
       mockFiduVaultAPIClient.get.mockRejectedValue(error);
-      
-      await expect(conversationsApi.getMessages('1')).rejects.toThrow('Failed to fetch messages');
+
+      await expect(conversationsApi.getMessages('1')).rejects.toThrow(
+        'Failed to fetch messages'
+      );
     });
   });
 
@@ -282,36 +292,47 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 201,
       };
-      
+
       mockFiduVaultAPIClient.post.mockResolvedValue(mockResponse);
-      
+
       const conversation = {
         title: 'New Conversation',
         platform: 'chatgpt' as const,
         tags: ['test'],
       };
-      
-      const result = await conversationsApi.createConversation('profile-1', conversation, mockMessages);
-      
-      expect(mockFiduVaultAPIClient.post).toHaveBeenCalledWith('/data-packets', expect.objectContaining({
-        request_id: expect.any(String),
-        data_packet: expect.objectContaining({
-          profile_id: 'profile-1',
-          tags: ['Chat-Bot-Conversation', 'FIDU-CHAT-LAB-Conversation', 'test'],
-          data: expect.objectContaining({
-            sourceChatbot: 'CHATGPT',
-            conversationTitle: 'New Conversation',
-            modelsUsed: expect.any(Array), // Should compute and store modelsUsed
-            interactions: expect.arrayContaining([
-              expect.objectContaining({
-                actor: 'user',
-                content: 'Hello',
-              }),
-            ]),
+
+      const result = await conversationsApi.createConversation(
+        'profile-1',
+        conversation,
+        mockMessages
+      );
+
+      expect(mockFiduVaultAPIClient.post).toHaveBeenCalledWith(
+        '/data-packets',
+        expect.objectContaining({
+          request_id: expect.any(String),
+          data_packet: expect.objectContaining({
+            profile_id: 'profile-1',
+            tags: [
+              'Chat-Bot-Conversation',
+              'FIDU-CHAT-LAB-Conversation',
+              'test',
+            ],
+            data: expect.objectContaining({
+              sourceChatbot: 'CHATGPT',
+              conversationTitle: 'New Conversation',
+              modelsUsed: expect.any(Array), // Should compute and store modelsUsed
+              interactions: expect.arrayContaining([
+                expect.objectContaining({
+                  actor: 'user',
+                  content: 'Hello',
+                }),
+              ]),
+            }),
           }),
-        }),
-      }));
-      
+        })
+      );
+
       expect(result.title).toBe('Test Conversation');
     });
   });
@@ -322,30 +343,36 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.put.mockResolvedValue(mockResponse);
-      
+
       const conversation = {
         id: '1',
         title: 'Updated Conversation',
         platform: 'chatgpt' as const,
         tags: ['updated'],
       };
-      
-      const result = await conversationsApi.updateConversation(conversation, mockMessages);
-      
-      expect(mockFiduVaultAPIClient.put).toHaveBeenCalledWith('/data-packets/1', expect.objectContaining({
-        request_id: expect.any(String),
-        data_packet: expect.objectContaining({
-          id: '1',
-          tags: expect.arrayContaining([...PROTECTED_TAGS, 'updated']),
-          data: expect.objectContaining({
-            conversationTitle: 'Updated Conversation',
-            modelsUsed: expect.any(Array), // Should compute and store modelsUsed
+
+      const result = await conversationsApi.updateConversation(
+        conversation,
+        mockMessages
+      );
+
+      expect(mockFiduVaultAPIClient.put).toHaveBeenCalledWith(
+        '/data-packets/1',
+        expect.objectContaining({
+          request_id: expect.any(String),
+          data_packet: expect.objectContaining({
+            id: '1',
+            tags: expect.arrayContaining([...PROTECTED_TAGS, 'updated']),
+            data: expect.objectContaining({
+              conversationTitle: 'Updated Conversation',
+              modelsUsed: expect.any(Array), // Should compute and store modelsUsed
+            }),
           }),
-        }),
-      }));
-      
+        })
+      );
+
       expect(result.title).toBe('Test Conversation');
     });
 
@@ -368,7 +395,7 @@ describe('conversationsApi', () => {
       const callArgs = mockFiduVaultAPIClient.put.mock.calls[0][1];
       const dataPacket = callArgs.data_packet;
 
-      PROTECTED_TAGS.forEach((tag) => {
+      PROTECTED_TAGS.forEach(tag => {
         expect(dataPacket.tags).toContain(tag);
       });
     });
@@ -378,9 +405,10 @@ describe('conversationsApi', () => {
         title: 'Updated Conversation',
         platform: 'chatgpt' as const,
       };
-      
-      await expect(conversationsApi.updateConversation(conversation, mockMessages))
-        .rejects.toThrow('Conversation ID is required to update conversation');
+
+      await expect(
+        conversationsApi.updateConversation(conversation, mockMessages)
+      ).rejects.toThrow('Conversation ID is required to update conversation');
     });
 
     it('should compute and store modelsUsed when creating conversation', async () => {
@@ -388,9 +416,9 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 201,
       };
-      
+
       mockFiduVaultAPIClient.post.mockResolvedValue(mockResponse);
-      
+
       const messagesWithMultipleModels: Message[] = [
         {
           id: '1-0',
@@ -429,13 +457,20 @@ describe('conversationsApi', () => {
         platform: 'chatgpt' as const,
         tags: ['test'],
       };
-      
-      await conversationsApi.createConversation('profile-1', conversation, messagesWithMultipleModels);
-      
+
+      await conversationsApi.createConversation(
+        'profile-1',
+        conversation,
+        messagesWithMultipleModels
+      );
+
       const callArgs = mockFiduVaultAPIClient.post.mock.calls[0][1];
       const dataPacket = callArgs.data_packet;
-      
-      expect(dataPacket.data.modelsUsed).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
+
+      expect(dataPacket.data.modelsUsed).toEqual([
+        'gpt-4o',
+        'claude-3-5-sonnet',
+      ]);
     });
 
     it('should merge existing modelsUsed when updating conversation', async () => {
@@ -449,9 +484,9 @@ describe('conversationsApi', () => {
         },
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.put.mockResolvedValue(mockResponse);
-      
+
       const newMessages: Message[] = [
         {
           id: '1-2',
@@ -472,12 +507,12 @@ describe('conversationsApi', () => {
         tags: ['updated'],
         modelsUsed: ['gpt-4o'], // Existing from conversation
       };
-      
+
       await conversationsApi.updateConversation(conversation, newMessages);
-      
+
       const callArgs = mockFiduVaultAPIClient.put.mock.calls[0][1];
       const dataPacket = callArgs.data_packet;
-      
+
       // Should merge existing + new
       expect(dataPacket.data.modelsUsed).toContain('gpt-4o');
       expect(dataPacket.data.modelsUsed).toContain('claude-3-5-sonnet');
@@ -491,11 +526,11 @@ describe('conversationsApi', () => {
         data: mockConversationDataPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       expect(result.id).toBe('1');
       expect(result.title).toBe('Test Conversation');
       expect(result.platform).toBe('chatgpt');
@@ -542,11 +577,11 @@ describe('conversationsApi', () => {
         data: dataPacketWithMultipleModels,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       expect(result.modelsUsed).toEqual(['gpt-4o', 'claude-3-5-sonnet']);
     });
 
@@ -563,13 +598,17 @@ describe('conversationsApi', () => {
         data: dataPacketWithStoredModels,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       // Should use stored value, not recompute
-      expect(result.modelsUsed).toEqual(['autorouter', 'gpt-4o', 'custom-model']);
+      expect(result.modelsUsed).toEqual([
+        'autorouter',
+        'gpt-4o',
+        'custom-model',
+      ]);
     });
 
     it('should handle conversation with original prompt data', async () => {
@@ -589,22 +628,24 @@ describe('conversationsApi', () => {
           },
         },
       };
-      
+
       const mockResponse = {
         data: dataPacketWithPrompt,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       expect(result.originalPrompt).toBeDefined();
       expect(result.originalPrompt?.promptText).toBe('Test prompt');
       expect(result.originalPrompt?.context?.id).toBe('context-1');
       expect(result.originalPrompt?.context?.title).toBe('Test Context');
       expect(result.originalPrompt?.systemPrompt?.id).toBe('system-prompt-1');
-      expect(result.originalPrompt?.systemPrompt?.content).toBe('System prompt content');
+      expect(result.originalPrompt?.systemPrompt?.content).toBe(
+        'System prompt content'
+      );
     });
 
     it('should handle conversation with multiple system prompts', async () => {
@@ -621,21 +662,29 @@ describe('conversationsApi', () => {
           },
         },
       };
-      
+
       const mockResponse = {
         data: dataPacketWithMultiplePrompts,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       expect(result.originalPrompt?.systemPrompts).toHaveLength(2);
-      expect(result.originalPrompt?.systemPrompts?.[0].id).toBe('system-prompt-1');
-      expect(result.originalPrompt?.systemPrompts?.[0].content).toBe('Content 1');
-      expect(result.originalPrompt?.systemPrompts?.[1].id).toBe('system-prompt-2');
-      expect(result.originalPrompt?.systemPrompts?.[1].content).toBe('Content 2');
+      expect(result.originalPrompt?.systemPrompts?.[0].id).toBe(
+        'system-prompt-1'
+      );
+      expect(result.originalPrompt?.systemPrompts?.[0].content).toBe(
+        'Content 1'
+      );
+      expect(result.originalPrompt?.systemPrompts?.[1].id).toBe(
+        'system-prompt-2'
+      );
+      expect(result.originalPrompt?.systemPrompts?.[1].content).toBe(
+        'Content 2'
+      );
     });
 
     it('should handle data packet with no interactions (new conversation)', async () => {
@@ -646,23 +695,23 @@ describe('conversationsApi', () => {
           interactions: [], // No interactions yet
         },
       };
-      
+
       const mockResponse = {
         data: emptyConversationPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
+
       // New behavior: empty conversations should preserve their title and metadata
       expect(result.title).toBe('Test Conversation');
       expect(result.lastMessage).toBe(''); // Empty since no interactions
       expect(result.messageCount).toBe(0);
       expect(result.platform).toBe('chatgpt');
     });
-    
+
     it('should handle truly invalid data packet gracefully', async () => {
       const invalidDataPacket = {
         id: '1',
@@ -672,53 +721,73 @@ describe('conversationsApi', () => {
         tags: ['Chat-Bot-Conversation'],
         data: null, // Completely invalid data object
       };
-      
+
       const mockResponse = {
         data: invalidDataPacket,
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getById('1');
-      
-      expect(result.title).toBe('Error: Could not parse data packet as conversation');
-      expect(result.lastMessage).toBe('Error: Could not parse data packet as conversation');
+
+      expect(result.title).toBe(
+        'Error: Could not parse data packet as conversation'
+      );
+      expect(result.lastMessage).toBe(
+        'Error: Could not parse data packet as conversation'
+      );
       expect(result.messageCount).toBe(0);
     });
   });
 
   describe('unimplemented methods', () => {
     it('should throw error for create method', async () => {
-      await expect(conversationsApi.create({})).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.create({})).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for update method', async () => {
-      await expect(conversationsApi.update('1', {})).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.update('1', {})).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for delete method', async () => {
-      await expect(conversationsApi.delete('1')).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.delete('1')).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for archive method', async () => {
-      await expect(conversationsApi.archive('1')).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.archive('1')).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for unarchive method', async () => {
-      await expect(conversationsApi.unarchive('1')).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.unarchive('1')).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for toggleFavorite method', async () => {
-      await expect(conversationsApi.toggleFavorite('1')).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.toggleFavorite('1')).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for addTags method', async () => {
-      await expect(conversationsApi.addTags('1', ['tag1'])).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.addTags('1', ['tag1'])).rejects.toThrow(
+        'Not implemented'
+      );
     });
 
     it('should throw error for removeTags method', async () => {
-      await expect(conversationsApi.removeTags('1', ['tag1'])).rejects.toThrow('Not implemented');
+      await expect(conversationsApi.removeTags('1', ['tag1'])).rejects.toThrow(
+        'Not implemented'
+      );
     });
   });
 
@@ -732,45 +801,55 @@ describe('conversationsApi', () => {
         data: [mockConversationDataPacket],
         status: 200,
       };
-      
+
       // Mock successful API call (interceptor handles refresh internally)
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
 
       // Mock the FiduAuthService to simulate successful refresh
       mockFiduAuthService.getAccessToken.mockReturnValue('new-token');
       mockFiduAuthService.createAuthInterceptor.mockReturnValue({
-        request: jest.fn((config) => config),
-        response: jest.fn((response) => response),
+        request: jest.fn(config => config),
+        response: jest.fn(response => response),
         error: jest.fn().mockResolvedValue(mockResponse),
       });
 
       const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
-      
+
       expect(result.conversations).toHaveLength(1);
       expect(result.conversations[0].title).toBe('Test Conversation');
     });
 
     it('should handle refresh token failure', async () => {
       // Mock API call that will fail due to authentication
-      mockFiduVaultAPIClient.get.mockRejectedValue(new Error('Authentication required. Please log in again.'));
+      mockFiduVaultAPIClient.get.mockRejectedValue(
+        new Error('Authentication required. Please log in again.')
+      );
 
       // Mock FiduAuthService to simulate refresh failure
       mockFiduAuthService.getAccessToken.mockReturnValue(null);
       mockFiduAuthService.createAuthInterceptor.mockReturnValue({
-        request: jest.fn((config) => config),
-        response: jest.fn((response) => response),
-        error: jest.fn().mockRejectedValue(new Error('Authentication required. Please log in again.')),
+        request: jest.fn(config => config),
+        response: jest.fn(response => response),
+        error: jest
+          .fn()
+          .mockRejectedValue(
+            new Error('Authentication required. Please log in again.')
+          ),
       });
 
-      await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('Authentication required. Please log in again.');
+      await expect(
+        conversationsApi.getAll({}, 1, 20, 'profile-1')
+      ).rejects.toThrow('Authentication required. Please log in again.');
     });
 
     it('should not attempt refresh for non-401 errors', async () => {
       const error = new Error('Server error');
       mockFiduVaultAPIClient.get.mockRejectedValue(error);
-      
-      await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('Server error');
-      
+
+      await expect(
+        conversationsApi.getAll({}, 1, 20, 'profile-1')
+      ).rejects.toThrow('Server error');
+
       // Verify FiduAuthService was not called
       expect(mockFiduAuthService.getAccessToken).not.toHaveBeenCalled();
     });
@@ -780,11 +859,11 @@ describe('conversationsApi', () => {
         data: [mockConversationDataPacket],
         status: 200,
       };
-      
+
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
-      
+
       const result = await conversationsApi.getAll({}, 1, 20, 'profile-1');
-      
+
       expect(result.conversations).toHaveLength(1);
       expect(mockFiduVaultAPIClient.get).toHaveBeenCalledTimes(1);
     });

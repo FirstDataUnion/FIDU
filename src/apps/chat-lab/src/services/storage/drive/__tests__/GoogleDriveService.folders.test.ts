@@ -34,7 +34,11 @@ describe('GoogleDriveService - Folder Support', () => {
         ok: true,
         json: async () => ({
           files: [
-            { id: 'file-1', name: 'test.db', mimeType: 'application/x-sqlite3' },
+            {
+              id: 'file-1',
+              name: 'test.db',
+              mimeType: 'application/x-sqlite3',
+            },
           ],
         }),
       });
@@ -45,7 +49,7 @@ describe('GoogleDriveService - Folder Support', () => {
         expect.stringContaining("parents%20in%20'appDataFolder'"),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer mock-access-token',
+            Authorization: 'Bearer mock-access-token',
           }),
         })
       );
@@ -74,7 +78,7 @@ describe('GoogleDriveService - Folder Support', () => {
       await service.uploadFile('test.db', data);
 
       // Check the upload request
-      const uploadCall = mockFetch.mock.calls.find((call) =>
+      const uploadCall = mockFetch.mock.calls.find(call =>
         call[0].includes('/upload/drive/v3/files')
       );
       expect(uploadCall).toBeDefined();
@@ -88,14 +92,21 @@ describe('GoogleDriveService - Folder Support', () => {
 
   describe('Custom folder', () => {
     it('should list files from custom folder', async () => {
-      const service = new GoogleDriveService(mockAuthService, 'custom-folder-123');
+      const service = new GoogleDriveService(
+        mockAuthService,
+        'custom-folder-123'
+      );
       await service.initialize();
 
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
           files: [
-            { id: 'file-1', name: 'shared.db', mimeType: 'application/x-sqlite3' },
+            {
+              id: 'file-1',
+              name: 'shared.db',
+              mimeType: 'application/x-sqlite3',
+            },
           ],
         }),
       });
@@ -106,7 +117,7 @@ describe('GoogleDriveService - Folder Support', () => {
         expect.stringContaining("'custom-folder-123'%20in%20parents"),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer mock-access-token',
+            Authorization: 'Bearer mock-access-token',
           }),
         })
       );
@@ -123,7 +134,10 @@ describe('GoogleDriveService - Folder Support', () => {
     });
 
     it('should upload files to custom folder', async () => {
-      const service = new GoogleDriveService(mockAuthService, 'custom-folder-123');
+      const service = new GoogleDriveService(
+        mockAuthService,
+        'custom-folder-123'
+      );
       await service.initialize();
 
       mockFetch
@@ -140,7 +154,7 @@ describe('GoogleDriveService - Folder Support', () => {
       await service.uploadFile('shared.db', data);
 
       // Check the upload request
-      const uploadCall = mockFetch.mock.calls.find((call) =>
+      const uploadCall = mockFetch.mock.calls.find(call =>
         call[0].includes('/upload/drive/v3/files')
       );
       expect(uploadCall).toBeDefined();
@@ -155,7 +169,10 @@ describe('GoogleDriveService - Folder Support', () => {
   describe('Folder switching', () => {
     it('should support creating services with different folders', async () => {
       const appDataService = new GoogleDriveService(mockAuthService);
-      const customFolderService = new GoogleDriveService(mockAuthService, 'folder-123');
+      const customFolderService = new GoogleDriveService(
+        mockAuthService,
+        'folder-123'
+      );
 
       await appDataService.initialize();
       await customFolderService.initialize();
@@ -185,7 +202,10 @@ describe('GoogleDriveService - Folder Support', () => {
 
   describe('Error handling', () => {
     it('should handle errors when listing files from custom folder', async () => {
-      const service = new GoogleDriveService(mockAuthService, 'custom-folder-123');
+      const service = new GoogleDriveService(
+        mockAuthService,
+        'custom-folder-123'
+      );
       await service.initialize();
 
       mockFetch.mockResolvedValue({
@@ -201,7 +221,10 @@ describe('GoogleDriveService - Folder Support', () => {
     });
 
     it('should handle permission errors for custom folders', async () => {
-      const service = new GoogleDriveService(mockAuthService, 'custom-folder-123');
+      const service = new GoogleDriveService(
+        mockAuthService,
+        'custom-folder-123'
+      );
       await service.initialize();
 
       mockFetch.mockResolvedValue({
@@ -217,4 +240,3 @@ describe('GoogleDriveService - Folder Support', () => {
     });
   });
 });
-

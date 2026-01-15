@@ -13,15 +13,17 @@ import { BUILT_IN_BACKGROUND_AGENTS } from '../../data/backgroundAgents';
 export function transformBuiltInAgentsWithPreferences(
   preferences: AllAgentPreferences
 ): BackgroundAgent[] {
-  return BUILT_IN_BACKGROUND_AGENTS.map((template) => {
+  return BUILT_IN_BACKGROUND_AGENTS.map(template => {
     const agentId = generateBuiltInAgentId(template.name);
     const userPrefs = preferences[agentId];
-    
+
     // Merge context params with user preferences if strategy is 'lastNMessages'
-    const contextParams = template.contextWindowStrategy === 'lastNMessages' && userPrefs?.contextLastN !== undefined
-      ? { ...template.contextParams, lastN: userPrefs.contextLastN }
-      : template.contextParams;
-    
+    const contextParams =
+      template.contextWindowStrategy === 'lastNMessages'
+      && userPrefs?.contextLastN !== undefined
+        ? { ...template.contextParams, lastN: userPrefs.contextLastN }
+        : template.contextParams;
+
     return {
       id: agentId,
       name: template.name,
@@ -30,7 +32,8 @@ export function transformBuiltInAgentsWithPreferences(
       actionType: template.actionType,
       promptTemplate: template.promptTemplate,
       runEveryNTurns: userPrefs?.runEveryNTurns ?? template.runEveryNTurns,
-      verbosityThreshold: userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
+      verbosityThreshold:
+        userPrefs?.verbosityThreshold ?? template.verbosityThreshold,
       contextWindowStrategy: template.contextWindowStrategy,
       contextParams: contextParams,
       outputSchemaName: template.outputSchemaName,
@@ -96,4 +99,3 @@ export function getContextStrategyDescription(
       return 'Custom context strategy';
   }
 }
-

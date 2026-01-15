@@ -1,10 +1,10 @@
 /**
  * Centralized Authentication Manager
- * 
+ *
  * This service coordinates all authentication operations for FIDU Chat Lab.
  * It manages both FIDU and Google Drive authentication in a single place,
  * preventing race conditions and duplicate operations.
- * 
+ *
  * Key responsibilities:
  * - Single initialization flow (no duplicate auth attempts)
  * - Coordinated token refresh and restoration
@@ -16,9 +16,9 @@
 import type { AppDispatch } from '../../store';
 import { GoogleDriveAuthService } from './GoogleDriveAuth';
 import { getFiduAuthService } from './FiduAuthService';
-import { 
+import {
   markStorageConfigured,
-  setGoogleDriveAuthState 
+  setGoogleDriveAuthState,
 } from '../../store/slices/unifiedStorageSlice';
 
 export interface AuthStatus {
@@ -39,13 +39,13 @@ export class AuthManager {
   private googleDriveAuthService: GoogleDriveAuthService | null = null;
   private fiduAuthService: ReturnType<typeof getFiduAuthService>;
   private dispatch: AppDispatch;
-  
+
   // State tracking
   private isInitializing: boolean = false;
   private isRestoring: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private lastAuthCheck: number = 0;
-  
+
   // Event subscribers
   private subscribers: Map<string, Set<AuthEventCallback>> = new Map([
     ['auth-changed', new Set()],
@@ -73,23 +73,29 @@ export class AuthManager {
   async initialize(): Promise<void> {
     // If already initializing, return the existing promise
     if (this.initializationPromise) {
-      console.log('⏳ [AuthManager] Already initializing, waiting for completion...');
+      console.log(
+        '⏳ [AuthManager] Already initializing, waiting for completion...'
+      );
       return this.initializationPromise;
     }
 
     // If already initialized recently, skip
     const now = Date.now();
     if (this.lastAuthCheck && now - this.lastAuthCheck < 2000) {
-      console.log('⏭️  [AuthManager] Skipping initialization (too soon since last check)');
+      console.log(
+        '⏭️  [AuthManager] Skipping initialization (too soon since last check)'
+      );
       return;
     }
 
-    console.log('🚀 [AuthManager] Starting centralized authentication initialization...');
+    console.log(
+      '🚀 [AuthManager] Starting centralized authentication initialization...'
+    );
     this.isInitializing = true;
     this.lastAuthCheck = now;
 
     this.initializationPromise = this._doInitialize();
-    
+
     try {
       await this.initializationPromise;
     } finally {
@@ -105,9 +111,11 @@ export class AuthManager {
     try {
       // Step 1: Check FIDU authentication
       const hasFiduAuth = await this.fiduAuthService.isAuthenticated();
-      
+
       if (!hasFiduAuth) {
-        console.log('ℹ️  [AuthManager] No FIDU authentication - user needs to log in');
+        console.log(
+          'ℹ️  [AuthManager] No FIDU authentication - user needs to log in'
+        );
         this.notifySubscribers('auth-lost', this.getAuthStatus());
         await this.syncToRedux();
         return;
@@ -117,17 +125,23 @@ export class AuthManager {
 
       // Step 2: Initialize Google Drive auth service if not set
       if (!this.googleDriveAuthService) {
-        console.log('⏳ [AuthManager] Waiting for Google Drive auth service...');
+        console.log(
+          '⏳ [AuthManager] Waiting for Google Drive auth service...'
+        );
         // This will be set by the storage layer
         return;
       }
 
       // Step 3: Try to restore Google Drive authentication from cookies
-      console.log('🔄 [AuthManager] Attempting Google Drive authentication restoration...');
+      console.log(
+        '🔄 [AuthManager] Attempting Google Drive authentication restoration...'
+      );
       const restored = await this.googleDriveAuthService.restoreFromCookies();
 
       if (restored) {
-        console.log('✅ [AuthManager] Google Drive authentication restored from cookies');
+        console.log(
+          '✅ [AuthManager] Google Drive authentication restored from cookies'
+        );
         this.notifySubscribers('auth-restored', this.getAuthStatus());
         await this.syncToRedux();
         return;
@@ -135,19 +149,22 @@ export class AuthManager {
 
       // Step 4: Check if we have tokens in memory (from the auth service's loadStoredTokens)
       const isAuthenticated = this.googleDriveAuthService.isAuthenticated();
-      
+
       if (isAuthenticated) {
-        console.log('✅ [AuthManager] Google Drive authentication valid in memory');
+        console.log(
+          '✅ [AuthManager] Google Drive authentication valid in memory'
+        );
         this.notifySubscribers('auth-changed', this.getAuthStatus());
         await this.syncToRedux();
         return;
       }
 
       // Step 5: No valid Google Drive auth found
-      console.log('ℹ️  [AuthManager] No Google Drive authentication - user needs to connect');
+      console.log(
+        'ℹ️  [AuthManager] No Google Drive authentication - user needs to connect'
+      );
       this.notifySubscribers('auth-lost', this.getAuthStatus());
       await this.syncToRedux();
-
     } catch (error) {
       console.error('❌ [AuthManager] Initialization failed:', error);
       this.notifySubscribers('auth-lost', this.getAuthStatus());
@@ -164,14 +181,18 @@ export class AuthManager {
   async checkAndRestore(): Promise<boolean> {
     // Don't check if already initializing or restoring
     if (this.isInitializing || this.isRestoring) {
-      console.log('⏳ [AuthManager] Operation already in progress, skipping check');
+      console.log(
+        '⏳ [AuthManager] Operation already in progress, skipping check'
+      );
       return false;
     }
 
     // Debounce rapid checks
     const now = Date.now();
     if (now - this.lastAuthCheck < 2000) {
-      console.log('⏭️  [AuthManager] Skipping check (too soon since last check)');
+      console.log(
+        '⏭️  [AuthManager] Skipping check (too soon since last check)'
+      );
       return false;
     }
 
@@ -188,7 +209,7 @@ export class AuthManager {
       } catch (error) {
         console.warn('⚠️ [AuthManager] FIDU authentication failed:', error);
       }
-      
+
       if (!fiduAuthenticated) {
         console.log('ℹ️  [AuthManager] FIDU authentication lost');
         this.notifySubscribers('auth-lost', this.getAuthStatus());
@@ -205,7 +226,8 @@ export class AuthManager {
       }
 
       // Use ensureAuthenticated() which attempts restoration
-      const googleDriveAuthenticated = await this.googleDriveAuthService.ensureAuthenticated();
+      const googleDriveAuthenticated =
+        await this.googleDriveAuthService.ensureAuthenticated();
 
       if (fiduAuthenticated && googleDriveAuthenticated) {
         console.log('✅ [AuthManager] All authentication valid');
@@ -216,7 +238,9 @@ export class AuthManager {
 
       // FIDU is valid but Google Drive is not - don't logout, just notify
       if (fiduAuthenticated && !googleDriveAuthenticated) {
-        console.log('ℹ️  [AuthManager] FIDU authentication valid, but Google Drive authentication lost');
+        console.log(
+          'ℹ️  [AuthManager] FIDU authentication valid, but Google Drive authentication lost'
+        );
         this.notifySubscribers('auth-lost', this.getAuthStatus());
         await this.syncToRedux();
         return false;
@@ -226,7 +250,6 @@ export class AuthManager {
       this.notifySubscribers('auth-lost', this.getAuthStatus());
       await this.syncToRedux();
       return false;
-
     } catch (error) {
       console.error('❌ [AuthManager] Check and restore failed:', error);
       return false;
@@ -241,7 +264,7 @@ export class AuthManager {
    */
   async reAuthenticate(): Promise<void> {
     console.log('🔄 [AuthManager] Manual re-authentication triggered');
-    
+
     // Reset state
     this.lastAuthCheck = 0;
     this.isInitializing = false;
@@ -268,9 +291,9 @@ export class AuthManager {
     const isAuthenticated = this.googleDriveAuthService.isAuthenticated();
     // Get user synchronously from the service's cached user (don't fetch it)
     // The service maintains this.user which is set after authentication
-    const user = this.googleDriveAuthService.getCachedUser ? 
-      this.googleDriveAuthService.getCachedUser() : 
-      null;
+    const user = this.googleDriveAuthService.getCachedUser
+      ? this.googleDriveAuthService.getCachedUser()
+      : null;
 
     return {
       isAuthenticated,
@@ -300,14 +323,18 @@ export class AuthManager {
     const status = this.getAuthStatus();
 
     if (status.isAuthenticated && status.user) {
-      console.log('✅ [AuthManager] Authentication verified - marking storage as configured with auth state');
-      
+      console.log(
+        '✅ [AuthManager] Authentication verified - marking storage as configured with auth state'
+      );
+
       // Update Google Drive auth state in Redux
-      this.dispatch(setGoogleDriveAuthState({ 
-        isAuthenticated: true, 
-        user: status.user 
-      }));
-      
+      this.dispatch(
+        setGoogleDriveAuthState({
+          isAuthenticated: true,
+          user: status.user,
+        })
+      );
+
       // Mark storage as configured
       this.dispatch(markStorageConfigured());
     } else {
@@ -325,12 +352,16 @@ export class AuthManager {
     }
 
     eventSubscribers.add(callback);
-    console.log(`📡 [AuthManager] New subscriber for '${event}' (total: ${eventSubscribers.size})`);
+    console.log(
+      `📡 [AuthManager] New subscriber for '${event}' (total: ${eventSubscribers.size})`
+    );
 
     // Return unsubscribe function
     return () => {
       eventSubscribers.delete(callback);
-      console.log(`📡 [AuthManager] Unsubscribed from '${event}' (remaining: ${eventSubscribers.size})`);
+      console.log(
+        `📡 [AuthManager] Unsubscribed from '${event}' (remaining: ${eventSubscribers.size})`
+      );
     };
   }
 
@@ -343,12 +374,17 @@ export class AuthManager {
       return;
     }
 
-    console.log(`📢 [AuthManager] Notifying ${eventSubscribers.size} subscribers of '${event}'`);
+    console.log(
+      `📢 [AuthManager] Notifying ${eventSubscribers.size} subscribers of '${event}'`
+    );
     eventSubscribers.forEach(callback => {
       try {
         callback(status);
       } catch (error) {
-        console.error(`❌ [AuthManager] Subscriber callback error for '${event}':`, error);
+        console.error(
+          `❌ [AuthManager] Subscriber callback error for '${event}':`,
+          error
+        );
       }
     });
   }
@@ -393,7 +429,9 @@ let authManagerInstance: AuthManager | null = null;
 export function getAuthManager(dispatch?: AppDispatch): AuthManager {
   if (!authManagerInstance) {
     if (!dispatch) {
-      throw new Error('AuthManager must be initialized with dispatch on first use');
+      throw new Error(
+        'AuthManager must be initialized with dispatch on first use'
+      );
     }
     console.log('🏗️  [AuthManager] Creating singleton instance');
     authManagerInstance = new AuthManager(dispatch);
@@ -409,4 +447,3 @@ export function resetAuthManager(): void {
   console.log('🧹 [AuthManager] Destroying singleton instance');
   authManagerInstance = null;
 }
-

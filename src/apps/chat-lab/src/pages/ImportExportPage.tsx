@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { Box, Typography, Card, CardContent, Button, Stack, Alert } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Stack,
+  Alert,
+} from '@mui/material';
 import {
   FileUpload as ExportIcon,
   FileDownload as ImportIcon,
@@ -10,7 +18,7 @@ import ResourceExportDialog from '../components/resourceExport/ResourceExportDia
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 
 const ImportExportPage: React.FC = () => {
-  const { currentProfile, user } = useAppSelector((state) => state.auth);
+  const { currentProfile, user } = useAppSelector(state => state.auth);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
@@ -34,7 +42,8 @@ const ImportExportPage: React.FC = () => {
           Import & Export Resources
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Quickly back up, restore, and share your FIDU Chat Lab resources (System Prompts, Contexts, Conversations, Background Agents). 
+          Quickly back up, restore, and share your FIDU Chat Lab resources
+          (System Prompts, Contexts, Conversations, Background Agents).
         </Typography>
 
         {!canTransferResources && (
@@ -61,8 +70,9 @@ const ImportExportPage: React.FC = () => {
                   Mass Resource Import & Export
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Export all conversations, prompts, contexts, and agent settings into a single JSON
-                  backup or import them from a trusted source.
+                  Export all conversations, prompts, contexts, and agent
+                  settings into a single JSON backup or import them from a
+                  trusted source.
                 </Typography>
               </Box>
               <Stack
@@ -88,9 +98,13 @@ const ImportExportPage: React.FC = () => {
                 </Button>
               </Stack>
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
-              Exported files are unencrypted JSON. Imported resources receive new IDs and become part
-              of your active profile.
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 2, fontStyle: 'italic' }}
+            >
+              Exported files are unencrypted JSON. Imported resources receive
+              new IDs and become part of your active profile.
             </Typography>
           </CardContent>
         </Card>
@@ -117,4 +131,3 @@ const ImportExportPage: React.FC = () => {
 };
 
 export default ImportExportPage;
-

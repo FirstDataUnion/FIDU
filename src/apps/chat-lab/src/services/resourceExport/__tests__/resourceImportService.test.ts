@@ -38,7 +38,8 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
     getBackgroundAgents: (...args: any[]) => mockGetBackgroundAgents(...args),
     createSystemPrompt: (...args: any[]) => mockCreateSystemPrompt(...args),
     createContext: (...args: any[]) => mockCreateContext(...args),
-    createBackgroundAgent: (...args: any[]) => mockCreateBackgroundAgent(...args),
+    createBackgroundAgent: (...args: any[]) =>
+      mockCreateBackgroundAgent(...args),
     createConversation: (...args: any[]) => mockCreateConversation(...args),
     getDocuments: (...args: any[]) => mockGetDocuments(...args),
     getAdapter: jest.fn(() => ({
@@ -74,21 +75,21 @@ describe('ResourceImportService', () => {
     const mockConversationHandler = new ConversationHandler();
     const mockDocumentHandler = new DocumentHandler();
 
-    (SystemPromptHandler as jest.MockedClass<typeof SystemPromptHandler>).mockImplementation(
-      () => mockSystemPromptHandler
-    );
-    (ContextHandler as jest.MockedClass<typeof ContextHandler>).mockImplementation(
-      () => mockContextHandler
-    );
-    (BackgroundAgentHandler as jest.MockedClass<typeof BackgroundAgentHandler>).mockImplementation(
-      () => mockBackgroundAgentHandler
-    );
-    (ConversationHandler as jest.MockedClass<typeof ConversationHandler>).mockImplementation(
-      () => mockConversationHandler
-    );
-    (DocumentHandler as jest.MockedClass<typeof DocumentHandler>).mockImplementation(
-      () => mockDocumentHandler
-    );
+    (
+      SystemPromptHandler as jest.MockedClass<typeof SystemPromptHandler>
+    ).mockImplementation(() => mockSystemPromptHandler);
+    (
+      ContextHandler as jest.MockedClass<typeof ContextHandler>
+    ).mockImplementation(() => mockContextHandler);
+    (
+      BackgroundAgentHandler as jest.MockedClass<typeof BackgroundAgentHandler>
+    ).mockImplementation(() => mockBackgroundAgentHandler);
+    (
+      ConversationHandler as jest.MockedClass<typeof ConversationHandler>
+    ).mockImplementation(() => mockConversationHandler);
+    (
+      DocumentHandler as jest.MockedClass<typeof DocumentHandler>
+    ).mockImplementation(() => mockDocumentHandler);
   });
 
   describe('validateExportFormat', () => {
@@ -155,7 +156,9 @@ describe('ResourceImportService', () => {
       };
 
       // Mock handler methods
-      const handler = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
+      const handler = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
       handler.validateImport = jest.fn().mockReturnValue(true);
       handler.importResource = jest.fn().mockResolvedValue({
         id: 'new-sp-1',
@@ -173,7 +176,11 @@ describe('ResourceImportService', () => {
 
       mockCreateSystemPrompt.mockResolvedValue({ id: 'new-sp-1' });
 
-      const result = await service.importResources(exportData, mockProfileId, mockUserId);
+      const result = await service.importResources(
+        exportData,
+        mockProfileId,
+        mockUserId
+      );
 
       expect(result.success).toBe(true);
       expect(result.imported.systemPrompts).toBe(1);
@@ -202,7 +209,9 @@ describe('ResourceImportService', () => {
         },
       };
 
-      const handler = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
+      const handler = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
       handler.validateImport = jest.fn().mockReturnValue(true);
       handler.importResource = jest.fn().mockResolvedValue({
         id: 'new-sp-1',
@@ -211,7 +220,11 @@ describe('ResourceImportService', () => {
 
       mockCreateSystemPrompt.mockRejectedValue(new Error('Storage error'));
 
-      const result = await service.importResources(exportData, mockProfileId, mockUserId);
+      const result = await service.importResources(
+        exportData,
+        mockProfileId,
+        mockUserId
+      );
 
       expect(result.success).toBe(false);
       expect(result.imported.systemPrompts).toBe(0);
@@ -252,7 +265,9 @@ describe('ResourceImportService', () => {
         ],
       });
 
-      const handler = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
+      const handler = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
       handler.validateImport = jest.fn().mockReturnValue(true);
 
       const result = await service.importResources(
@@ -302,7 +317,9 @@ describe('ResourceImportService', () => {
         },
       };
 
-      const handlerCtx = service['contextHandler'] as jest.Mocked<ContextHandler>;
+      const handlerCtx = service[
+        'contextHandler'
+      ] as jest.Mocked<ContextHandler>;
       handlerCtx.validateImport = jest.fn().mockReturnValue(true);
       handlerCtx.importResource = jest.fn().mockResolvedValue({
         id: 'new-ctx-1',
@@ -315,7 +332,9 @@ describe('ResourceImportService', () => {
         updatedAt: new Date().toISOString(),
       } satisfies Context);
 
-      const handlerConv = service['conversationHandler'] as jest.Mocked<ConversationHandler>;
+      const handlerConv = service[
+        'conversationHandler'
+      ] as jest.Mocked<ConversationHandler>;
       handlerConv.validateImport = jest.fn().mockReturnValue(true);
       handlerConv.importResource = jest.fn().mockResolvedValue({
         id: 'new-conv-1',
@@ -335,7 +354,11 @@ describe('ResourceImportService', () => {
       mockCreateContext.mockResolvedValue({ id: 'new-ctx-1' });
       mockCreateConversation.mockResolvedValue({ id: 'new-conv-1' });
 
-      const result = await service.importResources(exportData, mockProfileId, mockUserId);
+      const result = await service.importResources(
+        exportData,
+        mockProfileId,
+        mockUserId
+      );
 
       expect(result.imported.contexts).toBe(1);
       expect(result.imported.conversations).toBe(1);
@@ -351,7 +374,9 @@ describe('ResourceImportService', () => {
         resources: {},
       });
 
-      const file = new File([jsonContent], 'export.json', { type: 'application/json' });
+      const file = new File([jsonContent], 'export.json', {
+        type: 'application/json',
+      });
 
       const result = await service.parseImportFile(file);
 
@@ -361,10 +386,13 @@ describe('ResourceImportService', () => {
 
     it('should reject invalid JSON', async () => {
       const invalidContent = 'not json';
-      const file = new File([invalidContent], 'export.json', { type: 'application/json' });
+      const file = new File([invalidContent], 'export.json', {
+        type: 'application/json',
+      });
 
-      await expect(service.parseImportFile(file)).rejects.toThrow('Failed to parse JSON');
+      await expect(service.parseImportFile(file)).rejects.toThrow(
+        'Failed to parse JSON'
+      );
     });
   });
 });
-

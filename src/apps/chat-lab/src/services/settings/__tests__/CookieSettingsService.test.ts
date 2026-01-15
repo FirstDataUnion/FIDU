@@ -20,7 +20,11 @@ describe('CookieSettingsService', () => {
   let testBaseUrl: string;
   let fiduApp: Express;
   let fiduServer: Server;
-  let fiduAppCallHistory: Array<{ url: string; method: string, authorization?: string }> = [];
+  let fiduAppCallHistory: Array<{
+    url: string;
+    method: string;
+    authorization?: string;
+  }> = [];
 
   let service: CookieSettingsService;
   const mockSettings: UserSettings = {
@@ -57,8 +61,14 @@ describe('CookieSettingsService', () => {
     fiduApp.use(express.json());
     fiduApp.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      res.setHeader(
+        'Access-Control-Allow-Methods',
+        'GET, POST, PUT, DELETE, OPTIONS'
+      );
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Authorization, Content-Type'
+      );
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       next();
     });
@@ -70,7 +80,11 @@ describe('CookieSettingsService', () => {
     // });
     fiduApp.use((req, res, next) => {
       if (req.method !== 'OPTIONS') {
-        fiduAppCallHistory.push({ url: req.url, method: req.method, authorization: req.headers.authorization });
+        fiduAppCallHistory.push({
+          url: req.url,
+          method: req.method,
+          authorization: req.headers.authorization,
+        });
       }
       next();
     });
@@ -79,7 +93,7 @@ describe('CookieSettingsService', () => {
     });
 
     fiduServer = createServer(fiduApp);
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       fiduServer.listen(0, () => {
         const address = fiduServer.address() as AddressInfo;
         testPort = address.port;
@@ -89,7 +103,7 @@ describe('CookieSettingsService', () => {
     });
   }
 
-  afterEach((done) => {
+  afterEach(done => {
     fiduAppCallHistory = [];
     if (fiduServer.listening) {
       fiduServer.close(() => {
@@ -111,26 +125,36 @@ describe('CookieSettingsService', () => {
       },
       writable: true,
     });
-    
+
     service = new CookieSettingsService(testBaseUrl);
     const fiduService = getFiduAuthService() as any;
     fiduService.cachedAccessToken = null;
     fiduService.cachedRefreshTokenAvailable = null;
     fiduService.refreshPromise = null;
-    
+
     // Mock navigator.onLine
     Object.defineProperty(navigator, 'onLine', {
       writable: true,
       value: true,
     });
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => {return {success: true}}
-    })
-    .mockImplementation(() => {expect("SUT should not use fetch").toBe(false);});
-    getFiduAuthService().setTokens(fiduAccessToken, fiduRefreshToken, { id: 'test-user', email: 'test@example.com', profiles: [] });
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => {
+          return { success: true };
+        },
+      })
+      .mockImplementation(() => {
+        expect('SUT should not use fetch').toBe(false);
+      });
+    getFiduAuthService().setTokens(fiduAccessToken, fiduRefreshToken, {
+      id: 'test-user',
+      email: 'test@example.com',
+      profiles: [],
+    });
   });
 
   describe('setSettings', () => {
@@ -163,7 +187,7 @@ describe('CookieSettingsService', () => {
 
     it('should handle network errors gracefully', async () => {
       // Stop the mock server to simulate network error
-      await new Promise((resolve) => fiduServer.close(resolve));
+      await new Promise(resolve => fiduServer.close(resolve));
 
       const result = await service.setSettings(mockSettings);
 
@@ -187,7 +211,7 @@ describe('CookieSettingsService', () => {
             method: 'GET',
             authorization: `Bearer ${fiduAccessToken}`,
             url: expect.stringContaining('/api/settings/get'),
-          })
+          }),
         ])
       );
     });
@@ -222,7 +246,7 @@ describe('CookieSettingsService', () => {
     });
 
     it('should return null after all retries fail', async () => {
-      await new Promise((resolve) => fiduServer.close(resolve));
+      await new Promise(resolve => fiduServer.close(resolve));
 
       const result = await service.getSettingsWithRetry(2);
 

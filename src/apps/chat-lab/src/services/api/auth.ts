@@ -1,8 +1,10 @@
-import type { 
-  User, 
-  Profile
-} from '../../types';
-import { createProfile, deleteProfile, fetchCurrentUser, updateProfile } from './apiClientIdentityService';
+import type { User, Profile } from '../../types';
+import {
+  createProfile,
+  deleteProfile,
+  fetchCurrentUser,
+  updateProfile,
+} from './apiClientIdentityService';
 
 export const authApi = {
   /**
@@ -24,7 +26,10 @@ export const authApi = {
   /**
    * Update an existing profile
    */
-  updateProfile: async (profile_id: string, display_name: string): Promise<Profile> => {
+  updateProfile: async (
+    profile_id: string,
+    display_name: string
+  ): Promise<Profile> => {
     const response = await updateProfile(profile_id, display_name);
     return response;
   },
@@ -36,5 +41,4 @@ export const authApi = {
     const response = await deleteProfile(profile_id);
     return response;
   },
-
-}; 
+};

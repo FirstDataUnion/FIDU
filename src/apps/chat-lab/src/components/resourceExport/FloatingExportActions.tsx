@@ -1,6 +1,6 @@
 /**
  * FloatingExportActions Component
- * 
+ *
  * Floating action buttons that appear in the bottom right corner
  * when in multi-select mode for exporting resources.
  */
@@ -104,4 +104,3 @@ export const FloatingExportActions: React.FC<FloatingExportActionsProps> = ({
     </Box>
   );
 };
-

@@ -12,7 +12,9 @@ interface UnsyncedDataIndicatorProps {
   variant?: 'compact' | 'full';
 }
 
-export default function UnsyncedDataIndicator({ variant = 'compact' }: UnsyncedDataIndicatorProps) {
+export default function UnsyncedDataIndicator({
+  variant = 'compact',
+}: UnsyncedDataIndicatorProps) {
   const [hasUnsyncedData, setHasUnsyncedData] = useState(false);
 
   useEffect(() => {
@@ -20,9 +22,11 @@ export default function UnsyncedDataIndicator({ variant = 'compact' }: UnsyncedD
     setHasUnsyncedData(unsyncedDataManager.hasUnsynced());
 
     // Subscribe to changes
-    const unsubscribe = unsyncedDataManager.addListener((hasUnsynced: boolean) => {
-      setHasUnsyncedData(hasUnsynced);
-    });
+    const unsubscribe = unsyncedDataManager.addListener(
+      (hasUnsynced: boolean) => {
+        setHasUnsyncedData(hasUnsynced);
+      }
+    );
 
     return unsubscribe;
   }, []);
@@ -34,8 +38,8 @@ export default function UnsyncedDataIndicator({ variant = 'compact' }: UnsyncedD
 
   if (variant === 'compact') {
     return (
-      <Tooltip 
-        title="You have local data that has not been synced with your Google Drive. Click 'Sync' to save it before you leave the page" 
+      <Tooltip
+        title="You have local data that has not been synced with your Google Drive. Click 'Sync' to save it before you leave the page"
         arrow
         placement="bottom"
       >
@@ -78,8 +82,8 @@ export default function UnsyncedDataIndicator({ variant = 'compact' }: UnsyncedD
   }
 
   return (
-    <Tooltip 
-      title="You have local data that has not been synced with your Google Drive. Click 'Sync' to save it before you leave the page" 
+    <Tooltip
+      title="You have local data that has not been synced with your Google Drive. Click 'Sync' to save it before you leave the page"
       arrow
       placement="bottom"
     >

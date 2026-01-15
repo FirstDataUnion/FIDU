@@ -1,13 +1,18 @@
 /**
  * Loading Progress Component
- * 
+ *
  * A unified loading screen with step-by-step progress indicators.
  * This component provides clear feedback to users about what's happening
  * during initialization and authentication.
  */
 
 import React from 'react';
-import { Box, CircularProgress, LinearProgress, Typography } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  LinearProgress,
+  Typography,
+} from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -35,17 +40,18 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   // Calculate progress percentage
   const completedSteps = steps.filter(s => s.status === 'completed').length;
   const totalSteps = steps.length;
-  const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+  const progressPercentage =
+    totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
   // Get current step
   const currentStep = steps.find(s => s.status === 'in_progress');
   const hasError = steps.some(s => s.status === 'error');
 
   return (
-    <Box 
-      display="flex" 
-      justifyContent="center" 
-      alignItems="center" 
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
       height="100vh"
       flexDirection="column"
       gap={3}
@@ -53,30 +59,30 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
     >
       {/* Main spinner */}
       <CircularProgress size={60} />
-      
+
       {/* Title */}
       <Typography variant="h6" textAlign="center">
         {title}
       </Typography>
-      
+
       {/* Subtitle */}
       {subtitle && (
         <Typography variant="body2" color="text.secondary" textAlign="center">
           {subtitle}
         </Typography>
       )}
-      
+
       {/* Progress bar */}
       {showProgress && !hasError && (
         <Box width="100%" maxWidth="400px">
-          <LinearProgress 
-            variant="determinate" 
+          <LinearProgress
+            variant="determinate"
             value={progressPercentage}
             sx={{ height: 8, borderRadius: 4 }}
           />
-          <Typography 
-            variant="caption" 
-            color="text.secondary" 
+          <Typography
+            variant="caption"
+            color="text.secondary"
             textAlign="center"
             display="block"
             mt={0.5}
@@ -85,10 +91,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           </Typography>
         </Box>
       )}
-      
+
       {/* Step list */}
-      <Box 
-        width="100%" 
+      <Box
+        width="100%"
         maxWidth="500px"
         bgcolor="background.paper"
         borderRadius={2}
@@ -100,12 +106,12 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           const isCompleted = step.status === 'completed';
           const isError = step.status === 'error';
           const isPending = step.status === 'pending';
-          
+
           return (
-            <Box 
+            <Box
               key={step.id}
-              display="flex" 
-              alignItems="center" 
+              display="flex"
+              alignItems="center"
               gap={2}
               mb={index < steps.length - 1 ? 1.5 : 0}
               sx={{
@@ -115,40 +121,35 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
             >
               {/* Status icon */}
               {isCompleted && (
-                <CheckCircleIcon 
-                  sx={{ color: 'success.main', fontSize: 24 }} 
-                />
+                <CheckCircleIcon sx={{ color: 'success.main', fontSize: 24 }} />
               )}
               {isActive && (
-                <CircularProgress 
-                  size={20} 
-                  sx={{ color: 'primary.main' }}
-                />
+                <CircularProgress size={20} sx={{ color: 'primary.main' }} />
               )}
               {isError && (
-                <ErrorIcon 
-                  sx={{ color: 'error.main', fontSize: 24 }} 
-                />
+                <ErrorIcon sx={{ color: 'error.main', fontSize: 24 }} />
               )}
               {isPending && (
-                <RadioButtonUncheckedIcon 
-                  sx={{ color: 'text.disabled', fontSize: 24 }} 
+                <RadioButtonUncheckedIcon
+                  sx={{ color: 'text.disabled', fontSize: 24 }}
                 />
               )}
-              
+
               {/* Step label and error message */}
               <Box flex={1}>
-                <Typography 
+                <Typography
                   variant="body2"
                   fontWeight={isActive ? 600 : 400}
-                  color={isError ? 'error' : isActive ? 'primary' : 'text.primary'}
+                  color={
+                    isError ? 'error' : isActive ? 'primary' : 'text.primary'
+                  }
                 >
                   {step.label}
                 </Typography>
                 {isError && step.errorMessage && (
-                  <Typography 
-                    variant="caption" 
-                    color="error" 
+                  <Typography
+                    variant="caption"
+                    color="error"
                     display="block"
                     mt={0.5}
                   >
@@ -160,24 +161,24 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           );
         })}
       </Box>
-      
+
       {/* Current step message */}
       {currentStep && !hasError && (
-        <Typography 
-          variant="caption" 
-          color="text.secondary" 
+        <Typography
+          variant="caption"
+          color="text.secondary"
           textAlign="center"
           maxWidth="400px"
         >
           {currentStep.label}... This may take a few moments.
         </Typography>
       )}
-      
+
       {/* Error message */}
       {hasError && (
-        <Box 
-          color="error.main" 
-          textAlign="center" 
+        <Box
+          color="error.main"
+          textAlign="center"
           maxWidth="400px"
           bgcolor="error.light"
           p={2}
@@ -196,4 +197,3 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 };
 
 export default LoadingProgress;
-

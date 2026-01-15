@@ -7,15 +7,27 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 import { CloudSync } from '@mui/icons-material';
 import { useAppDispatch } from '../hooks/redux';
-import { setShowAuthModal, markStorageConfigured, authenticateGoogleDrive } from '../store/slices/unifiedStorageSlice';
-import { revokeGoogleDriveAccess, setInsufficientPermissions } from '../store/slices/googleDriveAuthSlice';
+import {
+  setShowAuthModal,
+  markStorageConfigured,
+  authenticateGoogleDrive,
+} from '../store/slices/unifiedStorageSlice';
+import {
+  revokeGoogleDriveAccess,
+  setInsufficientPermissions,
+} from '../store/slices/googleDriveAuthSlice';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { serverLogger } from '../utils/serverLogger';
 import InsufficientPermissionsModal from '../components/auth/InsufficientPermissionsModal';
-import { InsufficientScopesError, getGoogleDriveAuthService } from '../services/auth/GoogleDriveAuth';
+import {
+  InsufficientScopesError,
+  getGoogleDriveAuthService,
+} from '../services/auth/GoogleDriveAuth';
 
 const OAuthCallbackPage: React.FC = () => {
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+  const [status, setStatus] = useState<'processing' | 'success' | 'error'>(
+    'processing'
+  );
   const [message, setMessage] = useState('Processing authentication...');
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [callbackProcessed, setCallbackProcessed] = useState(false);
@@ -29,41 +41,46 @@ const OAuthCallbackPage: React.FC = () => {
         console.log('🔄 Callback already processed or processing, skipping...');
         return;
       }
-      
+
       processingRef.current = true;
-      
+
       try {
         setStatus('processing');
         setMessage('Completing Google Drive authentication...');
         setCallbackProcessed(true);
-        
+
         // Check if we have OAuth parameters in URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const error = urlParams.get('error');
         const postLogin = urlParams.get('postLogin') === '1';
-        
+
         if (error) {
           throw new Error(`OAuth error: ${error}`);
         }
-        
+
         if (!code) {
           // Support a post-login redirect that uses cookie-based restoration + full sync
           if (postLogin) {
-            serverLogger.info('🔄 Post-login callback: restoring auth via AuthManager and syncing');
-            const { getAuthManager } = await import('../services/auth/AuthManager');
+            serverLogger.info(
+              '🔄 Post-login callback: restoring auth via AuthManager and syncing'
+            );
+            const { getAuthManager } =
+              await import('../services/auth/AuthManager');
             const authManager = getAuthManager(dispatch);
-            
+
             const restored = await authManager.checkAndRestore();
             if (!restored) {
-              throw new Error('No authorization code and no cookie-based authentication found');
+              throw new Error(
+                'No authorization code and no cookie-based authentication found'
+              );
             }
 
             const status = authManager.getAuthStatus();
             const result = {
               isAuthenticated: status.isAuthenticated,
               user: status.user,
-              expiresAt: null
+              expiresAt: null,
             };
 
             if (result.isAuthenticated) {
@@ -75,89 +92,107 @@ const OAuthCallbackPage: React.FC = () => {
               dispatch(setShowAuthModal(false));
 
               try {
-                serverLogger.info('🔄 Re-initializing storage service to sync cloud data (post-login)...');
+                serverLogger.info(
+                  '🔄 Re-initializing storage service to sync cloud data (post-login)...'
+                );
                 const storageService = getUnifiedStorageService();
                 await storageService.reinitialize();
                 await storageService.sync();
-                serverLogger.info('✅ Storage service re-initialized and synced successfully');
+                serverLogger.info(
+                  '✅ Storage service re-initialized and synced successfully'
+                );
 
                 setMessage('Data synced! Redirecting...');
                 await new Promise(resolve => setTimeout(resolve, 500));
                 window.location.href = '/fidu-chat-lab/';
                 return;
               } catch (syncError) {
-                serverLogger.error('❌ Failed to re-initialize/sync storage service:', syncError);
+                serverLogger.error(
+                  '❌ Failed to re-initialize/sync storage service:',
+                  syncError
+                );
                 setStatus('error');
-                setMessage('Authentication successful, but sync failed. Please refresh the page.');
+                setMessage(
+                  'Authentication successful, but sync failed. Please refresh the page.'
+                );
                 return;
               }
             } else {
-              throw new Error('Authentication restoration failed in post-login flow');
+              throw new Error(
+                'Authentication restoration failed in post-login flow'
+              );
             }
           }
 
           throw new Error('No authorization code found in callback URL');
         }
-        
+
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Authentication timeout')), 30000); // 30 second timeout
         });
-        
+
         // Process OAuth callback directly
         serverLogger.info('🔍 Processing OAuth callback directly...');
         const authService = await getGoogleDriveAuthService();
-        
+
         // Process the callback using the dedicated callback method
         await Promise.race([
           authService.processOAuthCallback(),
-          timeoutPromise
+          timeoutPromise,
         ]);
-        
+
         // Get the auth status after processing
         const authStatus = authService.getAuthStatus();
         const result = {
           isAuthenticated: authStatus.isAuthenticated,
           user: authStatus.user,
-          expiresAt: authStatus.expiresAt
+          expiresAt: authStatus.expiresAt,
         };
-        
+
         if (result.isAuthenticated) {
           setStatus('success');
           setMessage('Authentication successful! Syncing your data...');
-          
+
           // Update Redux state to reflect successful authentication
           dispatch(setInsufficientPermissions(false));
-          
+
           // Close the auth modal
           dispatch(setShowAuthModal(false));
-          
+
           // Use AuthManager to re-authenticate and sync state
           try {
-            serverLogger.info('🔄 Using AuthManager to complete authentication...');
-            const { getAuthManager } = await import('../services/auth/AuthManager');
+            serverLogger.info(
+              '🔄 Using AuthManager to complete authentication...'
+            );
+            const { getAuthManager } =
+              await import('../services/auth/AuthManager');
             const authManager = getAuthManager(dispatch);
-            
+
             // Trigger re-authentication to sync everything
             await authManager.reAuthenticate();
             serverLogger.info('✅ AuthManager authentication complete');
-            
+
             // Re-initialize storage service to trigger data sync
-            serverLogger.info('🔄 Re-initializing storage service to sync cloud data...');
+            serverLogger.info(
+              '🔄 Re-initializing storage service to sync cloud data...'
+            );
             const storageService = getUnifiedStorageService();
             await storageService.reinitialize();
             serverLogger.info('✅ Storage service re-initialized successfully');
-            
+
             // Show success message briefly before redirecting
             setMessage('Data synced! Redirecting...');
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Redirect to main app
             window.location.href = '/fidu-chat-lab/';
           } catch (error) {
             serverLogger.error('❌ Failed to complete authentication:', error);
             setStatus('error');
-            setMessage('Authentication successful, but sync failed. Please refresh the page.');
+            setMessage(
+              'Authentication successful, but sync failed. Please refresh the page.'
+            );
           }
         } else {
           setStatus('error');
@@ -165,31 +200,41 @@ const OAuthCallbackPage: React.FC = () => {
         }
       } catch (error: any) {
         serverLogger.error('❌ OAuth callback processing failed:', error);
-        
+
         // Check if this is an insufficient permissions error
         const errorMessage = error?.message || String(error);
         console.log('Error message:', errorMessage); // Debug log
-        
-        if (error instanceof InsufficientScopesError ||
-            errorMessage.includes('did not grant all required permissions') ||
-            errorMessage.includes('InsufficientScopesError') ||
-            errorMessage.includes('User did not grant all required permissions')) {
+
+        if (
+          error instanceof InsufficientScopesError
+          || errorMessage.includes('did not grant all required permissions')
+          || errorMessage.includes('InsufficientScopesError')
+          || errorMessage.includes(
+            'User did not grant all required permissions'
+          )
+        ) {
           serverLogger.warn('⚠️ Insufficient OAuth permissions detected');
           dispatch(setInsufficientPermissions(true));
           setStatus('error');
           setMessage('Missing required permissions.');
           setShowPermissionsModal(true);
         } else if (errorMessage.includes('Invalid state parameter')) {
-          serverLogger.warn('⚠️ Invalid OAuth state parameter - redirecting to main app');
+          serverLogger.warn(
+            '⚠️ Invalid OAuth state parameter - redirecting to main app'
+          );
           setStatus('error');
-          setMessage('Authentication session expired. Redirecting to main app...');
+          setMessage(
+            'Authentication session expired. Redirecting to main app...'
+          );
           // Redirect to main app after a short delay
           setTimeout(() => {
             window.location.href = '/fidu-chat-lab/';
           }, 2000);
         } else {
           setStatus('error');
-          setMessage(`Authentication failed: ${errorMessage}. Please try again.`);
+          setMessage(
+            `Authentication failed: ${errorMessage}. Please try again.`
+          );
         }
       } finally {
         processingRef.current = false;
@@ -225,19 +270,19 @@ const OAuthCallbackPage: React.FC = () => {
   const handleReconnect = async () => {
     try {
       serverLogger.info('🔄 Reconnecting with correct permissions...');
-      
+
       // Close the modal first
       setShowPermissionsModal(false);
-      
+
       // Revoke current access to clear tokens
       await dispatch(revokeGoogleDriveAccess()).unwrap();
-      
+
       // Small delay to ensure state is cleared
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Directly initiate OAuth flow with fresh permissions
       await dispatch(authenticateGoogleDrive()).unwrap();
-      
+
       // The authenticateGoogleDrive will redirect to Google OAuth, so we won't reach here
     } catch (error) {
       serverLogger.error('❌ Failed to reconnect:', error);
@@ -259,7 +304,7 @@ const OAuthCallbackPage: React.FC = () => {
         onReconnect={handleReconnect}
         onCancel={handleCancelPermissionsModal}
       />
-      
+
       {/* Full-screen blocking modal during processing */}
       <Box
         sx={{
@@ -274,7 +319,7 @@ const OAuthCallbackPage: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          p: 3
+          p: 3,
         }}
       >
         <Paper
@@ -294,51 +339,45 @@ const OAuthCallbackPage: React.FC = () => {
               right: 0,
               bottom: 0,
               borderRadius: 3,
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
-              pointerEvents: 'none'
-            }
+              background:
+                'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+              pointerEvents: 'none',
+            },
           }}
         >
-          <Box sx={{ mb: 3 }}>
-            {getStatusIcon()}
-          </Box>
-          
+          <Box sx={{ mb: 3 }}>{getStatusIcon()}</Box>
+
           <Typography
             variant="h5"
             component="h1"
             gutterBottom
-            sx={{ 
+            sx={{
               color: getStatusColor(),
               fontWeight: 600,
-              mb: 2
+              mb: 2,
             }}
           >
             {status === 'processing' && 'Connecting to Google Drive'}
             {status === 'success' && 'Connected Successfully!'}
             {status === 'error' && 'Connection Failed'}
           </Typography>
-          
-          <Typography 
-            variant="body1" 
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
+
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             {message}
           </Typography>
-          
+
           {(status === 'processing' || status === 'success') && (
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               color="text.secondary"
               sx={{ fontStyle: 'italic', opacity: 0.7 }}
             >
-              {status === 'processing' 
+              {status === 'processing'
                 ? 'Please wait while we sync your data...'
-                : 'You will be redirected shortly...'
-              }
+                : 'You will be redirected shortly...'}
             </Typography>
           )}
-          
+
           {status === 'error' && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -346,7 +385,7 @@ const OAuthCallbackPage: React.FC = () => {
               </Typography>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                 <button
-                  onClick={() => window.location.href = '/fidu-chat-lab/'}
+                  onClick={() => (window.location.href = '/fidu-chat-lab/')}
                   style={{
                     padding: '10px 20px',
                     border: '1px solid #ccc',
@@ -354,7 +393,7 @@ const OAuthCallbackPage: React.FC = () => {
                     background: 'white',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    fontWeight: 500
+                    fontWeight: 500,
                   }}
                 >
                   Go to App
@@ -369,7 +408,7 @@ const OAuthCallbackPage: React.FC = () => {
                     color: 'white',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    fontWeight: 500
+                    fontWeight: 500,
                   }}
                 >
                   Try Again

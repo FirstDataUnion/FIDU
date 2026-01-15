@@ -3,14 +3,22 @@
  * This adapter implements the storage interface for cloud mode
  */
 
-import type { 
-  StorageAdapter, 
-  ConversationsResponse, 
-  StorageConfig 
+import type {
+  StorageAdapter,
+  ConversationsResponse,
+  StorageConfig,
 } from '../types';
-import type { Conversation, Message, FilterOptions, MarkdownDocument } from '../../../types';
+import type {
+  Conversation,
+  Message,
+  FilterOptions,
+  MarkdownDocument,
+} from '../../../types';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
-import { GoogleDriveAuthService, getGoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
+import {
+  GoogleDriveAuthService,
+  getGoogleDriveAuthService,
+} from '../../auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../drive/GoogleDriveService';
 import { SyncService } from '../sync/SyncService';
 import { SmartAutoSyncService } from '../sync/SmartAutoSyncService';
@@ -38,11 +46,11 @@ export class CloudStorageAdapter implements StorageAdapter {
     if (this.initialized) {
       if (this.isFullyInitialized()) {
         return;
-      } 
-      
+      }
+
       // Reset if not fully initialized
       this.initialized = false;
-      
+
       // Reset component state
       this.dbManager = null;
       this.driveService = null;
@@ -64,7 +72,6 @@ export class CloudStorageAdapter implements StorageAdapter {
       // User is authenticated, proceed with full initialization
       await this.initializeWithAuthentication();
       this.initialized = true;
-      
     } catch (error) {
       console.error('Failed to initialize cloud storage adapter:', error);
       this.initialized = true;
@@ -75,7 +82,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     // Check if this is a shared workspace (API keys should not be synced for shared workspaces)
     const isSharedWorkspace = this.config.workspaceType === 'shared';
     const driveFolderId = this.config.driveFolderId;
-    
+
     // Initialize the browser SQLite manager with encryption enabled
     // Note: Even for shared workspaces, we initialize the API keys DB locally (for personal use),
     // but we won't sync it to Drive
@@ -84,13 +91,16 @@ export class CloudStorageAdapter implements StorageAdapter {
       apiKeysDbName: 'fidu_api_keys',
       enableEncryption: true,
       workspaceId: this.config.workspaceId,
-      workspaceType: this.config.workspaceType
+      workspaceType: this.config.workspaceType,
     });
 
     await this.dbManager.initialize();
 
     // Initialize Google Drive service with workspace folder if configured
-    this.driveService = new GoogleDriveService(this.authService!, driveFolderId);
+    this.driveService = new GoogleDriveService(
+      this.authService!,
+      driveFolderId
+    );
     await this.driveService.initialize();
 
     // Initialize sync service
@@ -105,26 +115,29 @@ export class CloudStorageAdapter implements StorageAdapter {
       this.config.workspaceId || 'default' // Workspace ID for sync tracking
     );
     await this.syncService.initialize();
-    
+
     // Initialize smart auto-sync service with settings from localStorage
     const settings = this.loadSettingsFromStorage();
     const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 5;
-    
+
     this.smartAutoSyncService = new SmartAutoSyncService(
-      this.syncService, 
+      this.syncService,
       {
-        delayMinutes,               // Use setting from localStorage or default to 5 minutes
-        retryDelayMinutes: 10,      // Base delay between retries (exponential backoff)
-        maxRetryDelayMinutes: 60    // Cap retry delay at 60 minutes
+        delayMinutes, // Use setting from localStorage or default to 5 minutes
+        retryDelayMinutes: 10, // Base delay between retries (exponential backoff)
+        maxRetryDelayMinutes: 60, // Cap retry delay at 60 minutes
       },
       this.config.workspaceId || 'default' // Workspace ID for sync health tracking
     );
-    
+
     // Perform initial sync from Google Drive
     // For shared workspaces, use file IDs from workspace registry to avoid creating duplicate files
-    let fileIds: { conversationsDbId?: string; metadataJsonId?: string } | undefined;
+    let fileIds:
+      | { conversationsDbId?: string; metadataJsonId?: string }
+      | undefined;
     if (isSharedWorkspace && this.config.workspaceId) {
-      const { getWorkspaceRegistry } = await import('../../workspace/WorkspaceRegistry');
+      const { getWorkspaceRegistry } =
+        await import('../../workspace/WorkspaceRegistry');
       const workspaceRegistry = getWorkspaceRegistry();
       const workspace = workspaceRegistry.getWorkspace(this.config.workspaceId);
       if (workspace?.files) {
@@ -134,16 +147,19 @@ export class CloudStorageAdapter implements StorageAdapter {
         };
       }
     }
-    
+
     try {
-      await this.syncService.fullSync({ 
-        version: '1', 
-        fileIds // Pass file IDs for shared workspaces
+      await this.syncService.fullSync({
+        version: '1',
+        fileIds, // Pass file IDs for shared workspaces
       });
     } catch (error) {
-      console.error('Initial sync failed, continuing with empty database:', error);
+      console.error(
+        'Initial sync failed, continuing with empty database:',
+        error
+      );
     }
-    
+
     // Enable smart auto-sync
     this.smartAutoSyncService.enable();
 
@@ -166,7 +182,9 @@ export class CloudStorageAdapter implements StorageAdapter {
    * This is non-blocking and errors are handled gracefully
    * @param workspaceId - The workspace ID
    */
-  private async prefetchWorkspaceEncryptionKey(workspaceId: string): Promise<void> {
+  private async prefetchWorkspaceEncryptionKey(
+    workspaceId: string
+  ): Promise<void> {
     try {
       const userId = this.ensureUserId();
       if (!userId) {
@@ -178,7 +196,10 @@ export class CloudStorageAdapter implements StorageAdapter {
     } catch (error) {
       // Don't throw - this is a pre-fetch, failures are acceptable
       // The key will be fetched on-demand when encryption is actually needed
-      console.warn(`⚠️ [CloudStorageAdapter] Failed to pre-fetch workspace encryption key:`, error);
+      console.warn(
+        `⚠️ [CloudStorageAdapter] Failed to pre-fetch workspace encryption key:`,
+        error
+      );
       throw error; // Re-throw so caller can handle if needed
     }
   }
@@ -200,14 +221,19 @@ export class CloudStorageAdapter implements StorageAdapter {
       // This can happen during mode switching before the hook sets the user ID
       const STORAGE_KEY = 'fidu-cloud-user-id';
       let userId = localStorage.getItem(STORAGE_KEY);
-      
+
       // Validate that the stored ID is a valid UUID format
-      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      if (
+        !userId
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          userId
+        )
+      ) {
         // Generate a new UUID for this browser/device
         userId = uuidv4();
         localStorage.setItem(STORAGE_KEY, userId);
       }
-      
+
       this.userId = userId;
     }
     return this.userId;
@@ -217,7 +243,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     const dbValid = this.dbManager?.isInitialized() === true;
     const authValid = this.isAuthenticated() === true;
     const initValid = this.initialized === true;
-    
+
     return initValid && dbValid && authValid;
   }
 
@@ -227,33 +253,45 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   // Conversation operations
   async createConversation(
-    profileId: string, 
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    profileId: string,
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
-    
+
     // For shared workspaces, use workspace-level profile ID
     // For personal workspaces, use the provided profileId
-    const effectiveProfileId = isSharedWorkspace 
+    const effectiveProfileId = isSharedWorkspace
       ? `workspace-${this.config.workspaceId}-default`
       : profileId;
 
     // Transform conversation to data packet format (similar to local adapter)
-    const dataPacket = this.transformConversationToDataPacket(effectiveProfileId, conversation, messages, originalPrompt);
-    
+    const dataPacket = this.transformConversationToDataPacket(
+      effectiveProfileId,
+      conversation,
+      messages,
+      originalPrompt
+    );
+
     // Generate request ID for idempotency
-    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
-    
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+
     try {
-      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
-      
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we created new local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return this.transformDataPacketToConversation(storedPacket);
     } catch (error) {
       console.error('Error creating conversation:', error);
@@ -262,8 +300,8 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   async updateConversation(
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     await this.ensureAuthenticated();
@@ -273,17 +311,24 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
 
     // Transform conversation to data packet update format
-    const dataPacket = this.transformConversationToDataPacketUpdate(conversation, messages, originalPrompt);
-    
+    const dataPacket = this.transformConversationToDataPacketUpdate(
+      conversation,
+      messages,
+      originalPrompt
+    );
+
     // Generate request ID for idempotency
     const requestId = this.generateRequestId();
-    
+
     try {
-      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
-      
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we updated local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return this.transformDataPacketToConversation(updatedPacket);
     } catch (error) {
       console.error('Error updating conversation:', error);
@@ -292,9 +337,9 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   async getConversations(
-    filters?: FilterOptions, 
-    page = 1, 
-    limit = 20, 
+    filters?: FilterOptions,
+    page = 1,
+    limit = 20,
     profileId?: string
   ): Promise<ConversationsResponse> {
     await this.ensureAuthenticated();
@@ -303,12 +348,14 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     // Build query parameters
     const queryParams: any = {
-      tags: filters?.tags ? [...PROTECTED_TAGS, ...filters.tags] : [...PROTECTED_TAGS],
+      tags: filters?.tags
+        ? [...PROTECTED_TAGS, ...filters.tags]
+        : [...PROTECTED_TAGS],
       from_timestamp: filters?.dateRange?.start,
       to_timestamp: filters?.dateRange?.end,
       limit: limit,
       offset: (page - 1) * limit,
-      sort_order: 'desc'
+      sort_order: 'desc',
     };
 
     // Only filter by user_id and profile_id for personal workspaces
@@ -319,13 +366,15 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(queryParams);
-      const conversations = dataPackets.map((packet: any) => this.transformDataPacketToConversation(packet));
-      
+      const conversations = dataPackets.map((packet: any) =>
+        this.transformDataPacketToConversation(packet)
+      );
+
       return {
         conversations,
         total: conversations.length, // TODO: Implement proper count query
         page,
-        limit
+        limit,
       };
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -349,11 +398,12 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     try {
-      const dataPacket = await this.dbManager!.getDataPacketById(conversationId);
-      
+      const dataPacket =
+        await this.dbManager!.getDataPacketById(conversationId);
+
       // Ensure data object exists and provides defaults
       const data = dataPacket.data || {};
-      
+
       // Defensive parsing: if data is a string waiting to be parsed, parse it
       let parsedData = data;
       if (typeof data === 'string') {
@@ -364,54 +414,88 @@ export class CloudStorageAdapter implements StorageAdapter {
           parsedData = {};
         }
       }
-      
+
       // Ensure object from any source, even if null
       const finalData = parsedData || {};
-      
+
       if (!finalData.interactions || !Array.isArray(finalData.interactions)) {
         return [];
       }
-      
+
       // Transform interactions to Message format
-      const messages = finalData.interactions.map((interaction: any, index: number) => {
-        // Try to preserve original message ID from metadata if available, otherwise use generated ID
-        const originalMessageId = interaction.metadata?.originalMessageId;
-        const messageId = originalMessageId || `${conversationId}-${index}`;
-        
-        return {
-          id: messageId,
-          conversationId: conversationId,
-          content: interaction.content || '',
-          role: (interaction.actor?.toLowerCase() === 'bot' ? 'assistant' : interaction.actor?.toLowerCase()) as 'user' | 'assistant' | 'system',
-          timestamp: new Date(interaction.timestamp).toISOString(),
-          platform: interaction.model || finalData.sourceChatbot?.toLowerCase() || 'other',
-          metadata: {
-            attachments: interaction.attachments || [],
-            // Preserve background agent alerts if present
-            ...(interaction.metadata?.backgroundAgentAlerts ? { backgroundAgentAlerts: interaction.metadata.backgroundAgentAlerts } : {}),
-            // Preserve any other metadata fields (but exclude originalMessageId since we're using it as the ID)
-            ...(interaction.metadata ? Object.fromEntries(
-              Object.entries(interaction.metadata).filter(([key]) => key !== 'attachments' && key !== 'backgroundAgentAlerts' && key !== 'originalMessageId')
-            ) : {})
-          },
-        attachments: interaction.attachments?.map((attachment: string, attIndex: number) => ({
-          id: `${conversationId}-${index}-${attIndex}`,
-          name: attachment,
-          type: 'file' as const,
-          url: attachment
-        })) || [],
-        isEdited: false
-      };
-      });
-      
+      const messages = finalData.interactions.map(
+        (interaction: any, index: number) => {
+          // Try to preserve original message ID from metadata if available, otherwise use generated ID
+          const originalMessageId = interaction.metadata?.originalMessageId;
+          const messageId = originalMessageId || `${conversationId}-${index}`;
+
+          return {
+            id: messageId,
+            conversationId: conversationId,
+            content: interaction.content || '',
+            role: (interaction.actor?.toLowerCase() === 'bot'
+              ? 'assistant'
+              : interaction.actor?.toLowerCase()) as
+              | 'user'
+              | 'assistant'
+              | 'system',
+            timestamp: new Date(interaction.timestamp).toISOString(),
+            platform:
+              interaction.model
+              || finalData.sourceChatbot?.toLowerCase()
+              || 'other',
+            metadata: {
+              attachments: interaction.attachments || [],
+              // Preserve background agent alerts if present
+              ...(interaction.metadata?.backgroundAgentAlerts
+                ? {
+                    backgroundAgentAlerts:
+                      interaction.metadata.backgroundAgentAlerts,
+                  }
+                : {}),
+              // Preserve any other metadata fields (but exclude originalMessageId since we're using it as the ID)
+              ...(interaction.metadata
+                ? Object.fromEntries(
+                    Object.entries(interaction.metadata).filter(
+                      ([key]) =>
+                        key !== 'attachments'
+                        && key !== 'backgroundAgentAlerts'
+                        && key !== 'originalMessageId'
+                    )
+                  )
+                : {}),
+            },
+            attachments:
+              interaction.attachments?.map(
+                (attachment: string, attIndex: number) => ({
+                  id: `${conversationId}-${index}-${attIndex}`,
+                  name: attachment,
+                  type: 'file' as const,
+                  url: attachment,
+                })
+              ) || [],
+            isEdited: false,
+          };
+        }
+      );
+
       // Debug: Log alerts found in loaded messages
-      const messagesWithAlerts = messages.filter((m: Message) => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0);
+      const messagesWithAlerts = messages.filter(
+        (m: Message) => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0
+      );
       if (messagesWithAlerts.length > 0) {
-        const totalAlerts = messagesWithAlerts.reduce((sum: number, m: Message) => sum + (m.metadata?.backgroundAgentAlerts?.length ?? 0), 0);
-        console.log(`📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`);
+        const totalAlerts = messagesWithAlerts.reduce(
+          (sum: number, m: Message) =>
+            sum + (m.metadata?.backgroundAgentAlerts?.length ?? 0),
+          0
+        );
+        console.log(
+          `📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`
+        );
         messagesWithAlerts.forEach((msg: Message) => {
           const alerts = msg.metadata?.backgroundAgentAlerts || [];
-          console.log(`📋 [CloudStorage]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`, 
+          console.log(
+            `📋 [CloudStorage]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`,
             alerts.map((a: any) => ({
               agent: a.agentName || a.agentId,
               severity: a.severity,
@@ -422,9 +506,11 @@ export class CloudStorageAdapter implements StorageAdapter {
           );
         });
       } else {
-        console.log(`📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`);
+        console.log(
+          `📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`
+        );
       }
-      
+
       return messages;
     } catch (error) {
       console.error('Error fetching conversation messages:', error);
@@ -437,7 +523,10 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(
+        provider,
+        this.ensureUserId()
+      );
       if (apiKey && apiKey.api_key) {
         return apiKey.api_key;
       } else {
@@ -453,10 +542,16 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.ensureInitialized();
 
     try {
-      const apiKey = await this.dbManager!.getAPIKeyByProvider(provider, this.ensureUserId());
+      const apiKey = await this.dbManager!.getAPIKeyByProvider(
+        provider,
+        this.ensureUserId()
+      );
       return apiKey !== null;
     } catch (error) {
-      console.error(`Error checking API key availability for provider ${provider}:`, error);
+      console.error(
+        `Error checking API key availability for provider ${provider}:`,
+        error
+      );
       return false;
     }
   }
@@ -478,17 +573,24 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       const userId = this.ensureUserId();
-      
+
       // Check if API key already exists for this provider
-      const existingKey = await this.dbManager!.getAPIKeyByProvider(provider, userId);
-      
+      const existingKey = await this.dbManager!.getAPIKeyByProvider(
+        provider,
+        userId
+      );
+
       if (existingKey) {
         // Update existing key
-        const updated = await this.dbManager!.updateAPIKey(existingKey.id, apiKey, userId);
-        
+        const updated = await this.dbManager!.updateAPIKey(
+          existingKey.id,
+          apiKey,
+          userId
+        );
+
         // Mark as unsynced since we updated local data
         unsyncedDataManager.markAsUnsynced();
-        
+
         return updated;
       } else {
         // Create new key
@@ -498,13 +600,13 @@ export class CloudStorageAdapter implements StorageAdapter {
           api_key: apiKey,
           user_id: userId,
           create_timestamp: new Date().toISOString(),
-          update_timestamp: new Date().toISOString()
+          update_timestamp: new Date().toISOString(),
         };
         const stored = await this.dbManager!.storeAPIKey(newApiKey);
-        
+
         // Mark as unsynced since we created new local data
         unsyncedDataManager.markAsUnsynced();
-        
+
         return stored;
       }
     } catch (error) {
@@ -518,7 +620,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       await this.dbManager!.deleteAPIKey(id);
-      
+
       // Mark as unsynced since we deleted local data
       unsyncedDataManager.markAsUnsynced();
     } catch (error) {
@@ -528,17 +630,26 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   // Context operations - implemented using data packets
-  async getContexts(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getContexts(
+    _queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     // Check if adapter is initialized but not necessarily authenticated
     if (!this.isInitialized()) {
-      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+      throw new Error(
+        'Cloud storage adapter not initialized. Call initialize() first.'
+      );
     }
-    
+
     // If not authenticated, throw appropriate error
     if (!this.isAuthenticated()) {
-      throw new Error('User must authenticate with Google Drive first. Please connect your Google Drive account.');
+      throw new Error(
+        'User must authenticate with Google Drive first. Please connect your Google Drive account.'
+      );
     }
-    
+
     // Ensure fully ready
     await this.ensureFullyReady();
 
@@ -548,7 +659,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-Context'],
       limit: limit,
       offset: (page - 1) * limit,
-      sort_order: 'desc'
+      sort_order: 'desc',
     };
 
     // Only filter by user_id and profile_id for personal workspaces
@@ -559,14 +670,17 @@ export class CloudStorageAdapter implements StorageAdapter {
     // For shared workspaces, show all data (no user_id/profile_id filtering)
 
     try {
-      const dataPackets = await this.dbManager!.listDataPackets(contextQueryParams);
-      const contexts = dataPackets.map((packet: any) => this.transformDataPacketToContext(packet));
-      
+      const dataPackets =
+        await this.dbManager!.listDataPackets(contextQueryParams);
+      const contexts = dataPackets.map((packet: any) =>
+        this.transformDataPacketToContext(packet)
+      );
+
       return {
         contexts,
         total: contexts.length,
         page,
-        limit
+        limit,
       };
     } catch (error) {
       console.error('Error fetching contexts:', error);
@@ -590,25 +704,38 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
-    
+
     // For shared workspaces, use workspace-level profile ID
     // For personal workspaces, use the provided profileId
-    const effectiveProfileId = isSharedWorkspace 
+    const effectiveProfileId = isSharedWorkspace
       ? `workspace-${this.config.workspaceId}-default`
       : profileId;
 
-    const dataPacket = this.transformContextToDataPacket(context, effectiveProfileId);
-    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
-    
+    const dataPacket = this.transformContextToDataPacket(
+      context,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+
     try {
-      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
-      
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we created new local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       // Ensure we have valid data packet for transformation
-      const finalStoredData = (storedPacket?.id !== undefined && storedPacket?.data) ? storedPacket : dataPacket;
-      
+      const finalStoredData =
+        storedPacket?.id !== undefined && storedPacket?.data
+          ? storedPacket
+          : dataPacket;
+
       return this.transformDataPacketToContext(finalStoredData);
     } catch (error) {
       console.error('Error creating context:', error);
@@ -625,13 +752,16 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     const dataPacket = this.transformContextToDataPacket(context, profileId);
     const requestId = this.generateRequestId();
-    
+
     try {
-      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
-      
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we updated local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return this.transformDataPacketToContext(updatedPacket);
     } catch (error) {
       console.error('Error updating context:', error);
@@ -644,7 +774,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       await this.dbManager!.deleteDataPacket(contextId);
-      
+
       // Mark as unsynced since we deleted local data
       unsyncedDataManager.markAsUnsynced();
     } catch (error) {
@@ -654,7 +784,12 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   // System Prompt operations - implemented using data packets
-  async getSystemPrompts(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getSystemPrompts(
+    _queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
@@ -663,7 +798,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-SystemPrompt'],
       limit: limit,
       offset: (page - 1) * limit,
-      sort_order: 'desc'
+      sort_order: 'desc',
     };
 
     // Only filter by user_id and profile_id for personal workspaces
@@ -674,14 +809,18 @@ export class CloudStorageAdapter implements StorageAdapter {
     // For shared workspaces, show all data (no user_id/profile_id filtering)
 
     try {
-      const dataPackets = await this.dbManager!.listDataPackets(systemPromptQueryParams);
-      const systemPrompts = dataPackets.map((packet: any) => this.transformDataPacketToSystemPrompt(packet));
-      
+      const dataPackets = await this.dbManager!.listDataPackets(
+        systemPromptQueryParams
+      );
+      const systemPrompts = dataPackets.map((packet: any) =>
+        this.transformDataPacketToSystemPrompt(packet)
+      );
+
       return {
         systemPrompts,
         total: systemPrompts.length,
         page,
-        limit
+        limit,
       };
     } catch (error) {
       console.error('Error fetching system prompts:', error);
@@ -693,7 +832,8 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     try {
-      const dataPacket = await this.dbManager!.getDataPacketById(systemPromptId);
+      const dataPacket =
+        await this.dbManager!.getDataPacketById(systemPromptId);
       return this.transformDataPacketToSystemPrompt(dataPacket);
     } catch (error) {
       console.error('Error fetching system prompt:', error);
@@ -705,22 +845,32 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
-    
+
     // For shared workspaces, use workspace-level profile ID
     // For personal workspaces, use the provided profileId
-    const effectiveProfileId = isSharedWorkspace 
+    const effectiveProfileId = isSharedWorkspace
       ? `workspace-${this.config.workspaceId}-default`
       : profileId;
 
-    const dataPacket = this.transformSystemPromptToDataPacket(systemPrompt, effectiveProfileId);
-    const requestId = this.generateRequestId(effectiveProfileId, dataPacket.id, 'create');
-    
+    const dataPacket = this.transformSystemPromptToDataPacket(
+      systemPrompt,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+
     try {
-      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
-      
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we created new local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return this.transformDataPacketToSystemPrompt(storedPacket);
     } catch (error) {
       console.error('Error creating system prompt:', error);
@@ -735,15 +885,21 @@ export class CloudStorageAdapter implements StorageAdapter {
       throw new Error('System prompt ID is required to update system prompt');
     }
 
-    const dataPacket = this.transformSystemPromptToDataPacket(systemPrompt, profileId);
+    const dataPacket = this.transformSystemPromptToDataPacket(
+      systemPrompt,
+      profileId
+    );
     const requestId = this.generateRequestId();
-    
+
     try {
-      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
-      
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+
       // Mark as unsynced since we updated local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return this.transformDataPacketToSystemPrompt(updatedPacket);
     } catch (error) {
       console.error('Error updating system prompt:', error);
@@ -756,10 +912,10 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       await this.dbManager!.deleteDataPacket(systemPromptId);
-      
+
       // Mark as unsynced since we deleted local data
       unsyncedDataManager.markAsUnsynced();
-      
+
       return systemPromptId;
     } catch (error) {
       console.error('Error deleting system prompt:', error);
@@ -768,7 +924,12 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   // Background Agent operations - implemented using data packets
-  async getBackgroundAgents(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getBackgroundAgents(
+    _queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
@@ -777,7 +938,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-BackgroundAgent'],
       limit: limit,
       offset: (page - 1) * limit,
-      sort_order: 'desc'
+      sort_order: 'desc',
     };
 
     // Only filter by user_id and profile_id for personal workspaces
@@ -789,7 +950,9 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     try {
       const dataPackets = await this.dbManager!.listDataPackets(queryParams);
-      const backgroundAgents = dataPackets.map((packet: any) => this.transformDataPacketToBackgroundAgent(packet));
+      const backgroundAgents = dataPackets.map((packet: any) =>
+        this.transformDataPacketToBackgroundAgent(packet)
+      );
       return { backgroundAgents, total: backgroundAgents.length, page, limit };
     } catch (error) {
       console.error('Error fetching background agents:', error);
@@ -810,10 +973,20 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
     await this.ensureAuthenticated();
-    const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
-    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    const dataPacket = this.transformBackgroundAgentToDataPacket(
+      agent,
+      profileId
+    );
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'create'
+    );
     try {
-      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
       unsyncedDataManager.markAsUnsynced();
       return this.transformDataPacketToBackgroundAgent(storedPacket);
     } catch (error) {
@@ -827,10 +1000,16 @@ export class CloudStorageAdapter implements StorageAdapter {
     if (!agent.id) {
       throw new Error('Background agent ID is required to update');
     }
-    const dataPacket = this.transformBackgroundAgentToDataPacket(agent, profileId);
+    const dataPacket = this.transformBackgroundAgentToDataPacket(
+      agent,
+      profileId
+    );
     const requestId = this.generateRequestId();
     try {
-      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
       unsyncedDataManager.markAsUnsynced();
       return this.transformDataPacketToBackgroundAgent(updatedPacket);
     } catch (error) {
@@ -851,7 +1030,10 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
-  private transformBackgroundAgentToDataPacket(agent: any, profileId: string): any {
+  private transformBackgroundAgentToDataPacket(
+    agent: any,
+    profileId: string
+  ): any {
     return {
       id: agent.id || crypto.randomUUID(),
       profile_id: profileId,
@@ -870,7 +1052,10 @@ export class CloudStorageAdapter implements StorageAdapter {
         output_document_id: agent.outputDocumentId,
         context_window_strategy: agent.contextWindowStrategy || 'lastNMessages',
         context_params: agent.contextParams
-          ? { lastN: agent.contextParams.lastN, token_limit: agent.contextParams.tokenLimit }
+          ? {
+              lastN: agent.contextParams.lastN,
+              token_limit: agent.contextParams.tokenLimit,
+            }
           : undefined,
         output_schema_name: agent.outputSchemaName || 'default',
         custom_output_schema: agent.customOutputSchema ?? null,
@@ -888,18 +1073,23 @@ export class CloudStorageAdapter implements StorageAdapter {
       try {
         parsedData = JSON.parse(data);
       } catch (error) {
-        console.warn('Failed to parse background agent data as JSON string:', error);
+        console.warn(
+          'Failed to parse background agent data as JSON string:',
+          error
+        );
         parsedData = {};
       }
     }
     const finalData = parsedData || {};
-    
+
     // Validate actionType - ensure it's always set and valid
-    const actionType = 
-      (finalData.action_type && (finalData.action_type === 'alert' || finalData.action_type === 'update_document'))
+    const actionType =
+      finalData.action_type
+      && (finalData.action_type === 'alert'
+        || finalData.action_type === 'update_document')
         ? finalData.action_type
         : 'alert'; // Default to 'alert' for backward compatibility and safety
-    
+
     return {
       id: packet.id,
       name: finalData.name || 'Untitled Agent',
@@ -910,15 +1100,21 @@ export class CloudStorageAdapter implements StorageAdapter {
       runEveryNTurns: finalData.cadence?.run_every_n_turns ?? 6,
       verbosityThreshold: finalData.verbosity_threshold ?? 50,
       outputDocumentId: finalData.output_document_id,
-      contextWindowStrategy: finalData.context_window_strategy || 'lastNMessages',
+      contextWindowStrategy:
+        finalData.context_window_strategy || 'lastNMessages',
       contextParams: finalData.context_params
-        ? { lastN: finalData.context_params.lastN, tokenLimit: finalData.context_params.token_limit }
+        ? {
+            lastN: finalData.context_params.lastN,
+            tokenLimit: finalData.context_params.token_limit,
+          }
         : undefined,
       outputSchemaName: finalData.output_schema_name || 'default',
       customOutputSchema: finalData.custom_output_schema ?? null,
       notifyChannel: finalData.notify_channel || 'inline',
       isSystem: finalData.is_system || false,
-      categories: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-BackgroundAgent'),
+      categories: (packet.tags || []).filter(
+        (t: string) => t !== 'FIDU-CHAT-LAB-BackgroundAgent'
+      ),
       version: finalData.version,
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
@@ -926,12 +1122,21 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   // Document operations - implemented using data packets
-  async getDocuments(_queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getDocuments(
+    _queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     if (!this.isInitialized()) {
-      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+      throw new Error(
+        'Cloud storage adapter not initialized. Call initialize() first.'
+      );
     }
     if (!this.isAuthenticated()) {
-      throw new Error('User must authenticate with Google Drive first. Please connect your Google Drive account.');
+      throw new Error(
+        'User must authenticate with Google Drive first. Please connect your Google Drive account.'
+      );
     }
     await this.ensureFullyReady();
 
@@ -943,7 +1148,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-Document'],
       limit: limit,
       offset: (page - 1) * limit,
-      sort_order: 'desc'
+      sort_order: 'desc',
     };
 
     if (!isSharedWorkspace) {
@@ -954,8 +1159,11 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
 
     try {
-      const dataPackets = await this.dbManager!.listDataPackets(documentQueryParams);
-      const documents = dataPackets.map((packet: any) => this.transformDataPacketToDocument(packet));
+      const dataPackets =
+        await this.dbManager!.listDataPackets(documentQueryParams);
+      const documents = dataPackets.map((packet: any) =>
+        this.transformDataPacketToDocument(packet)
+      );
       return { documents, total: documents.length, page, limit };
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -977,11 +1185,21 @@ export class CloudStorageAdapter implements StorageAdapter {
   async createDocument(document: any, profileId: string): Promise<any> {
     await this.ensureAuthenticated();
     const dataPacket = this.transformDocumentToDataPacket(document, profileId);
-    const requestId = this.generateRequestId(profileId, dataPacket.id, 'create');
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'create'
+    );
     try {
-      const storedPacket = await this.dbManager!.storeDataPacket(requestId, dataPacket);
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
       unsyncedDataManager.markAsUnsynced();
-      const finalStoredData = (storedPacket?.id !== undefined && storedPacket?.data) ? storedPacket : dataPacket;
+      const finalStoredData =
+        storedPacket?.id !== undefined && storedPacket?.data
+          ? storedPacket
+          : dataPacket;
       return this.transformDataPacketToDocument(finalStoredData);
     } catch (error) {
       console.error('Error creating document:', error);
@@ -996,12 +1214,21 @@ export class CloudStorageAdapter implements StorageAdapter {
       throw new Error('Document ID is required to update document');
     }
 
-    const dataPacket = this.transformDocumentToDataPacketUpdate(document, profileId);
+    const dataPacket = this.transformDocumentToDataPacketUpdate(
+      document,
+      profileId
+    );
     const requestId = this.generateRequestId();
     try {
-      const updatedPacket = await this.dbManager!.updateDataPacket(requestId, dataPacket);
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
       unsyncedDataManager.markAsUnsynced();
-      const finalUpdatedData = (updatedPacket?.id !== undefined && updatedPacket?.data) ? updatedPacket : dataPacket;
+      const finalUpdatedData =
+        updatedPacket?.id !== undefined && updatedPacket?.data
+          ? updatedPacket
+          : dataPacket;
       return this.transformDataPacketToDocument(finalUpdatedData);
     } catch (error) {
       console.error('Error updating document:', error);
@@ -1023,7 +1250,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   // Sync operations
   async sync(): Promise<void> {
     await this.ensureAuthenticated();
-    
+
     if (this.smartAutoSyncService) {
       // User initiated sync - use force sync to bypass smart timing
       await this.smartAutoSyncService.forceSync();
@@ -1065,11 +1292,15 @@ export class CloudStorageAdapter implements StorageAdapter {
       // After successful authentication, complete the initialization
       if (this.authService.isAuthenticated()) {
         if (!this.isFullyInitialized()) {
-          console.log('Authentication successful, completing full initialization...');
+          console.log(
+            'Authentication successful, completing full initialization...'
+          );
           // Directly complete the full initialization instead of resetting
           await this.initializeWithAuthentication();
         } else {
-          console.log('Authentication successful and storage already fully initialized');
+          console.log(
+            'Authentication successful and storage already fully initialized'
+          );
         }
       }
     }
@@ -1079,19 +1310,19 @@ export class CloudStorageAdapter implements StorageAdapter {
     if (this.authService) {
       await this.authService.revokeAccess();
     }
-    
+
     // Reset all initialization states
     this.initialized = false;
     this.dbManager = null;
     this.driveService = null;
     this.syncService = null;
-    
+
     // Clean up smart auto-sync service
     if (this.smartAutoSyncService) {
       this.smartAutoSyncService.destroy();
       this.smartAutoSyncService = null;
     }
-    
+
     console.log('De-authenticated from Google Drive');
   }
 
@@ -1102,13 +1333,13 @@ export class CloudStorageAdapter implements StorageAdapter {
         lastSyncTime: null,
         syncInProgress: false,
         error: null,
-        filesStatus: { conversations: false, apiKeys: false, metadata: false }
+        filesStatus: { conversations: false, apiKeys: false, metadata: false },
       };
-      
+
       return {
         ...baseStatus,
         smartAutoSync: smartStatus,
-        autoSyncEnabled: smartStatus.enabled
+        autoSyncEnabled: smartStatus.enabled,
       };
     } else if (this.syncService) {
       return this.syncService.getSyncStatus();
@@ -1118,7 +1349,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       syncInProgress: false,
       error: null,
       filesStatus: { conversations: false, apiKeys: false, metadata: false },
-      autoSyncEnabled: false
+      autoSyncEnabled: false,
     };
   }
 
@@ -1149,34 +1380,46 @@ export class CloudStorageAdapter implements StorageAdapter {
   // Helper methods
   private ensureInitialized(): void {
     if (!this.isInitialized()) {
-      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+      throw new Error(
+        'Cloud storage adapter not initialized. Call initialize() first.'
+      );
     }
-    
+
     // For API key operations, we need the dbManager to be available
     if (!this.dbManager) {
-      throw new Error('Cloud storage adapter not fully initialized. Please authenticate with Google Drive first.');
+      throw new Error(
+        'Cloud storage adapter not fully initialized. Please authenticate with Google Drive first.'
+      );
     }
   }
 
   private async ensureFullyReady(): Promise<void> {
     if (!this.isInitialized()) {
-      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+      throw new Error(
+        'Cloud storage adapter not initialized. Call initialize() first.'
+      );
     }
-    
+
     // Check authentication first
     if (!this.isAuthenticated()) {
-      throw new Error('User must authenticate with Google Drive first. Please connect your Google Drive account.');
+      throw new Error(
+        'User must authenticate with Google Drive first. Please connect your Google Drive account.'
+      );
     }
-    
+
     // Check full initialization
     if (!this.isFullyInitialized()) {
       // If not fully initialized but authenticated, try to re-complete initialization
-      console.log('Cloud storage not fully initialized, attempting to complete initialization...');
+      console.log(
+        'Cloud storage not fully initialized, attempting to complete initialization...'
+      );
       try {
         await this.initializeWithAuthentication();
       } catch (error) {
         console.error('Failed to complete initialization:', error);
-        throw new Error('Cloud storage not fully initialized. Please try again.');
+        throw new Error(
+          'Cloud storage not fully initialized. Please try again.'
+        );
       }
     }
   }
@@ -1184,19 +1427,27 @@ export class CloudStorageAdapter implements StorageAdapter {
   private async ensureAuthenticated(): Promise<void> {
     // First check if we're even initialized
     if (!this.isInitialized()) {
-      throw new Error('Cloud storage adapter not initialized. Call initialize() first.');
+      throw new Error(
+        'Cloud storage adapter not initialized. Call initialize() first.'
+      );
     }
-    
+
     // If not authenticated, don't throw error immediately - let the UI handle authentication flow
     if (!this.isAuthenticated()) {
-      throw new Error('User must authenticate with Google Drive first. Please connect your Google Drive account.');
+      throw new Error(
+        'User must authenticate with Google Drive first. Please connect your Google Drive account.'
+      );
     }
-    
+
     // Ensure full readiness if authenticated
     await this.ensureFullyReady();
   }
 
-  private generateRequestId(profileId?: string, packetId?: string, operation?: string): string {
+  private generateRequestId(
+    profileId?: string,
+    packetId?: string,
+    operation?: string
+  ): string {
     if (profileId && packetId && operation && operation === 'create') {
       // Use exactly the same request ID generation logic as the local storage mode
       const content = `${profileId}-${packetId}-${operation}`;
@@ -1207,9 +1458,9 @@ export class CloudStorageAdapter implements StorageAdapter {
   }
 
   private transformConversationToDataPacket(
-    profileId: string, 
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    profileId: string,
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): any {
     return {
@@ -1218,20 +1469,26 @@ export class CloudStorageAdapter implements StorageAdapter {
       user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
-      tags: [...PROTECTED_TAGS, ...(conversation.tags?.filter(tag => !PROTECTED_TAGS.includes(tag as any)) || [])],
+      tags: [
+        ...PROTECTED_TAGS,
+        ...(conversation.tags?.filter(
+          tag => !PROTECTED_TAGS.includes(tag as any)
+        ) || []),
+      ],
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
-        interactions: messages.map((message) => ({
+        interactions: messages.map(message => ({
           actor: message.role,
           timestamp: message.timestamp.toString(),
           content: message.content,
-          attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+          attachments:
+            message.attachments?.map(att => att.url || att.toString()) || [],
           model: message.platform || conversation.platform || 'unknown',
           // Store metadata including background agent alerts and original message ID
           metadata: {
             ...(message.metadata || {}),
             originalMessageId: message.id, // Preserve original message ID for alert matching
-          }
+          },
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',
@@ -1240,34 +1497,49 @@ export class CloudStorageAdapter implements StorageAdapter {
         isFavorite: conversation.isFavorite || false,
         participants: conversation.participants || [],
         status: conversation.status || 'active',
-        originalPrompt: originalPrompt ? {
-          promptText: originalPrompt.promptText,
-          contextId: originalPrompt.context?.id,
-          contextTitle: originalPrompt.context?.title,
-          contextDescription: originalPrompt.context?.body,
-          systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
-          systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
-          systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
-          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
-          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
-          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
-          estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
-        } : undefined
-      }
+        originalPrompt: originalPrompt
+          ? {
+              promptText: originalPrompt.promptText,
+              contextId: originalPrompt.context?.id,
+              contextTitle: originalPrompt.context?.title,
+              contextDescription: originalPrompt.context?.body,
+              systemPromptIds:
+                originalPrompt.systemPrompts?.map(sp => sp.id) || [],
+              systemPromptContents:
+                originalPrompt.systemPrompts?.map(sp => sp.content) || [],
+              systemPromptNames:
+                originalPrompt.systemPrompts?.map(sp => sp.name) || [],
+              systemPromptId:
+                originalPrompt.systemPrompt?.id
+                || originalPrompt.systemPrompts?.[0]?.id,
+              systemPromptContent:
+                originalPrompt.systemPrompt?.content
+                || originalPrompt.systemPrompts?.[0]?.content,
+              systemPromptName:
+                originalPrompt.systemPrompt?.name
+                || originalPrompt.systemPrompts?.[0]?.name,
+              estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0,
+            }
+          : undefined,
+      },
     };
   }
 
   private transformConversationToDataPacketUpdate(
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): any {
     if (!conversation.id) {
       throw new Error('Conversation ID is required to update conversation');
     }
-    
-    const additionalTags = (conversation.tags || []).filter((tag) => !PROTECTED_TAGS.includes(tag as any));
-    const mergedTags = Array.from(new Set([...PROTECTED_TAGS, ...additionalTags]));
+
+    const additionalTags = (conversation.tags || []).filter(
+      tag => !PROTECTED_TAGS.includes(tag as any)
+    );
+    const mergedTags = Array.from(
+      new Set([...PROTECTED_TAGS, ...additionalTags])
+    );
 
     return {
       id: conversation.id,
@@ -1276,17 +1548,18 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: mergedTags,
       data: {
         sourceChatbot: (conversation.platform || 'other').toUpperCase(),
-        interactions: messages.map((message) => ({
+        interactions: messages.map(message => ({
           actor: message.role,
           timestamp: message.timestamp.toString(),
           content: message.content,
-          attachments: message.attachments?.map(att => att.url || att.toString()) || [],
+          attachments:
+            message.attachments?.map(att => att.url || att.toString()) || [],
           model: message.platform || conversation.platform || 'unknown',
           // Store metadata including background agent alerts and original message ID
           metadata: {
             ...(message.metadata || {}),
             originalMessageId: message.id, // Preserve original message ID for alert matching
-          }
+          },
         })),
         targetModelRequested: conversation.platform || 'other',
         conversationUrl: 'FIDU_Chat_Lab',
@@ -1295,138 +1568,178 @@ export class CloudStorageAdapter implements StorageAdapter {
         isFavorite: conversation.isFavorite || false,
         participants: conversation.participants || [],
         status: conversation.status || 'active',
-        originalPrompt: originalPrompt ? {
-          promptText: originalPrompt.promptText,
-          contextId: originalPrompt.context?.id,
-          contextTitle: originalPrompt.context?.title,
-          contextDescription: originalPrompt.context?.body,
-          systemPromptIds: originalPrompt.systemPrompts?.map(sp => sp.id) || [],
-          systemPromptContents: originalPrompt.systemPrompts?.map(sp => sp.content) || [],
-          systemPromptNames: originalPrompt.systemPrompts?.map(sp => sp.name) || [],
-          systemPromptId: originalPrompt.systemPrompt?.id || originalPrompt.systemPrompts?.[0]?.id,
-          systemPromptContent: originalPrompt.systemPrompt?.content || originalPrompt.systemPrompts?.[0]?.content,
-          systemPromptName: originalPrompt.systemPrompt?.name || originalPrompt.systemPrompts?.[0]?.name,
-          estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0
-        } : undefined
-      }
+        originalPrompt: originalPrompt
+          ? {
+              promptText: originalPrompt.promptText,
+              contextId: originalPrompt.context?.id,
+              contextTitle: originalPrompt.context?.title,
+              contextDescription: originalPrompt.context?.body,
+              systemPromptIds:
+                originalPrompt.systemPrompts?.map(sp => sp.id) || [],
+              systemPromptContents:
+                originalPrompt.systemPrompts?.map(sp => sp.content) || [],
+              systemPromptNames:
+                originalPrompt.systemPrompts?.map(sp => sp.name) || [],
+              systemPromptId:
+                originalPrompt.systemPrompt?.id
+                || originalPrompt.systemPrompts?.[0]?.id,
+              systemPromptContent:
+                originalPrompt.systemPrompt?.content
+                || originalPrompt.systemPrompts?.[0]?.content,
+              systemPromptName:
+                originalPrompt.systemPrompt?.name
+                || originalPrompt.systemPrompts?.[0]?.name,
+              estimatedTokens: originalPrompt.metadata?.estimatedTokens || 0,
+            }
+          : undefined,
+      },
     };
   }
 
   private transformDataPacketToConversation(packet: any): Conversation {
     // Ensure data object exists and provides defaults
     const data = packet.data || {};
-    
+
     // Defensive parsing: if data is a string waiting to be parsed, parse it
     let parsedData = data;
     if (typeof data === 'string') {
       try {
         parsedData = JSON.parse(data);
       } catch (error) {
-        console.warn('Failed to parse conversation data as JSON string:', error);
+        console.warn(
+          'Failed to parse conversation data as JSON string:',
+          error
+        );
         parsedData = {};
       }
     }
-    
+
     // Ensure object from any source, even if null
     const finalData = parsedData || {};
 
     // Add validation to ensure data object is valid
-    if (!finalData || typeof finalData !== 'object' || Object.keys(finalData).length === 0) {
+    if (
+      !finalData
+      || typeof finalData !== 'object'
+      || Object.keys(finalData).length === 0
+    ) {
       return {
         id: packet.id,
-        title: "Error: Could not parse data packet as conversation",
-        platform: "other",
+        title: 'Error: Could not parse data packet as conversation',
+        platform: 'other',
         createdAt: packet.create_timestamp,
         updatedAt: packet.update_timestamp,
-        lastMessage: "Error: Could not parse data packet as conversation",
+        lastMessage: 'Error: Could not parse data packet as conversation',
         messageCount: 0,
         tags: [],
         isArchived: false,
         isFavorite: false,
         participants: [],
         status: 'active',
-        modelsUsed: []
+        modelsUsed: [],
       };
     }
-    
+
     // Allow conversations with no messages yet (newly created conversations)
     // Just use empty array for interactions if not present
     const interactions = finalData.interactions || [];
 
-  // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
-  // This saves computation for conversations that already have it stored
-  const modelsUsed = finalData.modelsUsed && Array.isArray(finalData.modelsUsed)
-    ? finalData.modelsUsed
-    : extractUniqueModels(interactions);
+    // Use stored modelsUsed if available, otherwise compute from interactions (lazy migration)
+    // This saves computation for conversations that already have it stored
+    const modelsUsed =
+      finalData.modelsUsed && Array.isArray(finalData.modelsUsed)
+        ? finalData.modelsUsed
+        : extractUniqueModels(interactions);
 
-  // Transform original prompt data if it exists
+    // Transform original prompt data if it exists
     let originalPrompt: Conversation['originalPrompt'] | undefined;
     if (finalData.originalPrompt) {
       let systemPrompts: any[] = [];
-      
-      if (finalData.originalPrompt?.systemPromptIds && finalData.originalPrompt.systemPromptIds.length > 0) {
-        systemPrompts = finalData.originalPrompt.systemPromptIds.map((id: string, index: number) => ({
-          id: id,
-          name: finalData.originalPrompt.systemPromptNames?.[index] || 'Unknown',
-          content: finalData.originalPrompt.systemPromptContents?.[index] || '',
-          description: '',
-          tokenCount: 0,
-          isDefault: false,
-          isBuiltIn: true,
-          source: 'user',
-          categories: ['Technical'],
-          createdAt: packet.create_timestamp,
-          updatedAt: packet.update_timestamp
-        }));
+
+      if (
+        finalData.originalPrompt?.systemPromptIds
+        && finalData.originalPrompt.systemPromptIds.length > 0
+      ) {
+        systemPrompts = finalData.originalPrompt.systemPromptIds.map(
+          (id: string, index: number) => ({
+            id: id,
+            name:
+              finalData.originalPrompt.systemPromptNames?.[index] || 'Unknown',
+            content:
+              finalData.originalPrompt.systemPromptContents?.[index] || '',
+            description: '',
+            tokenCount: 0,
+            isDefault: false,
+            isBuiltIn: true,
+            source: 'user',
+            categories: ['Technical'],
+            createdAt: packet.create_timestamp,
+            updatedAt: packet.update_timestamp,
+          })
+        );
       } else if (finalData.originalPrompt?.systemPromptId) {
-        systemPrompts = [{
-          id: finalData.originalPrompt.systemPromptId,
-          name: finalData.originalPrompt.systemPromptName || 'Unknown',
-          content: finalData.originalPrompt.systemPromptContent || '',
-          description: '',
-          tokenCount: 0,
-          isDefault: false,
-          isBuiltIn: true,
-          source: 'user',
-          categories: ['Technical'],
-          createdAt: packet.create_timestamp,
-          updatedAt: packet.update_timestamp
-        }];
+        systemPrompts = [
+          {
+            id: finalData.originalPrompt.systemPromptId,
+            name: finalData.originalPrompt.systemPromptName || 'Unknown',
+            content: finalData.originalPrompt.systemPromptContent || '',
+            description: '',
+            tokenCount: 0,
+            isDefault: false,
+            isBuiltIn: true,
+            source: 'user',
+            categories: ['Technical'],
+            createdAt: packet.create_timestamp,
+            updatedAt: packet.update_timestamp,
+          },
+        ];
       }
 
       originalPrompt = {
         promptText: finalData.originalPrompt.promptText,
-        context: finalData.originalPrompt.contextId ? {
-          id: finalData.originalPrompt.contextId,
-          title: finalData.originalPrompt.contextTitle || 'Unknown Context',
-          body: finalData.originalPrompt.contextDescription || '',
-          tokenCount: 0,
-          createdAt: packet.create_timestamp,
-          updatedAt: packet.update_timestamp,
-          tags: [],
-          isBuiltIn: false,
-          conversationIds: [],
-          conversationMetadata: {
-            totalMessages: 0,
-            lastAddedAt: packet.create_timestamp,
-            platforms: []
-          }
-        } : null,
+        context: finalData.originalPrompt.contextId
+          ? {
+              id: finalData.originalPrompt.contextId,
+              title: finalData.originalPrompt.contextTitle || 'Unknown Context',
+              body: finalData.originalPrompt.contextDescription || '',
+              tokenCount: 0,
+              createdAt: packet.create_timestamp,
+              updatedAt: packet.update_timestamp,
+              tags: [],
+              isBuiltIn: false,
+              conversationIds: [],
+              conversationMetadata: {
+                totalMessages: 0,
+                lastAddedAt: packet.create_timestamp,
+                platforms: [],
+              },
+            }
+          : null,
         systemPrompts: systemPrompts,
         systemPrompt: systemPrompts.length > 0 ? systemPrompts[0] : undefined,
         metadata: {
-          estimatedTokens: finalData.originalPrompt.estimatedTokens
-        }
+          estimatedTokens: finalData.originalPrompt.estimatedTokens,
+        },
       };
     }
 
     return {
       id: packet.id,
-      title: finalData.conversationTitle || finalData.conversationUrl || 'Untitled Conversation',
-      platform: (finalData.sourceChatbot?.toLowerCase() || 'other') as "chatgpt" | "claude" | "gemini" | "other",
+      title:
+        finalData.conversationTitle
+        || finalData.conversationUrl
+        || 'Untitled Conversation',
+      platform: (finalData.sourceChatbot?.toLowerCase() || 'other') as
+        | 'chatgpt'
+        | 'claude'
+        | 'gemini'
+        | 'other',
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
-      lastMessage: interactions.length > 0 ? interactions[interactions.length - 1]?.content || '' : '',
+      lastMessage:
+        interactions.length > 0
+          ? interactions[interactions.length - 1]?.content || ''
+          : '',
       messageCount: interactions.length,
       tags: packet.tags || [],
       isArchived: finalData.isArchived || false,
@@ -1434,7 +1747,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       participants: finalData.participants || [],
       status: finalData.status || 'active',
       modelsUsed,
-      originalPrompt
+      originalPrompt,
     };
   }
 
@@ -1449,14 +1762,14 @@ export class CloudStorageAdapter implements StorageAdapter {
       data: {
         context_title: context.title || 'Untitled Context',
         context_body: context.body || '',
-        token_count: context.tokenCount || 0
-      }
+        token_count: context.tokenCount || 0,
+      },
     };
   }
 
   private transformDataPacketToContext(packet: any): any {
     const data = packet.data || {};
-    
+
     // Handle JSON string data parsing
     let parsedData = data;
     if (typeof data === 'string') {
@@ -1467,9 +1780,9 @@ export class CloudStorageAdapter implements StorageAdapter {
         parsedData = {};
       }
     }
-    
+
     const finalData = parsedData || {};
-    
+
     return {
       id: packet.id,
       title: finalData.context_title || 'Untitled Context',
@@ -1478,17 +1791,22 @@ export class CloudStorageAdapter implements StorageAdapter {
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
       isBuiltIn: false,
-      tags: (packet.tags || []).filter((tag: string) => tag !== 'FIDU-CHAT-LAB-Context'),
+      tags: (packet.tags || []).filter(
+        (tag: string) => tag !== 'FIDU-CHAT-LAB-Context'
+      ),
       conversationIds: [],
       conversationMetadata: {
         totalMessages: 0,
         lastAddedAt: packet.create_timestamp,
-        platforms: []
-      }
+        platforms: [],
+      },
     };
   }
 
-  private transformSystemPromptToDataPacket(systemPrompt: any, profileId: string): any {
+  private transformSystemPromptToDataPacket(
+    systemPrompt: any,
+    profileId: string
+  ): any {
     return {
       id: systemPrompt.id || crypto.randomUUID(),
       profile_id: profileId,
@@ -1503,14 +1821,14 @@ export class CloudStorageAdapter implements StorageAdapter {
         token_count: systemPrompt.tokenCount || 0,
         is_default: systemPrompt.isDefault || false,
         is_built_in: systemPrompt.isBuiltIn || false,
-        source: systemPrompt.source || 'user'
-      }
+        source: systemPrompt.source || 'user',
+      },
     };
   }
 
   private transformDataPacketToSystemPrompt(packet: any): any {
     const data = packet.data || {};
-    
+
     // Handle JSON string data parsing
     let parsedData = data;
     if (typeof data === 'string') {
@@ -1521,9 +1839,9 @@ export class CloudStorageAdapter implements StorageAdapter {
         parsedData = {};
       }
     }
-    
+
     const finalData = parsedData || {};
-    
+
     return {
       id: packet.id,
       name: finalData.system_prompt_name || 'Untitled System Prompt',
@@ -1533,9 +1851,11 @@ export class CloudStorageAdapter implements StorageAdapter {
       isDefault: finalData.is_default || false,
       isBuiltIn: finalData.is_built_in || false,
       source: finalData.source || 'user',
-      categories: (packet.tags || []).filter((tag: string) => tag !== 'FIDU-CHAT-LAB-SystemPrompt'),
+      categories: (packet.tags || []).filter(
+        (tag: string) => tag !== 'FIDU-CHAT-LAB-SystemPrompt'
+      ),
       createdAt: packet.create_timestamp,
-      updatedAt: packet.update_timestamp
+      updatedAt: packet.update_timestamp,
     };
   }
 
@@ -1550,12 +1870,15 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: ['FIDU-CHAT-LAB-Document', ...(document.tags || [])],
       data: {
         title: document.title || 'Untitled Document',
-        content: document.content || ''
-      }
+        content: document.content || '',
+      },
     };
   }
 
-  private transformDocumentToDataPacketUpdate(document: any, profileId: string): any {
+  private transformDocumentToDataPacketUpdate(
+    document: any,
+    profileId: string
+  ): any {
     return {
       id: document.id,
       profile_id: profileId,
@@ -1564,7 +1887,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       data: {
         title: document.title || 'Untitled Document',
         content: document.content || '',
-      }
+      },
     };
   }
 
@@ -1580,14 +1903,16 @@ export class CloudStorageAdapter implements StorageAdapter {
       }
     }
     const finalData = parsedData || {};
-    
+
     return {
       id: packet.id,
       title: finalData.title || 'Untitled Document',
       content: finalData.content || '',
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
-      tags: (packet.tags || []).filter((t: string) => t !== 'FIDU-CHAT-LAB-Document')
+      tags: (packet.tags || []).filter(
+        (t: string) => t !== 'FIDU-CHAT-LAB-Document'
+      ),
     };
   }
 
@@ -1599,16 +1924,16 @@ export class CloudStorageAdapter implements StorageAdapter {
     if (this.smartAutoSyncService) {
       this.smartAutoSyncService.disable();
     }
-    
+
     if (this.syncService) {
       this.syncService.destroy();
     }
-    
+
     // Close database connections
     if (this.dbManager) {
       await this.dbManager.close();
     }
-    
+
     // Reset state
     this.initialized = false;
     this.dbManager = null;

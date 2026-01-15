@@ -39,18 +39,26 @@ export class ResourceImportService {
     }
 
     if (!data.version) {
-      return { valid: false, error: 'Invalid file format: missing version field' };
+      return {
+        valid: false,
+        error: 'Invalid file format: missing version field',
+      };
     }
 
     if (!data.resources || typeof data.resources !== 'object') {
-      return { valid: false, error: 'Invalid file format: missing resources field' };
+      return {
+        valid: false,
+        error: 'Invalid file format: missing resources field',
+      };
     }
 
     // Check version compatibility (for now, accept any version >= 1.0.0)
     const version = data.version;
     if (version !== RESOURCE_EXPORT_VERSION) {
       // Log warning but allow import for forward compatibility
-      console.warn(`Import version ${version} differs from current ${RESOURCE_EXPORT_VERSION}`);
+      console.warn(
+        `Import version ${version} differs from current ${RESOURCE_EXPORT_VERSION}`
+      );
     }
 
     return { valid: true };
@@ -88,7 +96,10 @@ export class ResourceImportService {
     // then background agents, then conversations
 
     // 1. Import system prompts
-    if (exportData.resources.systemPrompts && exportData.resources.systemPrompts.length > 0) {
+    if (
+      exportData.resources.systemPrompts
+      && exportData.resources.systemPrompts.length > 0
+    ) {
       for (const exportedPrompt of exportData.resources.systemPrompts) {
         try {
           // Validate
@@ -103,9 +114,15 @@ export class ResourceImportService {
 
           // Check for duplicates if needed
           if (options?.skipDuplicates) {
-            const existing = await storage.getSystemPrompts(undefined, 1, 1000, profileId);
+            const existing = await storage.getSystemPrompts(
+              undefined,
+              1,
+              1000,
+              profileId
+            );
             const exists = existing.systemPrompts?.some(
-              (sp: SystemPrompt) => sp.name === exportedPrompt.name && !sp.isBuiltIn
+              (sp: SystemPrompt) =>
+                sp.name === exportedPrompt.name && !sp.isBuiltIn
             );
             if (exists) {
               result.warnings.push({
@@ -145,7 +162,10 @@ export class ResourceImportService {
     }
 
     // 2. Import contexts
-    if (exportData.resources.contexts && exportData.resources.contexts.length > 0) {
+    if (
+      exportData.resources.contexts
+      && exportData.resources.contexts.length > 0
+    ) {
       for (const exportedContext of exportData.resources.contexts) {
         try {
           // Validate
@@ -160,9 +180,15 @@ export class ResourceImportService {
 
           // Check for duplicates if needed
           if (options?.skipDuplicates) {
-            const existing = await storage.getContexts(undefined, 1, 1000, profileId);
+            const existing = await storage.getContexts(
+              undefined,
+              1,
+              1000,
+              profileId
+            );
             const exists = existing.contexts?.some(
-              (ctx: Context) => ctx.title === exportedContext.title && !ctx.isBuiltIn
+              (ctx: Context) =>
+                ctx.title === exportedContext.title && !ctx.isBuiltIn
             );
             if (exists) {
               result.warnings.push({
@@ -202,7 +228,10 @@ export class ResourceImportService {
     }
 
     // 3. Import documents
-    if (exportData.resources.documents && exportData.resources.documents.length > 0) {
+    if (
+      exportData.resources.documents
+      && exportData.resources.documents.length > 0
+    ) {
       for (const exportedDocument of exportData.resources.documents) {
         try {
           // Validate
@@ -217,7 +246,12 @@ export class ResourceImportService {
 
           // Check for duplicates if needed
           if (options?.skipDuplicates) {
-            const existing = await storage.getDocuments(undefined, 1, 1000, profileId);
+            const existing = await storage.getDocuments(
+              undefined,
+              1,
+              1000,
+              profileId
+            );
             const exists = existing.documents?.some(
               (doc: Document) => doc.title === exportedDocument.title
             );
@@ -259,7 +293,10 @@ export class ResourceImportService {
     }
 
     // 4. Import background agents
-    if (exportData.resources.backgroundAgents && exportData.resources.backgroundAgents.length > 0) {
+    if (
+      exportData.resources.backgroundAgents
+      && exportData.resources.backgroundAgents.length > 0
+    ) {
       for (const exportedAgent of exportData.resources.backgroundAgents) {
         try {
           // Validate
@@ -274,9 +311,15 @@ export class ResourceImportService {
 
           // Check for duplicates if needed
           if (options?.skipDuplicates) {
-            const existing = await storage.getBackgroundAgents(undefined, 1, 1000, profileId);
+            const existing = await storage.getBackgroundAgents(
+              undefined,
+              1,
+              1000,
+              profileId
+            );
             const exists = existing.backgroundAgents?.some(
-              (agent: BackgroundAgent) => agent.name === exportedAgent.name && !agent.isSystem
+              (agent: BackgroundAgent) =>
+                agent.name === exportedAgent.name && !agent.isSystem
             );
             if (exists) {
               result.warnings.push({
@@ -316,7 +359,10 @@ export class ResourceImportService {
     }
 
     // 5. Import conversations (with messages)
-    if (exportData.resources.conversations && exportData.resources.conversations.length > 0) {
+    if (
+      exportData.resources.conversations
+      && exportData.resources.conversations.length > 0
+    ) {
       for (const exportedConversation of exportData.resources.conversations) {
         try {
           // Validate
@@ -359,7 +405,7 @@ export class ResourceImportService {
               else if (att.type === 'link') attachmentType = 'link';
               else if (att.type === 'code') attachmentType = 'code';
               // 'other' and anything else defaults to 'file'
-              
+
               return {
                 id: `${imported.id}-msg-${index}-att-${attIndex}`,
                 name: att.name,
@@ -370,7 +416,7 @@ export class ResourceImportService {
             metadata: msg.metadata,
             isEdited: msg.isEdited || false,
           }));
-          
+
           // Create conversation with messages
           await storage.createConversation(
             profileId,
@@ -407,8 +453,8 @@ export class ResourceImportService {
   async parseImportFile(file: File): Promise<ResourceExport> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
-      reader.onload = (e) => {
+
+      reader.onload = e => {
         try {
           const text = e.target?.result as string;
           const data = JSON.parse(text);
@@ -417,11 +463,11 @@ export class ResourceImportService {
           reject(new Error('Failed to parse JSON file'));
         }
       };
-      
+
       reader.onerror = () => {
         reject(new Error('Failed to read file'));
       };
-      
+
       reader.readAsText(file);
     });
   }
@@ -436,4 +482,3 @@ export function getResourceImportService(): ResourceImportService {
   }
   return importServiceInstance;
 }
-

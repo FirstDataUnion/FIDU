@@ -1,5 +1,9 @@
 import type { RootState } from '../../index';
-import type { FeatureFlagDefinition, FeatureFlagKey, FeatureFlagsMap } from '../../../types/featureFlags';
+import type {
+  FeatureFlagDefinition,
+  FeatureFlagKey,
+  FeatureFlagsMap,
+} from '../../../types/featureFlags';
 import {
   resolveFlagEnabled,
   combineSystemFlagsWithOverrides,
@@ -14,11 +18,14 @@ const baseFlags = featureFlagsFixture as FeatureFlagsMap;
 
 const allTrueFlags = (): FeatureFlagsMap =>
   Object.fromEntries(
-    Object.keys(baseFlags).map((flag) => ([flag, {
-      "enabled": true,
-      "user_configurable": true,
-      "default_enabled": true
-    } satisfies FeatureFlagDefinition]))
+    Object.keys(baseFlags).map(flag => [
+      flag,
+      {
+        enabled: true,
+        user_configurable: true,
+        default_enabled: true,
+      } satisfies FeatureFlagDefinition,
+    ])
   ) as FeatureFlagsMap;
 
 const buildState = (
@@ -37,7 +44,7 @@ const buildState = (
       loading: false,
       error: null,
     },
-  } as RootState);
+  }) as RootState;
 
 describe('resolveFlagEnabled', () => {
   it('returns false when flag is not enabled', () => {
@@ -53,15 +60,25 @@ describe('resolveFlagEnabled', () => {
 
   it('returns true when flag and all dependencies are enabled', () => {
     const flags = allTrueFlags();
-    flags.background_agent_to_document.depends_on = ['background_agents', 'documents'];
-    expect(resolveFlagEnabled(flags, 'background_agent_to_document')).toBe(true);
+    flags.background_agent_to_document.depends_on = [
+      'background_agents',
+      'documents',
+    ];
+    expect(resolveFlagEnabled(flags, 'background_agent_to_document')).toBe(
+      true
+    );
   });
 
   it('returns false when a dependency is disabled', () => {
     const flags = allTrueFlags();
-    flags.background_agent_to_document.depends_on = ['background_agents', 'documents'];
+    flags.background_agent_to_document.depends_on = [
+      'background_agents',
+      'documents',
+    ];
     flags.background_agents.enabled = false;
-    expect(resolveFlagEnabled(flags, 'background_agent_to_document')).toBe(false);
+    expect(resolveFlagEnabled(flags, 'background_agent_to_document')).toBe(
+      false
+    );
   });
 
   it('handles circular dependencies by disabling the flag', () => {
@@ -80,14 +97,18 @@ describe('combineSystemFlagsWithOverrides', () => {
 
   it('disables flags that are overridden to false', () => {
     const systemFlags = allTrueFlags();
-    const combined = combineSystemFlagsWithOverrides(systemFlags, { context: false });
+    const combined = combineSystemFlagsWithOverrides(systemFlags, {
+      context: false,
+    });
     expect(combined?.context.enabled).toBe(false);
   });
 
   it('enables flags that are overridden to true', () => {
     const systemFlags = allTrueFlags();
     systemFlags.context.default_enabled = false;
-    const combined = combineSystemFlagsWithOverrides(systemFlags, { context: true });
+    const combined = combineSystemFlagsWithOverrides(systemFlags, {
+      context: true,
+    });
     expect(combined?.context.enabled).toBe(true);
   });
 
@@ -95,7 +116,9 @@ describe('combineSystemFlagsWithOverrides', () => {
     const systemFlags = allTrueFlags();
     systemFlags.context.enabled = false;
     // user tries to force-enable a globally disabled flag
-    const combined = combineSystemFlagsWithOverrides(systemFlags, { context: true });
+    const combined = combineSystemFlagsWithOverrides(systemFlags, {
+      context: true,
+    });
     expect(combined?.context.enabled).toBe(false);
   });
 
@@ -103,10 +126,14 @@ describe('combineSystemFlagsWithOverrides', () => {
     const systemFlags = allTrueFlags();
     systemFlags.context.user_configurable = false;
     // user tries to override a non-configurable flag
-    const combinedFalse = combineSystemFlagsWithOverrides(systemFlags, { context: false });
+    const combinedFalse = combineSystemFlagsWithOverrides(systemFlags, {
+      context: false,
+    });
     expect(combinedFalse?.context.enabled).toBe(true);
 
-    const combinedTrue = combineSystemFlagsWithOverrides(systemFlags, { context: true });
+    const combinedTrue = combineSystemFlagsWithOverrides(systemFlags, {
+      context: true,
+    });
     expect(combinedTrue?.context.enabled).toBe(true);
   });
 
@@ -116,7 +143,9 @@ describe('combineSystemFlagsWithOverrides', () => {
     // Should not throw, and combined flags should be unaffected
     expect(() => {
       const not_a_flag = 'not_a_flag' as FeatureFlagKey;
-      const combined = combineSystemFlagsWithOverrides(systemFlags, { [not_a_flag]: true });
+      const combined = combineSystemFlagsWithOverrides(systemFlags, {
+        [not_a_flag]: true,
+      });
       expect(combined).toBeDefined();
       expect(combined?.[not_a_flag]).toBeUndefined();
     }).not.toThrow();
@@ -124,7 +153,10 @@ describe('combineSystemFlagsWithOverrides', () => {
 
   it('preserves depends_on relationships', () => {
     const systemFlags = allTrueFlags();
-    systemFlags.background_agent_to_document.depends_on = ['background_agents', 'documents'];
+    systemFlags.background_agent_to_document.depends_on = [
+      'background_agents',
+      'documents',
+    ];
     const combined = combineSystemFlagsWithOverrides(systemFlags, {
       background_agent_to_document: false,
     });
@@ -164,9 +196,14 @@ describe('selectIsFeatureFlagEnabled', () => {
 
   it('respects dependencies with overrides', () => {
     const systemFlags = allTrueFlags();
-    systemFlags.background_agent_to_document.depends_on = ['background_agents', 'documents'];
+    systemFlags.background_agent_to_document.depends_on = [
+      'background_agents',
+      'documents',
+    ];
     const state = buildState(systemFlags, { background_agents: false });
-    expect(selectIsFeatureFlagEnabled(state, 'background_agent_to_document')).toBe(false);
+    expect(
+      selectIsFeatureFlagEnabled(state, 'background_agent_to_document')
+    ).toBe(false);
   });
 
   it('handles circular dependencies', () => {

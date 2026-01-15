@@ -7,7 +7,7 @@ import { useAppSelector } from './redux';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 
 export function useStorageUserId(): void {
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector(state => state.auth);
 
   useEffect(() => {
     if (user?.id) {

@@ -28,7 +28,10 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { getResourceImportService } from '../../services/resourceExport/resourceImportService';
-import type { ResourceExport, ImportResult } from '../../services/resourceExport/types';
+import type {
+  ResourceExport,
+  ImportResult,
+} from '../../services/resourceExport/types';
 import { useAppSelector } from '../../hooks/redux';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 
@@ -43,10 +46,10 @@ export default function ResourceImportDialog({
   onClose,
   onImportComplete,
 }: ResourceImportDialogProps) {
-  const { currentProfile } = useAppSelector((state) => state.auth);
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
+  const { currentProfile } = useAppSelector(state => state.auth);
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<ResourceExport | null>(null);
@@ -54,12 +57,13 @@ export default function ResourceImportDialog({
   const [isDragging, setIsDragging] = useState(false);
 
   const importService = getResourceImportService();
-  
+
   // Determine effective profile ID: use workspace-level profile for shared workspaces
   const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
-  const effectiveProfileId = isSharedWorkspace && unifiedStorage.activeWorkspace?.id
-    ? `workspace-${unifiedStorage.activeWorkspace.id}-default`
-    : currentProfile?.id;
+  const effectiveProfileId =
+    isSharedWorkspace && unifiedStorage.activeWorkspace?.id
+      ? `workspace-${unifiedStorage.activeWorkspace.id}-default`
+      : currentProfile?.id;
 
   const processFile = async (file: File) => {
     try {
@@ -85,7 +89,9 @@ export default function ResourceImportDialog({
     }
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     await processFile(file);
@@ -105,7 +111,7 @@ export default function ResourceImportDialog({
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
-    
+
     // Check if we're outside the drop zone bounds
     if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
       setIsDragging(false);
@@ -192,16 +198,16 @@ export default function ResourceImportDialog({
   });
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="md"
       fullWidth
-      onDragOver={(e) => {
+      onDragOver={e => {
         e.preventDefault();
         e.stopPropagation();
       }}
-      onDrop={(e) => {
+      onDrop={e => {
         e.preventDefault();
         e.stopPropagation();
       }}
@@ -238,9 +244,17 @@ export default function ResourceImportDialog({
               }}
               onClick={() => fileInputRef.current?.click()}
             >
-              <UploadIcon sx={{ fontSize: 48, color: isDragging ? 'primary.main' : 'text.secondary', mb: 2 }} />
+              <UploadIcon
+                sx={{
+                  fontSize: 48,
+                  color: isDragging ? 'primary.main' : 'text.secondary',
+                  mb: 2,
+                }}
+              />
               <Typography variant="h6" gutterBottom>
-                {isDragging ? 'Drop JSON File Here' : 'Select JSON File to Import'}
+                {isDragging
+                  ? 'Drop JSON File Here'
+                  : 'Select JSON File to Import'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Click here or drag and drop a resource export file
@@ -453,4 +467,3 @@ export default function ResourceImportDialog({
     </Dialog>
   );
 }
-

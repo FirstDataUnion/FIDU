@@ -10,59 +10,63 @@ export const buildCompletePrompt = (
   userPrompt: string
 ): string => {
   let agentPrompt = '';
-  
+
   // 1. Start with system prompts if available
   if (systemPrompts && systemPrompts.length > 0) {
     const systemPromptContent = systemPrompts
       .map(prompt => prompt.content)
       .filter(content => content && content.trim())
       .join('\n\n');
-    
+
     if (systemPromptContent) {
       agentPrompt = `${systemPromptContent}\n\n`;
     }
   }
-  
+
   // 2. Add embellishment instructions if any are selected
   if (embellishments && embellishments.length > 0) {
     const selectedInstructions = embellishments
       .map(embellishment => embellishment.instructions)
       .filter(instruction => instruction && instruction.length > 0);
-    
+
     if (selectedInstructions.length > 0) {
       agentPrompt += `Additional Instructions:\n${selectedInstructions.join('\n')}\n\n`;
     }
   }
-  
+
   // 3. Helper function to safely get context content
   const getContextContent = (ctx: any): string => {
     if (!ctx) {
       return '';
     }
-    
+
     if (typeof ctx === 'string') {
       return ctx;
     }
-    
+
     if (ctx.body && typeof ctx.body === 'string') {
       return ctx.body;
     }
-    
+
     if (ctx.title && typeof ctx.title === 'string') {
       return ctx.title;
     }
-    
+
     return String(ctx);
   };
-  
+
   // 4. Handle multiple contexts (backward compatible with single context)
   // Convert single context to array for processing
-  const contextsArray = Array.isArray(contexts) ? contexts : (contexts ? [contexts] : []);
-  
+  const contextsArray = Array.isArray(contexts)
+    ? contexts
+    : contexts
+      ? [contexts]
+      : [];
+
   const contextContents = contextsArray
     .map(ctx => getContextContent(ctx))
     .filter(content => content && content.trim());
-  
+
   if (contextContents.length > 0) {
     if (contextContents.length === 1) {
       agentPrompt += `Given the following existing background context: ${contextContents[0]}\n\n`;
@@ -74,7 +78,7 @@ export const buildCompletePrompt = (
       });
     }
   }
-  
+
   // 5. Add conversation history if available
   if (conversationMessages.length > 0) {
     const conversationHistory = conversationMessages
@@ -84,10 +88,10 @@ export const buildCompletePrompt = (
         return `${role}: ${msg.content}`;
       })
       .join('\n\n');
-    
+
     agentPrompt += `Given the following conversation history: ${conversationHistory}\n\n`;
   }
-  
+
   // 6. Add the instruction and prompt
   const hasContexts = contextContents.length > 0;
   if (hasContexts && conversationMessages.length > 0) {
@@ -111,10 +115,10 @@ export const buildCompletePrompt = (
     // Neither contexts nor conversation history
     agentPrompt += `Answer the following prompt:\n\n`;
   }
-  
+
   // 7. Add the user's prompt
   agentPrompt += `Prompt: ${userPrompt}`;
-  
+
   return agentPrompt;
 };
 
@@ -151,23 +155,27 @@ export const createPromptsApi = () => {
       );
 
       let agentCallback = null;
-      
+
       // Use the new centralized model execution method
-      agentCallback = (input: string) => nlpWorkbenchAPIClient.executeModelAgent(selectedModel, input);
+      agentCallback = (input: string) =>
+        nlpWorkbenchAPIClient.executeModelAgent(selectedModel, input);
 
       const response = await nlpWorkbenchAPIClient.executeAgentAndWait(
-        agentPrompt, 
-        agentCallback, 
+        agentPrompt,
+        agentCallback,
         DEFAULT_WAIT_TIME_MS,
         DEFAULT_POLL_INTERVAL_MS,
         MAX_POLL_INTERVAL_MS,
         BACKOFF_THRESHOLD_MS
-      )
-      
+      );
+
       const resultBlock = response.outputs?.results?.[0];
       const chatResponse = resultBlock?.output?.result;
-      const actualModel = typeof resultBlock?.actualModel === 'string' ? resultBlock.actualModel : undefined;
-      
+      const actualModel =
+        typeof resultBlock?.actualModel === 'string'
+          ? resultBlock.actualModel
+          : undefined;
+
       return {
         id: `exec-${Date.now()}`,
         status: response.status,
@@ -176,7 +184,7 @@ export const createPromptsApi = () => {
           content: chatResponse,
           actualModel,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     },
   };

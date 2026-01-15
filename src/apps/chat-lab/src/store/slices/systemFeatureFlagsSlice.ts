@@ -22,33 +22,41 @@ export const fetchSystemFeatureFlags = createAsyncThunk<
   FeatureFlagsMap,
   void,
   { rejectValue: string }
->('systemFeatureFlags/fetchSystemFeatureFlags', async (_, { rejectWithValue }) => {
-  try {
-    return await getFeatureFlags();
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to fetch feature flags';
-    return rejectWithValue(message);
+>(
+  'systemFeatureFlags/fetchSystemFeatureFlags',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await getFeatureFlags();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch feature flags';
+      return rejectWithValue(message);
+    }
   }
-});
+);
 
 const systemFeatureFlagsSlice = createSlice({
   name: 'systemFeatureFlags',
   initialState,
   reducers: {
-    clearSystemFeatureFlagError: (state) => {
+    clearSystemFeatureFlagError: state => {
       state.error = null;
     },
-    hydrateSystemFeatureFlags: (state, action: PayloadAction<FeatureFlagsMap>) => {
+    hydrateSystemFeatureFlags: (
+      state,
+      action: PayloadAction<FeatureFlagsMap>
+    ) => {
       state.flags = action.payload;
       state.lastFetchedAt = Date.now();
       state.error = null;
       state.loading = false;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchSystemFeatureFlags.pending, (state) => {
+      .addCase(fetchSystemFeatureFlags.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -61,9 +69,9 @@ const systemFeatureFlagsSlice = createSlice({
       .addCase(fetchSystemFeatureFlags.rejected, (state, action) => {
         state.loading = false;
         state.error =
-          action.payload ||
-          action.error.message ||
-          'Failed to fetch feature flags';
+          action.payload
+          || action.error.message
+          || 'Failed to fetch feature flags';
       });
   },
 });
@@ -72,4 +80,3 @@ export const { clearSystemFeatureFlagError, hydrateSystemFeatureFlags } =
   systemFeatureFlagsSlice.actions;
 
 export default systemFeatureFlagsSlice.reducer;
-

@@ -6,17 +6,17 @@
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { MetricsService } from '../../metrics/MetricsService';
 import { trackStorageError } from '../../../utils/errorTracking';
-import { 
-  CONVERSATIONS_DB_PREFIX, 
-  API_KEYS_DB_PREFIX, 
+import {
+  CONVERSATIONS_DB_PREFIX,
+  API_KEYS_DB_PREFIX,
   METADATA_JSON_PREFIX,
-  getMetadataJsonFilename 
+  getMetadataJsonFilename,
 } from '../../../constants/workspaceFiles';
 
 // Custom error for insufficient permissions
 export class InsufficientPermissionsError extends Error {
   public readonly originalError: any;
-  
+
   constructor(message: string, originalError: any) {
     super(message);
     this.name = 'InsufficientPermissionsError';
@@ -61,15 +61,27 @@ export class GoogleDriveService {
   private isInsufficientPermissionsError(error: any): boolean {
     try {
       // Check if error message contains the 403 permission denied pattern
-      const errorString = typeof error === 'string' ? error : error?.message || JSON.stringify(error);
-      
+      const errorString =
+        typeof error === 'string'
+          ? error
+          : error?.message || JSON.stringify(error);
+
       // Look for the specific error patterns from Google Drive API
-      const hasInsufficientScopes = errorString.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT');
-      const hasInsufficientPermissions = errorString.includes('insufficientPermissions');
+      const hasInsufficientScopes = errorString.includes(
+        'ACCESS_TOKEN_SCOPE_INSUFFICIENT'
+      );
+      const hasInsufficientPermissions = errorString.includes(
+        'insufficientPermissions'
+      );
       const hasPermissionDenied = errorString.includes('PERMISSION_DENIED');
-      const has403Code = errorString.includes('"code": 403') || errorString.includes('"code":403');
-      
-      return (hasInsufficientScopes || hasInsufficientPermissions) && (hasPermissionDenied || has403Code);
+      const has403Code =
+        errorString.includes('"code": 403')
+        || errorString.includes('"code":403');
+
+      return (
+        (hasInsufficientScopes || hasInsufficientPermissions)
+        && (hasPermissionDenied || has403Code)
+      );
     } catch {
       return false;
     }
@@ -83,14 +95,18 @@ export class GoogleDriveService {
     apiCall: () => Promise<T>
   ): Promise<T> {
     return apiCall()
-      .then((result) => {
+      .then(result => {
         MetricsService.recordGoogleApiRequest('drive', operation, 'success');
         return result;
       })
-      .catch((error) => {
+      .catch(error => {
         MetricsService.recordGoogleApiRequest('drive', operation, 'error');
-        trackStorageError('google_drive', operation, error.message || 'Unknown error');
-        
+        trackStorageError(
+          'google_drive',
+          operation,
+          error.message || 'Unknown error'
+        );
+
         // Check if this is an insufficient permissions error
         if (this.isInsufficientPermissionsError(error)) {
           throw new InsufficientPermissionsError(
@@ -98,7 +114,7 @@ export class GoogleDriveService {
             error
           );
         }
-        
+
         throw error;
       });
   }
@@ -133,38 +149,36 @@ export class GoogleDriveService {
   async listFiles(): Promise<DriveFile[]> {
     return this.trackGoogleApiRequest('listFiles', async () => {
       const accessToken = await this.authService.getAccessToken();
-      
+
       try {
         const folderId = this.getFolderId();
         const isAppData = this.isAppDataFolder();
-        
+
         // Build query based on folder type
-        const apiQuery = isAppData 
+        const apiQuery = isAppData
           ? `parents in 'appDataFolder'`
           : `'${folderId}' in parents and trashed=false`;
-        
+
         const spaces = isAppData ? 'appDataFolder' : 'drive';
-        
+
         // Include supportsAllDrives and includeItemsFromAllDrives for shared folders/drives
         const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=${spaces}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
 
-        const response = await fetch(
-          url,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Accept': 'application/json',
-            },
-          }
-        );
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        });
 
         if (!response.ok) {
-          throw new Error(`Failed to list files - Status: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to list files - Status: ${response.status} ${response.statusText}`
+          );
         }
 
         const data: DriveFileList = await response.json();
         return data.files;
-        
       } catch (error) {
         console.error('Failed to list files:', error);
         return this.fallbackAccessMode();
@@ -180,74 +194,89 @@ export class GoogleDriveService {
   /**
    * Upload a file to the app data folder, replacing if it exists
    */
-  async uploadFile(fileName: string, data: Uint8Array, mimeType: string = 'application/octet-stream'): Promise<string> {
+  async uploadFile(
+    fileName: string,
+    data: Uint8Array,
+    mimeType: string = 'application/octet-stream'
+  ): Promise<string> {
     return this.trackGoogleApiRequest('uploadFile', async () => {
       const accessToken = await this.authService.getAccessToken();
-      
+
       // Check if file already exists in current folder
       // Note: findFileByName only searches within the current folder (getFolderId())
       // so this is already workspace-isolated
       const existingFile = await this.findFileByName(fileName);
-      
+
       if (existingFile) {
         await this.updateFile(existingFile.id, data, mimeType);
         return existingFile.id;
       }
 
-    // Create file metadata for new file
-    const folderId = this.getFolderId();
-    const metadata = {
-      name: fileName,
-      parents: [folderId]
-    };
+      // Create file metadata for new file
+      const folderId = this.getFolderId();
+      const metadata = {
+        name: fileName,
+        parents: [folderId],
+      };
 
-    // Create multipart request body manually but properly handling binary data
-    const boundary = '-------314159265358979323846';
-    
-    // Convert metadata to string
-    const metadataString = JSON.stringify(metadata);
-    const metadataBytes = new TextEncoder().encode(metadataString);
-    
-    // Build multipart body without converting binary data to text
-    const contentDelimiter = '\r\n--' + boundary + '\r\n';
-    const contentDelimiterBytes = new TextEncoder().encode(contentDelimiter);
-    const jsonHeaders = new TextEncoder().encode('Content-Type: application/json\r\n\r\n');
-    const binaryHeaders = new TextEncoder().encode(`Content-Type: ${mimeType}\r\n\r\n`);
-    const closeDelimiterBytes = new TextEncoder().encode(`\r\n--${boundary}--\r\n`);
+      // Create multipart request body manually but properly handling binary data
+      const boundary = '-------314159265358979323846';
 
-    // Combine parts properly
-    const part1 = [
-      ...contentDelimiterBytes,
-      ...jsonHeaders,
-      ...metadataBytes,
-      ...contentDelimiterBytes,
-      ...binaryHeaders
-    ];
-    
-    // Combine first part with binary data followed by close delimiter
-    const fullBody = new Uint8Array(part1.length + data.length + closeDelimiterBytes.length);
-    let offset = 0;
-    
-    // Copy first part
-    fullBody.set(part1, offset);
-    offset += part1.length;
-    
-    // Copy binary data directly without any conversion
-    fullBody.set(data, offset);
-    offset += data.length;
-    
-    // Copy close delimiter  
-    fullBody.set(closeDelimiterBytes, offset);
+      // Convert metadata to string
+      const metadataString = JSON.stringify(metadata);
+      const metadataBytes = new TextEncoder().encode(metadataString);
+
+      // Build multipart body without converting binary data to text
+      const contentDelimiter = '\r\n--' + boundary + '\r\n';
+      const contentDelimiterBytes = new TextEncoder().encode(contentDelimiter);
+      const jsonHeaders = new TextEncoder().encode(
+        'Content-Type: application/json\r\n\r\n'
+      );
+      const binaryHeaders = new TextEncoder().encode(
+        `Content-Type: ${mimeType}\r\n\r\n`
+      );
+      const closeDelimiterBytes = new TextEncoder().encode(
+        `\r\n--${boundary}--\r\n`
+      );
+
+      // Combine parts properly
+      const part1 = [
+        ...contentDelimiterBytes,
+        ...jsonHeaders,
+        ...metadataBytes,
+        ...contentDelimiterBytes,
+        ...binaryHeaders,
+      ];
+
+      // Combine first part with binary data followed by close delimiter
+      const fullBody = new Uint8Array(
+        part1.length + data.length + closeDelimiterBytes.length
+      );
+      let offset = 0;
+
+      // Copy first part
+      fullBody.set(part1, offset);
+      offset += part1.length;
+
+      // Copy binary data directly without any conversion
+      fullBody.set(data, offset);
+      offset += data.length;
+
+      // Copy close delimiter
+      fullBody.set(closeDelimiterBytes, offset);
 
       // Include supportsAllDrives=true to support shared folders and shared drives
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': `multipart/related; boundary="${boundary}"`,
-        },
-        body: fullBody as any, // TypeScript workaround for file upload 
-      });
+      const response = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary="${boundary}"`,
+          },
+          body: fullBody as any, // TypeScript workaround for file upload
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
@@ -264,46 +293,65 @@ export class GoogleDriveService {
    */
   async downloadFile(fileId: string): Promise<Uint8Array> {
     const accessToken = await this.authService.getAccessToken();
-    
+
     console.log(`🔍 [GoogleDriveService] Downloading file by ID: ${fileId}`);
-    
+
     // Include supportsAllDrives=true to support shared folders and shared drives
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unable to read error response');
-      console.error(`❌ [GoogleDriveService] Failed to download file ${fileId}:`, {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-      });
-      throw new Error(`Failed to download file: ${response.status} ${response.statusText} - ${errorText}`);
+      const errorText = await response
+        .text()
+        .catch(() => 'Unable to read error response');
+      console.error(
+        `❌ [GoogleDriveService] Failed to download file ${fileId}:`,
+        {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+        }
+      );
+      throw new Error(
+        `Failed to download file: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    console.log(`✅ [GoogleDriveService] Successfully downloaded file ${fileId} (${arrayBuffer.byteLength} bytes)`);
+    console.log(
+      `✅ [GoogleDriveService] Successfully downloaded file ${fileId} (${arrayBuffer.byteLength} bytes)`
+    );
     return new Uint8Array(arrayBuffer);
   }
 
   /**
    * Update an existing file
    */
-  async updateFile(fileId: string, data: Uint8Array, mimeType: string = 'application/octet-stream'): Promise<void> {
+  async updateFile(
+    fileId: string,
+    data: Uint8Array,
+    mimeType: string = 'application/octet-stream'
+  ): Promise<void> {
     const accessToken = await this.authService.getAccessToken();
-    
+
     // Include supportsAllDrives=true to support shared folders and shared drives
-    const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': mimeType,
-      },
-      body: data as any, // Uint8Array should work but needs type assertion 
-    });
+    const response = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': mimeType,
+        },
+        body: data as any, // Uint8Array should work but needs type assertion
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -316,14 +364,17 @@ export class GoogleDriveService {
    */
   async deleteFile(fileId: string): Promise<void> {
     const accessToken = await this.authService.getAccessToken();
-    
+
     // Include supportsAllDrives=true to support shared folders and shared drives
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to delete file: ${response.statusText}`);
@@ -335,13 +386,13 @@ export class GoogleDriveService {
    */
   async getFileMetadata(fileId: string): Promise<DriveFile> {
     const accessToken = await this.authService.getAccessToken();
-    
+
     // Include supportsAllDrives=true to support shared folders and shared drives
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,size,createdTime,modifiedTime,parents&supportsAllDrives=true`,
       {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
@@ -366,7 +417,10 @@ export class GoogleDriveService {
   /**
    * Upload conversations database
    */
-  async uploadConversationsDB(data: Uint8Array, version: string = '1'): Promise<string> {
+  async uploadConversationsDB(
+    data: Uint8Array,
+    version: string = '1'
+  ): Promise<string> {
     const fileName = `fidu_conversations_v${version}.db`;
     return await this.uploadFile(fileName, data, 'application/x-sqlite3');
   }
@@ -377,7 +431,7 @@ export class GoogleDriveService {
   async downloadConversationsDB(version: string = '1'): Promise<Uint8Array> {
     const fileName = `fidu_conversations_v${version}.db`;
     const file = await this.findFileByName(fileName);
-    
+
     if (!file) {
       throw new Error(`Conversations database file not found: ${fileName}`);
     }
@@ -388,7 +442,10 @@ export class GoogleDriveService {
   /**
    * Upload API keys database
    */
-  async uploadAPIKeysDB(data: Uint8Array, version: string = '1'): Promise<string> {
+  async uploadAPIKeysDB(
+    data: Uint8Array,
+    version: string = '1'
+  ): Promise<string> {
     const fileName = `fidu_api_keys_v${version}.db`;
     return await this.uploadFile(fileName, data, 'application/x-sqlite3');
   }
@@ -399,7 +456,7 @@ export class GoogleDriveService {
   async downloadAPIKeysDB(version: string = '1'): Promise<Uint8Array> {
     const fileName = `fidu_api_keys_v${version}.db`;
     const file = await this.findFileByName(fileName);
-    
+
     if (!file) {
       throw new Error(`API keys database file not found: ${fileName}`);
     }
@@ -422,7 +479,7 @@ export class GoogleDriveService {
   async downloadMetadata(version: string = '1'): Promise<any> {
     const fileName = getMetadataJsonFilename(version);
     const file = await this.findFileByName(fileName);
-    
+
     if (!file) {
       throw new Error(`Metadata file not found: ${fileName}`);
     }
@@ -444,9 +501,11 @@ export class GoogleDriveService {
     const fileNames = files.map(f => f.name);
 
     return {
-      conversations: fileNames.some(name => name.startsWith(CONVERSATIONS_DB_PREFIX)),
+      conversations: fileNames.some(name =>
+        name.startsWith(CONVERSATIONS_DB_PREFIX)
+      ),
       apiKeys: fileNames.some(name => name.startsWith(API_KEYS_DB_PREFIX)),
-      metadata: fileNames.some(name => name.startsWith(METADATA_JSON_PREFIX))
+      metadata: fileNames.some(name => name.startsWith(METADATA_JSON_PREFIX)),
     };
   }
 
@@ -466,7 +525,7 @@ export class GoogleDriveService {
     return {
       totalFiles: files.length,
       totalSize,
-      files
+      files,
     };
   }
 
@@ -475,17 +534,18 @@ export class GoogleDriveService {
    */
   async clearAllDatabaseFiles(): Promise<void> {
     const files = await this.listFiles();
-    const databaseFiles = files.filter(file => 
-      file.name.startsWith(CONVERSATIONS_DB_PREFIX) || 
-      file.name.startsWith(API_KEYS_DB_PREFIX) || 
-      file.name.startsWith(METADATA_JSON_PREFIX)
+    const databaseFiles = files.filter(
+      file =>
+        file.name.startsWith(CONVERSATIONS_DB_PREFIX)
+        || file.name.startsWith(API_KEYS_DB_PREFIX)
+        || file.name.startsWith(METADATA_JSON_PREFIX)
     );
 
     if (databaseFiles.length === 0) {
       return;
     }
 
-    const deletePromises = databaseFiles.map(async (file) => {
+    const deletePromises = databaseFiles.map(async file => {
       await this.deleteFile(file.id);
     });
 

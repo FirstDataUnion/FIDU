@@ -1,9 +1,9 @@
 /**
  * App Version Utility
- * 
+ *
  * Central source of truth for the application version.
  * Reads from package.json at build time via Vite's define plugin.
- * 
+ *
  * Usage:
  *   import { APP_VERSION, getVersionDisplay } from './utils/version';
  */
@@ -24,12 +24,10 @@ export const getVersionDisplay = (): string => {
 export const isVersionAtLeast = (minVersion: string): boolean => {
   const [major, minor, patch] = APP_VERSION.split('.').map(Number);
   const [minMajor, minMinor, minPatch] = minVersion.split('.').map(Number);
-  
+
   if (major > minMajor) return true;
   if (major < minMajor) return false;
   if (minor > minMinor) return true;
   if (minor < minMinor) return false;
   return patch >= minPatch;
 };
-
-

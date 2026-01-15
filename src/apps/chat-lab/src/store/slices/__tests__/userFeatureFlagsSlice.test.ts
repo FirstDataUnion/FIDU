@@ -60,9 +60,9 @@ describe('userFeatureFlagsSlice', () => {
       setUserOverride({ key: 'context' as FeatureFlagKey, value: false })
     );
     expect(state.userOverrides).toEqual({ context: false });
-    expect(localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')).toBe(
-      JSON.stringify({ context: false })
-    );
+    expect(
+      localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')
+    ).toBe(JSON.stringify({ context: false }));
   });
 
   it('should handle setUserOverride to clear an override', () => {
@@ -86,18 +86,18 @@ describe('userFeatureFlagsSlice', () => {
     };
     const state = reducer(initialState, clearAllUserOverrides());
     expect(state.userOverrides).toEqual({});
-    expect(localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')).toBe(
-      JSON.stringify({})
-    );
+    expect(
+      localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')
+    ).toBe(JSON.stringify({}));
   });
 
   it('should handle loadUserOverrides', () => {
     const overrides = { context: false, documents: false };
     const state = reducer(undefined, loadUserOverrides(overrides));
     expect(state.userOverrides).toEqual(overrides);
-    expect(localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')).toBe(
-      JSON.stringify(overrides)
-    );
+    expect(
+      localStorageMock.getItem('fidu-chat-lab-feature-flag-overrides')
+    ).toBe(JSON.stringify(overrides));
   });
 
   it('should handle clearUserFeatureFlagError', () => {
@@ -125,7 +125,8 @@ describe('userFeatureFlagsSlice', () => {
       },
     } as RootState;
     expect(selectUserFeatureFlagsState(state).loading).toBe(true);
-    expect(selectUserFeatureFlagsState(state).userOverrides).toEqual({ context: false });
+    expect(selectUserFeatureFlagsState(state).userOverrides).toEqual({
+      context: false,
+    });
   });
 });
-

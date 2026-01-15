@@ -14,9 +14,7 @@ const resolveBasePath = (): string => {
 const buildRequestUrl = (): string => {
   const basePath = resolveBasePath();
   const origin =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'http://localhost';
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
   const url = new URL(`${basePath}${FEATURE_FLAGS_ENDPOINT}`, origin);
 
   // Add cache-busting query parameter
@@ -37,7 +35,9 @@ export const getFeatureFlags = async (): Promise<FeatureFlagsMap> => {
   try {
     payload = await response.json();
   } catch (error) {
-    throw new Error(`Received invalid JSON while loading feature flags: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Received invalid JSON while loading feature flags: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 
   try {
@@ -46,7 +46,8 @@ export const getFeatureFlags = async (): Promise<FeatureFlagsMap> => {
     if (error instanceof FeatureFlagValidationError) {
       throw error;
     }
-    throw new Error(`Failed to validate feature flags payload: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to validate feature flags payload: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 };
-

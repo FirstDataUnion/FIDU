@@ -7,7 +7,7 @@ import { getCookieSettingsService } from '../../services/settings/CookieSettings
 const getDefaultStorageMode = (): 'local' | 'cloud' => {
   const envInfo = getEnvironmentInfo();
   // Always use environment storage mode if specified
-  return envInfo.storageMode as 'local' | 'cloud' || 'local';
+  return (envInfo.storageMode as 'local' | 'cloud') || 'local';
 };
 
 // Simplified settings - only theme is needed
@@ -48,45 +48,50 @@ const loadSettingsFromStorage = async (): Promise<UserSettings> => {
     // First try to load from HTTP-only cookies
     const cookieService = getCookieSettingsService();
     const cookieSettings = await cookieService.getSettingsWithRetry(1);
-    
+
     if (cookieSettings) {
       console.log('✅ Loaded settings from HTTP-only cookies');
-      
+
       // Validate and merge with defaults
       const mergedSettings = { ...defaultSettings, ...cookieSettings };
-      
+
       // Always respect environment storage mode if it's set to 'local'
       const envInfo = getEnvironmentInfo();
       if (envInfo.storageMode === 'local') {
         mergedSettings.storageMode = 'local';
       }
-      
+
       return mergedSettings;
     }
-    
+
     // Fallback to localStorage for backward compatibility
     console.log('🔄 No cookie settings found, trying localStorage fallback...');
     const stored = localStorage.getItem('fidu-chat-lab-settings');
     if (stored) {
       const parsed = JSON.parse(stored);
       const mergedSettings = { ...defaultSettings, ...parsed };
-      
+
       // Always respect environment storage mode if it's set to 'local'
       const envInfo = getEnvironmentInfo();
       if (envInfo.storageMode === 'local') {
         mergedSettings.storageMode = 'local';
       }
-      
+
       // Migrate to cookies for future use
       const migrationResult = await cookieService.setSettings(mergedSettings);
       if (migrationResult.success) {
         console.log('✅ Migrated localStorage settings to cookies');
       } else if (migrationResult.reason === 'auth_unavailable') {
-        console.log('ℹ️ Skipping cookie settings migration until authentication is available');
+        console.log(
+          'ℹ️ Skipping cookie settings migration until authentication is available'
+        );
       } else {
-        console.warn('⚠️ Failed to migrate settings to cookies:', migrationResult);
+        console.warn(
+          '⚠️ Failed to migrate settings to cookies:',
+          migrationResult
+        );
       }
-      
+
       return mergedSettings;
     }
   } catch (error) {
@@ -134,27 +139,38 @@ const saveSettingsToStorage = async (settings: UserSettings): Promise<void> => {
   try {
     // Create a plain copy to avoid proxy issues
     const plainSettings = createPlainSettingsCopy(settings);
-    
+
     // Primary: Save to HTTP-only cookies
     const cookieService = getCookieSettingsService();
     const cookieResult = await cookieService.setSettings(plainSettings);
-    
+
     if (cookieResult.success) {
       console.log('✅ Settings saved to HTTP-only cookies');
     } else if (cookieResult.reason === 'auth_unavailable') {
-      console.log('ℹ️ Unable to save settings to cookies yet (authentication not available); using localStorage fallback');
+      console.log(
+        'ℹ️ Unable to save settings to cookies yet (authentication not available); using localStorage fallback'
+      );
     } else {
-      console.warn('⚠️ Failed to save settings to cookies, falling back to localStorage', cookieResult);
+      console.warn(
+        '⚠️ Failed to save settings to cookies, falling back to localStorage',
+        cookieResult
+      );
     }
-    
+
     // Fallback: Also save to localStorage for backward compatibility
-    localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(plainSettings));
+    localStorage.setItem(
+      'fidu-chat-lab-settings',
+      JSON.stringify(plainSettings)
+    );
   } catch (error) {
     console.warn('Failed to save settings:', error);
     // Fallback to localStorage only
     try {
       const plainSettings = createPlainSettingsCopy(settings);
-      localStorage.setItem('fidu-chat-lab-settings', JSON.stringify(plainSettings));
+      localStorage.setItem(
+        'fidu-chat-lab-settings',
+        JSON.stringify(plainSettings)
+      );
     } catch (localError) {
       console.error('Failed to save settings to localStorage:', localError);
     }
@@ -191,21 +207,21 @@ const settingsSlice = createSlice({
       // Save asynchronously without blocking the reducer
       // Create plain copy synchronously before reducer completes to avoid proxy revocation
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after update:', error)
       );
     },
     updateTheme: (state, action) => {
       state.settings.theme = action.payload;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after theme update:', error)
       );
     },
     updateLastUsedModel: (state, action) => {
       state.settings.lastUsedModel = action.payload;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after model update:', error)
       );
     },
@@ -213,53 +229,59 @@ const settingsSlice = createSlice({
       state.settings.storageMode = action.payload;
       state.settings.userSelectedStorageMode = true; // Mark that user has made a selection
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
-        console.warn('Failed to save settings after storage mode update:', error)
+      saveSettingsToStorage(plainSettings).catch(error =>
+        console.warn(
+          'Failed to save settings after storage mode update:',
+          error
+        )
       );
     },
-    markStorageConfigured: (state) => {
+    markStorageConfigured: state => {
       state.settings.storageConfigured = true;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after marking configured:', error)
       );
     },
-    resetStorageConfiguration: (state) => {
+    resetStorageConfiguration: state => {
       state.settings.storageConfigured = false;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
-        console.warn('Failed to save settings after reset configuration:', error)
+      saveSettingsToStorage(plainSettings).catch(error =>
+        console.warn(
+          'Failed to save settings after reset configuration:',
+          error
+        )
       );
     },
     updateSyncDelay: (state, action) => {
       state.settings.syncSettings.autoSyncDelayMinutes = action.payload;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after sync delay update:', error)
       );
     },
     updateShareAnalytics: (state, action) => {
       state.settings.privacySettings.shareAnalytics = action.payload;
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after analytics update:', error)
       );
     },
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
     },
-    resetToDefaults: (state) => {
+    resetToDefaults: state => {
       state.settings = { ...defaultSettings };
       const plainSettings = createPlainSettingsCopy(state.settings);
-      saveSettingsToStorage(plainSettings).catch(error => 
+      saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after reset to defaults:', error)
       );
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
       // Fetch settings
-      .addCase(fetchSettings.pending, (state) => {
+      .addCase(fetchSettings.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -272,7 +294,7 @@ const settingsSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch settings';
       })
       // Save settings
-      .addCase(saveSettings.pending, (state) => {
+      .addCase(saveSettings.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -300,4 +322,4 @@ export const {
   resetToDefaults,
 } = settingsSlice.actions;
 
-export default settingsSlice.reducer; 
+export default settingsSlice.reducer;

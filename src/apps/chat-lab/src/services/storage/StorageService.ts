@@ -22,14 +22,14 @@ export class StorageService {
 
     // Get storage mode from parameter, settings, or environment
     let mode: 'local' | 'cloud' = 'local'; // default
-    
+
     if (storageMode) {
       mode = storageMode;
     } else {
       // Check environment variable for deployment type
       const envInfo = getEnvironmentInfo();
       const envMode = envInfo.storageMode as 'local' | 'cloud';
-      
+
       // For local deployment, always use local mode (FIDU Vault API)
       if (envMode === 'local') {
         mode = 'local';
@@ -44,9 +44,11 @@ export class StorageService {
             }
           }
         } catch {
-          console.warn('Failed to load storage mode from settings, using default');
+          console.warn(
+            'Failed to load storage mode from settings, using default'
+          );
         }
-        
+
         // Fallback to environment mode if no user preference
         if (mode === 'local') {
           mode = envMode || 'local';
@@ -56,12 +58,12 @@ export class StorageService {
 
     this.config = {
       mode,
-      baseURL: mode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
+      baseURL: mode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined,
     };
 
     this.adapter = createStorageAdapter(this.config);
     await this.adapter.initialize();
-    
+
     this.initialized = true;
   }
 
@@ -97,19 +99,21 @@ export class StorageService {
 
     const newConfig: StorageConfig = {
       mode: newMode,
-      baseURL: newMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined
+      baseURL: newMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined,
     };
 
     this.adapter = createStorageAdapter(newConfig);
     await this.adapter.initialize();
-    
+
     this.config = newConfig;
     this.initialized = true;
   }
 
   getAdapter(): StorageAdapter {
     if (!this.adapter) {
-      throw new Error('Storage service not initialized. Call initialize() first.');
+      throw new Error(
+        'Storage service not initialized. Call initialize() first.'
+      );
     }
     return this.adapter;
   }
@@ -161,7 +165,9 @@ export class StorageService {
           unsyncedDataManager.markAsSynced();
         } catch (error) {
           console.error('Failed to sync before workspace switch:', error);
-          throw new Error('Failed to sync current workspace. Please try again.');
+          throw new Error(
+            'Failed to sync current workspace. Please try again.'
+          );
         }
       }
 
@@ -195,7 +201,7 @@ export class StorageService {
 
     // Handle shared workspace (must exist in registry)
     const workspace = workspaceRegistry.getWorkspace(workspaceId);
-    
+
     if (!workspace) {
       throw new Error(`Workspace not found: ${workspaceId}`);
     }

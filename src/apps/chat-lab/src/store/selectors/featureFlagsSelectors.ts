@@ -8,7 +8,7 @@ import type {
 export const resolveFlagEnabled = (
   flags: FeatureFlagsMap,
   key: FeatureFlagKey,
-  visited: Set<FeatureFlagKey> = new Set(),
+  visited: Set<FeatureFlagKey> = new Set()
 ): boolean => {
   if (visited.has(key)) {
     return false; // Prevent circular dependency loops
@@ -26,7 +26,7 @@ export const resolveFlagEnabled = (
   const nextVisited = new Set(visited);
   nextVisited.add(key);
 
-  return flag.depends_on.every((dependency) =>
+  return flag.depends_on.every(dependency =>
     resolveFlagEnabled(flags, dependency, nextVisited)
   );
 };
@@ -40,7 +40,10 @@ export const combineSystemFlagsWithOverrides = (
   }
 
   // Don't apply user overrides if the user can't change them
-  if ('feature_flag_page' in systemFlags && !systemFlags['feature_flag_page'].enabled) {
+  if (
+    'feature_flag_page' in systemFlags
+    && !systemFlags['feature_flag_page'].enabled
+  ) {
     return systemFlags;
   }
 
@@ -58,14 +61,17 @@ export const combineSystemFlagsWithOverrides = (
     }
     combined[typedKey] = {
       enabled,
-      depends_on: systemFlag.depends_on ? [...systemFlag.depends_on] : undefined,
+      depends_on: systemFlag.depends_on
+        ? [...systemFlag.depends_on]
+        : undefined,
     };
   }
 
   return combined;
 };
 
-export const selectUserFeatureFlagsState = (state: RootState) => state.userFeatureFlags;
+export const selectUserFeatureFlagsState = (state: RootState) =>
+  state.userFeatureFlags;
 
 export const selectSystemFeatureFlags = (state: RootState) =>
   state.systemFeatureFlags.flags;
@@ -73,7 +79,9 @@ export const selectSystemFeatureFlags = (state: RootState) =>
 export const selectUserFeatureFlagOverrides = (state: RootState) =>
   state.userFeatureFlags.userOverrides;
 
-export const selectFeatureFlags = (state: RootState): FeatureFlagsMap | null => {
+export const selectFeatureFlags = (
+  state: RootState
+): FeatureFlagsMap | null => {
   const systemFlags = state.systemFeatureFlags.flags;
   const userOverrides = state.userFeatureFlags.userOverrides;
   return combineSystemFlagsWithOverrides(systemFlags, userOverrides);
@@ -90,4 +98,3 @@ export const selectIsFeatureFlagEnabled = (
 
   return resolveFlagEnabled(flags, key);
 };
-

@@ -23,8 +23,8 @@ jest.mock('axios', () => ({
 const mockFiduAuthService = {
   ensureAccessToken: jest.fn().mockResolvedValue(undefined),
   createAuthInterceptor: jest.fn(() => ({
-    request: jest.fn((config) => config),
-    response: jest.fn((response) => response),
+    request: jest.fn(config => config),
+    response: jest.fn(response => response),
     error: jest.fn(),
   })),
 };
@@ -136,14 +136,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
       });
 
       const devService = new CookieSettingsService();
-      
+
       // Mock axios post to return success
       mockPost.mockResolvedValueOnce({
         status: 200,
         data: { success: true },
       });
 
-      const mockSettings = { theme: 'dark', storageMode: 'cloud' } as UserSettings;
+      const mockSettings = {
+        theme: 'dark',
+        storageMode: 'cloud',
+      } as UserSettings;
       await devService.setSettings(mockSettings);
 
       // Verify the request includes environment information
@@ -169,14 +172,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
       });
 
       const prodService = new CookieSettingsService();
-      
+
       // Mock axios post to return success
       mockPost.mockResolvedValueOnce({
         status: 200,
         data: { success: true },
       });
 
-      const mockSettings = { theme: 'dark', storageMode: 'cloud' } as UserSettings;
+      const mockSettings = {
+        theme: 'dark',
+        storageMode: 'cloud',
+      } as UserSettings;
       await prodService.setSettings(mockSettings);
 
       // Verify the request includes environment information
@@ -203,15 +209,15 @@ describe('Environment Detection for Dev/Prod Switching', () => {
       });
 
       const devService = new CookieSettingsService();
-      
+
       // Mock axios get to return settings for wrong environment
       mockGet.mockResolvedValueOnce({
         status: 200,
-        data: { 
-          settings: { 
-            theme: 'dark', 
-            environment: 'prod' // Wrong environment!
-          } 
+        data: {
+          settings: {
+            theme: 'dark',
+            environment: 'prod', // Wrong environment!
+          },
         },
       });
 

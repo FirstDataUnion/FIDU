@@ -27,39 +27,39 @@ interface CookieConsentState {
 
 /**
  * Cookie Consent Banner Component
- * 
+ *
  * Displays a GDPR-compliant cookie consent banner that informs users about:
  * - Essential cookies and browser storage
  * - Anonymous metrics collection
  * - Link to full privacy policy
- * 
+ *
  * The banner appears on first visit and remembers the user's choice.
  */
 export const CookieBanner: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const [showBanner, setShowBanner] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     // Check if user has already consented
     const consentStr = localStorage.getItem(COOKIE_CONSENT_KEY);
-    
+
     if (!consentStr) {
       // No consent recorded, show banner after a short delay
       const timer = setTimeout(() => {
         setShowBanner(true);
       }, 1000);
-      
+
       return () => clearTimeout(timer);
     }
-    
+
     // Check if consent is still valid (refresh every 365 days)
     try {
       const consent: CookieConsentState = JSON.parse(consentStr);
-      const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
-      
+      const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+
       if (consent.timestamp < oneYearAgo) {
         // Consent expired, show banner again
         setShowBanner(true);
@@ -75,7 +75,7 @@ export const CookieBanner: React.FC = () => {
       accepted: true,
       timestamp: Date.now(),
     };
-    
+
     localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(consent));
     setShowBanner(false);
   };
@@ -117,17 +117,20 @@ export const CookieBanner: React.FC = () => {
         <Box p={isMobile ? 2 : 3}>
           {/* Header */}
           <Box display="flex" alignItems="flex-start" gap={2} mb={2}>
-            <CookieIcon sx={{ fontSize: 32, color: 'primary.main', flexShrink: 0 }} />
-            
+            <CookieIcon
+              sx={{ fontSize: 32, color: 'primary.main', flexShrink: 0 }}
+            />
+
             <Box flex={1}>
               <Typography variant="h6" gutterBottom>
                 We Value Your Privacy
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary" paragraph>
-                FIDU Chat Lab uses essential cookies and browser storage to keep you logged in 
-                and store your conversations securely on your device. We also collect anonymous 
-                usage metrics to improve the service.
+                FIDU Chat Lab uses essential cookies and browser storage to keep
+                you logged in and store your conversations securely on your
+                device. We also collect anonymous usage metrics to improve the
+                service.
               </Typography>
             </Box>
 
@@ -151,9 +154,13 @@ export const CookieBanner: React.FC = () => {
             >
               {showDetails ? 'Hide Details' : 'What do we collect?'}
             </Button>
-            
+
             <Collapse in={showDetails}>
-              <Box mt={2} pl={2} sx={{ borderLeft: `3px solid ${theme.palette.divider}` }}>
+              <Box
+                mt={2}
+                pl={2}
+                sx={{ borderLeft: `3px solid ${theme.palette.divider}` }}
+              >
                 <Typography variant="body2" fontWeight={600} gutterBottom>
                   Essential Cookies & Storage:
                 </Typography>
@@ -163,8 +170,7 @@ export const CookieBanner: React.FC = () => {
                   • Local storage (your preferences and settings)
                   <br />
                   • IndexedDB (your conversations and contexts - stored locally)
-                  <br />
-                  • Google Drive tokens (if you enable cloud sync)
+                  <br />• Google Drive tokens (if you enable cloud sync)
                 </Typography>
 
                 <Typography variant="body2" fontWeight={600} gutterBottom>
@@ -181,24 +187,25 @@ export const CookieBanner: React.FC = () => {
                   <br />
                   <br />
                   <em>
-                    We never collect the content of your conversations or any personally 
-                    identifiable information in metrics. You can opt out in Settings.
+                    We never collect the content of your conversations or any
+                    personally identifiable information in metrics. You can opt
+                    out in Settings.
                   </em>
                 </Typography>
 
                 <Divider sx={{ my: 2 }} />
 
                 <Typography variant="body2" color="text.secondary">
-                  <strong>We do NOT use:</strong> Advertising cookies, tracking pixels, 
-                  social media trackers, or third-party analytics.
+                  <strong>We do NOT use:</strong> Advertising cookies, tracking
+                  pixels, social media trackers, or third-party analytics.
                 </Typography>
               </Box>
             </Collapse>
           </Box>
 
           {/* Actions */}
-          <Box 
-            display="flex" 
+          <Box
+            display="flex"
             gap={1.5}
             flexDirection={isMobile ? 'column' : 'row'}
             alignItems="stretch"
@@ -211,7 +218,7 @@ export const CookieBanner: React.FC = () => {
             >
               Accept & Continue
             </Button>
-            
+
             <Button
               variant="outlined"
               onClick={handleViewPolicy}
@@ -222,10 +229,10 @@ export const CookieBanner: React.FC = () => {
           </Box>
 
           {/* Footer Note */}
-          <Typography 
-            variant="caption" 
-            color="text.secondary" 
-            display="block" 
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
             mt={2}
             textAlign="center"
           >
@@ -240,8 +247,8 @@ export const CookieBanner: React.FC = () => {
               sx={{ verticalAlign: 'baseline' }}
             >
               Terms of Use
-            </Link>
-            {' '}and{' '}
+            </Link>{' '}
+            and{' '}
             <Link
               component="button"
               variant="caption"
@@ -257,4 +264,3 @@ export const CookieBanner: React.FC = () => {
     </Box>
   );
 };
-

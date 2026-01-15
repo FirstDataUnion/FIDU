@@ -1,7 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Alert, AlertTitle, IconButton, Box, Chip } from '@mui/material';
-import { Close as CloseIcon, SmartToy as SmartToyIcon } from '@mui/icons-material';
-import { subscribeToAgentAlerts, type AgentAlert, markAlertAsRead } from '../../services/agents/agentAlerts';
+import {
+  Close as CloseIcon,
+  SmartToy as SmartToyIcon,
+} from '@mui/icons-material';
+import {
+  subscribeToAgentAlerts,
+  type AgentAlert,
+  markAlertAsRead,
+} from '../../services/agents/agentAlerts';
 import { ALERT_AUTO_HIDE_DURATION } from '../../services/agents/agentConstants';
 import { useAlertClick } from '../../contexts/AlertClickContext';
 
@@ -16,21 +23,21 @@ export default function AgentAlertsToaster(): React.JSX.Element | null {
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    const unsubscribe = subscribeToAgentAlerts((newAlert) => {
+    const unsubscribe = subscribeToAgentAlerts(newAlert => {
       // Add new alert to the queue
       const queuedAlert: QueuedAlert = {
         ...newAlert,
         open: true,
       };
-      
-      setAlerts((prev) => [...prev, queuedAlert]);
-      
+
+      setAlerts(prev => [...prev, queuedAlert]);
+
       // Set up auto-hide timeout and store it in the ref Map
       const timeout = setTimeout(() => {
-        setAlerts((prev) => prev.filter((a) => a.id !== newAlert.id));
+        setAlerts(prev => prev.filter(a => a.id !== newAlert.id));
         timeoutRefs.current.delete(newAlert.id);
       }, ALERT_AUTO_HIDE_DURATION);
-      
+
       // Store timeout reference in the Map before state update completes
       timeoutRefs.current.set(newAlert.id, timeout);
     });
@@ -45,17 +52,20 @@ export default function AgentAlertsToaster(): React.JSX.Element | null {
       timeoutRefs.current.delete(alertId);
     }
     // Remove the alert from state
-    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
   }, []);
 
-  const handleAlertClick = useCallback((alert: AgentAlert) => {
-    if (alertClickContext?.onAlertClick) {
-      // Mark the alert as read when clicked
-      markAlertAsRead(alert.id);
-      alertClickContext.onAlertClick(alert.id);
-      handleClose(alert.id); // Close this specific alert when clicked
-    }
-  }, [alertClickContext, handleClose]);
+  const handleAlertClick = useCallback(
+    (alert: AgentAlert) => {
+      if (alertClickContext?.onAlertClick) {
+        // Mark the alert as read when clicked
+        markAlertAsRead(alert.id);
+        alertClickContext.onAlertClick(alert.id);
+        handleClose(alert.id); // Close this specific alert when clicked
+      }
+    },
+    [alertClickContext, handleClose]
+  );
 
   if (alerts.length === 0) return null;
 
@@ -80,7 +90,7 @@ export default function AgentAlertsToaster(): React.JSX.Element | null {
         pointerEvents: 'none', // Allow clicks to pass through the container
       }}
     >
-      {alerts.map((alert) => (
+      {alerts.map(alert => (
         <Box
           key={alert.id}
           sx={{
@@ -109,7 +119,7 @@ export default function AgentAlertsToaster(): React.JSX.Element | null {
                 size="small"
                 aria-label="close"
                 color="inherit"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation(); // Prevent triggering the alert click
                   handleClose(alert.id);
                 }}
@@ -124,16 +134,20 @@ export default function AgentAlertsToaster(): React.JSX.Element | null {
               '& .MuiAlert-message': {
                 width: '100%',
               },
-              '&:hover': alertClickContext?.onAlertClick ? {
-                opacity: 0.9,
-              } : {},
+              '&:hover': alertClickContext?.onAlertClick
+                ? {
+                    opacity: 0.9,
+                  }
+                : {},
             }}
           >
             <AlertTitle sx={{ fontWeight: 600, mb: 1 }}>
               Background Agent Alert
             </AlertTitle>
             <Box sx={{ mb: 1 }}>
-              {alert.shortMessage || alert.message || 'An issue was detected in your conversation.'}
+              {alert.shortMessage
+                || alert.message
+                || 'An issue was detected in your conversation.'}
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
               <Chip

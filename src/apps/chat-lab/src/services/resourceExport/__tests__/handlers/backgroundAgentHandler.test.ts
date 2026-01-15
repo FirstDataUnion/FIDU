@@ -160,8 +160,9 @@ describe('BackgroundAgentHandler', () => {
       expect(handler.validateImport({ id: 'agent-123' })).toBe(false);
       expect(handler.validateImport({ name: 'Test' })).toBe(false);
       expect(handler.validateImport({ actionType: 'alert' })).toBe(false);
-      expect(handler.validateImport({ promptTemplate: 'Template' })).toBe(false);
+      expect(handler.validateImport({ promptTemplate: 'Template' })).toBe(
+        false
+      );
     });
   });
 });
-

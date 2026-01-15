@@ -18,7 +18,10 @@ export interface DecryptionResult {
 
 export class EncryptionService {
   private keyCache = new Map<string, { key: CryptoKey; expires: number }>();
-  private workspaceKeyCache = new Map<string, { key: CryptoKey; expires: number }>();
+  private workspaceKeyCache = new Map<
+    string,
+    { key: CryptoKey; expires: number }
+  >();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
   /**
@@ -28,44 +31,48 @@ export class EncryptionService {
    * @param workspaceId - Optional workspace ID. If provided, uses workspace encryption key instead of personal key
    * @returns Promise<EncryptionResult> - Encrypted data with nonce and tag
    */
-  async encryptData(data: any, userId: string, workspaceId?: string): Promise<EncryptionResult> {
+  async encryptData(
+    data: any,
+    userId: string,
+    workspaceId?: string
+  ): Promise<EncryptionResult> {
     try {
       // Get encryption key - use workspace key if workspaceId is provided, otherwise use personal key
-      const key = workspaceId 
+      const key = workspaceId
         ? await this.getWorkspaceEncryptionKey(workspaceId, userId)
         : await this.getEncryptionKey(userId);
-      
+
       // Convert data to JSON string
       const jsonData = JSON.stringify(data);
-      
+
       // Generate random nonce (12 bytes for GCM)
       const nonce = crypto.getRandomValues(new Uint8Array(12));
-      
+
       // Encrypt the data
       const encryptedBuffer = await crypto.subtle.encrypt(
         {
           name: 'AES-GCM',
           iv: nonce,
-          tagLength: 128 // 16 bytes
+          tagLength: 128, // 16 bytes
         },
         key,
         new TextEncoder().encode(jsonData)
       );
-      
+
       // Extract ciphertext and tag
       const tagLength = 16; // 16 bytes for GCM tag
       const ciphertext = encryptedBuffer.slice(0, -tagLength);
       const tag = encryptedBuffer.slice(-tagLength);
-      
+
       // Convert to base64 for storage
       const encryptedData = this.arrayBufferToBase64(ciphertext);
       const nonceBase64 = this.arrayBufferToBase64(nonce.buffer);
       const tagBase64 = this.arrayBufferToBase64(tag);
-      
+
       return {
         encryptedData,
         nonce: nonceBase64,
-        tag: tagBase64
+        tag: tagBase64,
       };
     } catch (error) {
       console.error('Encryption failed:', error);
@@ -83,47 +90,51 @@ export class EncryptionService {
    * @returns Promise<DecryptionResult> - Decrypted data
    */
   async decryptData(
-    encryptedData: string, 
-    nonce: string, 
-    tag: string, 
+    encryptedData: string,
+    nonce: string,
+    tag: string,
     userId: string,
     workspaceId?: string
   ): Promise<DecryptionResult> {
     try {
       // Get encryption key - use workspace key if workspaceId is provided, otherwise use personal key
-      const key = workspaceId 
+      const key = workspaceId
         ? await this.getWorkspaceEncryptionKey(workspaceId, userId)
         : await this.getEncryptionKey(userId);
-      
+
       // Convert from base64
       const ciphertext = this.base64ToArrayBuffer(encryptedData);
       const nonceBuffer = this.base64ToArrayBuffer(nonce);
       const tagBuffer = this.base64ToArrayBuffer(tag);
-      
+
       // Combine ciphertext and tag
-      const combinedBuffer = new Uint8Array(ciphertext.byteLength + tagBuffer.byteLength);
+      const combinedBuffer = new Uint8Array(
+        ciphertext.byteLength + tagBuffer.byteLength
+      );
       combinedBuffer.set(new Uint8Array(ciphertext), 0);
       combinedBuffer.set(new Uint8Array(tagBuffer), ciphertext.byteLength);
-      
+
       // Decrypt the data
       const decryptedBuffer = await crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
           iv: nonceBuffer,
-          tagLength: 128 // 16 bytes
+          tagLength: 128, // 16 bytes
         },
         key,
         combinedBuffer
       );
-      
+
       // Convert back to JSON
       const jsonData = new TextDecoder().decode(decryptedBuffer);
       const decryptedData = JSON.parse(jsonData);
-      
+
       return { decryptedData };
     } catch (error) {
       console.error('Decryption failed:', error);
-      throw new Error('Failed to decrypt data. The data may be corrupted or the key may be invalid.');
+      throw new Error(
+        'Failed to decrypt data. The data may be corrupted or the key may be invalid.'
+      );
     }
   }
 
@@ -141,7 +152,7 @@ export class EncryptionService {
 
     // Fetch key from identity service
     const keyString = await identityServiceAPIClient.getEncryptionKey();
-    
+
     // Convert string key to CryptoKey
     const keyBuffer = this.base64ToArrayBuffer(keyString);
     const key = await crypto.subtle.importKey(
@@ -155,7 +166,7 @@ export class EncryptionService {
     // Cache the key
     this.keyCache.set(userId, {
       key,
-      expires: Date.now() + this.CACHE_TTL
+      expires: Date.now() + this.CACHE_TTL,
     });
 
     return key;
@@ -165,12 +176,15 @@ export class EncryptionService {
    * Get workspace encryption key for a shared workspace (with caching and unwrapping)
    * Fetches the wrapped key from the identity service, unwraps it using the user's personal key,
    * and caches the unwrapped key for performance.
-   * 
+   *
    * @param workspaceId - The workspace ID
    * @param userId - The user ID (needed to get personal key for unwrapping)
    * @returns Promise<CryptoKey> - The unwrapped workspace encryption key
    */
-  async getWorkspaceEncryptionKey(workspaceId: string, userId: string): Promise<CryptoKey> {
+  async getWorkspaceEncryptionKey(
+    workspaceId: string,
+    userId: string
+  ): Promise<CryptoKey> {
     // Check cache first
     const cached = this.workspaceKeyCache.get(workspaceId);
     if (cached && !this.isKeyExpired(cached.expires)) {
@@ -179,24 +193,32 @@ export class EncryptionService {
 
     try {
       // 1. Fetch wrapped key from identity service
-      const wrappedKeyBase64 = await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(workspaceId);
-      
+      const wrappedKeyBase64 =
+        await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(
+          workspaceId
+        );
+
       // 2. Get user's personal encryption key
       const personalKey = await this.getEncryptionKey(userId);
-      
+
       // 3. Unwrap workspace key using personal key
       const workspaceKey = await this.unwrapKey(wrappedKeyBase64, personalKey);
 
       // 4. Cache the unwrapped key
       this.workspaceKeyCache.set(workspaceId, {
         key: workspaceKey,
-        expires: Date.now() + this.CACHE_TTL
+        expires: Date.now() + this.CACHE_TTL,
       });
 
       return workspaceKey;
     } catch (error) {
-      console.error(`Failed to get workspace encryption key for workspace ${workspaceId}:`, error);
-      throw new Error(`Failed to get workspace encryption key. ${error instanceof Error ? error.message : 'Please try again.'}`);
+      console.error(
+        `Failed to get workspace encryption key for workspace ${workspaceId}:`,
+        error
+      );
+      throw new Error(
+        `Failed to get workspace encryption key. ${error instanceof Error ? error.message : 'Please try again.'}`
+      );
     }
   }
 
@@ -272,12 +294,15 @@ export class EncryptionService {
    * Unwrap a workspace encryption key using the user's personal encryption key
    * The wrapped key is encrypted with AES-GCM using the personal key
    * Format: base64-encoded string containing nonce (12 bytes) + ciphertext (includes 16-byte tag)
-   * 
+   *
    * @param wrappedKeyBase64 - The wrapped workspace key (base64-encoded)
    * @param personalKey - The user's personal encryption key (CryptoKey)
    * @returns Promise<CryptoKey> - The unwrapped workspace encryption key
    */
-  private async unwrapKey(wrappedKeyBase64: string, personalKey: CryptoKey): Promise<CryptoKey> {
+  private async unwrapKey(
+    wrappedKeyBase64: string,
+    personalKey: CryptoKey
+  ): Promise<CryptoKey> {
     try {
       // 1. Decode wrapped key from base64
       const wrappedKeyBuffer = this.base64ToArrayBuffer(wrappedKeyBase64);
@@ -293,7 +318,7 @@ export class EncryptionService {
         {
           name: 'AES-GCM',
           iv: nonce,
-          tagLength: 128 // 16 bytes for GCM tag
+          tagLength: 128, // 16 bytes for GCM tag
         },
         personalKey,
         ciphertext
@@ -311,7 +336,9 @@ export class EncryptionService {
       return workspaceKey;
     } catch (error) {
       console.error('Failed to unwrap workspace key:', error);
-      throw new Error('Failed to unwrap workspace encryption key. The key may be invalid or corrupted.');
+      throw new Error(
+        'Failed to unwrap workspace encryption key. The key may be invalid or corrupted.'
+      );
     }
   }
 }

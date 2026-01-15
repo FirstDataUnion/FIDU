@@ -25,7 +25,10 @@ export class ContextHandler implements ResourceHandler<Context> {
     return response.contexts || [];
   }
 
-  async exportResource(resource: Context, _profileId: string): Promise<ExportableResource> {
+  async exportResource(
+    resource: Context,
+    _profileId: string
+  ): Promise<ExportableResource> {
     // Sanitize context - remove ownership IDs and timestamps
     const exportData: ContextExport = {
       id: resource.id, // Preserve original ID for reference resolution
@@ -52,10 +55,10 @@ export class ContextHandler implements ResourceHandler<Context> {
     idMapping?: IdMapping
   ): Promise<Context> {
     const exportData = exportable.data as ContextExport;
-    
+
     // Generate new ID
     const newId = uuidv4();
-    
+
     // Update ID mapping if provided
     if (idMapping) {
       idMapping[exportData.id] = newId;
@@ -107,4 +110,3 @@ export class ContextHandler implements ResourceHandler<Context> {
     return true;
   }
 }
-

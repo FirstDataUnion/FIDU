@@ -90,7 +90,13 @@ describe('useConversationFilters', () => {
       })
     );
 
-    expect(result.current.allTags).toEqual(['ai', 'chat', 'discussion', 'archived', 'general']);
+    expect(result.current.allTags).toEqual([
+      'ai',
+      'chat',
+      'discussion',
+      'archived',
+      'general',
+    ]);
   });
 
   it('should filter by search query in title', () => {
@@ -106,7 +112,9 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(1);
-    expect(result.current.filteredConversations[0].title).toBe('ChatGPT Conversation');
+    expect(result.current.filteredConversations[0].title).toBe(
+      'ChatGPT Conversation'
+    );
   });
 
   it('should filter by search query in last message', () => {
@@ -122,7 +130,9 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(1);
-    expect(result.current.filteredConversations[0].title).toBe('Claude Discussion');
+    expect(result.current.filteredConversations[0].title).toBe(
+      'Claude Discussion'
+    );
   });
 
   it('should filter by search query in tags', () => {
@@ -144,7 +154,6 @@ describe('useConversationFilters', () => {
     ]);
   });
 
-
   it('should filter by selected tags', () => {
     const { result } = renderHook(() =>
       useConversationFilters({
@@ -158,7 +167,9 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(2);
-    expect(result.current.filteredConversations.every(c => c.tags.includes('chat'))).toBe(true);
+    expect(
+      result.current.filteredConversations.every(c => c.tags.includes('chat'))
+    ).toBe(true);
   });
 
   it('should filter out archived conversations when showArchived is false', () => {
@@ -174,7 +185,9 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(3);
-    expect(result.current.filteredConversations.every(c => !c.isArchived)).toBe(true);
+    expect(result.current.filteredConversations.every(c => !c.isArchived)).toBe(
+      true
+    );
   });
 
   it('should combine multiple filters', () => {
@@ -190,7 +203,9 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(1);
-    expect(result.current.filteredConversations[0].title).toBe('ChatGPT Conversation');
+    expect(result.current.filteredConversations[0].title).toBe(
+      'ChatGPT Conversation'
+    );
   });
 
   it('should sort conversations by updatedAt in descending order', () => {
@@ -295,7 +310,8 @@ describe('useConversationFilters', () => {
     );
 
     expect(result.current.filteredConversations).toHaveLength(1);
-    expect(result.current.filteredConversations[0].title).toBe('ChatGPT Conversation');
+    expect(result.current.filteredConversations[0].title).toBe(
+      'ChatGPT Conversation'
+    );
   });
-
 });

@@ -4,7 +4,13 @@
  */
 
 export interface Metric {
-  type: 'error' | 'page_view' | 'message_sent' | 'google_api_request' | 'api_latency' | 'active_users';
+  type:
+    | 'error'
+    | 'page_view'
+    | 'message_sent'
+    | 'google_api_request'
+    | 'api_latency'
+    | 'active_users';
   labels: Record<string, string>;
   value?: number;
   timestamp?: number;
@@ -27,7 +33,7 @@ class MetricsServiceClass {
   constructor() {
     // Check privacy settings on initialization
     const shareAnalytics = this.getPrivacySetting();
-    
+
     this.config = {
       batchSize: 50,
       flushInterval: 30000, // 30 seconds
@@ -36,13 +42,16 @@ class MetricsServiceClass {
     };
 
     // Get the base URL from environment or use current location
-    const basePath = (import.meta.env.BASE_URL || '/fidu-chat-lab').replace(/\/$/, '');
+    const basePath = (import.meta.env.BASE_URL || '/fidu-chat-lab').replace(
+      /\/$/,
+      ''
+    );
     this.baseUrl = `${basePath}/api/metrics`;
-    
+
     // Listen for settings changes
     this.setupSettingsListener();
   }
-  
+
   /**
    * Get the current privacy setting for analytics
    */
@@ -58,30 +67,33 @@ class MetricsServiceClass {
     }
     return true; // Default to enabled
   }
-  
+
   /**
    * Setup a listener for settings changes
    */
   private setupSettingsListener(): void {
     if (typeof window === 'undefined') return;
-    
+
     // Listen for storage events (when settings change in another tab)
-    window.addEventListener('storage', (e) => {
+    window.addEventListener('storage', e => {
       if (e.key === 'fidu-chat-lab-settings') {
         const shareAnalytics = this.getPrivacySetting();
         if (shareAnalytics !== this.config.enabled) {
           if (shareAnalytics) {
             this.enable();
-            console.log('📊 [MetricsService] Metrics collection enabled by user preference');
+            console.log(
+              '📊 [MetricsService] Metrics collection enabled by user preference'
+            );
           } else {
             this.disable();
-            console.log('🔒 [MetricsService] Metrics collection disabled by user preference');
+            console.log(
+              '🔒 [MetricsService] Metrics collection disabled by user preference'
+            );
           }
         }
       }
     });
   }
-
 
   /**
    * Initialize the metrics service
@@ -92,13 +104,15 @@ class MetricsServiceClass {
     }
 
     console.log('📊 [MetricsService] Initializing...');
-    
+
     // Check privacy setting again on initialization
     const shareAnalytics = this.getPrivacySetting();
     this.config.enabled = shareAnalytics;
-    
+
     if (!shareAnalytics) {
-      console.log('🔒 [MetricsService] Metrics collection disabled by user preference');
+      console.log(
+        '🔒 [MetricsService] Metrics collection disabled by user preference'
+      );
       this.isInitialized = true;
       return;
     }
@@ -121,7 +135,9 @@ class MetricsServiceClass {
     });
 
     this.isInitialized = true;
-    console.log('✅ [MetricsService] Initialized successfully (metrics enabled)');
+    console.log(
+      '✅ [MetricsService] Initialized successfully (metrics enabled)'
+    );
   }
 
   /**
@@ -150,7 +166,11 @@ class MetricsServiceClass {
   /**
    * Record an error metric
    */
-  public recordError(errorType: string, page: string, additionalLabels?: Record<string, string>): void {
+  public recordError(
+    errorType: string,
+    page: string,
+    additionalLabels?: Record<string, string>
+  ): void {
     this.record({
       type: 'error',
       labels: {
@@ -176,7 +196,10 @@ class MetricsServiceClass {
   /**
    * Record a message sent to an AI model
    */
-  public recordMessageSent(model: string, status: 'success' | 'error' = 'success'): void {
+  public recordMessageSent(
+    model: string,
+    status: 'success' | 'error' = 'success'
+  ): void {
     this.record({
       type: 'message_sent',
       labels: {
@@ -239,7 +262,9 @@ class MetricsServiceClass {
     const metricsToSend = [...this.buffer];
     this.buffer = [];
 
-    console.log(`📤 [MetricsService] Flushing ${metricsToSend.length} metrics...`);
+    console.log(
+      `📤 [MetricsService] Flushing ${metricsToSend.length} metrics...`
+    );
 
     try {
       const response = await fetch(this.baseUrl, {
@@ -253,12 +278,16 @@ class MetricsServiceClass {
       });
 
       if (!response.ok) {
-        console.error(`❌ [MetricsService] Failed to send metrics: ${response.status} ${response.statusText}`);
+        console.error(
+          `❌ [MetricsService] Failed to send metrics: ${response.status} ${response.statusText}`
+        );
         // Put metrics back in buffer for retry (up to max retries)
         this.buffer.unshift(...metricsToSend);
       } else {
         const result = await response.json();
-        console.log(`✅ [MetricsService] Successfully sent ${result.processed} metrics`);
+        console.log(
+          `✅ [MetricsService] Successfully sent ${result.processed} metrics`
+        );
       }
     } catch (error) {
       console.error('❌ [MetricsService] Error sending metrics:', error);
@@ -278,7 +307,9 @@ class MetricsServiceClass {
     const metricsToSend = [...this.buffer];
     this.buffer = [];
 
-    console.log(`📤 [MetricsService] Sync flushing ${metricsToSend.length} metrics...`);
+    console.log(
+      `📤 [MetricsService] Sync flushing ${metricsToSend.length} metrics...`
+    );
 
     // Use sendBeacon for reliable delivery during page unload
     const blob = new Blob(
@@ -362,4 +393,3 @@ export const MetricsService = new MetricsServiceClass();
 if (typeof window !== 'undefined') {
   MetricsService.initialize();
 }
-

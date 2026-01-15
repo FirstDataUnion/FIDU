@@ -14,7 +14,7 @@ export function loadAlertHistory(): AgentAlert[] {
   try {
     const stored = localStorage.getItem(ALERT_HISTORY_STORAGE_KEY);
     if (!stored) return [];
-    
+
     const alerts: AgentAlert[] = JSON.parse(stored);
     // Ensure all alerts have required fields
     return alerts.map(alert => ({
@@ -35,7 +35,10 @@ export function saveAlertHistory(alerts: AgentAlert[]): void {
   try {
     // Limit stored alerts to prevent localStorage bloat
     const alertsToStore = alerts.slice(-MAX_STORED_ALERTS);
-    localStorage.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alertsToStore));
+    localStorage.setItem(
+      ALERT_HISTORY_STORAGE_KEY,
+      JSON.stringify(alertsToStore)
+    );
   } catch (error) {
     console.warn('Failed to save alert history:', error);
   }
@@ -100,12 +103,12 @@ export function clearAlertHistory(): void {
 export function getUnreadAlertCount(conversationId?: string): number {
   const history = loadAlertHistory();
   let filtered = history.filter(a => !a.read);
-  
+
   // If conversationId is provided, only count alerts for that conversation
   if (conversationId) {
     filtered = filtered.filter(a => a.conversationId === conversationId);
   }
-  
+
   return filtered.length;
 }
 
@@ -121,35 +124,36 @@ export function getFilteredAlerts(filters?: {
   limit?: number;
 }): AgentAlert[] {
   let history = loadAlertHistory();
-  
+
   // Sort by most recent first
-  history.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
+  history.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
   if (filters?.unreadOnly) {
     history = history.filter(a => !a.read);
   }
-  
+
   if (filters?.severity) {
     history = history.filter(a => a.severity === filters.severity);
   }
-  
+
   if (filters?.agentId) {
     history = history.filter(a => a.agentId === filters.agentId);
   }
-  
+
   if (filters?.conversationId) {
     // Only show alerts that match the conversationId exactly (exclude legacy alerts without conversationId)
     history = history.filter(a => a.conversationId === filters.conversationId);
   }
-  
+
   if (filters?.messageId) {
     history = history.filter(a => a.messageId === filters.messageId);
   }
-  
+
   if (filters?.limit) {
     history = history.slice(0, filters.limit);
   }
-  
+
   return history;
 }
-

@@ -21,12 +21,20 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
 
   async getAllResources(profileId: string): Promise<BackgroundAgent[]> {
     const storage = getUnifiedStorageService();
-    const response = await storage.getBackgroundAgents(undefined, 1, 1000, profileId);
+    const response = await storage.getBackgroundAgents(
+      undefined,
+      1,
+      1000,
+      profileId
+    );
     return response.backgroundAgents || [];
   }
 
-  async exportResource(resource: BackgroundAgent, _profileId: string): Promise<ExportableResource> {
-    let outputDocument: { id: string; title: string; } | undefined;
+  async exportResource(
+    resource: BackgroundAgent,
+    _profileId: string
+  ): Promise<ExportableResource> {
+    let outputDocument: { id: string; title: string } | undefined;
     if (resource.outputDocumentId) {
       const storage = getUnifiedStorageService();
       const document = await storage.getDocumentById(resource.outputDocumentId);
@@ -70,21 +78,23 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
     idMapping?: IdMapping
   ): Promise<BackgroundAgent> {
     const exportData = exportable.data as BackgroundAgentExport;
-    
+
     // Validate action type
-    if (exportData.actionType !== 'alert' && exportData.actionType !== 'update_document') {
+    if (
+      exportData.actionType !== 'alert'
+      && exportData.actionType !== 'update_document'
+    ) {
       throw new Error(`Invalid action type: ${exportData.actionType}`);
     }
-    
+
     // Generate new ID
     const newId = uuidv4();
-    
+
     // Update ID mapping if provided
     if (idMapping) {
       idMapping[exportData.id] = newId;
     }
 
-    
     let outputDocumentId: string | undefined;
     // If the agent has an output document
     if (exportData.outputDocument) {
@@ -93,10 +103,13 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
       // But if not, create a new document
       if (!outputDocumentId) {
         const storage = getUnifiedStorageService();
-        const created = await storage.createDocument({
-          title: exportData.outputDocument.title,
-          content: '',
-        }, profileId);
+        const created = await storage.createDocument(
+          {
+            title: exportData.outputDocument.title,
+            content: '',
+          },
+          profileId
+        );
         outputDocumentId = created.id;
         // And store the new ID, in case it is needed for other agents
         if (idMapping) {
@@ -150,11 +163,13 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
     }
 
     // Validate types
-    if (typeof data.name !== 'string' || typeof data.promptTemplate !== 'string') {
+    if (
+      typeof data.name !== 'string'
+      || typeof data.promptTemplate !== 'string'
+    ) {
       return false;
     }
 
     return true;
   }
 }
-

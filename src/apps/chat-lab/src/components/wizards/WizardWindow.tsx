@@ -11,7 +11,7 @@ import {
   TextField,
   Button,
   Tooltip,
-  Paper
+  Paper,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -22,17 +22,17 @@ import {
   ContentCopy as CopyIcon,
   AutoFixHigh as WizardIcon,
   Clear as ClearIcon,
-  Add as AddIcon
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { EnhancedMarkdown } from '../common/EnhancedMarkdown';
 import type { WizardWindowProps, WizardMessage } from '../../types/wizard';
 
 // Wizard input component with internal state management
-const WizardInput = ({ 
-  onSendMessage, 
+const WizardInput = ({
+  onSendMessage,
   isSendingMessage,
   initialMessage = '',
-  messages = []
+  messages = [],
 }: {
   onSendMessage: (message: string) => void;
   isSendingMessage: boolean;
@@ -55,13 +55,15 @@ const WizardInput = ({
   const focusInput = () => {
     // Try focusing the TextField's input element directly
     if (textFieldRef.current) {
-      const inputElement = textFieldRef.current.querySelector('textarea') as HTMLTextAreaElement;
+      const inputElement = textFieldRef.current.querySelector(
+        'textarea'
+      ) as HTMLTextAreaElement;
       if (inputElement) {
         inputElement.focus();
         return;
       }
     }
-    
+
     // Fallback to ref
     if (inputRef.current) {
       inputRef.current.focus();
@@ -114,36 +116,32 @@ const WizardInput = ({
         maxRows={4}
         placeholder="Type your response..."
         value={localMessage}
-        onChange={(e) => setLocalMessage(e.target.value)}
+        onChange={e => setLocalMessage(e.target.value)}
         onKeyPress={handleKeyPress}
         disabled={isSendingMessage}
         autoFocus={false}
         onClick={focusInput}
         sx={{
           '& .MuiOutlinedInput-root': {
-            borderRadius: 2
-          }
+            borderRadius: 2,
+          },
         }}
       />
       <Button
         variant="contained"
         onClick={handleSend}
         disabled={!localMessage.trim() || isSendingMessage}
-        sx={{ 
+        sx={{
           minWidth: 'auto',
           px: 2,
           borderRadius: 2,
           backgroundColor: 'secondary.main',
           '&:hover': {
-            backgroundColor: 'secondary.dark'
-          }
+            backgroundColor: 'secondary.dark',
+          },
         }}
       >
-        {isSendingMessage ? (
-          <CircularProgress size={20} />
-        ) : (
-          <SendIcon />
-        )}
+        {isSendingMessage ? <CircularProgress size={20} /> : <SendIcon />}
       </Button>
     </Stack>
   );
@@ -165,7 +163,7 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
   onAddSystemPrompt,
   systemPrompts = [],
   showCopyButton = true,
-  icon
+  icon,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -173,9 +171,9 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
+      messagesEndRef.current.scrollIntoView({
         behavior: 'smooth',
-        block: 'end'
+        block: 'end',
       });
     }
   }, [messages]);
@@ -183,9 +181,9 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
   // Auto-scroll to bottom when loading
   useEffect(() => {
     if (isLoading && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
+      messagesEndRef.current.scrollIntoView({
         behavior: 'smooth',
-        block: 'end'
+        block: 'end',
       });
     }
   }, [isLoading]);
@@ -214,37 +212,46 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
     if (!lastAssistantMessage) return null;
 
     // Look for the FINAL_PROMPT tag pattern
-    const finalPromptRegex = /<!-- FINAL_PROMPT -->\s*```[\s\S]*?```\s*<!-- \/FINAL_PROMPT -->/g;
+    const finalPromptRegex =
+      /<!-- FINAL_PROMPT -->\s*```[\s\S]*?```\s*<!-- \/FINAL_PROMPT -->/g;
     const matches = lastAssistantMessage.match(finalPromptRegex);
-    
+
     if (!matches || matches.length === 0) return null;
-    
+
     // Get the latest match (last occurrence)
     const latestMatch = matches[matches.length - 1];
-    
+
     // Extract content between the tags and code block
-    const contentMatch = latestMatch.match(/<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/);
-    
+    const contentMatch = latestMatch.match(
+      /<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/
+    );
+
     return contentMatch ? contentMatch[1].trim() : null;
   };
 
   // Check if a message contains a final prompt
   const messageHasFinalPrompt = (message: WizardMessage): boolean => {
-    const finalPromptRegex = /<!-- FINAL_PROMPT -->\s*```[\s\S]*?```\s*<!-- \/FINAL_PROMPT -->/g;
+    const finalPromptRegex =
+      /<!-- FINAL_PROMPT -->\s*```[\s\S]*?```\s*<!-- \/FINAL_PROMPT -->/g;
     return finalPromptRegex.test(message.content);
   };
 
   // Extract final prompt from a specific message
-  const extractFinalPromptFromMessage = (message: WizardMessage): string | null => {
-    const finalPromptRegex = /<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/g;
+  const extractFinalPromptFromMessage = (
+    message: WizardMessage
+  ): string | null => {
+    const finalPromptRegex =
+      /<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/g;
     const match = message.content.match(finalPromptRegex);
-    
+
     if (!match) return null;
-    
+
     // Get the latest match (last occurrence)
     const latestMatch = match[match.length - 1];
-    const contentMatch = latestMatch.match(/<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/);
-    
+    const contentMatch = latestMatch.match(
+      /<!-- FINAL_PROMPT -->\s*```\s*([\s\S]*?)\s*```\s*<!-- \/FINAL_PROMPT -->/
+    );
+
     return contentMatch ? contentMatch[1].trim() : null;
   };
 
@@ -254,22 +261,25 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
     const promptIdRegex = /\[PROMPT_ID:([a-zA-Z0-9_-]+)\]/g;
     const matches = [];
     let match;
-    
+
     while ((match = promptIdRegex.exec(content)) !== null) {
       matches.push(match[1]);
     }
-    
+
     // Remove duplicates by converting to Set and back to array
     const uniqueMatches = [...new Set(matches)];
-    
+
     // Debug logging to see what we're detecting
     console.log('=== PROMPT_ID Detection Debug ===');
     console.log('Message content length:', content.length);
-    console.log('Looking for PROMPT_ID tags in:', content.substring(0, 200) + '...');
+    console.log(
+      'Looking for PROMPT_ID tags in:',
+      content.substring(0, 200) + '...'
+    );
     console.log('Found matches:', matches);
     console.log('Unique matches:', uniqueMatches);
     console.log('Regex pattern:', promptIdRegex);
-    
+
     return uniqueMatches;
   };
 
@@ -283,14 +293,14 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
     // Remove [PROMPT_ID:...] tags from the content for display
     // Use a more specific regex that only matches the exact tag format
     const cleaned = content.replace(/\[PROMPT_ID:[a-zA-Z0-9_-]+\]/g, '');
-    
+
     // Debug logging for cleaning
     console.log('=== Message Cleaning Debug ===');
     console.log('Original content length:', content.length);
     console.log('Cleaned content length:', cleaned.length);
     console.log('Original (first 200 chars):', content.substring(0, 200));
     console.log('Cleaned (first 200 chars):', cleaned.substring(0, 200));
-    
+
     return cleaned;
   };
 
@@ -304,22 +314,25 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
           width: { xs: '100%', sm: 500, md: 600 },
           maxWidth: '100vw',
           backgroundColor: 'rgba(147, 112, 219, 0.05)', // Light purple background
-          backdropFilter: 'blur(10px)'
-        }
+          backdropFilter: 'blur(10px)',
+        },
       }}
     >
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <Box sx={{ 
-          p: 2, 
-          borderBottom: 1, 
-          borderColor: 'divider', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          backgroundColor: 'background.paper',
-          background: 'linear-gradient(135deg, rgba(147, 112, 219, 0.1) 0%, rgba(147, 112, 219, 0.05) 100%)'
-        }}>
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            backgroundColor: 'background.paper',
+            background:
+              'linear-gradient(135deg, rgba(147, 112, 219, 0.1) 0%, rgba(147, 112, 219, 0.05) 100%)',
+          }}
+        >
           {icon || <WizardIcon color="secondary" />}
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="h6" noWrap>
@@ -329,55 +342,60 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
               Interactive Prompt Assistant
             </Typography>
           </Box>
-          <Chip 
-            label={modelName} 
-            size="small" 
+          <Chip
+            label={modelName}
+            size="small"
             color="secondary"
-            sx={{ backgroundColor: 'secondary.light', color: 'secondary.contrastText' }}
+            sx={{
+              backgroundColor: 'secondary.light',
+              color: 'secondary.contrastText',
+            }}
           />
           {showCopyButton && getFinalPrompt() && (
             <Tooltip title="Copy final prompt to chat">
-              <IconButton 
+              <IconButton
                 onClick={() => onCopyResult(getFinalPrompt()!)}
                 size="small"
                 sx={{
                   backgroundColor: 'secondary.light',
                   color: 'secondary.contrastText',
                   '&:hover': {
-                    backgroundColor: 'secondary.main'
-                  }
+                    backgroundColor: 'secondary.main',
+                  },
                 }}
               >
                 <CopyIcon />
               </IconButton>
             </Tooltip>
           )}
-          {showCopyButton && !getFinalPrompt() && messages.some(msg => msg.role === 'assistant') && (
-            <Tooltip title="Final prompt not ready yet - continue the conversation">
-              <IconButton 
-                disabled
-                size="small"
-                sx={{
-                  backgroundColor: 'action.disabledBackground',
-                  color: 'action.disabled',
-                  opacity: 0.5
-                }}
-              >
-                <CopyIcon />
-              </IconButton>
-            </Tooltip>
-          )}
+          {showCopyButton
+            && !getFinalPrompt()
+            && messages.some(msg => msg.role === 'assistant') && (
+              <Tooltip title="Final prompt not ready yet - continue the conversation">
+                <IconButton
+                  disabled
+                  size="small"
+                  sx={{
+                    backgroundColor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                    opacity: 0.5,
+                  }}
+                >
+                  <CopyIcon />
+                </IconButton>
+              </Tooltip>
+            )}
           {onClearConversation && messages.length > 0 && (
             <Tooltip title="Clear conversation">
-              <IconButton 
+              <IconButton
                 onClick={onClearConversation}
                 size="small"
                 sx={{
                   backgroundColor: 'error.light',
                   color: 'error.contrastText',
                   '&:hover': {
-                    backgroundColor: 'error.main'
-                  }
+                    backgroundColor: 'error.main',
+                  },
                 }}
               >
                 <ClearIcon />
@@ -397,13 +415,14 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
         </Box>
 
         {/* Messages */}
-        <Box 
+        <Box
           ref={messagesContainerRef}
-          sx={{ 
-            flexGrow: 1, 
-            overflow: 'auto', 
+          sx={{
+            flexGrow: 1,
+            overflow: 'auto',
             p: 2,
-            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
+            backgroundColor: theme =>
+              theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
           }}
         >
           <Stack spacing={2}>
@@ -412,45 +431,56 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
                 <Box
                   sx={{
                     display: 'flex',
-                    justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                    justifyContent:
+                      message.role === 'user' ? 'flex-end' : 'flex-start',
                     mb: 2,
-                    animation: index === messages.length - 1 ? 'fadeInUp 0.3s ease-out' : 'none',
+                    animation:
+                      index === messages.length - 1
+                        ? 'fadeInUp 0.3s ease-out'
+                        : 'none',
                     '@keyframes fadeInUp': {
                       '0%': {
                         opacity: 0,
-                        transform: 'translateY(10px)'
+                        transform: 'translateY(10px)',
                       },
                       '100%': {
                         opacity: 1,
-                        transform: 'translateY(0)'
-                      }
-                    }
+                        transform: 'translateY(0)',
+                      },
+                    },
                   }}
                 >
                   <Paper
                     sx={{
                       maxWidth: '80%',
-                      backgroundColor: message.role === 'user' 
-                        ? 'secondary.main' 
-                        : 'background.paper',
-                      color: message.role === 'user' 
-                        ? 'secondary.contrastText' 
-                        : 'text.primary',
+                      backgroundColor:
+                        message.role === 'user'
+                          ? 'secondary.main'
+                          : 'background.paper',
+                      color:
+                        message.role === 'user'
+                          ? 'secondary.contrastText'
+                          : 'text.primary',
                       borderRadius: 2,
                       p: 2,
                       boxShadow: 2,
                       position: 'relative',
-                      border: message.role === 'assistant' ? '1px solid rgba(147, 112, 219, 0.2)' : 'none'
+                      border:
+                        message.role === 'assistant'
+                          ? '1px solid rgba(147, 112, 219, 0.2)'
+                          : 'none',
                     }}
                   >
                     {/* Message Header */}
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1, 
-                      mb: 1,
-                      opacity: 0.8
-                    }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 1,
+                        opacity: 0.8,
+                      }}
+                    >
                       {message.role === 'user' ? (
                         <>
                           <UserIcon fontSize="small" />
@@ -468,137 +498,159 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
                     </Box>
 
                     {/* Message Content */}
-                    <EnhancedMarkdown 
+                    <EnhancedMarkdown
                       content={cleanMessageContent(message.content)}
                       enableSyntaxHighlighting={true}
                       showCopyButtons={true}
                       preprocess={true}
                       sx={{
-                        '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '4px', marginBottom: '4px' },
+                        '& h1, & h2, & h3, & h4, & h5, & h6': {
+                          marginTop: '4px',
+                          marginBottom: '4px',
+                        },
                       }}
                     />
                   </Paper>
                 </Box>
 
                 {/* System Prompt Add Buttons - appears below messages with detected system prompt IDs */}
-                {message.role === 'assistant' && onAddSystemPrompt && extractSystemPromptIdsFromContent(message.content).length > 0 && (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    flexWrap: 'wrap',
-                    gap: 1,
-                    mb: 2,
-                    animation: 'fadeInUp 0.3s ease-out',
-                    '@keyframes fadeInUp': {
-                      '0%': {
-                        opacity: 0,
-                        transform: 'translateY(10px)'
-                      },
-                      '100%': {
-                        opacity: 1,
-                        transform: 'translateY(0)'
-                      }
-                    }
-                  }}>
-                    {extractSystemPromptIdsFromContent(message.content).map((promptId) => {
-                      const systemPrompt = getSystemPromptById(promptId);
-                      if (!systemPrompt) return null;
-                      
-                      return (
-                        <Button
-                          key={promptId}
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={() => onAddSystemPrompt(promptId)}
-                          sx={{
-                            borderColor: 'secondary.main',
-                            color: 'secondary.main',
-                            borderRadius: 2,
-                            px: 2,
-                            py: 0.5,
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            textTransform: 'none',
-                            '&:hover': {
-                              backgroundColor: 'secondary.light',
-                              borderColor: 'secondary.dark',
-                              color: 'secondary.dark'
-                            }
-                          }}
-                        >
-                          Add "{systemPrompt.name}"
-                        </Button>
-                      );
-                    })}
-                  </Box>
-                )}
-
-                {/* Copy Prompt Button - appears below messages with final prompts */}
-                {message.role === 'assistant' && messageHasFinalPrompt(message) && (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    mb: 2,
-                    animation: 'fadeInUp 0.3s ease-out',
-                    '@keyframes fadeInUp': {
-                      '0%': {
-                        opacity: 0,
-                        transform: 'translateY(10px)'
-                      },
-                      '100%': {
-                        opacity: 1,
-                        transform: 'translateY(0)'
-                      }
-                    }
-                  }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<CopyIcon />}
-                      onClick={() => {
-                        const prompt = extractFinalPromptFromMessage(message);
-                        if (prompt) {
-                          onCopyResult(prompt);
-                        }
-                      }}
+                {message.role === 'assistant'
+                  && onAddSystemPrompt
+                  && extractSystemPromptIdsFromContent(message.content).length
+                    > 0 && (
+                    <Box
                       sx={{
-                        backgroundColor: 'secondary.main',
-                        color: 'secondary.contrastText',
-                        borderRadius: 2,
-                        px: 3,
-                        py: 1,
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        boxShadow: 2,
-                        '&:hover': {
-                          backgroundColor: 'secondary.dark',
-                          boxShadow: 4,
-                          transform: 'translateY(-1px)'
+                        display: 'flex',
+                        justifyContent: 'center',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        mb: 2,
+                        animation: 'fadeInUp 0.3s ease-out',
+                        '@keyframes fadeInUp': {
+                          '0%': {
+                            opacity: 0,
+                            transform: 'translateY(10px)',
+                          },
+                          '100%': {
+                            opacity: 1,
+                            transform: 'translateY(0)',
+                          },
                         },
-                        '&:active': {
-                          transform: 'translateY(0)'
-                        },
-                        transition: 'all 0.2s ease'
                       }}
                     >
-                      Copy Prompt to Chat
-                    </Button>
-                  </Box>
-                )}
+                      {extractSystemPromptIdsFromContent(message.content).map(
+                        promptId => {
+                          const systemPrompt = getSystemPromptById(promptId);
+                          if (!systemPrompt) return null;
+
+                          return (
+                            <Button
+                              key={promptId}
+                              variant="outlined"
+                              size="small"
+                              startIcon={<AddIcon />}
+                              onClick={() => onAddSystemPrompt(promptId)}
+                              sx={{
+                                borderColor: 'secondary.main',
+                                color: 'secondary.main',
+                                borderRadius: 2,
+                                px: 2,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                '&:hover': {
+                                  backgroundColor: 'secondary.light',
+                                  borderColor: 'secondary.dark',
+                                  color: 'secondary.dark',
+                                },
+                              }}
+                            >
+                              Add "{systemPrompt.name}"
+                            </Button>
+                          );
+                        }
+                      )}
+                    </Box>
+                  )}
+
+                {/* Copy Prompt Button - appears below messages with final prompts */}
+                {message.role === 'assistant'
+                  && messageHasFinalPrompt(message) && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mb: 2,
+                        animation: 'fadeInUp 0.3s ease-out',
+                        '@keyframes fadeInUp': {
+                          '0%': {
+                            opacity: 0,
+                            transform: 'translateY(10px)',
+                          },
+                          '100%': {
+                            opacity: 1,
+                            transform: 'translateY(0)',
+                          },
+                        },
+                      }}
+                    >
+                      <Button
+                        variant="contained"
+                        startIcon={<CopyIcon />}
+                        onClick={() => {
+                          const prompt = extractFinalPromptFromMessage(message);
+                          if (prompt) {
+                            onCopyResult(prompt);
+                          }
+                        }}
+                        sx={{
+                          backgroundColor: 'secondary.main',
+                          color: 'secondary.contrastText',
+                          borderRadius: 2,
+                          px: 3,
+                          py: 1,
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          boxShadow: 2,
+                          '&:hover': {
+                            backgroundColor: 'secondary.dark',
+                            boxShadow: 4,
+                            transform: 'translateY(-1px)',
+                          },
+                          '&:active': {
+                            transform: 'translateY(0)',
+                          },
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        Copy Prompt to Chat
+                      </Button>
+                    </Box>
+                  )}
               </Box>
             ))}
 
             {isLoading && (
               <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <Paper sx={{ 
-                  backgroundColor: 'background.paper',
-                  borderRadius: 2,
-                  p: 2,
-                  boxShadow: 1,
-                  border: '1px solid rgba(147, 112, 219, 0.2)'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Paper
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    p: 2,
+                    boxShadow: 1,
+                    border: '1px solid rgba(147, 112, 219, 0.2)',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
                     <BotIcon fontSize="small" />
                     <Typography variant="caption">{modelName}</Typography>
                     <CircularProgress size={12} sx={{ ml: 1 }} />
@@ -618,20 +670,20 @@ export const WizardWindow: React.FC<WizardWindowProps> = ({
         {/* Error Display */}
         {error && (
           <Box sx={{ p: 2 }}>
-            <Alert severity="error">
-              {error}
-            </Alert>
+            <Alert severity="error">{error}</Alert>
           </Box>
         )}
 
         {/* Input Area */}
-        <Box sx={{ 
-          p: 2, 
-          borderTop: 1, 
-          borderColor: 'divider',
-          backgroundColor: 'background.paper'
-        }}>
-          <WizardInput 
+        <Box
+          sx={{
+            p: 2,
+            borderTop: 1,
+            borderColor: 'divider',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          <WizardInput
             onSendMessage={onSendMessage}
             isSendingMessage={isLoading}
             initialMessage={initialMessage}

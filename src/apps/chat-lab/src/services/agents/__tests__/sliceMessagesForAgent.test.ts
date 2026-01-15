@@ -1,13 +1,19 @@
 /**
  * Tests for context window message slicing functionality
- * 
+ *
  * Note: sliceMessagesForAgent is currently a private function in backgroundAgentRunner.ts
  * These tests verify the behavior through the public maybeEvaluateBackgroundAgents API
  */
 
-import { maybeEvaluateBackgroundAgents, clearDebounceCache } from '../backgroundAgentRunner';
+import {
+  maybeEvaluateBackgroundAgents,
+  clearDebounceCache,
+} from '../backgroundAgentRunner';
 import type { BackgroundAgent } from '../../api/backgroundAgents';
-import type { ConversationSliceMessage, EvaluationResult } from '../backgroundAgentsService';
+import type {
+  ConversationSliceMessage,
+  EvaluationResult,
+} from '../backgroundAgentsService';
 
 // Create mocks before using them in jest.mock
 const mockGetBackgroundAgents = jest.fn();
@@ -23,7 +29,8 @@ jest.mock('../../storage/UnifiedStorageService', () => ({
 }));
 
 jest.mock('../backgroundAgentsService', () => ({
-  evaluateBackgroundAgent: (...args: any[]) => mockEvaluateBackgroundAgent(...args),
+  evaluateBackgroundAgent: (...args: any[]) =>
+    mockEvaluateBackgroundAgent(...args),
 }));
 
 jest.mock('../agentPreferences', () => ({
@@ -31,7 +38,8 @@ jest.mock('../agentPreferences', () => ({
 }));
 
 jest.mock('../agentTransformers', () => ({
-  transformBuiltInAgentsWithPreferences: (...args: any[]) => mockTransformBuiltInAgents(...args),
+  transformBuiltInAgentsWithPreferences: (...args: any[]) =>
+    mockTransformBuiltInAgents(...args),
 }));
 
 jest.mock('../agentAlerts', () => ({
@@ -43,10 +51,10 @@ describe('Context Window Message Slicing', () => {
     jest.clearAllMocks();
     // Clear debounce cache to prevent test interference
     clearDebounceCache();
-    
+
     mockLoadAgentPreferences.mockReturnValue({});
     mockTransformBuiltInAgents.mockReturnValue([]);
-      mockEvaluateBackgroundAgent.mockResolvedValue({
+    mockEvaluateBackgroundAgent.mockResolvedValue({
       agentId: 'agent-1',
       response: {
         actionType: 'alert',
@@ -106,7 +114,7 @@ describe('Context Window Message Slicing', () => {
       expect(mockEvaluateBackgroundAgent).toHaveBeenCalled();
       const callArgs = mockEvaluateBackgroundAgent.mock.calls[0];
       const slice = callArgs[1]; // Second argument is the ConversationSlice
-      
+
       expect(slice.messages).toHaveLength(6);
       expect(slice.messages[0].content).toBe('Message 15'); // Last 6 messages
       expect(slice.messages[5].content).toBe('Message 20');
@@ -328,4 +336,3 @@ describe('Context Window Message Slicing', () => {
     });
   });
 });
-

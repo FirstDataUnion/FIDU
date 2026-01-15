@@ -54,7 +54,11 @@ describe('DocumentHandler', () => {
         data: exportData,
       };
 
-      const result = await handler.importResource(exportable, mockProfileId, mockUserId);
+      const result = await handler.importResource(
+        exportable,
+        mockProfileId,
+        mockUserId
+      );
 
       expect(result.id).not.toBe('doc-123');
       expect(result.id).toBeDefined();
@@ -67,6 +71,5 @@ describe('DocumentHandler', () => {
       expect(new Date(result.createdAt).getTime()).toBeGreaterThan(0);
       expect(new Date(result.updatedAt).getTime()).toBeGreaterThan(0);
     });
+  });
 });
-});
-

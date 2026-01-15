@@ -97,10 +97,43 @@ describe('ConversationHandler', () => {
         status: 'active',
         originalPrompt: {
           promptText: 'Test prompt',
-          context: { id: 'ctx-123', title: 'Test Context', body: '', tokenCount: 0, createdAt: '', updatedAt: '', tags: [], isBuiltIn: false },
+          context: {
+            id: 'ctx-123',
+            title: 'Test Context',
+            body: '',
+            tokenCount: 0,
+            createdAt: '',
+            updatedAt: '',
+            tags: [],
+            isBuiltIn: false,
+          },
           systemPrompts: [
-            { id: 'sp-1', name: 'Prompt 1', content: 'Content 1', description: '', tokenCount: 0, isDefault: false, isBuiltIn: false, source: 'user', categories: [], createdAt: '', updatedAt: '' },
-            { id: 'sp-2', name: 'Prompt 2', content: 'Content 2', description: '', tokenCount: 0, isDefault: false, isBuiltIn: false, source: 'user', categories: [], createdAt: '', updatedAt: '' },
+            {
+              id: 'sp-1',
+              name: 'Prompt 1',
+              content: 'Content 1',
+              description: '',
+              tokenCount: 0,
+              isDefault: false,
+              isBuiltIn: false,
+              source: 'user',
+              categories: [],
+              createdAt: '',
+              updatedAt: '',
+            },
+            {
+              id: 'sp-2',
+              name: 'Prompt 2',
+              content: 'Content 2',
+              description: '',
+              tokenCount: 0,
+              isDefault: false,
+              isBuiltIn: false,
+              source: 'user',
+              categories: [],
+              createdAt: '',
+              updatedAt: '',
+            },
           ],
           metadata: {
             estimatedTokens: 100,
@@ -113,7 +146,10 @@ describe('ConversationHandler', () => {
       const result = await handler.exportResource(conversation, mockProfileId);
 
       expect(result.data.originalPrompt?.contextId).toBe('ctx-123');
-      expect(result.data.originalPrompt?.systemPromptIds).toEqual(['sp-1', 'sp-2']);
+      expect(result.data.originalPrompt?.systemPromptIds).toEqual([
+        'sp-1',
+        'sp-2',
+      ]);
     });
   });
 
@@ -254,4 +290,3 @@ describe('ConversationHandler', () => {
     });
   });
 });
-

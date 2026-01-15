@@ -13,7 +13,7 @@ export const useLazyLoad = <T>({
   pageSize = 20,
   threshold = 100,
   onLoadMore,
-  enabled = true
+  enabled = true,
 }: UseLazyLoadOptions<T>) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,13 +38,13 @@ export const useLazyLoad = <T>({
     if (isLoading || !hasMore || !enabled) return;
 
     setIsLoading(true);
-    
+
     try {
       const nextPage = currentPage + 1;
       const startIndex = currentPage * pageSize;
       const endIndex = nextPage * pageSize;
       const newItems = items.slice(startIndex, endIndex);
-      
+
       setCurrentPage(nextPage);
       onLoadMore?.(nextPage, newItems);
     } catch (error) {
@@ -59,7 +59,7 @@ export const useLazyLoad = <T>({
     if (!enabled || !loadingRef.current) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
+      entries => {
         const [entry] = entries;
         if (entry.isIntersecting && hasMore && !isLoading) {
           loadMore();
@@ -67,7 +67,7 @@ export const useLazyLoad = <T>({
       },
       {
         rootMargin: `${threshold}px`,
-        threshold: 0.1
+        threshold: 0.1,
       }
     );
 
@@ -89,10 +89,13 @@ export const useLazyLoad = <T>({
   }, []);
 
   // Load specific page
-  const goToPage = useCallback((page: number) => {
-    if (page < 1 || page > Math.ceil(items.length / pageSize)) return;
-    setCurrentPage(page);
-  }, [items.length, pageSize]);
+  const goToPage = useCallback(
+    (page: number) => {
+      if (page < 1 || page > Math.ceil(items.length / pageSize)) return;
+      setCurrentPage(page);
+    },
+    [items.length, pageSize]
+  );
 
   return {
     paginatedItems,
@@ -103,6 +106,6 @@ export const useLazyLoad = <T>({
     reset,
     goToPage,
     loadingRef,
-    totalPages: Math.ceil(items.length / pageSize)
+    totalPages: Math.ceil(items.length / pageSize),
   };
 };

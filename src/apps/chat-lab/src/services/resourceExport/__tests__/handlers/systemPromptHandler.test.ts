@@ -175,7 +175,13 @@ describe('SystemPromptHandler', () => {
     it('should reject invalid types', () => {
       // Note: Current validation only checks for presence, not types
       // This is acceptable for basic validation - stricter validation can be added if needed
-      expect(handler.validateImport({ id: 'sp-123', name: 'Test', content: 'Content' })).toBe(true);
+      expect(
+        handler.validateImport({
+          id: 'sp-123',
+          name: 'Test',
+          content: 'Content',
+        })
+      ).toBe(true);
     });
 
     it('should reject null or undefined', () => {
@@ -185,4 +191,3 @@ describe('SystemPromptHandler', () => {
     });
   });
 });
-

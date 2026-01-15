@@ -38,9 +38,7 @@ const theme = createTheme();
 const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <ThemeProvider theme={theme}>
-      <MemoryRouter>
-        {component}
-      </MemoryRouter>
+      <MemoryRouter>{component}</MemoryRouter>
     </ThemeProvider>
   );
 };
@@ -49,9 +47,9 @@ describe('StorageConfigurationBanner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocation.href = '';
-    
+
     // Default mock return values
-    mockUseAppSelector.mockImplementation((selector) => {
+    mockUseAppSelector.mockImplementation(selector => {
       const mockState = {
         unifiedStorage: {
           googleDrive: {
@@ -72,13 +70,19 @@ describe('StorageConfigurationBanner', () => {
   it('should render full banner by default', () => {
     renderWithProviders(<StorageConfigurationBanner />);
 
-    expect(screen.getByText('Google Drive is not connected')).toBeInTheDocument();
-    expect(screen.getByText(/Connect your Google Drive account to save your conversations/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Drive is not connected')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Connect your Google Drive account to save your conversations/
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText('Connect Google Drive')).toBeInTheDocument();
   });
 
   it('should show Connect Google Drive button when not authenticated', () => {
-    mockUseAppSelector.mockImplementation((selector) => {
+    mockUseAppSelector.mockImplementation(selector => {
       const mockState = {
         unifiedStorage: {
           googleDrive: {
@@ -98,18 +102,24 @@ describe('StorageConfigurationBanner', () => {
     renderWithProviders(<StorageConfigurationBanner />);
 
     expect(screen.getByText('Connect Google Drive')).toBeInTheDocument();
-    expect(screen.getByText(/Connect your Google Drive account to save your conversations/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Connect your Google Drive account to save your conversations/
+      )
+    ).toBeInTheDocument();
   });
-
 
   it('should render compact banner when compact prop is true', () => {
     renderWithProviders(<StorageConfigurationBanner compact />);
 
-    expect(screen.getByText(/Google Drive is not connected/)).toBeInTheDocument();
-    expect(screen.getByText(/Connect your Google Drive account to save your data/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Google Drive is not connected/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Connect your Google Drive account to save your data/)
+    ).toBeInTheDocument();
     expect(screen.getByText('Connect Google Drive')).toBeInTheDocument();
   });
-
 
   it('should have correct styling for full banner', () => {
     renderWithProviders(<StorageConfigurationBanner />);
@@ -128,7 +138,7 @@ describe('StorageConfigurationBanner', () => {
   });
 
   it('should trigger Google Drive authentication when button is clicked', () => {
-    mockUseAppSelector.mockImplementation((selector) => {
+    mockUseAppSelector.mockImplementation(selector => {
       const mockState = {
         unifiedStorage: {
           googleDrive: {
@@ -208,7 +218,7 @@ describe('StorageConfigurationBanner', () => {
   });
 
   it('should show loading state when Google Drive authentication is in progress', () => {
-    mockUseAppSelector.mockImplementation((selector) => {
+    mockUseAppSelector.mockImplementation(selector => {
       const mockState = {
         unifiedStorage: {
           googleDrive: {
@@ -232,7 +242,7 @@ describe('StorageConfigurationBanner', () => {
   });
 
   it('should show loading state in compact banner when Google Drive authentication is in progress', () => {
-    mockUseAppSelector.mockImplementation((selector) => {
+    mockUseAppSelector.mockImplementation(selector => {
       const mockState = {
         unifiedStorage: {
           googleDrive: {

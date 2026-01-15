@@ -10,14 +10,22 @@ import {
   TokenAcquisitionTimeoutError,
   TokenRefreshError,
 } from './FiduAuthService';
-import { detectRuntimeEnvironment, getGoogleClientId, getGoogleRedirectUri } from '../../utils/environment';
+import {
+  detectRuntimeEnvironment,
+  getGoogleClientId,
+  getGoogleRedirectUri,
+} from '../../utils/environment';
 
 // Custom error for insufficient OAuth scopes
 export class InsufficientScopesError extends Error {
   public grantedScopes: string[];
   public requiredScopes: string[];
-  
-  constructor(message: string, grantedScopes: string[], requiredScopes: string[]) {
+
+  constructor(
+    message: string,
+    grantedScopes: string[],
+    requiredScopes: string[]
+  ) {
     super(message);
     this.name = 'InsufficientScopesError';
     this.grantedScopes = grantedScopes;
@@ -77,8 +85,8 @@ export class GoogleDriveAuthService {
     if (config.testHostName && detectRuntimeEnvironment() === 'dev') {
       baseURL = config.testHostName;
     } else {
-      baseURL = window.location.pathname.includes('/fidu-chat-lab') 
-        ? '/fidu-chat-lab' 
+      baseURL = window.location.pathname.includes('/fidu-chat-lab')
+        ? '/fidu-chat-lab'
         : '';
     }
     this.client = axios.create({
@@ -99,14 +107,12 @@ export class GoogleDriveAuthService {
     const authInterceptor = getFiduAuthService().createAuthInterceptor();
 
     // Request interceptor
-    this.client.interceptors.request.use(
-      authInterceptor.request
-    );
+    this.client.interceptors.request.use(authInterceptor.request);
 
     // Response interceptor
     this.client.interceptors.response.use(
       authInterceptor.response,
-      authInterceptor.error,
+      authInterceptor.error
     );
 
     // Return response for non-auth errors to allow the individual methods to handle them
@@ -129,7 +135,9 @@ export class GoogleDriveAuthService {
     // Check if we're on the OAuth callback page - if so, skip initialization
     // The OAuth callback page will handle the callback processing directly
     if (window.location.pathname.includes('/oauth-callback')) {
-      console.log('🔄 On OAuth callback page, skipping initialization to avoid conflicts');
+      console.log(
+        '🔄 On OAuth callback page, skipping initialization to avoid conflicts'
+      );
       return;
     }
 
@@ -151,11 +159,15 @@ export class GoogleDriveAuthService {
 
     // Primary approach: Always attempt to restore from HTTP-only cookies first
     // This is more secure and persistent than localStorage
-    console.log('🔄 Attempting primary authentication restoration from HTTP-only cookies...');
+    console.log(
+      '🔄 Attempting primary authentication restoration from HTTP-only cookies...'
+    );
     const restored = await this.restoreFromCookies();
-    
+
     if (restored) {
-      console.log('✅ Successfully restored authentication from HTTP-only cookies');
+      console.log(
+        '✅ Successfully restored authentication from HTTP-only cookies'
+      );
       // Ensure user info is loaded (will update Google email if FIDU auth is ready)
       if (!this.user) {
         await this.getUser();
@@ -165,65 +177,77 @@ export class GoogleDriveAuthService {
       this.startPeriodicValidation();
       return;
     }
-    
+
     // Fallback: If we have tokens in memory (from previous session), validate them
     if (this.tokens && this.tokens.refreshToken) {
-      console.log('🔄 Cookie restoration failed, validating existing tokens...');
+      console.log(
+        '🔄 Cookie restoration failed, validating existing tokens...'
+      );
       const now = Date.now();
-      const fiveMinutesFromNow = now + (5 * 60 * 1000);
-      
-          // Proactively refresh tokens that are close to expiring
-          if (this.tokens.expiresAt <= fiveMinutesFromNow) {
-            try {
-              console.log('Token expires soon, refreshing automatically');
-              await this.refreshAccessToken();
-              // After successful refresh, start proactive refresh and periodic validation
-              this.startProactiveRefresh();
-              this.startPeriodicValidation();
-            } catch (error) {
-              console.warn('Failed to refresh token during initialization:', error);
-              // Check if this is a refresh token expiration issue
-              if (error instanceof Error && error.message.includes('invalid_grant')) {
-                console.error('Refresh token has expired or been revoked. User needs to re-authenticate.');
-                this.clearStoredTokens();
-                this.tokens = null;
-                this.user = null;
-              }
-              // Let the app handle the unauthenticated state
-            }
-          } else {
-            // Even if token is valid, verify it's still working by checking user info
-            try {
-              await this.validateToken();
-              // If validation succeeds, ensure user info is loaded (will update Google email if FIDU auth is ready)
-              if (!this.user) {
-                await this.getUser();
-              }
-              // Start proactive refresh and periodic validation for valid tokens
-              this.startProactiveRefresh();
-              this.startPeriodicValidation();
-            } catch (error) {
-              console.warn('Token validation failed, attempting refresh:', error);
-              try {
-                await this.refreshAccessToken();
-                // After successful refresh, load user info (will update Google email if FIDU auth is ready)
-                if (!this.user) {
-                  await this.getUser();
-                }
-                // Start proactive refresh and periodic validation after successful refresh
-                this.startProactiveRefresh();
-                this.startPeriodicValidation();
-              } catch (refreshError) {
-                console.error('Failed to refresh after validation failure:', refreshError);
-                // Clear tokens if refresh fails
-                this.clearStoredTokens();
-                this.tokens = null;
-                this.user = null;
-              }
-            }
+      const fiveMinutesFromNow = now + 5 * 60 * 1000;
+
+      // Proactively refresh tokens that are close to expiring
+      if (this.tokens.expiresAt <= fiveMinutesFromNow) {
+        try {
+          console.log('Token expires soon, refreshing automatically');
+          await this.refreshAccessToken();
+          // After successful refresh, start proactive refresh and periodic validation
+          this.startProactiveRefresh();
+          this.startPeriodicValidation();
+        } catch (error) {
+          console.warn('Failed to refresh token during initialization:', error);
+          // Check if this is a refresh token expiration issue
+          if (
+            error instanceof Error
+            && error.message.includes('invalid_grant')
+          ) {
+            console.error(
+              'Refresh token has expired or been revoked. User needs to re-authenticate.'
+            );
+            this.clearStoredTokens();
+            this.tokens = null;
+            this.user = null;
           }
+          // Let the app handle the unauthenticated state
+        }
+      } else {
+        // Even if token is valid, verify it's still working by checking user info
+        try {
+          await this.validateToken();
+          // If validation succeeds, ensure user info is loaded (will update Google email if FIDU auth is ready)
+          if (!this.user) {
+            await this.getUser();
+          }
+          // Start proactive refresh and periodic validation for valid tokens
+          this.startProactiveRefresh();
+          this.startPeriodicValidation();
+        } catch (error) {
+          console.warn('Token validation failed, attempting refresh:', error);
+          try {
+            await this.refreshAccessToken();
+            // After successful refresh, load user info (will update Google email if FIDU auth is ready)
+            if (!this.user) {
+              await this.getUser();
+            }
+            // Start proactive refresh and periodic validation after successful refresh
+            this.startProactiveRefresh();
+            this.startPeriodicValidation();
+          } catch (refreshError) {
+            console.error(
+              'Failed to refresh after validation failure:',
+              refreshError
+            );
+            // Clear tokens if refresh fails
+            this.clearStoredTokens();
+            this.tokens = null;
+            this.user = null;
+          }
+        }
+      }
     } else {
-      console.log('❌ No authentication found in cookies or memory - user needs to authenticate');
+      console.log(
+        '❌ No authentication found in cookies or memory - user needs to authenticate'
+      );
     }
   }
 
@@ -234,11 +258,11 @@ export class GoogleDriveAuthService {
     if (!this.tokens) {
       return false;
     }
-    
+
     // Check if token is expired or will expire soon (within 5 minutes)
     const now = Date.now();
-    const fiveMinutesFromNow = now + (5 * 60 * 1000);
-    
+    const fiveMinutesFromNow = now + 5 * 60 * 1000;
+
     return this.tokens.expiresAt > fiveMinutesFromNow;
   }
 
@@ -248,25 +272,33 @@ export class GoogleDriveAuthService {
   async getAccessToken(retry: boolean = true): Promise<string> {
     // If tokens missing, try to restore from cookies first
     if (!this.tokens) {
-      console.log('🔄 Tokens missing from memory, attempting to restore from cookies...');
+      console.log(
+        '🔄 Tokens missing from memory, attempting to restore from cookies...'
+      );
       const restored = await this.restoreFromCookies();
       if (!restored || !this.tokens) {
-        throw new Error('User not authenticated. Please reconnect Google Drive.');
+        throw new Error(
+          'User not authenticated. Please reconnect Google Drive.'
+        );
       }
       // After restoration, tokens should be set, continue with normal flow
     }
 
     // Check if token is expired or will expire soon (within 5 minutes)
     const now = Date.now();
-    const fiveMinutesFromNow = now + (5 * 60 * 1000);
-    
+    const fiveMinutesFromNow = now + 5 * 60 * 1000;
+
     if (this.tokens.expiresAt <= fiveMinutesFromNow) {
       if (!this.tokens.refreshToken) {
         // Try one more time to restore from cookies
-        console.log('🔄 Refresh token missing, attempting cookie restoration...');
+        console.log(
+          '🔄 Refresh token missing, attempting cookie restoration...'
+        );
         const restored = await this.restoreFromCookies();
         if (!restored || !this.tokens) {
-          throw new Error('Token expired and no refresh token available. Please reconnect Google Drive.');
+          throw new Error(
+            'Token expired and no refresh token available. Please reconnect Google Drive.'
+          );
         }
         // After restoration, check again
         if (this.tokens.expiresAt <= fiveMinutesFromNow) {
@@ -278,14 +310,23 @@ export class GoogleDriveAuthService {
         try {
           this.tokens.accessToken = await this.refreshAccessToken();
         } catch (error) {
-          if (error instanceof AuthenticationRequiredError || error instanceof TokenRefreshError || error instanceof ServiceUnavailableError) {
+          if (
+            error instanceof AuthenticationRequiredError
+            || error instanceof TokenRefreshError
+            || error instanceof ServiceUnavailableError
+          ) {
             throw error;
           }
           // If refresh fails, try to restore from cookies as fallback
-          console.warn('⚠️ Token refresh failed, attempting cookie restoration as fallback:', error);
+          console.warn(
+            '⚠️ Token refresh failed, attempting cookie restoration as fallback:',
+            error
+          );
           const restored = await this.restoreFromCookies();
           if (!restored || !retry) {
-            throw new Error('Failed to refresh token. Please reconnect Google Drive.');
+            throw new Error(
+              'Failed to refresh token. Please reconnect Google Drive.'
+            );
           }
           // After restoration, retry getting access token
           return this.getAccessToken(false);
@@ -325,14 +366,17 @@ export class GoogleDriveAuthService {
       console.log('🔄 OAuth flow already in progress, skipping...');
       return;
     }
-    
+
     this.isAuthenticating = true;
     try {
       const fiduAuthService = getFiduAuthService();
       try {
         // Don't show the user the Google OAuth flow if we won't be able to do anything with it
         await fiduAuthService.ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU session before starting Google OAuth flow...'),
+          onWait: () =>
+            console.log(
+              '🔐 Ensuring FIDU session before starting Google OAuth flow...'
+            ),
         });
       } catch (error) {
         if (error instanceof AuthenticationRequiredError) {
@@ -344,29 +388,41 @@ export class GoogleDriveAuthService {
             ]);
             store.dispatch(logout());
           } catch (dispatchError) {
-            console.warn('Failed to dispatch logout after auth loss:', dispatchError);
+            console.warn(
+              'Failed to dispatch logout after auth loss:',
+              dispatchError
+            );
           }
-          throw new Error('FIDU authentication required before connecting Google Drive. Please log in again.');
+          throw new Error(
+            'FIDU authentication required before connecting Google Drive. Please log in again.'
+          );
         }
         if (error instanceof TokenAcquisitionTimeoutError) {
-          throw new Error('Timed out while preparing authentication. Please try again.');
+          throw new Error(
+            'Timed out while preparing authentication. Please try again.'
+          );
         }
         throw error;
       }
 
       // Check if we need to force consent (when we don't have a refresh token)
-      const needsRefreshToken = forceReauth || !(await this.hasStoredRefreshToken());
-      
+      const needsRefreshToken =
+        forceReauth || !(await this.hasStoredRefreshToken());
+
       if (needsRefreshToken) {
-        console.log('🔄 No refresh token found, using consent prompt to ensure we get one');
+        console.log(
+          '🔄 No refresh token found, using consent prompt to ensure we get one'
+        );
       } else {
-        console.log('🔄 Refresh token exists, using select_account for better UX');
+        console.log(
+          '🔄 Refresh token exists, using select_account for better UX'
+        );
       }
-      
+
       // Generate authorization URL with smart prompt selection
       const authUrl = this.buildAuthUrl(needsRefreshToken);
       console.log('🔄 Starting OAuth flow, redirecting to:', authUrl);
-      
+
       window.location.href = authUrl;
     } catch (error) {
       this.isAuthenticating = false;
@@ -379,7 +435,7 @@ export class GoogleDriveAuthService {
    */
   async processOAuthCallback(): Promise<void> {
     console.log('🔄 Processing OAuth callback for callback page...');
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const error = urlParams.get('error');
@@ -408,11 +464,14 @@ export class GoogleDriveAuthService {
     }
 
     // Make a lightweight call to verify token is still valid
-    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+    const response = await fetch(
+      'https://www.googleapis.com/oauth2/v2/userinfo',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Token validation failed: ${response.status}`);
@@ -464,7 +523,7 @@ export class GoogleDriveAuthService {
     return {
       isAuthenticated: this.isAuthenticated(), // Keep sync for immediate UI updates
       user: this.user,
-      expiresAt: this.tokens?.expiresAt || null
+      expiresAt: this.tokens?.expiresAt || null,
     };
   }
 
@@ -478,7 +537,7 @@ export class GoogleDriveAuthService {
     if (this.tokens && this.tokens.expiresAt > Date.now() + 5 * 60 * 1000) {
       return true;
     }
-    
+
     // Slow path: try to restore from cookies
     if (!this.tokens || this.tokens.expiresAt <= Date.now() + 5 * 60 * 1000) {
       try {
@@ -495,7 +554,7 @@ export class GoogleDriveAuthService {
         return false;
       }
     }
-    
+
     return false;
   }
 
@@ -511,16 +570,21 @@ export class GoogleDriveAuthService {
         return scopes;
       }
     }
-    
+
     // If no scope in tokens, verify via Token Info API
     try {
       const accessToken = await this.getAccessToken();
-      const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + encodeURIComponent(accessToken));
-      
+      const response = await fetch(
+        'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token='
+          + encodeURIComponent(accessToken)
+      );
+
       if (response.ok) {
         const data = await response.json();
         if (data.scope) {
-          const scopes = data.scope.split(' ').filter((s: string) => s.length > 0);
+          const scopes = data.scope
+            .split(' ')
+            .filter((s: string) => s.length > 0);
           // Update stored tokens with scope for future use
           if (this.tokens) {
             this.tokens.scope = data.scope;
@@ -532,7 +596,7 @@ export class GoogleDriveAuthService {
     } catch (error) {
       console.warn('Failed to verify scopes via Token Info API:', error);
     }
-    
+
     return [];
   }
 
@@ -557,10 +621,10 @@ export class GoogleDriveAuthService {
   async requestAdditionalScopes(additionalScopes: string[]): Promise<void> {
     const currentScopes = this.config.scopes;
     const newScopes = [...new Set([...currentScopes, ...additionalScopes])];
-    
+
     // Update config with new scopes
     this.config.scopes = newScopes;
-    
+
     // Force re-authentication to get new scopes
     await this.authenticate(true);
   }
@@ -578,7 +642,7 @@ export class GoogleDriveAuthService {
       // - 'consent': Forces consent screen and ensures refresh token (use when we need one)
       // - 'select_account': Better UX, uses existing consent (use when we have refresh token)
       prompt: forceConsent ? 'consent' : 'select_account',
-      state: this.generateState()
+      state: this.generateState(),
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -591,7 +655,7 @@ export class GoogleDriveAuthService {
       console.log('🔄 Reusing existing OAuth state:', existingState);
       return existingState;
     }
-    
+
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
     console.log('🔄 Generated new OAuth state:', state);
@@ -600,29 +664,29 @@ export class GoogleDriveAuthService {
 
   private async handleOAuthCallback(code: string): Promise<void> {
     console.log('🔄 Starting OAuth callback handling...');
-    
+
     try {
       // Verify state parameter
       const urlParams = new URLSearchParams(window.location.search);
       const state = urlParams.get('state');
       const storedState = sessionStorage.getItem('google_oauth_state');
-      
-      console.log('🔍 State validation:', { 
-        receivedState: state, 
+
+      console.log('🔍 State validation:', {
+        receivedState: state,
         storedState: storedState,
-        statesMatch: state === storedState 
+        statesMatch: state === storedState,
       });
-      
+
       if (!state || !storedState) {
         console.error('❌ Missing state parameter or stored state');
         throw new Error('Invalid state parameter - missing state');
       }
-      
+
       if (state !== storedState) {
         console.error('❌ State parameter mismatch');
         throw new Error('Invalid state parameter - mismatch');
       }
-      
+
       // Only clear state after successful validation
       sessionStorage.removeItem('google_oauth_state');
       console.log('✅ State parameter validated successfully');
@@ -631,20 +695,19 @@ export class GoogleDriveAuthService {
       console.log('🔄 Exchanging code for tokens...');
       const tokens = await this.exchangeCodeForTokens(code);
       console.log('✅ Token exchange successful');
-      
+
       this.tokens = tokens;
       this.storeTokens(tokens);
 
       // Fetch user info (will update Google email if FIDU auth is ready)
       console.log('🔄 Fetching user info...');
       await this.fetchUserInfo();
-      
+
       // Start proactive refresh and periodic validation after successful OAuth
       this.startProactiveRefresh();
       this.startPeriodicValidation();
-      
+
       console.log('✅ OAuth callback completed successfully');
-      
     } catch (error) {
       console.error('❌ OAuth callback failed:', error);
       throw error;
@@ -654,50 +717,57 @@ export class GoogleDriveAuthService {
     }
   }
 
-  private async exchangeCodeForTokens(code: string): Promise<GoogleDriveTokens> {
+  private async exchangeCodeForTokens(
+    code: string
+  ): Promise<GoogleDriveTokens> {
     // Use backend endpoint for secure token exchange
-      try {
-        await getFiduAuthService().ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU auth before exchanging OAuth code...'),
-        });
-      } catch (error) {
-        if (error instanceof AuthenticationRequiredError) {
-          throw new Error('FIDU authentication expired before completing Google Drive setup. Please log in again.');
-        }
-        if (error instanceof TokenAcquisitionTimeoutError) {
-          throw new Error('Timed out while preparing FIDU authentication for Google Drive. Please try again.');
-        }
-        throw error;
-      }
-
-      const response = await this.client.post("/api/oauth/exchange-code", {
-        code: code,
-        redirect_uri: this.config.redirectUri,
-        environment: detectRuntimeEnvironment(),
+    try {
+      await getFiduAuthService().ensureAccessToken({
+        onWait: () =>
+          console.log('🔐 Ensuring FIDU auth before exchanging OAuth code...'),
       });
-
-      if (response.status === 200) {
-        const data = response.data;
-        
-        const tokens = {
-          accessToken: data.access_token,
-          refreshToken: 'stored-in-cookie', // Refresh token is now in HTTP-only cookie
-          expiresAt: Date.now() + (data.expires_in * 1000),
-          scope: data.scope
-        };
-        
-        // Validate that we received the required scopes
-        this.validateScopes(tokens.scope);
-        
-        console.log('✅ Token exchange via backend (secure)');
-        return tokens;
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        throw new Error(
+          'FIDU authentication expired before completing Google Drive setup. Please log in again.'
+        );
       }
-
-      // Backend returned error (400/500)  don't fall back, this is a backend issue
-      if (response.status >= 400) {
-        const errorText = response.data?.message || "Unknown error";
-        throw new Error(`Backend OAuth error (${response.status}): ${errorText}`);
+      if (error instanceof TokenAcquisitionTimeoutError) {
+        throw new Error(
+          'Timed out while preparing FIDU authentication for Google Drive. Please try again.'
+        );
       }
+      throw error;
+    }
+
+    const response = await this.client.post('/api/oauth/exchange-code', {
+      code: code,
+      redirect_uri: this.config.redirectUri,
+      environment: detectRuntimeEnvironment(),
+    });
+
+    if (response.status === 200) {
+      const data = response.data;
+
+      const tokens = {
+        accessToken: data.access_token,
+        refreshToken: 'stored-in-cookie', // Refresh token is now in HTTP-only cookie
+        expiresAt: Date.now() + data.expires_in * 1000,
+        scope: data.scope,
+      };
+
+      // Validate that we received the required scopes
+      this.validateScopes(tokens.scope);
+
+      console.log('✅ Token exchange via backend (secure)');
+      return tokens;
+    }
+
+    // Backend returned error (400/500)  don't fall back, this is a backend issue
+    if (response.status >= 400) {
+      const errorText = response.data?.message || 'Unknown error';
+      throw new Error(`Backend OAuth error (${response.status}): ${errorText}`);
+    }
 
     // Shouldn't reach here
     throw new Error('Unexpected state in token exchange');
@@ -709,29 +779,29 @@ export class GoogleDriveAuthService {
   private validateScopes(grantedScopeString: string): void {
     console.log('🔍 Validating granted scopes...');
     console.log('Granted scopes string:', grantedScopeString);
-    
+
     const grantedScopes = grantedScopeString.split(' ');
     const requiredScopes = this.config.scopes;
-    
+
     console.log('Granted scopes array:', grantedScopes);
     console.log('Required scopes array:', requiredScopes);
-    
+
     const missingScopes = requiredScopes.filter(
       required => !grantedScopes.includes(required)
     );
-    
+
     if (missingScopes.length > 0) {
       console.error('❌ Missing required scopes:', missingScopes);
       console.error('Granted scopes:', grantedScopes);
       console.error('Required scopes:', requiredScopes);
-      
+
       throw new InsufficientScopesError(
         'User did not grant all required permissions. Please check all permission checkboxes when authorizing the app.',
         grantedScopes,
         requiredScopes
       );
     }
-    
+
     console.log('✅ All required scopes are present');
   }
 
@@ -746,7 +816,7 @@ export class GoogleDriveAuthService {
     }
 
     this.refreshPromise = this.performTokenRefresh();
-    
+
     try {
       const newAccessToken = await this.refreshPromise;
       return newAccessToken;
@@ -765,71 +835,93 @@ export class GoogleDriveAuthService {
     // Detect environment for cookie isolation using shared utility
     const environment = detectRuntimeEnvironment();
 
-      const fiduTokenService = getFiduAuthService();
+    const fiduTokenService = getFiduAuthService();
 
-      try {
-        await fiduTokenService.ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU auth before Google token refresh...'),
-        });
-      } catch (error) {
-        if (error instanceof AuthenticationRequiredError) {
-          throw new Error('FIDU authentication expired before refreshing Google Drive tokens. Please log in again.');
-        }
-        if (error instanceof TokenAcquisitionTimeoutError) {
-          throw new Error('Timed out while preparing FIDU auth for Google Drive token refresh. Please try again.');
-        }
-        throw error;
+    try {
+      await fiduTokenService.ensureAccessToken({
+        onWait: () =>
+          console.log('🔐 Ensuring FIDU auth before Google token refresh...'),
+      });
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        throw new Error(
+          'FIDU authentication expired before refreshing Google Drive tokens. Please log in again.'
+        );
       }
-      
-      const response = await this.client.post(`/api/oauth/refresh-token?env=${environment}`, {});
-
-      if (response.status === 200) {
-        const data = response.data;
-        
-        // Update tokens
-        this.tokens!.accessToken = data.access_token;
-        this.tokens!.expiresAt = Date.now() + (data.expires_in * 1000);
-        
-        // Update scope if provided (may not always be included in refresh response)
-        if (data.scope) {
-          this.tokens!.scope = data.scope;
-        }
-        
-        // Store updated tokens
-        this.storeTokens(this.tokens!);
-
-        // Start proactive refresh after successful refresh
-        this.startProactiveRefresh();
-
-        console.log('✅ Token refresh via backend (secure)');
-        return data.access_token;
+      if (error instanceof TokenAcquisitionTimeoutError) {
+        throw new Error(
+          'Timed out while preparing FIDU auth for Google Drive token refresh. Please try again.'
+        );
       }
-      
-      // Backend returned error (400/500) - check error type
-      if (response.status >= 400) {
-        const errorData = response.data;
-        const errorMessage = typeof(errorData) === 'string'
-            ? errorData 
-            : (errorData?.message || errorData?.error || 'Unknown error');
-        
-        // Handle 503 Service Unavailable errors
-        if (response.status === 503) {
-          // Check if it's a configuration error (non-recoverable)
-          if (errorMessage.includes('not configured') || errorMessage.includes('OAuth not configured')) {
-            console.error('❌ Backend OAuth not configured. Cannot refresh token.');
-            // Don't clear tokens - this is a backend configuration issue, not an auth issue
-            // Throw a specific error that can be caught upstream
-            throw new ConfigurationError('Backend OAuth not configured. Please contact support.');
-          }
-          
-          // Generic 503 - might be temporary, allow retry
-          console.warn('⚠️ Backend service unavailable (503). This may be temporary.');
-          throw new ServiceUnavailableError(`Backend service unavailable: ${errorMessage}`);
-        }
-        
-        // Other 4xx/5xx errors - don't fall back to direct OAuth
-        throw new Error(`Backend token refresh error (${response.status}): ${errorMessage}`);
+      throw error;
+    }
+
+    const response = await this.client.post(
+      `/api/oauth/refresh-token?env=${environment}`,
+      {}
+    );
+
+    if (response.status === 200) {
+      const data = response.data;
+
+      // Update tokens
+      this.tokens!.accessToken = data.access_token;
+      this.tokens!.expiresAt = Date.now() + data.expires_in * 1000;
+
+      // Update scope if provided (may not always be included in refresh response)
+      if (data.scope) {
+        this.tokens!.scope = data.scope;
       }
+
+      // Store updated tokens
+      this.storeTokens(this.tokens!);
+
+      // Start proactive refresh after successful refresh
+      this.startProactiveRefresh();
+
+      console.log('✅ Token refresh via backend (secure)');
+      return data.access_token;
+    }
+
+    // Backend returned error (400/500) - check error type
+    if (response.status >= 400) {
+      const errorData = response.data;
+      const errorMessage =
+        typeof errorData === 'string'
+          ? errorData
+          : errorData?.message || errorData?.error || 'Unknown error';
+
+      // Handle 503 Service Unavailable errors
+      if (response.status === 503) {
+        // Check if it's a configuration error (non-recoverable)
+        if (
+          errorMessage.includes('not configured')
+          || errorMessage.includes('OAuth not configured')
+        ) {
+          console.error(
+            '❌ Backend OAuth not configured. Cannot refresh token.'
+          );
+          // Don't clear tokens - this is a backend configuration issue, not an auth issue
+          // Throw a specific error that can be caught upstream
+          throw new ConfigurationError(
+            'Backend OAuth not configured. Please contact support.'
+          );
+        }
+
+        // Generic 503 - might be temporary, allow retry
+        console.warn(
+          '⚠️ Backend service unavailable (503). This may be temporary.'
+        );
+        throw new ServiceUnavailableError(
+          `Backend service unavailable: ${errorMessage}`
+        );
+      }
+
+      // Other 4xx/5xx errors - don't fall back to direct OAuth
+      throw new Error(
+        `Backend token refresh error (${response.status}): ${errorMessage}`
+      );
+    }
 
     // Shouldn't reach here
     throw new Error('Unexpected state in token refresh');
@@ -837,12 +929,15 @@ export class GoogleDriveAuthService {
 
   private async fetchUserInfo(): Promise<void> {
     const accessToken = await this.getAccessToken();
-    
-    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+
+    const response = await fetch(
+      'https://www.googleapis.com/oauth2/v2/userinfo',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error('Failed to fetch user info');
@@ -853,12 +948,12 @@ export class GoogleDriveAuthService {
       id: userData.id,
       email: userData.email,
       name: userData.name,
-      picture: userData.picture
+      picture: userData.picture,
     };
-    
+
     // Persist user info to localStorage
     this.storeUserInfo(this.user);
-    
+
     // Update Google email in identity service (if FIDU auth is ready)
     // This will skip silently if auth isn't ready to avoid triggering logout
     await this.updateGoogleEmailInIdentityService(userData.email);
@@ -869,20 +964,25 @@ export class GoogleDriveAuthService {
    * Called after successful Google Drive authentication
    * Safely skips update if FIDU authentication isn't ready to avoid triggering logout
    */
-  private async updateGoogleEmailInIdentityService(googleEmail: string): Promise<void> {
+  private async updateGoogleEmailInIdentityService(
+    googleEmail: string
+  ): Promise<void> {
     try {
       const fiduAuthService = getFiduAuthService();
-      
+
       // Check if FIDU auth is ready before attempting API call
       // The axios interceptor will trigger logout if AuthenticationRequiredError is thrown,
       // so we need to verify auth is ready first
       if (!(await fiduAuthService.isAuthenticated())) {
-        console.log('ℹ️ FIDU authentication not ready - skipping Google email update');
+        console.log(
+          'ℹ️ FIDU authentication not ready - skipping Google email update'
+        );
         return;
       }
-      
+
       // Dynamically import to avoid circular dependencies
-      const { identityServiceAPIClient } = await import('../api/apiClientIdentityService');
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
       await identityServiceAPIClient.updateGoogleEmail(googleEmail);
       console.log('✅ Google email updated in identity service:', googleEmail);
     } catch (error: any) {
@@ -891,28 +991,35 @@ export class GoogleDriveAuthService {
       if (error instanceof Error) {
         const errorMessage = error.message.toLowerCase();
         if (
-          errorMessage.includes('authentication required') ||
-          errorMessage.includes('please log in again') ||
-          errorMessage.includes('user not authenticated') ||
-          errorMessage.includes('authenticationrequirederror') ||
-          error.name === 'AuthenticationRequiredError'
+          errorMessage.includes('authentication required')
+          || errorMessage.includes('please log in again')
+          || errorMessage.includes('user not authenticated')
+          || errorMessage.includes('authenticationrequirederror')
+          || error.name === 'AuthenticationRequiredError'
         ) {
-          console.log('ℹ️ FIDU authentication not ready - Google email update will be retried later');
+          console.log(
+            'ℹ️ FIDU authentication not ready - Google email update will be retried later'
+          );
           return;
         }
       }
-      
+
       // Handle 401 errors (API errors)
       if (error?.status === 401 || error?.response?.status === 401) {
-        console.log('ℹ️ Received 401 from identity service - FIDU auth may not be ready');
+        console.log(
+          'ℹ️ Received 401 from identity service - FIDU auth may not be ready'
+        );
         return;
       }
-      
+
       // Log other errors but don't throw - this is a non-critical operation
-      console.warn('⚠️ Failed to update Google email in identity service:', error);
+      console.warn(
+        '⚠️ Failed to update Google email in identity service:',
+        error
+      );
     }
   }
-  
+
   private storeUserInfo(user: GoogleDriveUser): void {
     try {
       localStorage.setItem('google_drive_user', JSON.stringify(user));
@@ -921,7 +1028,7 @@ export class GoogleDriveAuthService {
       console.warn('Failed to store user info:', error);
     }
   }
-  
+
   private loadUserInfo(): void {
     try {
       const stored = localStorage.getItem('google_drive_user');
@@ -936,9 +1043,12 @@ export class GoogleDriveAuthService {
   }
 
   private async revokeToken(token: string): Promise<void> {
-    const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
-      method: 'POST',
-    });
+    const response = await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${token}`,
+      {
+        method: 'POST',
+      }
+    );
 
     if (!response.ok) {
       throw new Error('Failed to revoke token');
@@ -950,16 +1060,17 @@ export class GoogleDriveAuthService {
       // Primary method: Check for HTTP-only cookies by attempting token restoration
       // This is more secure and persistent than localStorage
       console.log('🔄 Checking for authentication via HTTP-only cookies...');
-      
+
       // We'll attempt cookie restoration during initialization
       // For now, just clear any stale localStorage tokens
       const stored = localStorage.getItem('google_drive_tokens');
       if (stored) {
-        console.log('🔄 Clearing stale localStorage tokens in favor of HTTP-only cookies');
+        console.log(
+          '🔄 Clearing stale localStorage tokens in favor of HTTP-only cookies'
+        );
         localStorage.removeItem('google_drive_tokens');
         localStorage.removeItem('google_drive_user');
       }
-      
     } catch (error) {
       console.warn('Failed to load stored tokens:', error);
       this.clearStoredTokens();
@@ -972,7 +1083,7 @@ export class GoogleDriveAuthService {
   private async hasStoredRefreshToken(): Promise<boolean> {
     try {
       const tokens = await this.loadTokensFromCookies();
-      return !!(tokens?.refreshToken);
+      return !!tokens?.refreshToken;
     } catch (error) {
       console.warn('Error checking for stored refresh token:', error);
       return false;
@@ -986,33 +1097,45 @@ export class GoogleDriveAuthService {
     try {
       // Detect environment for cookie isolation using shared utility
       const environment = detectRuntimeEnvironment();
-      
+
       const fiduTokenService = getFiduAuthService();
-      
+
       try {
         await fiduTokenService.ensureAccessToken({
-          onWait: () => console.log('🔐 Ensuring FIDU auth before retrieving Google Drive tokens...'),
+          onWait: () =>
+            console.log(
+              '🔐 Ensuring FIDU auth before retrieving Google Drive tokens...'
+            ),
         });
       } catch (error) {
         if (error instanceof AuthenticationRequiredError) {
-          console.warn('⚠️ [GoogleDrive] FIDU authentication required before restoring Google Drive tokens.');
+          console.warn(
+            '⚠️ [GoogleDrive] FIDU authentication required before restoring Google Drive tokens.'
+          );
           return null;
         }
         if (error instanceof TokenAcquisitionTimeoutError) {
-          console.warn('⚠️ [GoogleDrive] Timed out while preparing FIDU authentication for Google Drive token retrieval.');
+          console.warn(
+            '⚠️ [GoogleDrive] Timed out while preparing FIDU authentication for Google Drive token retrieval.'
+          );
           return null;
         }
         throw error;
       }
-      
-      const response = await this.client.get(`/api/oauth/get-tokens?env=${environment}`, {});
-      
+
+      const response = await this.client.get(
+        `/api/oauth/get-tokens?env=${environment}`,
+        {}
+      );
+
       if (response.status === 200) {
         const data = response.data;
-        
+
         if (data.has_tokens && data.refresh_token) {
-          console.log('✅ Google Drive refresh token retrieved from HTTP-only cookies');
-          
+          console.log(
+            '✅ Google Drive refresh token retrieved from HTTP-only cookies'
+          );
+
           // Create a token object with the refresh token
           // We'll need to refresh to get the access token
           return {
@@ -1026,11 +1149,17 @@ export class GoogleDriveAuthService {
           return null;
         }
       } else {
-        console.warn('⚠️ Failed to retrieve Google Drive tokens from cookies:', response.status);
+        console.warn(
+          '⚠️ Failed to retrieve Google Drive tokens from cookies:',
+          response.status
+        );
         return null;
       }
     } catch (error) {
-      console.warn('⚠️ Error retrieving Google Drive tokens from cookies:', error);
+      console.warn(
+        '⚠️ Error retrieving Google Drive tokens from cookies:',
+        error
+      );
       return null;
     }
   }
@@ -1041,36 +1170,37 @@ export class GoogleDriveAuthService {
    */
   async restoreFromCookies(): Promise<boolean> {
     try {
-      console.log('🔄 Attempting to restore authentication from HTTP-only cookies...');
-      
+      console.log(
+        '🔄 Attempting to restore authentication from HTTP-only cookies...'
+      );
+
       // First, try to load tokens from cookies
       const tokensFromCookies = await this.loadTokensFromCookies();
-      
+
       if (!tokensFromCookies) {
         console.log('❌ No Google Drive tokens found in HTTP-only cookies');
         return false;
       }
-      
+
       // Set the tokens in memory
       this.tokens = tokensFromCookies;
-      
+
       // Now try to refresh the access token using the loaded refresh token
       const newAccessToken = await this.refreshAccessToken();
-      
+
       if (newAccessToken) {
         // Load user info if we don't have it (will update Google email if FIDU auth is ready)
         if (!this.user) {
           await this.fetchUserInfo();
         }
-        
+
         // Start proactive refresh after restoration
         this.startProactiveRefresh();
-        
+
         return true;
       } else {
         return false;
       }
-      
     } catch (error) {
       console.log('❌ Failed to restore from cookies:', error);
       return false;
@@ -1083,7 +1213,6 @@ export class GoogleDriveAuthService {
   private isOnline(): boolean {
     return navigator.onLine;
   }
-
 
   /**
    * Enhanced restoration that handles network state
@@ -1098,11 +1227,11 @@ export class GoogleDriveAuthService {
       try {
         console.log(`🔄 Cookie restoration attempt ${attempt}/${maxRetries}`);
         const success = await this.restoreFromCookies();
-        
+
         if (success) {
           return true;
         }
-        
+
         // Wait before retry (exponential backoff)
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
@@ -1112,27 +1241,33 @@ export class GoogleDriveAuthService {
       } catch (error) {
         // Check if this is a non-retryable error (configuration issue)
         if (error instanceof ConfigurationError) {
-          console.error('❌ Configuration error - cannot retry:', error.message);
+          console.error(
+            '❌ Configuration error - cannot retry:',
+            error.message
+          );
           return false;
         }
-        
+
         // Check if this is a service unavailable error that might be temporary
         if (error instanceof ServiceUnavailableError && attempt < maxRetries) {
-          console.warn(`⚠️ Service unavailable (attempt ${attempt}/${maxRetries}):`, error.message);
+          console.warn(
+            `⚠️ Service unavailable (attempt ${attempt}/${maxRetries}):`,
+            error.message
+          );
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
           console.log(`⏳ Waiting ${delay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        
+
         console.warn(`❌ Cookie restoration attempt ${attempt} failed:`, error);
-        
+
         // If this is the last attempt or a non-retryable error, fail
         if (attempt === maxRetries || error instanceof ConfigurationError) {
           console.error('❌ All cookie restoration attempts failed');
           return false;
         }
-        
+
         // Wait before next retry
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
@@ -1141,7 +1276,7 @@ export class GoogleDriveAuthService {
         }
       }
     }
-    
+
     return false;
   }
 
@@ -1152,18 +1287,20 @@ export class GoogleDriveAuthService {
         console.error('Invalid token structure, not storing');
         return;
       }
-      
+
       // Primary storage: HTTP-only cookies (handled by backend)
       // Only store access token in localStorage for immediate use (not refresh token)
       const tokenData = {
         accessToken: tokens.accessToken,
         expiresAt: tokens.expiresAt,
-        scope: tokens.scope
+        scope: tokens.scope,
         // Note: refreshToken is NOT stored in localStorage - it's in HTTP-only cookies
       };
 
       localStorage.setItem('google_drive_tokens', JSON.stringify(tokenData));
-      console.log('✅ Stored Google Drive access token in localStorage (refresh token in HTTP-only cookie)');
+      console.log(
+        '✅ Stored Google Drive access token in localStorage (refresh token in HTTP-only cookie)'
+      );
     } catch (error) {
       console.warn('Failed to store tokens:', error);
       // If localStorage is full or blocked, we'll need to handle this gracefully
@@ -1186,18 +1323,18 @@ export class GoogleDriveAuthService {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
     }
-    
+
     if (!this.tokens || !this.tokens.refreshToken) {
       // No tokens to refresh
       return;
     }
-    
+
     // Calculate time until refresh (refresh when 10 minutes left)
     const now = Date.now();
     const expiresAt = this.tokens.expiresAt;
-    const refreshAt = expiresAt - (10 * 60 * 1000); // 10 minutes before expiry
+    const refreshAt = expiresAt - 10 * 60 * 1000; // 10 minutes before expiry
     const timeUntilRefresh = refreshAt - now;
-    
+
     if (timeUntilRefresh <= 0) {
       // Refresh immediately
       console.log('🔄 Token expires soon, refreshing immediately...');
@@ -1206,30 +1343,38 @@ export class GoogleDriveAuthService {
           console.log('✅ Token refreshed proactively');
           this.startProactiveRefresh(); // Schedule next refresh
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('❌ Proactive token refresh failed:', error);
           // Retry after shorter interval on failure (5 minutes)
-          this.refreshTimer = setTimeout(() => {
-            this.startProactiveRefresh();
-          }, 5 * 60 * 1000);
+          this.refreshTimer = setTimeout(
+            () => {
+              this.startProactiveRefresh();
+            },
+            5 * 60 * 1000
+          );
         });
       return;
     }
-    
+
     // Schedule refresh
-    console.log(`🔄 Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
+    console.log(
+      `🔄 Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`
+    );
     this.refreshTimer = setTimeout(() => {
       this.refreshAccessToken()
         .then(() => {
           console.log('✅ Token refreshed proactively');
           this.startProactiveRefresh(); // Schedule next refresh
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('❌ Proactive token refresh failed:', error);
           // Retry after shorter interval on failure (5 minutes)
-          setTimeout(() => {
-            this.startProactiveRefresh();
-          }, 5 * 60 * 1000);
+          setTimeout(
+            () => {
+              this.startProactiveRefresh();
+            },
+            5 * 60 * 1000
+          );
         });
     }, timeUntilRefresh);
   }
@@ -1254,40 +1399,48 @@ export class GoogleDriveAuthService {
       clearInterval(this.validationInterval);
       this.validationInterval = null;
     }
-    
+
     // Check every 5 minutes
-    this.validationInterval = setInterval(async () => {
-      try {
-        if (!this.tokens) {
-          // Try to restore
-          console.log('🔄 Periodic check: tokens missing, attempting restoration...');
-          const restored = await this.restoreFromCookies();
-          if (restored) {
-            console.log('✅ Periodic check: tokens restored');
-            this.startProactiveRefresh(); // Start proactive refresh after restoration
+    this.validationInterval = setInterval(
+      async () => {
+        try {
+          if (!this.tokens) {
+            // Try to restore
+            console.log(
+              '🔄 Periodic check: tokens missing, attempting restoration...'
+            );
+            const restored = await this.restoreFromCookies();
+            if (restored) {
+              console.log('✅ Periodic check: tokens restored');
+              this.startProactiveRefresh(); // Start proactive refresh after restoration
+            }
+            return;
           }
-          return;
-        }
-        
-        // If token expires in less than 10 minutes, refresh proactively
-        const now = Date.now();
-        const tenMinutesFromNow = now + (10 * 60 * 1000);
-        
-        if (this.tokens.expiresAt <= tenMinutesFromNow) {
-          console.log('🔄 Periodic check: token expires soon, refreshing...');
-          try {
-            await this.refreshAccessToken();
-            console.log('✅ Periodic check: token refreshed');
-          } catch (error) {
-            console.warn('⚠️ Periodic check: token refresh failed, attempting restoration:', error);
-            // Try to restore from cookies
-            await this.restoreFromCookies();
+
+          // If token expires in less than 10 minutes, refresh proactively
+          const now = Date.now();
+          const tenMinutesFromNow = now + 10 * 60 * 1000;
+
+          if (this.tokens.expiresAt <= tenMinutesFromNow) {
+            console.log('🔄 Periodic check: token expires soon, refreshing...');
+            try {
+              await this.refreshAccessToken();
+              console.log('✅ Periodic check: token refreshed');
+            } catch (error) {
+              console.warn(
+                '⚠️ Periodic check: token refresh failed, attempting restoration:',
+                error
+              );
+              // Try to restore from cookies
+              await this.restoreFromCookies();
+            }
           }
+        } catch (error) {
+          console.error('❌ Periodic validation error:', error);
         }
-      } catch (error) {
-        console.error('❌ Periodic validation error:', error);
-      }
-    }, 5 * 60 * 1000); // Every 5 minutes
+      },
+      5 * 60 * 1000
+    ); // Every 5 minutes
   }
 
   /**
@@ -1306,21 +1459,21 @@ export class GoogleDriveAuthService {
   async logout(): Promise<void> {
     try {
       console.log('🔄 Logging out from Google Drive...');
-      
+
       // Stop proactive refresh and periodic validation
       this.stopProactiveRefresh();
       this.stopPeriodicValidation();
-      
+
       // Clear local tokens
       this.clearStoredTokens();
       this.tokens = null;
       this.user = null;
-      
+
       // Clear HTTP-only cookie via backend
-      const basePath = window.location.pathname.includes('/fidu-chat-lab') 
-        ? '/fidu-chat-lab' 
+      const basePath = window.location.pathname.includes('/fidu-chat-lab')
+        ? '/fidu-chat-lab'
         : '';
-      
+
       try {
         await fetch(`${basePath}/api/oauth/logout`, {
           method: 'POST',
@@ -1331,7 +1484,7 @@ export class GoogleDriveAuthService {
         console.warn('Failed to clear HTTP-only cookie via backend:', error);
         // Continue with logout even if backend call fails
       }
-      
+
       console.log('✅ Google Drive logout completed');
     } catch (error) {
       console.error('❌ Logout failed:', error);
@@ -1348,11 +1501,11 @@ let authServiceInstance: GoogleDriveAuthService | null = null;
  */
 async function fetchGoogleClientId(): Promise<string> {
   try {
-    const basePath = window.location.pathname.includes('/fidu-chat-lab') 
-      ? '/fidu-chat-lab' 
+    const basePath = window.location.pathname.includes('/fidu-chat-lab')
+      ? '/fidu-chat-lab'
       : '';
     const response = await fetch(`${basePath}/api/config`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
@@ -1365,29 +1518,38 @@ async function fetchGoogleClientId(): Promise<string> {
     console.log('✅ Google Client ID fetched from backend');
     return data.googleClientId;
   } catch (error) {
-    console.warn('Failed to fetch Google Client ID from backend, falling back to env:', error);
-    
+    console.warn(
+      'Failed to fetch Google Client ID from backend, falling back to env:',
+      error
+    );
+
     // Fall back to environment variable
     const clientId = getGoogleClientId();
     if (!clientId) {
-      throw new Error('Google Client ID not configured in backend or environment variables');
+      throw new Error(
+        'Google Client ID not configured in backend or environment variables'
+      );
     }
     return clientId;
   }
 }
 
-export async function getGoogleDriveAuthService(testHostName?: string): Promise<GoogleDriveAuthService> {
+export async function getGoogleDriveAuthService(
+  testHostName?: string
+): Promise<GoogleDriveAuthService> {
   if (!authServiceInstance) {
     // Fetch client ID from backend (which may come from OpenBao)
     const clientId = await fetchGoogleClientId();
 
     const config: GoogleDriveAuthConfig = {
       clientId,
-      redirectUri: getGoogleRedirectUri() || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
+      redirectUri:
+        getGoogleRedirectUri()
+        || `${window.location.origin}/fidu-chat-lab/oauth-callback`,
       scopes: [
         'https://www.googleapis.com/auth/drive.appdata',
         'https://www.googleapis.com/auth/drive.file', // Required for shared workspaces
-        'https://www.googleapis.com/auth/userinfo.email'
+        'https://www.googleapis.com/auth/userinfo.email',
       ],
       testHostName,
     };

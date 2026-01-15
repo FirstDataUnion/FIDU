@@ -1,6 +1,6 @@
 /**
  * Hook to load and manage the FIDU Authentication SDK
- * 
+ *
  * Handles:
  * - Script injection and loading with timeout
  * - SDK initialization
@@ -42,8 +42,12 @@ export function useFiduSDK(): UseFiduSDKReturn {
     // Set timeout for SDK loading
     const loadingTimeout = window.setTimeout(() => {
       if (!cancelledRef.current) {
-        console.warn('🔑 FIDU SDK loading timeout - taking longer than expected');
-        setError('Authentication system is taking longer than expected to load. Please wait or try refreshing the page.');
+        console.warn(
+          '🔑 FIDU SDK loading timeout - taking longer than expected'
+        );
+        setError(
+          'Authentication system is taking longer than expected to load. Please wait or try refreshing the page.'
+        );
       }
     }, SDK_LOAD_TIMEOUT_MS);
 
@@ -97,16 +101,19 @@ export function useFiduSDK(): UseFiduSDKReturn {
   useEffect(() => {
     if (!isReady || error) return;
 
-    const waitForFIDUAuth = async (maxWaitMs: number = 15000, pollIntervalMs: number = 100) => {
+    const waitForFIDUAuth = async (
+      maxWaitMs: number = 15000,
+      pollIntervalMs: number = 100
+    ) => {
       const start = Date.now();
-      
+
       // Fast path - already available
       if (window.FIDUAuth) {
         return true;
       }
 
       // Poll until available or timeout
-      return new Promise<boolean>((resolve) => {
+      return new Promise<boolean>(resolve => {
         const interval = setInterval(() => {
           if (cancelledRef.current) {
             clearInterval(interval);
@@ -131,7 +138,9 @@ export function useFiduSDK(): UseFiduSDKReturn {
     const initSDK = async () => {
       // Check if SDK instance was cleared (e.g., during logout) BEFORE any async operations
       if (!window.__fiduAuthInstance && sdk) {
-        console.log('🔄 SDK instance was cleared, resetting for reinitialization');
+        console.log(
+          '🔄 SDK instance was cleared, resetting for reinitialization'
+        );
         setSdk(null);
       }
 
@@ -142,10 +151,12 @@ export function useFiduSDK(): UseFiduSDKReturn {
       }
 
       const ready = await waitForFIDUAuth();
-      
+
       if (!ready || cancelledRef.current) {
         if (!error) {
-          setError('Authentication system did not initialize in time. Please reload or click Retry.');
+          setError(
+            'Authentication system did not initialize in time. Please reload or click Retry.'
+          );
         }
         return;
       }
@@ -159,7 +170,7 @@ export function useFiduSDK(): UseFiduSDKReturn {
           debug: false,
         });
       }
-      
+
       setSdk(window.__fiduAuthInstance);
       console.log('✅ FIDU SDK initialized successfully');
     };
@@ -178,4 +189,3 @@ export function useFiduSDK(): UseFiduSDKReturn {
     isReady: isReady && sdk !== null,
   };
 }
-

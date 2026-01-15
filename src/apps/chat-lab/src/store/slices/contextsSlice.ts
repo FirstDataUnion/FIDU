@@ -29,8 +29,7 @@ export interface ContextsState {
 }
 
 // Built-in contexts (these will always be available)
-export const builtInContexts: Context[] = [
-];
+export const builtInContexts: Context[] = [];
 
 const initialState: ContextsState = {
   items: builtInContexts,
@@ -39,20 +38,29 @@ const initialState: ContextsState = {
   selectedContext: null,
 };
 
-
 // Async actions
 export const fetchContexts = createAsyncThunk(
   'contexts/fetchContexts',
   async (profileId: string | undefined, { rejectWithValue }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const response = await storageService.getContexts(undefined, 1, 100, profileId);
+      const response = await storageService.getContexts(
+        undefined,
+        1,
+        100,
+        profileId
+      );
       return response;
     } catch (error: any) {
       // Check if this is a storage init error and handle gracefully
-      if (error.message?.includes('Cloud storage adapter not initialized') ||
-          error.message?.includes('Cloud storage not fully initialized')) {
-        console.warn('Storage adapter not ready yet, will retry later:', error.message);
+      if (
+        error.message?.includes('Cloud storage adapter not initialized')
+        || error.message?.includes('Cloud storage not fully initialized')
+      ) {
+        console.warn(
+          'Storage adapter not ready yet, will retry later:',
+          error.message
+        );
         return rejectWithValue('Storage not ready, retrying...');
       }
       console.error('Failed to fetch contexts using unified storage:', error);
@@ -63,10 +71,19 @@ export const fetchContexts = createAsyncThunk(
 
 export const createContext = createAsyncThunk(
   'contexts/createContext',
-  async ({ contextData, profileId }: { contextData: Partial<Context>; profileId: string }) => {
+  async ({
+    contextData,
+    profileId,
+  }: {
+    contextData: Partial<Context>;
+    profileId: string;
+  }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const newContext = await storageService.createContext(contextData, profileId);
+      const newContext = await storageService.createContext(
+        contextData,
+        profileId
+      );
       return newContext;
     } catch (error: any) {
       console.error('Failed to create context using unified storage:', error);
@@ -77,10 +94,19 @@ export const createContext = createAsyncThunk(
 
 export const updateContext = createAsyncThunk(
   'contexts/updateContext',
-  async ({ context, profileId }: { context: Partial<Context>; profileId: string }) => {
+  async ({
+    context,
+    profileId,
+  }: {
+    context: Partial<Context>;
+    profileId: string;
+  }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const updatedContext = await storageService.updateContext(context, profileId);
+      const updatedContext = await storageService.updateContext(
+        context,
+        profileId
+      );
       return updatedContext;
     } catch (error: any) {
       console.error('Failed to update context using unified storage:', error);
@@ -105,41 +131,71 @@ export const deleteContext = createAsyncThunk(
 
 export const addConversationToContext = createAsyncThunk(
   'contexts/addConversationToContext',
-  async ({ contextId, conversationId, conversationData, profileId }: { 
-    contextId: string; 
-    conversationId: string; 
+  async ({
+    contextId,
+    conversationId,
+    conversationData,
+    profileId,
+  }: {
+    contextId: string;
+    conversationId: string;
     conversationData: { title: string; messages: any[]; platform: string };
     profileId: string;
   }) => {
     // Get the current context to update it
     const storageService = getUnifiedStorageService();
-    const contextsResponse = await storageService.getContexts(undefined, 1, 100, profileId);
-    const currentContext = contextsResponse.contexts.find((c: any) => c.id === contextId);
-    
+    const contextsResponse = await storageService.getContexts(
+      undefined,
+      1,
+      100,
+      profileId
+    );
+    const currentContext = contextsResponse.contexts.find(
+      (c: any) => c.id === contextId
+    );
+
     if (!currentContext) {
       throw new Error('Context not found');
     }
-    
+
     // Prepare the updated context data
     const updatedContext = {
       ...currentContext,
-      body: currentContext.body + `\n\n--- Conversation: ${conversationData.title} ---\n${
-        conversationData.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n\n')
-      }`,
-      conversationIds: [...(currentContext.conversationIds || []), conversationId],
+      body:
+        currentContext.body
+        + `\n\n--- Conversation: ${conversationData.title} ---\n${conversationData.messages
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n\n')}`,
+      conversationIds: [
+        ...(currentContext.conversationIds || []),
+        conversationId,
+      ],
       conversationMetadata: {
-        totalMessages: (currentContext.conversationMetadata?.totalMessages || 0) + conversationData.messages.length,
+        totalMessages:
+          (currentContext.conversationMetadata?.totalMessages || 0)
+          + conversationData.messages.length,
         lastAddedAt: new Date().toISOString(),
-        platforms: [...(currentContext.conversationMetadata?.platforms || []), conversationData.platform]
+        platforms: [
+          ...(currentContext.conversationMetadata?.platforms || []),
+          conversationData.platform,
+        ],
       },
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
-    
+
     // Update the context using unified storage
-    const updatedContextResponse = await storageService.updateContext(updatedContext, profileId);
-    
+    const updatedContextResponse = await storageService.updateContext(
+      updatedContext,
+      profileId
+    );
+
     // Return the updated context data
-    return { contextId, conversationId, conversationData, updatedContext: updatedContextResponse };
+    return {
+      contextId,
+      conversationId,
+      conversationData,
+      updatedContext: updatedContextResponse,
+    };
   }
 );
 
@@ -150,14 +206,13 @@ const contextsSlice = createSlice({
     setSelectedContext: (state, action: PayloadAction<Context | null>) => {
       state.selectedContext = action.payload;
     },
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
     },
-
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchContexts.pending, (state) => {
+      .addCase(fetchContexts.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -176,7 +231,9 @@ const contextsSlice = createSlice({
         state.items.push(action.payload);
       })
       .addCase(updateContext.fulfilled, (state, action) => {
-        const index = state.items.findIndex(item => item.id === action.payload.id);
+        const index = state.items.findIndex(
+          item => item.id === action.payload.id
+        );
         if (index !== -1) {
           state.items[index] = action.payload;
         }
@@ -187,7 +244,9 @@ const contextsSlice = createSlice({
       .addCase(addConversationToContext.fulfilled, (state, action) => {
         // Update the context in the store with the updated context from FIDU Vault
         if (action.payload.updatedContext) {
-          const index = state.items.findIndex(item => item.id === action.payload.contextId);
+          const index = state.items.findIndex(
+            item => item.id === action.payload.contextId
+          );
           if (index !== -1) {
             state.items[index] = action.payload.updatedContext;
           }
@@ -196,9 +255,6 @@ const contextsSlice = createSlice({
   },
 });
 
-export const { 
-  setSelectedContext, 
-  clearError
-} = contextsSlice.actions;
+export const { setSelectedContext, clearError } = contextsSlice.actions;
 
-export default contextsSlice.reducer; 
+export default contextsSlice.reducer;

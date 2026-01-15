@@ -8,7 +8,7 @@ import {
   Box,
   OutlinedInput,
   Checkbox,
-  ListItemText
+  ListItemText,
 } from '@mui/material';
 import type { SystemPrompt } from '../../types';
 
@@ -29,7 +29,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   placeholder = 'Filter by category',
   multiple = true,
   size = 'small',
-  fullWidth = false
+  fullWidth = false,
 }) => {
   // Extract all unique categories from system prompts
   const availableCategories = useMemo(() => {
@@ -64,15 +64,10 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
         value={selectedCategories}
         onChange={handleChange}
         input={<OutlinedInput label={placeholder} />}
-        renderValue={(selected) => (
+        renderValue={selected => (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {selected.map((value) => (
-              <Chip 
-                key={value} 
-                label={value} 
-                size="small"
-                variant="outlined"
-              />
+            {selected.map(value => (
+              <Chip key={value} label={value} size="small" variant="outlined" />
             ))}
           </Box>
         )}
@@ -83,7 +78,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
             <ListItemText primary="All Categories" />
           </MenuItem>
         )}
-        {availableCategories.map((category) => (
+        {availableCategories.map(category => (
           <MenuItem key={category} value={category}>
             <Checkbox
               checked={selectedCategories.indexOf(category) > -1}

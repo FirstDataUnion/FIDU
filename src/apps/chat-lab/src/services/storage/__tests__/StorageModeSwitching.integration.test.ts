@@ -32,8 +32,12 @@ jest.mock('../drive/GoogleDriveService', () => ({
   GoogleDriveService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),
     isAuthenticated: jest.fn(() => false),
-    uploadFile: jest.fn(() => Promise.resolve({ success: true, fileId: 'mock-file-id' })),
-    downloadFile: jest.fn(() => Promise.resolve({ success: true, data: new ArrayBuffer(0) })),
+    uploadFile: jest.fn(() =>
+      Promise.resolve({ success: true, fileId: 'mock-file-id' })
+    ),
+    downloadFile: jest.fn(() =>
+      Promise.resolve({ success: true, data: new ArrayBuffer(0) })
+    ),
     listFiles: jest.fn(() => Promise.resolve({ success: true, files: [] })),
     deleteFile: jest.fn(() => Promise.resolve({ success: true })),
   })),
@@ -82,7 +86,7 @@ describe('Storage Mode Switching Integration Tests', () => {
     it('should switch from local to cloud mode', async () => {
       await service.initialize('local');
       expect(service.getCurrentMode()).toBe('local');
-      
+
       await service.switchMode('cloud');
       expect(service.getCurrentMode()).toBe('cloud');
     });
@@ -90,14 +94,14 @@ describe('Storage Mode Switching Integration Tests', () => {
     it('should switch from cloud to local mode', async () => {
       await service.initialize('cloud');
       expect(service.getCurrentMode()).toBe('cloud');
-      
+
       await service.switchMode('local');
       expect(service.getCurrentMode()).toBe('local');
     });
 
     it('should handle multiple mode switches', async () => {
       const modes: ('local' | 'cloud')[] = ['local', 'cloud', 'local'];
-      
+
       for (const mode of modes) {
         // Create a fresh service instance for each mode
         const freshService = new StorageService();
@@ -114,7 +118,7 @@ describe('Storage Mode Switching Integration Tests', () => {
       await service.initialize('local');
       const localAdapter = service.getAdapter();
       expect(localAdapter).toBeDefined();
-      
+
       await service.switchMode('cloud');
       const cloudAdapter = service.getAdapter();
       expect(cloudAdapter).toBeDefined();
@@ -123,7 +127,7 @@ describe('Storage Mode Switching Integration Tests', () => {
     it('should maintain consistent initialization state across modes', async () => {
       await service.initialize('local');
       expect(service.isInitialized()).toBe(true);
-      
+
       await service.switchMode('cloud');
       expect(service.isInitialized()).toBe(true);
     });
@@ -133,7 +137,7 @@ describe('Storage Mode Switching Integration Tests', () => {
     it('should handle initialization errors gracefully', async () => {
       // Test that initialization doesn't throw
       await expect(service.initialize()).resolves.toBeUndefined();
-      
+
       // Test that re-initialization doesn't throw
       await expect(service.initialize()).resolves.toBeUndefined();
     });
@@ -152,7 +156,7 @@ describe('Storage Mode Switching Integration Tests', () => {
   describe('Performance and Reliability', () => {
     it('should handle rapid mode switches', async () => {
       const modes: ('local' | 'cloud')[] = ['local', 'cloud', 'local', 'cloud'];
-      
+
       for (const mode of modes) {
         // Create a fresh service instance for each mode
         const freshService = new StorageService();
@@ -166,10 +170,10 @@ describe('Storage Mode Switching Integration Tests', () => {
     it('should maintain state consistency during mode switches', async () => {
       await service.initialize('local');
       expect(service.isInitialized()).toBe(true);
-      
+
       await service.switchMode('cloud');
       expect(service.isInitialized()).toBe(true);
-      
+
       await service.switchMode('local');
       expect(service.isInitialized()).toBe(true);
     });

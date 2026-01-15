@@ -8,30 +8,34 @@ export const initializeGoogleDriveAuth = createAsyncThunk(
   'googleDriveAuth/initialize',
   async (_, { rejectWithValue, getState }) => {
     try {
-      const state = getState() as { settings: { settings: { storageMode: string } } };
+      const state = getState() as {
+        settings: { settings: { storageMode: string } };
+      };
       const storageMode = state.settings.settings.storageMode;
-      
+
       // Only initialize Google Drive auth in cloud storage mode
       if (storageMode !== 'cloud') {
         return {
           isAuthenticated: true, // Local mode doesn't need Google Drive
           user: null,
-          expiresAt: null
+          expiresAt: null,
         };
       }
 
       const authService = await getGoogleDriveAuthService();
       await authService.initialize();
-      
+
       const status = authService.getAuthStatus();
-      
+
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: status.expiresAt
+        expiresAt: status.expiresAt,
       };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to initialize Google Drive auth');
+      return rejectWithValue(
+        error.message || 'Failed to initialize Google Drive auth'
+      );
     }
   }
 );
@@ -45,7 +49,9 @@ export const authenticateGoogleDrive = createAsyncThunk(
       // The page will redirect, so we won't reach here
       return { isAuthenticated: true };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to authenticate with Google Drive');
+      return rejectWithValue(
+        error.message || 'Failed to authenticate with Google Drive'
+      );
     }
   }
 );
@@ -54,15 +60,17 @@ export const checkGoogleDriveAuthStatus = createAsyncThunk(
   'googleDriveAuth/checkStatus',
   async (_, { rejectWithValue, getState }) => {
     try {
-      const state = getState() as { settings: { settings: { storageMode: string } } };
+      const state = getState() as {
+        settings: { settings: { storageMode: string } };
+      };
       const storageMode = state.settings.settings.storageMode;
-      
+
       // In non-cloud storage mode, always return authenticated
       if (storageMode !== 'cloud') {
         return {
           isAuthenticated: true,
           user: null,
-          expiresAt: null
+          expiresAt: null,
         };
       }
 
@@ -70,15 +78,16 @@ export const checkGoogleDriveAuthStatus = createAsyncThunk(
       // Ensure auth service is initialized before checking status
       await authService.initialize();
       const status = authService.getAuthStatus();
-      
-      
+
       return {
         isAuthenticated: status.isAuthenticated,
         user: status.user,
-        expiresAt: status.expiresAt
+        expiresAt: status.expiresAt,
       };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to check Google Drive auth status');
+      return rejectWithValue(
+        error.message || 'Failed to check Google Drive auth status'
+      );
     }
   }
 );
@@ -89,14 +98,16 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
     try {
       const authService = await getGoogleDriveAuthService();
       await authService.revokeAccess();
-      
+
       return {
         isAuthenticated: false,
         user: null,
-        expiresAt: null
+        expiresAt: null,
       };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to revoke Google Drive access');
+      return rejectWithValue(
+        error.message || 'Failed to revoke Google Drive access'
+      );
     }
   }
 );
@@ -118,23 +129,23 @@ const googleDriveAuthSlice = createSlice({
     setShowAuthModal: (state, action: PayloadAction<boolean>) => {
       state.showAuthModal = action.payload;
     },
-    
-    clearError: (state) => {
+
+    clearError: state => {
       state.error = null;
     },
-    
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    
+
     // Action to show auth modal when authentication is needed
-    showAuthModalIfNeeded: (state) => {
+    showAuthModalIfNeeded: state => {
       // Note: The actual modal display is controlled by App.tsx based on settings.storageMode
       if (!state.isAuthenticated && !state.isLoading) {
         state.showAuthModal = true;
       }
     },
-    
+
     // Action to handle insufficient permissions error
     setInsufficientPermissions: (state, action: PayloadAction<boolean>) => {
       state.hasInsufficientPermissions = action.payload;
@@ -143,14 +154,15 @@ const googleDriveAuthSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
         state.expiresAt = null;
-        state.error = 'Insufficient permissions. Please re-authorize with all required permissions.';
+        state.error =
+          'Insufficient permissions. Please re-authorize with all required permissions.';
       }
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
       // Initialize Google Drive Auth
-      .addCase(initializeGoogleDriveAuth.pending, (state) => {
+      .addCase(initializeGoogleDriveAuth.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -160,7 +172,7 @@ const googleDriveAuthSlice = createSlice({
         state.user = action.payload.user;
         state.expiresAt = action.payload.expiresAt;
         state.error = null;
-        
+
         // Don't show auth modal - let the banner handle it instead
         state.showAuthModal = false;
       })
@@ -171,25 +183,26 @@ const googleDriveAuthSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
         state.expiresAt = null;
-        
+
         // Check if this is an insufficient permissions error
-        if (errorMessage && (
-          errorMessage.includes('did not grant all required permissions') ||
-          errorMessage.includes('InsufficientScopesError')
-        )) {
+        if (
+          errorMessage
+          && (errorMessage.includes('did not grant all required permissions')
+            || errorMessage.includes('InsufficientScopesError'))
+        ) {
           state.hasInsufficientPermissions = true;
         }
-        
+
         // Don't show auth modal - let the banner handle it instead
         state.showAuthModal = false;
       })
-      
+
       // Authenticate Google Drive
-      .addCase(authenticateGoogleDrive.pending, (state) => {
+      .addCase(authenticateGoogleDrive.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(authenticateGoogleDrive.fulfilled, (state) => {
+      .addCase(authenticateGoogleDrive.fulfilled, state => {
         state.isLoading = false;
         state.isAuthenticated = true;
         state.showAuthModal = false;
@@ -200,10 +213,10 @@ const googleDriveAuthSlice = createSlice({
         state.error = action.payload as string;
         state.showAuthModal = false; // Don't show modal - let banner handle it
       })
-      
+
       // Check Google Drive Auth Status
       // Note: We don't set isLoading for status checks to avoid unnecessary re-renders
-      .addCase(checkGoogleDriveAuthStatus.pending, (state) => {
+      .addCase(checkGoogleDriveAuthStatus.pending, state => {
         // Don't set isLoading for background checks
         state.error = null;
       })
@@ -213,7 +226,7 @@ const googleDriveAuthSlice = createSlice({
         state.user = action.payload.user;
         state.expiresAt = action.payload.expiresAt;
         state.error = null;
-        
+
         // Don't show auth modal - let the banner handle it instead
         state.showAuthModal = false;
       })
@@ -223,13 +236,13 @@ const googleDriveAuthSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
         state.expiresAt = null;
-        
+
         // Don't show auth modal - let the banner handle it instead
         state.showAuthModal = false;
       })
-      
+
       // Revoke Google Drive Access
-      .addCase(revokeGoogleDriveAccess.pending, (state) => {
+      .addCase(revokeGoogleDriveAccess.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -249,12 +262,12 @@ const googleDriveAuthSlice = createSlice({
   },
 });
 
-export const { 
-  setShowAuthModal, 
-  clearError, 
-  setLoading, 
+export const {
+  setShowAuthModal,
+  clearError,
+  setLoading,
   showAuthModalIfNeeded,
-  setInsufficientPermissions
+  setInsufficientPermissions,
 } = googleDriveAuthSlice.actions;
 
 export default googleDriveAuthSlice.reducer;

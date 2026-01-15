@@ -1,14 +1,6 @@
 import React from 'react';
-import {
-  Alert,
-  Button,
-  Box,
-  Typography,
-} from '@mui/material';
-import {
-  Warning,
-  CloudSync,
-} from '@mui/icons-material';
+import { Alert, Button, Box, Typography } from '@mui/material';
+import { Warning, CloudSync } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 
@@ -16,11 +8,11 @@ interface StorageConfigurationBannerProps {
   compact?: boolean;
 }
 
-export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProps> = ({
-  compact = false,
-}) => {
+export const StorageConfigurationBanner: React.FC<
+  StorageConfigurationBannerProps
+> = ({ compact = false }) => {
   const dispatch = useAppDispatch();
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
   const isGoogleDriveLoading = unifiedStorage.googleDrive.isLoading;
 
   const handleGoogleDriveAuth = async () => {
@@ -36,10 +28,10 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
   const buttonVariant = compact ? undefined : 'outlined';
 
   return (
-    <Alert 
+    <Alert
       severity="error"
       icon={<Warning />}
-      sx={{ 
+      sx={{
         backgroundColor: 'error.main',
         color: 'error.contrastText',
         border: 'none !important',
@@ -47,25 +39,25 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
         outline: 'none',
         boxShadow: 'none',
         '&::before': {
-          display: 'none'
+          display: 'none',
         },
         '&::after': {
-          display: 'none'
+          display: 'none',
         },
         '& .MuiAlert-icon': {
-          color: 'error.contrastText'
+          color: 'error.contrastText',
         },
         '& .MuiAlert-action': {
-          color: 'error.contrastText'
+          color: 'error.contrastText',
         },
         '& .MuiAlert-message': {
-          color: 'error.contrastText'
-        }
+          color: 'error.contrastText',
+        },
       }}
       action={
-        <Button 
-          color="inherit" 
-          size={buttonSize} 
+        <Button
+          color="inherit"
+          size={buttonSize}
           onClick={handleGoogleDriveAuth}
           disabled={isGoogleDriveLoading}
           startIcon={<CloudSync />}
@@ -75,8 +67,8 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
             borderColor: 'error.contrastText',
             '&:hover': {
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderColor: 'error.contrastText'
-            }
+              borderColor: 'error.contrastText',
+            },
           }}
         >
           {isGoogleDriveLoading ? 'Connecting...' : 'Connect Google Drive'}
@@ -85,15 +77,22 @@ export const StorageConfigurationBanner: React.FC<StorageConfigurationBannerProp
     >
       {compact ? (
         <Typography variant="body2" sx={{ color: 'error.contrastText' }}>
-          <strong>Google Drive is not connected.</strong> Connect your Google Drive account to save your data.
+          <strong>Google Drive is not connected.</strong> Connect your Google
+          Drive account to save your data.
         </Typography>
       ) : (
         <Box>
-          <Typography variant="body1" gutterBottom sx={{ color: 'error.contrastText' }}>
+          <Typography
+            variant="body1"
+            gutterBottom
+            sx={{ color: 'error.contrastText' }}
+          >
             <strong>Google Drive is not connected</strong>
           </Typography>
           <Typography variant="body2" sx={{ color: 'error.contrastText' }}>
-            Connect your Google Drive account to save your conversations, contexts, and other data. Your data will be stored securely in your personal Google Drive.
+            Connect your Google Drive account to save your conversations,
+            contexts, and other data. Your data will be stored securely in your
+            personal Google Drive.
           </Typography>
         </Box>
       )}

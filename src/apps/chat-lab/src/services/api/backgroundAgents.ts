@@ -21,7 +21,10 @@ export interface BackgroundAgentDataPacket {
     };
     verbosity_threshold?: number; // 0-100
     output_document_id?: string;
-    context_window_strategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
+    context_window_strategy:
+      | 'lastNMessages'
+      | 'summarizeThenEvaluate'
+      | 'fullThreadIfSmall';
     context_params?: {
       lastN?: number;
       token_limit?: number;
@@ -46,7 +49,10 @@ export interface BackgroundAgent {
   runEveryNTurns: number;
   verbosityThreshold?: number;
   outputDocumentId?: string;
-  contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
+  contextWindowStrategy:
+    | 'lastNMessages'
+    | 'summarizeThenEvaluate'
+    | 'fullThreadIfSmall';
   contextParams?: {
     lastN?: number;
     tokenLimit?: number;
@@ -62,13 +68,17 @@ export interface BackgroundAgent {
   updatedAt: string;
 }
 
-const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket): BackgroundAgent => {
+const transformDataPacketToBackgroundAgent = (
+  packet: BackgroundAgentDataPacket
+): BackgroundAgent => {
   // Validate actionType - ensure it's always set and valid
-  const actionType: AgentActionType = 
-    (packet.data.action_type && (packet.data.action_type === 'alert' || packet.data.action_type === 'update_document'))
+  const actionType: AgentActionType =
+    packet.data.action_type
+    && (packet.data.action_type === 'alert'
+      || packet.data.action_type === 'update_document')
       ? packet.data.action_type
       : 'alert'; // Default to 'alert' for backward compatibility and safety
-  
+
   return {
     id: packet.id,
     name: packet.data.name,
@@ -100,7 +110,7 @@ const transformDataPacketToBackgroundAgent = (packet: BackgroundAgentDataPacket)
 
 const transformBackgroundAgentToDataPacket = (
   agent: BackgroundAgent,
-  profileId: string,
+  profileId: string
 ): BackgroundAgentDataPacket => {
   return {
     id: agent.id,
@@ -139,8 +149,15 @@ const transformBackgroundAgentToDataPacket = (
 
 export const createBackgroundAgentsApi = () => {
   return {
-    getAll: async (queryParams?: any, page = 1, limit = 20, profileId?: string) => {
-      const response = await fiduVaultAPIClient.get<BackgroundAgentDataPacket[]>('/data-packets', {
+    getAll: async (
+      queryParams?: any,
+      page = 1,
+      limit = 20,
+      profileId?: string
+    ) => {
+      const response = await fiduVaultAPIClient.get<
+        BackgroundAgentDataPacket[]
+      >('/data-packets', {
         params: {
           tags: [BACKGROUND_AGENT_TAG],
           profile_id: profileId,
@@ -155,7 +172,7 @@ export const createBackgroundAgentsApi = () => {
             Object.entries(params).forEach(([key, value]) => {
               if (value !== undefined && value !== null) {
                 if (Array.isArray(value)) {
-                  value.forEach((item) => searchParams.append(key, String(item)));
+                  value.forEach(item => searchParams.append(key, String(item)));
                 } else {
                   searchParams.append(key, String(value));
                 }
@@ -179,7 +196,9 @@ export const createBackgroundAgentsApi = () => {
     },
 
     getById: async (id: string) => {
-      const response = await fiduVaultAPIClient.get<BackgroundAgentDataPacket>(`/data-packets/${id}`);
+      const response = await fiduVaultAPIClient.get<BackgroundAgentDataPacket>(
+        `/data-packets/${id}`
+      );
       return transformDataPacketToBackgroundAgent(response.data);
     },
 
@@ -189,7 +208,10 @@ export const createBackgroundAgentsApi = () => {
         request_id: agent.id,
         data_packet: packet,
       };
-      const response = await fiduVaultAPIClient.post<BackgroundAgentDataPacket>('/data-packets', payload);
+      const response = await fiduVaultAPIClient.post<BackgroundAgentDataPacket>(
+        '/data-packets',
+        payload
+      );
       return transformDataPacketToBackgroundAgent(response.data);
     },
 
@@ -199,7 +221,10 @@ export const createBackgroundAgentsApi = () => {
         request_id: `${agent.id}-update-${Date.now()}`,
         data_packet: packet,
       };
-      const response = await fiduVaultAPIClient.put<BackgroundAgentDataPacket>(`/data-packets/${agent.id}`, payload);
+      const response = await fiduVaultAPIClient.put<BackgroundAgentDataPacket>(
+        `/data-packets/${agent.id}`,
+        payload
+      );
       return transformDataPacketToBackgroundAgent(response.data);
     },
 

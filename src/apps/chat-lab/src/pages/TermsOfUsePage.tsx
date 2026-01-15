@@ -21,7 +21,7 @@ import { APP_VERSION } from '../utils/version';
 
 /**
  * Terms of Use Page
- * 
+ *
  * Displays the full terms of use by loading the TERMS_OF_USE.md file.
  * This ensures a single source of truth for the terms content.
  */
@@ -37,7 +37,7 @@ const TermsOfUsePage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch the markdown file from the public URL
         // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
@@ -49,16 +49,20 @@ const TermsOfUsePage: React.FC = () => {
             'Cache-Control': 'no-cache',
           },
         });
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to load terms of use: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to load terms of use: ${response.status} ${response.statusText}`
+          );
         }
-        
+
         const text = await response.text();
         setContent(text);
       } catch (err) {
         console.error('Error loading terms of use:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load terms of use');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load terms of use'
+        );
       } finally {
         setLoading(false);
       }
@@ -117,10 +121,10 @@ const TermsOfUsePage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Header with navigation and actions */}
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
         mb={3}
         sx={{
           '@media print': {
@@ -135,7 +139,7 @@ const TermsOfUsePage: React.FC = () => {
         >
           Back
         </Button>
-        
+
         <Box display="flex" gap={1}>
           <Tooltip title="Print Terms of Use">
             <IconButton onClick={handlePrint} size="small">
@@ -188,7 +192,10 @@ const TermsOfUsePage: React.FC = () => {
       >
         <Typography variant="body2" color="text.secondary" align="center">
           For questions about these terms, please contact us at{' '}
-          <a href="mailto:hello@firstdataunion.org" style={{ color: 'inherit' }}>
+          <a
+            href="mailto:hello@firstdataunion.org"
+            style={{ color: 'inherit' }}
+          >
             hello@firstdataunion.org
           </a>
         </Typography>
@@ -198,4 +205,3 @@ const TermsOfUsePage: React.FC = () => {
 };
 
 export default TermsOfUsePage;
-

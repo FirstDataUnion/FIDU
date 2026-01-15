@@ -98,11 +98,11 @@ const initialState: AuthState = {
  * @param result - The result to return from the promise
  */
 function mockDispatch(dispatch: jest.Mock, result: any) {
-  dispatch.mockImplementation((action) => {
+  dispatch.mockImplementation(action => {
     if (typeof action === 'function') {
       return {
         unwrap: () => Promise.resolve(result),
-      }
+      };
     }
     return action;
   });
@@ -118,11 +118,10 @@ describe('authSlice', () => {
   });
 
   describe('reducers', () => {
-
     it('should handle setCurrentProfile', () => {
       const action = setCurrentProfile(mockProfile);
       const state = authSlice(initialState, action);
-      
+
       expect(state.currentProfile).toEqual(mockProfile);
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'current_profile',
@@ -135,16 +134,16 @@ describe('authSlice', () => {
         ...initialState,
         error: 'Test error',
       };
-      
+
       const state = authSlice(stateWithError, clearError());
-      
+
       expect(state.error).toBeNull();
     });
 
     it('should handle setLoading', () => {
       const action = setLoading(true);
       const state = authSlice(initialState, action);
-      
+
       expect(state.isLoading).toBe(true);
     });
   });
@@ -154,7 +153,7 @@ describe('authSlice', () => {
       it('should handle getCurrentUser.pending', () => {
         const action = getCurrentUser.pending('');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -162,7 +161,7 @@ describe('authSlice', () => {
       it('should handle getCurrentUser.fulfilled', () => {
         const action = getCurrentUser.fulfilled(mockUser, '');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.user).toEqual(mockUser);
         expect(state.isAuthenticated).toBe(true);
@@ -175,7 +174,7 @@ describe('authSlice', () => {
           ''
         );
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.error).toBeUndefined();
       });
@@ -185,7 +184,7 @@ describe('authSlice', () => {
       it('should handle createProfile.pending', () => {
         const action = createProfile.pending('', 'New Profile');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -198,10 +197,10 @@ describe('authSlice', () => {
           create_timestamp: '2024-01-01T00:00:00Z',
           update_timestamp: '2024-01-01T00:00:00Z',
         };
-        
+
         const action = createProfile.fulfilled(newProfile, '', 'New Profile');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.profiles).toContain(newProfile);
         expect(state.error).toBeNull();
@@ -214,7 +213,7 @@ describe('authSlice', () => {
           'New Profile'
         );
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.error).toBeUndefined();
       });
@@ -224,36 +223,36 @@ describe('authSlice', () => {
       it('should handle initializeAuth.pending', () => {
         const action = initializeAuth.pending('');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(true);
         expect(state.error).toBeNull();
       });
 
       it('should handle initializeAuth.fulfilled with valid auth data', async () => {
         mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
-        
+
         const thunk = initializeAuth();
         const dispatch = jest.fn();
         const getState = jest.fn();
-        
+
         // Mock the getCurrentUser thunk
         mockDispatch(dispatch, mockUser);
-        
+
         await thunk(dispatch, getState, undefined);
 
         expect(dispatch).toHaveBeenLastCalledWith(
           expect.objectContaining({
             type: 'auth/initializeAuth/fulfilled',
-          }),
+          })
         );
       });
 
       it('should handle initializeAuth.fulfilled with no auth data', () => {
         mockLocalStorage.getItem.mockReturnValue(null);
-        
+
         const action = initializeAuth.fulfilled(null, '');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.isInitialized).toBe(true);
         expect(state.isAuthenticated).toBe(false);
@@ -265,7 +264,7 @@ describe('authSlice', () => {
           ''
         );
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.isInitialized).toBe(true);
         expect(state.error).toBeUndefined();
@@ -279,7 +278,7 @@ describe('authSlice', () => {
           'Failed to initialize'
         );
         const state = authSlice(initialState, action);
-        
+
         // The clearAllAuthTokens is called in the thunk, not the reducer
         // The reducer only sets the error state
         expect(state.error).toBe('Failed to initialize');
@@ -292,7 +291,7 @@ describe('authSlice', () => {
       it('should handle logout.pending', () => {
         const action = logout.pending('');
         const state = authSlice(initialState, action);
-        
+
         expect(state.isLoading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -306,10 +305,10 @@ describe('authSlice', () => {
           token: 'test-token',
           isAuthenticated: true,
         };
-        
+
         const action = logout.fulfilled(true, '');
         const state = authSlice(stateWithAuth, action);
-        
+
         expect(state.isLoading).toBe(false);
         expect(state.user).toBeNull();
         expect(state.currentProfile).toBeNull();
@@ -327,7 +326,7 @@ describe('authSlice', () => {
           token: 'test-token',
           isAuthenticated: true,
         };
-        
+
         const action = logout.rejected(
           new Error('Logout failed'),
           '',
@@ -335,7 +334,7 @@ describe('authSlice', () => {
           'Logout failed'
         );
         const state = authSlice(stateWithAuth, action);
-        
+
         expect(state.isLoading).toBe(false);
         // State should still be cleared even on rejection
         expect(state.user).toBeNull();
@@ -351,7 +350,7 @@ describe('authSlice', () => {
     it('should save current profile to localStorage when setCurrentProfile is called', () => {
       const action = setCurrentProfile(mockProfile);
       authSlice(initialState, action);
-      
+
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'current_profile',
         JSON.stringify(mockProfile)
@@ -362,9 +361,9 @@ describe('authSlice', () => {
       const thunk = logout();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       await thunk(dispatch, getState, undefined);
-      
+
       // The logout thunk should call clearAllAuthTokens
       expect(mockClearAllAuthTokens).toHaveBeenCalled();
       // The logout thunk should also call FiduAuthService.clearTokens
@@ -385,23 +384,33 @@ describe('authSlice', () => {
         create_timestamp: '2024-01-01T00:00:00Z',
         update_timestamp: '2024-01-01T00:00:00Z',
       };
-      
-      mockLocalStorage.getItem
-        .mockReturnValueOnce(JSON.stringify(savedProfile));
-      
+
+      mockLocalStorage.getItem.mockReturnValueOnce(
+        JSON.stringify(savedProfile)
+      );
+
       const userWithProfiles = {
         ...mockUser,
-        profiles: [savedProfile, { id: 'profile-2', name: 'Other Profile', user_id: 'user-1', create_timestamp: '2024-01-01T00:00:00Z', update_timestamp: '2024-01-01T00:00:00Z' }],
+        profiles: [
+          savedProfile,
+          {
+            id: 'profile-2',
+            name: 'Other Profile',
+            user_id: 'user-1',
+            create_timestamp: '2024-01-01T00:00:00Z',
+            update_timestamp: '2024-01-01T00:00:00Z',
+          },
+        ],
       };
-      
+
       mockAuthApi.getCurrentUser.mockResolvedValue(userWithProfiles);
-      
+
       const thunk = initializeAuth();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       mockDispatch(dispatch, userWithProfiles);
-      
+
       await thunk(dispatch, getState, undefined);
 
       // When saved profile exists and is valid, it doesn't call setItem for current_profile
@@ -412,7 +421,7 @@ describe('authSlice', () => {
       expect(dispatch).toHaveBeenLastCalledWith(
         expect.objectContaining({
           type: 'auth/initializeAuth/fulfilled',
-        }),
+        })
       );
     });
 
@@ -424,51 +433,55 @@ describe('authSlice', () => {
         create_timestamp: '2024-01-01T00:00:00Z',
         update_timestamp: '2024-01-01T00:00:00Z',
       };
-      
+
       // Reset mock to track calls properly
       mockLocalStorage.getItem.mockReset();
       mockLocalStorage.setItem.mockReset();
-      
-      mockLocalStorage.getItem
-        .mockReturnValueOnce(JSON.stringify(savedProfile)); // current_profile
-      
+
+      mockLocalStorage.getItem.mockReturnValueOnce(
+        JSON.stringify(savedProfile)
+      ); // current_profile
+
       // const _firstProfile = mockUser.profiles[0];
-      
+
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
-      
+
       const thunk = initializeAuth();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       mockDispatch(dispatch, mockUser);
-      
+
       await thunk(dispatch, getState, undefined);
-      
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('current_profile', JSON.stringify(mockUser.profiles[0]));
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        'current_profile',
+        JSON.stringify(mockUser.profiles[0])
+      );
       expect(dispatch).toHaveBeenLastCalledWith(
         expect.objectContaining({
           type: 'auth/initializeAuth/fulfilled',
-        }),
+        })
       );
     });
 
     it('should handle invalid saved profile JSON', async () => {
       mockLocalStorage.getItem.mockReturnValueOnce('invalid-json');
-      
+
       mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
-      
+
       const thunk = initializeAuth();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       mockDispatch(dispatch, mockUser);
-      
+
       await thunk(dispatch, getState, undefined);
 
       expect(dispatch).toHaveBeenLastCalledWith(
         expect.objectContaining({
           type: 'auth/initializeAuth/fulfilled',
-        }),
+        })
       );
     });
   });
@@ -479,17 +492,18 @@ describe('authSlice', () => {
     });
 
     it('should use fiduAuthService.clearAllAuthTokens in initializeAuth error handling', async () => {
-      mockLocalStorage.getItem
-        .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
-      
+      mockLocalStorage.getItem.mockReturnValueOnce(
+        JSON.stringify(mockUser.profiles[0])
+      );
+
       mockAuthApi.getCurrentUser.mockRejectedValue(new Error('API Error'));
-      
+
       const thunk = initializeAuth();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       await thunk(dispatch, getState, undefined);
-      
+
       expect(mockClearAllAuthTokens).toHaveBeenCalled();
     });
 
@@ -503,20 +517,20 @@ describe('authSlice', () => {
         isInitialized: true,
         error: null,
       };
-      
+
       const thunk = logout();
       const dispatch = jest.fn();
       const getState = jest.fn();
-      
+
       await thunk(dispatch, getState, undefined);
-      
+
       expect(mockClearAllAuthTokens).toHaveBeenCalled();
       expect(mockClearTokens).toHaveBeenCalled();
-      
+
       // Check that the fulfilled action clears the state
       const fulfilledAction = logout.fulfilled(true, '');
       const state = authSlice(stateWithAuth, fulfilledAction);
-      
+
       expect(state.user).toBeNull();
       expect(state.profiles).toEqual([]);
       expect(state.currentProfile).toBeNull();
@@ -524,26 +538,26 @@ describe('authSlice', () => {
       expect(state.error).toBeNull();
     });
 
-    it.each([
-      'Network error',
-      'Authentication failed',
-      'Token expired',
-    ])('should clear tokens consistently across all error scenarios: %s', async (error_string: string) => {
-      const error = new Error(error_string);
-      jest.clearAllMocks();
-      
-      mockLocalStorage.getItem
-        .mockReturnValueOnce(JSON.stringify(mockUser.profiles[0]));
-      
-      mockAuthApi.getCurrentUser.mockRejectedValue(error);
-      
-      const thunk = initializeAuth();
-      const dispatch = jest.fn();
-      const getState = jest.fn();
-      
-      await thunk(dispatch, getState, undefined);
-      
-      expect(mockClearAllAuthTokens).toHaveBeenCalled();
-    });
+    it.each(['Network error', 'Authentication failed', 'Token expired'])(
+      'should clear tokens consistently across all error scenarios: %s',
+      async (error_string: string) => {
+        const error = new Error(error_string);
+        jest.clearAllMocks();
+
+        mockLocalStorage.getItem.mockReturnValueOnce(
+          JSON.stringify(mockUser.profiles[0])
+        );
+
+        mockAuthApi.getCurrentUser.mockRejectedValue(error);
+
+        const thunk = initializeAuth();
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+
+        await thunk(dispatch, getState, undefined);
+
+        expect(mockClearAllAuthTokens).toHaveBeenCalled();
+      }
+    );
   });
 });

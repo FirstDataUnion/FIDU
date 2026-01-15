@@ -1,9 +1,9 @@
 /**
  * Authentication Error Boundary
- * 
+ *
  * Catches and handles authentication-related errors to prevent
  * cascading failures and infinite loops.
- * 
+ *
  * Features:
  * - Detects auth errors and provides recovery options
  * - Prevents error loops with automatic recovery
@@ -54,9 +54,8 @@ export class AuthErrorBoundary extends Component<Props, State> {
     const timeSinceLastError = now - this.state.lastErrorTime;
 
     // Reset error count if it's been more than a minute
-    const errorCount = timeSinceLastError > ERROR_RESET_TIME_MS 
-      ? 1 
-      : this.state.errorCount + 1;
+    const errorCount =
+      timeSinceLastError > ERROR_RESET_TIME_MS ? 1 : this.state.errorCount + 1;
 
     console.error('🚨 [AuthErrorBoundary] Caught authentication error:', {
       error: error.message,
@@ -67,10 +66,12 @@ export class AuthErrorBoundary extends Component<Props, State> {
 
     // Check if this looks like an auth-related error
     const isAuthError = this.isAuthError(error);
-    
+
     if (isAuthError) {
-      console.warn('⚠️ [AuthErrorBoundary] Detected auth error - clearing state to prevent loops');
-      
+      console.warn(
+        '⚠️ [AuthErrorBoundary] Detected auth error - clearing state to prevent loops'
+      );
+
       // Clear auth state to prevent loops
       try {
         getFiduAuthService().clearAllAuthTokens();
@@ -82,7 +83,9 @@ export class AuthErrorBoundary extends Component<Props, State> {
 
     // If we're getting too many errors, force a page reload
     if (errorCount >= MAX_ERRORS_PER_MINUTE) {
-      console.error('❌ [AuthErrorBoundary] Too many errors, forcing page reload');
+      console.error(
+        '❌ [AuthErrorBoundary] Too many errors, forcing page reload'
+      );
       setTimeout(() => {
         window.location.reload();
       }, 2000);
@@ -110,8 +113,8 @@ export class AuthErrorBoundary extends Component<Props, State> {
     const errorMessage = error.message.toLowerCase();
     const errorStack = (error.stack || '').toLowerCase();
 
-    return authKeywords.some(keyword => 
-      errorMessage.includes(keyword) || errorStack.includes(keyword)
+    return authKeywords.some(
+      keyword => errorMessage.includes(keyword) || errorStack.includes(keyword)
     );
   }
 
@@ -180,13 +183,17 @@ export class AuthErrorBoundary extends Component<Props, State> {
             </Typography>
 
             <Alert severity="error" sx={{ mb: 3 }}>
-              An authentication error occurred. This might be due to an expired session or
-              a temporary issue with the authentication system.
+              An authentication error occurred. This might be due to an expired
+              session or a temporary issue with the authentication system.
             </Alert>
 
             {this.state.error && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
                   Error details:
                 </Typography>
                 <Paper
@@ -207,7 +214,8 @@ export class AuthErrorBoundary extends Component<Props, State> {
 
             {this.state.errorCount >= MAX_ERRORS_PER_MINUTE && (
               <Alert severity="warning" sx={{ mb: 3 }}>
-                Multiple errors detected. The page will reload automatically in a moment.
+                Multiple errors detected. The page will reload automatically in
+                a moment.
               </Alert>
             )}
 
@@ -245,4 +253,3 @@ export class AuthErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-

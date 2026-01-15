@@ -13,10 +13,11 @@ export const PUBLIC_ROUTES = ['/privacy-policy', '/terms-of-use'];
 export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(route => {
     // Match exact route or route with basename prefix
-    return pathname === route || 
-           pathname === `/fidu-chat-lab${route}` ||
-           pathname.endsWith(route) ||
-           pathname.endsWith(`${route}/`);
+    return (
+      pathname === route
+      || pathname === `/fidu-chat-lab${route}`
+      || pathname.endsWith(route)
+      || pathname.endsWith(`${route}/`)
+    );
   });
 }
-

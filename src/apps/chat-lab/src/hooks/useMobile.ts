@@ -6,12 +6,12 @@ import { useMediaQuery, useTheme } from '@mui/material';
  */
 export const useMobile = () => {
   const theme = useTheme();
-  
+
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   return {
     isMobile,
     isTablet, // Returned for use by other hooks/components
@@ -28,7 +28,7 @@ export const useMobile = () => {
  */
 export const useResponsiveSpacing = () => {
   const { isMobile } = useMobile();
-  
+
   return {
     // Padding values
     padding: {
@@ -59,7 +59,7 @@ export const useResponsiveSpacing = () => {
  */
 export const useResponsiveTypography = () => {
   const { isMobile, isSmallMobile } = useMobile();
-  
+
   return {
     h1: isSmallMobile ? '1.75rem' : isMobile ? '2rem' : '2.5rem',
     h2: isSmallMobile ? '1.5rem' : isMobile ? '1.75rem' : '2rem',
@@ -78,7 +78,7 @@ export const useResponsiveTypography = () => {
  */
 export const useResponsiveSizing = () => {
   const { isMobile, isSmallMobile } = useMobile();
-  
+
   return {
     // Button sizes
     button: {

@@ -4,7 +4,12 @@
  */
 
 import { getUnifiedStorageService } from './storage/UnifiedStorageService';
-import type { Conversation, Message, FilterOptions, ConversationsResponse } from '../types';
+import type {
+  Conversation,
+  Message,
+  FilterOptions,
+  ConversationsResponse,
+} from '../types';
 import { ensureProtectedTags } from '../constants/protectedTags';
 
 export const conversationsService = {
@@ -18,7 +23,12 @@ export const conversationsService = {
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     const storage = getUnifiedStorageService();
-    return await storage.createConversation(profileId, conversation, messages, originalPrompt);
+    return await storage.createConversation(
+      profileId,
+      conversation,
+      messages,
+      originalPrompt
+    );
   },
 
   /**
@@ -30,7 +40,11 @@ export const conversationsService = {
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     const storage = getUnifiedStorageService();
-    return await storage.updateConversation(conversation, messages, originalPrompt);
+    return await storage.updateConversation(
+      conversation,
+      messages,
+      originalPrompt
+    );
   },
 
   /**
@@ -69,7 +83,11 @@ export const conversationsService = {
     const storage = getUnifiedStorageService();
     const conversation = await storage.getConversationById(id);
     const updatedConversation = { ...conversation, isArchived: true };
-    return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
+    return await storage.updateConversation(
+      updatedConversation,
+      [],
+      conversation.originalPrompt
+    );
   },
 
   /**
@@ -79,7 +97,11 @@ export const conversationsService = {
     const storage = getUnifiedStorageService();
     const conversation = await storage.getConversationById(id);
     const updatedConversation = { ...conversation, isArchived: false };
-    return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
+    return await storage.updateConversation(
+      updatedConversation,
+      [],
+      conversation.originalPrompt
+    );
   },
 
   /**
@@ -88,8 +110,15 @@ export const conversationsService = {
   async toggleFavorite(id: string): Promise<Conversation> {
     const storage = getUnifiedStorageService();
     const conversation = await storage.getConversationById(id);
-    const updatedConversation = { ...conversation, isFavorite: !conversation.isFavorite };
-    return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
+    const updatedConversation = {
+      ...conversation,
+      isFavorite: !conversation.isFavorite,
+    };
+    return await storage.updateConversation(
+      updatedConversation,
+      [],
+      conversation.originalPrompt
+    );
   },
 
   /**
@@ -98,12 +127,16 @@ export const conversationsService = {
   async updateTags(id: string, tags: string[]): Promise<Conversation> {
     const storage = getUnifiedStorageService();
     const conversation = await storage.getConversationById(id);
-    
+
     // Ensure protected tags are always included
     const updatedTags = ensureProtectedTags(tags);
     const updatedConversation = { ...conversation, tags: updatedTags };
-    
-    return await storage.updateConversation(updatedConversation, [], conversation.originalPrompt);
+
+    return await storage.updateConversation(
+      updatedConversation,
+      [],
+      conversation.originalPrompt
+    );
   },
 
   /**
@@ -111,6 +144,8 @@ export const conversationsService = {
    */
   async delete(_id: string): Promise<void> {
     // Note: This would need to be implemented in the storage adapters
-    throw new Error('Delete conversation not yet implemented in storage adapters');
-  }
+    throw new Error(
+      'Delete conversation not yet implemented in storage adapters'
+    );
+  },
 };

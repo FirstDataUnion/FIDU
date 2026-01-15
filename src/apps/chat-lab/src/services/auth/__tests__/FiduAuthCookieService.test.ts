@@ -3,13 +3,16 @@ import { FiduAuthService } from '../FiduAuthService';
 // Mock fetch globally
 global.fetch = jest.fn();
 
-const createResponse = (overrides: Partial<Response> & { json?: () => Promise<any> }) => ({
-  ok: true,
-  status: 200,
-  json: async () => ({}),
-  text: async () => '',
-  ...overrides,
-}) as unknown as Response;
+const createResponse = (
+  overrides: Partial<Response> & { json?: () => Promise<any> }
+) =>
+  ({
+    ok: true,
+    status: 200,
+    json: async () => ({}),
+    text: async () => '',
+    ...overrides,
+  }) as unknown as Response;
 
 describe('FiduAuthService', () => {
   let authService: FiduAuthService;
@@ -25,11 +28,12 @@ describe('FiduAuthService', () => {
       // Mock successful token retrieval
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'test-access-token',
-          refresh_token: 'test-refresh-token',
-          expires_in: 3600,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'test-access-token',
+            refresh_token: 'test-refresh-token',
+            expires_in: 3600,
+          }),
       } as Response);
 
       const result = await authService.hasRefreshToken();
@@ -40,11 +44,12 @@ describe('FiduAuthService', () => {
       // Mock response with no refresh token
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'test-access-token',
-          refresh_token: null,
-          expires_in: 3600,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'test-access-token',
+            refresh_token: null,
+            expires_in: 3600,
+          }),
       } as Response);
 
       const result = await authService.hasRefreshToken();
@@ -75,22 +80,28 @@ describe('FiduAuthService', () => {
     it('should use correct environment in API calls', async () => {
       // Create service with dev environment
       const devAuthService = new FiduAuthService();
-      
-      mockFetch.mockResolvedValueOnce(createResponse({
-        json: () => Promise.resolve({
-          access_token: 'cached-token',
-          refresh_token: 'refresh-token',
-          expires_in: 3600,
-        }),
-      }));
-      
+
+      mockFetch.mockResolvedValueOnce(
+        createResponse({
+          json: () =>
+            Promise.resolve({
+              access_token: 'cached-token',
+              refresh_token: 'refresh-token',
+              expires_in: 3600,
+            }),
+        })
+      );
+
       // Mock successful refresh
-      mockFetch.mockResolvedValueOnce(createResponse({
-        json: () => Promise.resolve({
-          access_token: 'test-token',
-          expires_in: 3600,
-        }),
-      }));
+      mockFetch.mockResolvedValueOnce(
+        createResponse({
+          json: () =>
+            Promise.resolve({
+              access_token: 'test-token',
+              expires_in: 3600,
+            }),
+        })
+      );
 
       await devAuthService.ensureAccessToken();
 

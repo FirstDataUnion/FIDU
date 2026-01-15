@@ -2,11 +2,13 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '../../services/api/auth';
 import { getFiduAuthService } from '../../services/auth/FiduAuthService';
-import { beginLogout, completeLogout, currentLogoutSource, markAuthenticated } from '../../services/auth/logoutCoordinator';
-import type { 
-  AuthState, 
-  Profile, 
-} from '../../types';
+import {
+  beginLogout,
+  completeLogout,
+  currentLogoutSource,
+  markAuthenticated,
+} from '../../services/auth/logoutCoordinator';
+import type { AuthState, Profile } from '../../types';
 
 // Async thunks
 export const getCurrentUser = createAsyncThunk(
@@ -23,8 +25,7 @@ export const getCurrentUser = createAsyncThunk(
 
 export const createProfile = createAsyncThunk(
   'auth/createProfile',
-  async (display_name: string,
-    { rejectWithValue }) => {
+  async (display_name: string, { rejectWithValue }) => {
     try {
       const response = await authApi.createProfile(display_name);
       return response;
@@ -36,8 +37,10 @@ export const createProfile = createAsyncThunk(
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async ({ profile_id, display_name }: { profile_id: string; display_name: string },
-    { rejectWithValue }) => {
+  async (
+    { profile_id, display_name }: { profile_id: string; display_name: string },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await authApi.updateProfile(profile_id, display_name);
       return response;
@@ -68,7 +71,9 @@ export const logout = createAsyncThunk(
 
       if (!started) {
         if (source === 'manual') {
-          console.log('🔁 Logout already in progress, skipping manual logout request');
+          console.log(
+            '🔁 Logout already in progress, skipping manual logout request'
+          );
           return true;
         }
 
@@ -76,41 +81,45 @@ export const logout = createAsyncThunk(
       } else {
         console.log('🧹 Starting logout process (manual)...');
       }
-      
+
       // Clear HTTP-only cookies via backend (FIDU auth)
       const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
       console.log('✅ FIDU auth cookies cleared');
-      
+
       // Clear Google Drive auth if available
       try {
-        const { getGoogleDriveAuthService } = await import('../../services/auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } =
+          await import('../../services/auth/GoogleDriveAuth');
         const googleDriveAuthService = await getGoogleDriveAuthService();
         await googleDriveAuthService.logout();
         console.log('✅ Google Drive auth cleared');
       } catch (error) {
         // If Google Drive auth service is not available, that's okay - just log it
-        console.warn('Could not clear Google Drive auth (may not be initialized):', error);
+        console.warn(
+          'Could not clear Google Drive auth (may not be initialized):',
+          error
+        );
       }
-      
+
       // Clear localStorage and client-side cookies
       getFiduAuthService().clearAllAuthTokens();
       console.log('✅ LocalStorage and client-side cookies cleared');
-      
+
       // Also clear Google Drive tokens from localStorage if they exist
       localStorage.removeItem('google_drive_tokens');
       localStorage.removeItem('google_drive_user');
-      
+
       // Clear cached FIDU SDK instance to force reinitialization on next login
       // This ensures the login widget appears properly after logout
       if ((window as any).__fiduAuthInstance) {
         delete (window as any).__fiduAuthInstance;
         console.log('✅ FIDU SDK instance cleared');
       }
-      
+
       // Mark logout as complete to clear timeout and prevent loops
       completeLogout();
-      
+
       return true;
     } catch (error: any) {
       console.error('❌ Logout failed:', error);
@@ -118,15 +127,15 @@ export const logout = createAsyncThunk(
       getFiduAuthService().clearAllAuthTokens();
       localStorage.removeItem('google_drive_tokens');
       localStorage.removeItem('google_drive_user');
-      
+
       // Clear cached FIDU SDK instance even on error
       if ((window as any).__fiduAuthInstance) {
         delete (window as any).__fiduAuthInstance;
       }
-      
+
       // Still mark logout as complete even on failure to prevent infinite loops
       completeLogout();
-      
+
       return rejectWithValue(error.message || 'Failed to logout completely');
     }
   }
@@ -137,7 +146,7 @@ export const initializeAuth = createAsyncThunk(
   async (_, { dispatch, rejectWithValue }) => {
     try {
       const fiduAuthService = getFiduAuthService();
-      
+
       if (await fiduAuthService.isAuthenticated()) {
         console.log('✅ Using FIDU auth tokens from HTTP-only cookies');
       } else if (await fiduAuthService.migrateFromLocalStorage()) {
@@ -152,14 +161,14 @@ export const initializeAuth = createAsyncThunk(
 
       // Get current user info
       const currentUser = await dispatch(getCurrentUser()).unwrap();
-      
+
       // Fetch profiles
       const profiles = currentUser.profiles;
-      
+
       // Check for existing saved profile first, then default to first profile
       let currentProfile = null;
       const savedProfile = localStorage.getItem('current_profile');
-      
+
       if (savedProfile) {
         try {
           const parsedProfile = JSON.parse(savedProfile);
@@ -209,24 +218,23 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
       state.currentProfile = action.payload;
       localStorage.setItem('current_profile', JSON.stringify(action.payload));
     },
-    
-    clearError: (state) => {
+
+    clearError: state => {
       state.error = null;
     },
-    
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
       // Get Current User
-      .addCase(getCurrentUser.pending, (state) => {
+      .addCase(getCurrentUser.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -240,9 +248,9 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      
+
       // Create Profile
-      .addCase(createProfile.pending, (state) => {
+      .addCase(createProfile.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -255,9 +263,9 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      
+
       // Update Profile
-      .addCase(updateProfile.pending, (state) => {
+      .addCase(updateProfile.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -273,20 +281,26 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      
+
       // Delete Profile
-      .addCase(deleteProfile.pending, (state) => {
+      .addCase(deleteProfile.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(deleteProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.profiles = state.profiles.filter(p => p.id !== action.payload.profile_id);
+        state.profiles = state.profiles.filter(
+          p => p.id !== action.payload.profile_id
+        );
         // If the deleted profile was the current profile, select the first available profile
         if (state.currentProfile?.id === action.payload.profile_id) {
-          state.currentProfile = state.profiles.length > 0 ? state.profiles[0] : null;
+          state.currentProfile =
+            state.profiles.length > 0 ? state.profiles[0] : null;
           if (state.currentProfile) {
-            localStorage.setItem('current_profile', JSON.stringify(state.currentProfile));
+            localStorage.setItem(
+              'current_profile',
+              JSON.stringify(state.currentProfile)
+            );
           } else {
             localStorage.removeItem('current_profile');
           }
@@ -297,9 +311,9 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      
+
       // Initialize Auth
-      .addCase(initializeAuth.pending, (state) => {
+      .addCase(initializeAuth.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
@@ -322,13 +336,13 @@ const authSlice = createSlice({
         state.isInitialized = true;
         state.error = action.payload as string;
       })
-      
+
       // Logout
-      .addCase(logout.pending, (state) => {
+      .addCase(logout.pending, state => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(logout.fulfilled, (state) => {
+      .addCase(logout.fulfilled, state => {
         state.isLoading = false;
         state.user = null;
         state.currentProfile = null;
@@ -349,4 +363,4 @@ const authSlice = createSlice({
 });
 
 export const { setCurrentProfile, clearError, setLoading } = authSlice.actions;
-export default authSlice.reducer; 
+export default authSlice.reducer;

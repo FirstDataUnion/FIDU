@@ -45,7 +45,7 @@ export class CookieSettingsService {
       withCredentials: true,
     });
     this.setUpInterceptors();
-    
+
     // Detect environment based on hostname using shared utility
     this.environment = detectRuntimeEnvironment();
   }
@@ -84,24 +84,30 @@ export class CookieSettingsService {
    * Store user settings in HTTP-only cookie
    * Requires authentication for security
    */
-  async setSettings(settings: UserSettings): Promise<CookieSettingsMutationResult> {
+  async setSettings(
+    settings: UserSettings
+  ): Promise<CookieSettingsMutationResult> {
     try {
-      console.log(`🔄 Storing user settings in HTTP-only cookie for ${this.environment} environment...`);
-      
+      console.log(
+        `🔄 Storing user settings in HTTP-only cookie for ${this.environment} environment...`
+      );
+
       // Get auth token for secure storage
       const authTokenAvailable = await this.ensureAuthToken();
       if (!authTokenAvailable) {
-        console.warn('⚠️ No auth token available - cannot store settings securely');
+        console.warn(
+          '⚠️ No auth token available - cannot store settings securely'
+        );
         return { success: false, reason: 'auth_unavailable' };
       }
-      
+
       // Add environment information to settings
       const settingsWithEnv = {
         ...settings,
         environment: this.environment,
         environmentPrefix: this.getEnvironmentPrefix(),
       };
-      
+
       const response = await this.client.post('api/settings/set', {
         settings: settingsWithEnv,
         environment: this.environment,
@@ -111,8 +117,15 @@ export class CookieSettingsService {
         console.log('✅ User settings stored in HTTP-only cookie');
         return { success: true };
       } else {
-        console.error('❌ Failed to store settings in cookie:', response.status);
-        return { success: false, reason: 'request_failed', status: response.status };
+        console.error(
+          '❌ Failed to store settings in cookie:',
+          response.status
+        );
+        return {
+          success: false,
+          reason: 'request_failed',
+          status: response.status,
+        };
       }
     } catch (error) {
       console.error('❌ Error storing settings in cookie:', error);
@@ -126,16 +139,22 @@ export class CookieSettingsService {
    */
   async getSettings(): Promise<UserSettings | null> {
     try {
-      console.log(`🔄 Retrieving user settings from HTTP-only cookie for ${this.environment} environment...`);
-      
+      console.log(
+        `🔄 Retrieving user settings from HTTP-only cookie for ${this.environment} environment...`
+      );
+
       // Get auth token for secure retrieval
       const hasValidAuthToken = await this.ensureAuthToken();
       if (!hasValidAuthToken) {
-        console.warn('⚠️ No auth token available - cannot retrieve settings securely');
+        console.warn(
+          '⚠️ No auth token available - cannot retrieve settings securely'
+        );
         return null;
       }
-      
-      const response = await this.client.get(`api/settings/get?env=${this.environment}`);
+
+      const response = await this.client.get(
+        `api/settings/get?env=${this.environment}`
+      );
 
       if (response.status === 200) {
         const data: CookieSettingsResponse = response.data;
@@ -143,18 +162,27 @@ export class CookieSettingsService {
           // Validate that settings are for the current environment
           const settingsEnv = (data.settings as any).environment;
           if (settingsEnv && settingsEnv !== this.environment) {
-            console.warn(`⚠️ Settings found for ${settingsEnv} environment, but current environment is ${this.environment}. Ignoring settings.`);
+            console.warn(
+              `⚠️ Settings found for ${settingsEnv} environment, but current environment is ${this.environment}. Ignoring settings.`
+            );
             return null;
           }
-          
-          console.log(`✅ User settings retrieved from HTTP-only cookie for ${this.environment} environment`);
+
+          console.log(
+            `✅ User settings retrieved from HTTP-only cookie for ${this.environment} environment`
+          );
           return data.settings;
         } else {
-          console.log(`ℹ️ No settings found in HTTP-only cookie for ${this.environment} environment`);
+          console.log(
+            `ℹ️ No settings found in HTTP-only cookie for ${this.environment} environment`
+          );
           return null;
         }
       } else {
-        console.warn('⚠️ Failed to retrieve settings from cookie:', response.status);
+        console.warn(
+          '⚠️ Failed to retrieve settings from cookie:',
+          response.status
+        );
         return null;
       }
     } catch (error) {
@@ -173,7 +201,9 @@ export class CookieSettingsService {
   /**
    * Enhanced settings retrieval with retry logic
    */
-  async getSettingsWithRetry(maxRetries: number = 2): Promise<UserSettings | null> {
+  async getSettingsWithRetry(
+    maxRetries: number = 2
+  ): Promise<UserSettings | null> {
     if (!this.isOnline()) {
       console.log('🔄 Offline - skipping cookie settings retrieval');
       return null;
@@ -183,11 +213,11 @@ export class CookieSettingsService {
       try {
         console.log(`🔄 Settings retrieval attempt ${attempt}/${maxRetries}`);
         const settings = await this.getSettings();
-        
+
         if (settings) {
           return settings;
         }
-        
+
         // Wait before retry
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * attempt, 3000);
@@ -196,14 +226,14 @@ export class CookieSettingsService {
         }
       } catch (error) {
         console.warn(`❌ Settings retrieval attempt ${attempt} failed:`, error);
-        
+
         if (attempt === maxRetries) {
           console.error('❌ All settings retrieval attempts failed');
           return null;
         }
       }
     }
-    
+
     return null;
   }
 
@@ -214,7 +244,8 @@ export class CookieSettingsService {
     try {
       const fiduTokenService = getFiduAuthService();
       await fiduTokenService.ensureAccessToken({
-        onWait: () => console.log('🔐 Ensuring FIDU auth before fetching settings...'),
+        onWait: () =>
+          console.log('🔐 Ensuring FIDU auth before fetching settings...'),
       });
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {
