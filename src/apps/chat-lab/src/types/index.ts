@@ -114,6 +114,24 @@ export interface WorkspaceRegistry {
 }
 
 // Authentication Types
+// The IdentityService* types are partials of what the Identity Service returns.
+export interface IdentityServiceProfile {
+  id: string;
+  user_id: string;
+  display_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IdentityServiceUser {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+  profiles: IdentityServiceProfile[];
+}
+
 export interface User {
   id: string;
   email: string;
@@ -351,7 +369,6 @@ export interface AuthState {
   user: User | null;
   currentProfile: Profile | null;
   profiles: Profile[];
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;

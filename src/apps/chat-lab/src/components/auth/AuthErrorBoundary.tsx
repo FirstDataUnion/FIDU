@@ -13,7 +13,7 @@
 import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Box, Paper, Typography, Button, Alert } from '@mui/material';
-import { refreshTokenService } from '../../services/api/refreshTokenService';
+import { getFiduAuthService } from '../../services/auth/FiduAuthService';
 import { completeLogout } from '../../services/auth/logoutCoordinator';
 
 interface Props {
@@ -73,7 +73,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
       
       // Clear auth state to prevent loops
       try {
-        refreshTokenService.clearAllAuthTokens();
+        getFiduAuthService().clearAllAuthTokens();
         completeLogout(); // Ensure logout coordinator is reset
       } catch (cleanupError) {
         console.error('Error during auth cleanup:', cleanupError);
@@ -127,7 +127,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
 
   private handleClearAndReload = () => {
     // Clear all auth data and reload
-    refreshTokenService.clearAllAuthTokens();
+    getFiduAuthService().clearAllAuthTokens();
     completeLogout();
     window.location.reload();
   };

@@ -227,9 +227,9 @@ const AppContent: React.FC<AppContentProps> = () => {
         // Quick check for FIDU tokens before starting full initialization
         const { getFiduAuthService } = await import('./services/auth/FiduAuthService');
         const fiduAuthService = getFiduAuthService();
-        const tokens = await fiduAuthService.getTokens();
+        const isAuthenticated = await fiduAuthService.isAuthenticated();
         
-        if (!tokens?.access_token && !tokens?.refresh_token) {
+        if (!isAuthenticated) {
           console.log('⚡ [Early Check] No FIDU tokens found - skipping loading screen');
           setEarlyNoAuthDetected(true);
           setStorageInitialized(true);

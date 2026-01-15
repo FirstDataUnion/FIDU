@@ -103,24 +103,10 @@ export class AuthManager {
    */
   private async _doInitialize(): Promise<void> {
     try {
-      // Step 1: Check FIDU authentication with restoration attempt
-      let fiduAuthenticated = await this.fiduAuthService.ensureAuthenticated();
+      // Step 1: Check FIDU authentication
+      const hasFiduAuth = await this.fiduAuthService.isAuthenticated();
       
-      // If restoration failed, try one more time with ensureAccessToken (more aggressive)
-      if (!fiduAuthenticated) {
-        console.log('🔄 [AuthManager] FIDU authentication not found, attempting aggressive restoration...');
-        try {
-          const token = await this.fiduAuthService.ensureAccessToken({
-            maxAttempts: 2, // Quick retry
-            timeoutMs: 5000, // 5 second timeout
-          });
-          fiduAuthenticated = !!token;
-        } catch (error) {
-          console.warn('⚠️ [AuthManager] Aggressive FIDU auth restoration failed:', error);
-        }
-      }
-      
-      if (!fiduAuthenticated) {
+      if (!hasFiduAuth) {
         console.log('ℹ️  [AuthManager] No FIDU authentication - user needs to log in');
         this.notifySubscribers('auth-lost', this.getAuthStatus());
         await this.syncToRedux();
@@ -196,23 +182,11 @@ export class AuthManager {
       console.log('🔄 [AuthManager] Checking authentication status...');
 
       // Check FIDU authentication first
-      let fiduAuthenticated = await this.fiduAuthService.ensureAuthenticated();
-      
-      // If restoration failed, try one more time with ensureAccessToken (more aggressive)
-      if (!fiduAuthenticated) {
-        console.log('🔄 [AuthManager] FIDU authentication not found in checkAndRestore, attempting aggressive restoration...');
-        try {
-          const token = await this.fiduAuthService.ensureAccessToken({
-            maxAttempts: 2, // Quick retry
-            timeoutMs: 5000, // 5 second timeout
-          });
-          fiduAuthenticated = !!token;
-          if (fiduAuthenticated) {
-            console.log('✅ [AuthManager] FIDU authentication restored successfully');
-          }
-        } catch (error) {
-          console.warn('⚠️ [AuthManager] Aggressive FIDU auth restoration failed:', error);
-        }
+      let fiduAuthenticated;
+      try {
+        fiduAuthenticated = await this.fiduAuthService.isAuthenticated();
+      } catch (error) {
+        console.warn('⚠️ [AuthManager] FIDU authentication failed:', error);
       }
       
       if (!fiduAuthenticated) {

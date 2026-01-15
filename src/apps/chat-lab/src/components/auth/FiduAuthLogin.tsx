@@ -23,29 +23,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/material';
 import { useFiduSDK } from '../../hooks/useFiduSDK';
 import { useFiduAuth } from '../../hooks/useFiduAuth';
-import { refreshTokenService } from '../../services/api/refreshTokenService';
+import { getFiduAuthService } from '../../services/auth/FiduAuthService';
+import type { IdentityServiceUser } from '../../types';
 
 const FiduAuthLogin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { isLoading: sdkLoading, error: sdkError, sdk, isReady } = useFiduSDK();
   const { handleAuthSuccess, handleAuthError, handleLogout } = useFiduAuth(setError);
-
-  // Check and clear inconsistent auth state on mount
-  const checkAndClearAuthState = useCallback(() => {
-    const token = localStorage.getItem('auth_token');
-    const user = localStorage.getItem('user');
-    const profile = localStorage.getItem('current_profile');
-    
-    if ((token || user || profile) && !token) {
-      console.log('🧹 Clearing inconsistent auth state');
-      refreshTokenService.clearAllAuthTokens();
-    }
-  }, []);
-
-  useEffect(() => {
-    checkAndClearAuthState();
-  }, [checkAndClearAuthState]);
 
   // Combine SDK error with local error
   useEffect(() => {
@@ -55,10 +40,10 @@ const FiduAuthLogin: React.FC = () => {
   }, [sdkError]);
 
   // Wrap auth handlers to track loading state
-  const wrappedHandleAuthSuccess = useCallback(async (user: any, token: any, portalUrl: any, refreshToken?: string) => {
+  const wrappedHandleAuthSuccess = useCallback(async (user: IdentityServiceUser, accessToken: string, portalUrl: any, refreshToken: string) => {
     setIsAuthenticating(true);
     try {
-      await handleAuthSuccess(user, token, portalUrl, refreshToken);
+      await handleAuthSuccess(user, accessToken, portalUrl, refreshToken);
     } finally {
       // Don't set false here - let Redux state take over
       // setIsAuthenticating(false) would be called but we'll transition to app
@@ -246,22 +231,12 @@ const FiduAuthLogin: React.FC = () => {
                 <Button 
                   variant="outlined" 
                   onClick={() => {
-                    refreshTokenService.clearAllAuthTokens();
+                    getFiduAuthService().clearAllAuthTokens();
                     window.location.reload();
                   }}
                   sx={{ mr: 1 }}
                 >
                   Clear Cache & Reload
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    // Clear error and reload page for full reset
-                    checkAndClearAuthState();
-                    window.location.reload();
-                  }}
-                >
-                  Retry Authentication
                 </Button>
               </Box>
             )}

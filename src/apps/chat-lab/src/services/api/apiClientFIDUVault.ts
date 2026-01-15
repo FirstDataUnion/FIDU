@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { ApiError, type ApiResponse, type ErrorResponse } from './apiClients';
-import { refreshTokenService } from './refreshTokenService';
+import { getFiduAuthService } from '../auth/FiduAuthService';
 
 // FIDU Vault API Configuration
 const FIDU_VAULT_API_CONFIG = {
@@ -27,8 +27,8 @@ export class FiduVaultAPIClient {
   }
 
   private setupInterceptors(): void {
-    // Use the refresh token service's auth interceptor for consistent behavior
-    const authInterceptor = refreshTokenService.createAuthInterceptor();
+    // Use the FiduAuthService's auth interceptor for consistent behavior
+    const authInterceptor = getFiduAuthService().createAuthInterceptor();
     
     // Request interceptor
     this.client.interceptors.request.use(

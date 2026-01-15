@@ -67,8 +67,8 @@ jest.mock('../../../utils/environment', () => ({
   })),
   getIdentityServiceUrl: jest.fn(() => 'https://identity.firstdataunion.org'),
   getGatewayUrl: jest.fn(() => 'https://gateway.firstdataunion.org'),
+  detectRuntimeEnvironment: jest.fn(() => 'dev'),
   isDevEnvironment: jest.fn(() => true),
-  detectRuntimeEnvironment: jest.fn(() => 'local'),
 }));
 
 describe('Storage Mode Switching Integration Tests', () => {

@@ -10,12 +10,11 @@
 import { useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from './redux';
 import { initializeAuth, logout } from '../store/slices/authSlice';
-import { fetchCurrentUser } from '../services/api/apiClientIdentityService';
-import { refreshTokenService } from '../services/api/refreshTokenService';
-import { isEmailAllowed, getAllowedEmails } from '../utils/emailAllowlist';
+import { externalUserToInternalUser } from '../services/api/apiClientIdentityService';
 import { getFiduAuthService } from '../services/auth/FiduAuthService';
 import { beginLogout, currentLogoutSource, markAuthenticated } from '../services/auth/logoutCoordinator';
 import { getEnvironmentInfo } from '../utils/environment';
+import type { IdentityServiceUser, User } from '../types';
 
 const AUTH_RESTORE_TIMEOUT_MS = 6000;
 
@@ -24,56 +23,9 @@ interface NormalizedTokens {
   refreshToken: string;
 }
 
-function normalizeAuthTokens(
-  token: string | { access_token?: string; refresh_token?: string } | null,
-  providedRefreshToken?: string
-): NormalizedTokens {
-  if (token && typeof token === 'object' && token.access_token) {
-    return {
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token || token.access_token,
-    };
-  }
-
-  const accessToken = typeof token === 'string' ? token : '';
-  let refreshToken = providedRefreshToken?.trim() || '';
-
-  if (!refreshToken) {
-    refreshToken = localStorage.getItem('fiduRefreshToken') || accessToken;
-  }
-
-  return {
-    accessToken,
-    refreshToken: refreshToken || accessToken,
-  };
-}
-
-async function enforceEmailAllowlist(
-  user: any,
-  onError: (message: string) => void,
-  fiduAuthService: ReturnType<typeof getFiduAuthService>
-): Promise<boolean> {
-  if (isEmailAllowed(user.email)) {
-    return true;
-  }
-
-  await fiduAuthService.clearTokens();
-  refreshTokenService.clearAllAuthTokens();
-
-  const allowedEmails = getAllowedEmails();
-  const emailListStr = allowedEmails ? allowedEmails.join(', ') : 'configured list';
-
-  onError(
-    `Access restricted. Your email (${user.email}) is not authorized for this development environment. ` +
-    `Authorized emails: ${emailListStr}. Please contact an administrator for access.`
-  );
-
-  return false;
-}
-
 async function persistAuthenticatedSession(
   fiduAuthService: ReturnType<typeof getFiduAuthService>,
-  user: any,
+  user: User,
   tokens: NormalizedTokens
 ): Promise<void> {
   const success = await fiduAuthService.setTokens(tokens.accessToken, tokens.refreshToken, user);
@@ -83,11 +35,6 @@ async function persistAuthenticatedSession(
   }
 
   markAuthenticated();
-
-  localStorage.setItem('auth_token', tokens.accessToken);
-  localStorage.setItem('user', JSON.stringify(user));
-
-  document.cookie = `auth_token=${tokens.accessToken}; path=/; max-age=3600; samesite=lax`;
 }
 
 async function attemptCloudStorageRestoration(): Promise<boolean> {
@@ -145,7 +92,7 @@ async function attemptCloudStorageRestoration(): Promise<boolean> {
 }
 
 interface UseFiduAuthReturn {
-  handleAuthSuccess: (user: any, token: string | any, portalUrl: any, refreshToken?: string) => Promise<void>;
+  handleAuthSuccess: (user: IdentityServiceUser, token: string, portalUrl: any, refreshToken: string) => Promise<void>;
   handleAuthError: (err: any) => void;
   handleLogout: () => void;
 }
@@ -155,23 +102,20 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const handleAuthSuccess = useCallback(async (
-    _user: any,
+    user: IdentityServiceUser,
     token: string | any,
     _portalUrl: any,
-    refreshToken?: string
+    refreshToken: string
   ) => {
     try {
       const fiduAuthService = getFiduAuthService();
-      const tokens = normalizeAuthTokens(token, refreshToken);
+      const tokens = {
+        accessToken: token,
+        refreshToken: refreshToken,
+      };
 
-      const user = await fetchCurrentUser(tokens.accessToken);
-
-      const isAllowed = await enforceEmailAllowlist(user, onError, fiduAuthService);
-      if (!isAllowed) {
-        return;
-      }
-
-      await persistAuthenticatedSession(fiduAuthService, user, tokens);
+      const internalUser = externalUserToInternalUser(user);
+      await persistAuthenticatedSession(fiduAuthService, internalUser, tokens);
 
       const requireOAuthRedirect = await attemptCloudStorageRestoration();
 
@@ -186,7 +130,7 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
       // Clear tokens if authentication fails
       const fiduAuthService = getFiduAuthService();
       await fiduAuthService.clearTokens();
-      refreshTokenService.clearAllAuthTokens();
+      fiduAuthService.clearAllAuthTokens();
       console.error('Error during authentication:', error);
       onError('Authentication succeeded, but failed to fetch user info. Please try again.');
     }
@@ -194,7 +138,7 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
 
   const handleAuthError = useCallback((_err: any) => {
     // Clear any existing auth data to prevent loops
-    refreshTokenService.clearAllAuthTokens();
+    getFiduAuthService().clearAllAuthTokens();
     onError('Authentication failed. Please try again.');
   }, [onError]);
 
@@ -214,7 +158,7 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
     }
 
     dispatch(logout()).catch(() => {
-      refreshTokenService.clearAllAuthTokens();
+      getFiduAuthService().clearAllAuthTokens();
     });
   }, [dispatch, isAuthenticated]);
 

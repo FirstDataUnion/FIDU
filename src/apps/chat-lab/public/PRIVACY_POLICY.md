@@ -68,17 +68,16 @@ FIDU Chat Lab uses cookies and browser storage mechanisms that are essential for
 #### Authentication Cookies
 - **Purpose:** Maintain your logged-in session
 - **Type:** Session and persistent cookies
-- **Names:** `auth_token`, `refresh_token`, `fiduRefreshToken`
-- **Duration:** Access tokens expire after 1 hour; refresh tokens remain valid until you log out
-- **Storage:** HTTP-only encrypted cookies (primary), localStorage (fallback for development)
-- **Security:** Refresh tokens are encrypted using user-specific keys before storage
+- **Names:** `fidu_refresh_token`, `fidu_access_token` (environment-specific)
+- **Duration:** Access tokens expire in less than a day; refresh tokens remain valid for 30-90 days
+- **Storage:** HTTP-only cookies (managed by backend server)
+- **Security:** 
+  - Refresh tokens stored in HTTP-only cookies (not accessible to JavaScript)
+  - Access tokens stored in memory only
 
 #### Local Storage
-- **Purpose:** Store authentication state, application settings, and conversation data
+- **Purpose:** Store application settings and conversation data
 - **Data stored:** 
-  - `auth_token` - Your session access token
-  - `fiduRefreshToken` - Token for refreshing your session
-  - `token_expires_in` - Token expiration information
   - `user` - Your user profile information
   - `current_profile` - Currently active profile
   - Application settings and preferences
@@ -187,14 +186,15 @@ Note: Opting out of metrics does not affect your ability to use Chat Lab.
   - API keys are encrypted in your browser before being stored locally
   - Google Drive backups are encrypted before upload (when using Google Drive mode)
 - **Authentication Tokens:**
-  - Refresh tokens are encrypted using user-specific encryption keys before storage
+  - Refresh tokens are stored in HTTP-only cookies (not accessible to JavaScript)
+  - Access tokens are stored in memory
   - Each user has a unique encryption key stored securely on our Identity Service
   - HTTP-only cookies prevent JavaScript access to sensitive tokens
   - Tokens are encrypted using AES-256-GCM encryption standard
 
 ### 5.2. Access Controls
 
-- **Token Expiration:** Access tokens expire after 1 hour and must be refreshed
+- **Token Expiration:** Access tokens expire after 1 day and must be refreshed
 - **Least Privilege:** Our systems follow the principle of least privilege access
 
 ### 5.3. Data Isolation

@@ -23,13 +23,6 @@ jest.mock('@/utils/environment', () => ({
   getGatewayUrl: () => 'https://gateway.firstdataunion.org',
 }));
 
-// Mock the emailAllowlist module
-jest.mock('@/utils/emailAllowlist', () => ({
-  isEmailAllowed: jest.fn(() => true),
-  getAllowedEmails: jest.fn(() => []),
-  isEmailInAllowlist: jest.fn(() => true),
-}));
-
 // Create a theme for testing
 const theme = createTheme();
 

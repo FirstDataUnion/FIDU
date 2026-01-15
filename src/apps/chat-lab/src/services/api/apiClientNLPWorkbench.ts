@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
 import { ApiError, type ErrorResponse } from './apiClients';
 import { getGatewayUrl } from '../../utils/environment';
-import { refreshTokenService } from './refreshTokenService';
+import { getFiduAuthService } from '../auth/FiduAuthService';
 import { apiKeyService, type SupportedProvider } from './apiKeyService';
 import { getModelConfig, getModelAgentUrl, convertLegacyModelId, getModelConfigs } from '../../data/models';
 
@@ -45,8 +45,8 @@ const NLP_WORKBENCH_API_CONFIG = {
     }
   
     private setupInterceptors(): void {
-      // Use the refresh token service's auth interceptor for consistent behavior
-      const authInterceptor = refreshTokenService.createAuthInterceptor();
+      // Use the FiduAuthService's auth interceptor for consistent behavior
+      const authInterceptor = getFiduAuthService().createAuthInterceptor();
       
       // Request interceptor
       this.client.interceptors.request.use(

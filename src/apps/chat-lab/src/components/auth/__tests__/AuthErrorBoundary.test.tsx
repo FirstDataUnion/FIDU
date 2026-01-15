@@ -7,14 +7,15 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthErrorBoundary } from '../AuthErrorBoundary';
-import { refreshTokenService } from '../../../services/api/refreshTokenService';
 import * as logoutCoordinator from '../../../services/auth/logoutCoordinator';
+import { type FiduAuthService, getFiduAuthService } from '../../../services/auth/FiduAuthService';
 
 // Mock dependencies
-jest.mock('../../../services/api/refreshTokenService', () => ({
-  refreshTokenService: {
-    clearAllAuthTokens: jest.fn(),
-  },
+const mockFiduAuthService = {
+  clearAllAuthTokens: jest.fn(),
+};
+jest.mock('../../../services/auth/FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(() => mockFiduAuthService),
 }));
 jest.mock('../../../services/auth/logoutCoordinator', () => ({
   completeLogout: jest.fn(),
@@ -77,29 +78,23 @@ describe('AuthErrorBoundary', () => {
     expect(screen.getByText('Custom error message')).toBeInTheDocument();
   });
 
-  it('should detect auth-related errors', () => {
-    const authErrors = [
-      'Authentication failed',
-      'Token expired',
-      'Unauthorized access',
-      '401 error',
-      'Invalid credentials',
-    ];
+  it.each([
+    'Authentication failed',
+    'Token expired',
+    'Unauthorized access',
+    '401 error',
+    'Invalid credentials',
+  ])('should detect auth-related errors: %s', (errorMessage: string) => {
+    const { unmount } = render(
+      <AuthErrorBoundary>
+        <ThrowError shouldThrow={true} errorMessage={errorMessage} />
+      </AuthErrorBoundary>
+    );
 
-    authErrors.forEach((errorMessage) => {
-      const { unmount } = render(
-        <AuthErrorBoundary>
-          <ThrowError shouldThrow={true} errorMessage={errorMessage} />
-        </AuthErrorBoundary>
-      );
+    expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
+    expect(logoutCoordinator.completeLogout).toHaveBeenCalled();
 
-      // Should clear auth state for auth errors
-      expect(refreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
-      expect(logoutCoordinator.completeLogout).toHaveBeenCalled();
-
-      unmount();
-      jest.clearAllMocks();
-    });
+    unmount();
   });
 
   it('should provide Try Again button that resets error state', () => {
@@ -136,7 +131,7 @@ describe('AuthErrorBoundary', () => {
 
     fireEvent.click(clearButton);
 
-    expect(refreshTokenService.clearAllAuthTokens).toHaveBeenCalled();
+    expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
     expect(logoutCoordinator.completeLogout).toHaveBeenCalled();
     expect(window.location.reload).toHaveBeenCalled();
   });
@@ -203,7 +198,7 @@ describe('AuthErrorBoundary', () => {
   });
 
   it('should handle cleanup errors gracefully', () => {
-    (refreshTokenService.clearAllAuthTokens as jest.Mock).mockImplementation(() => {
+    (getFiduAuthService() as jest.Mocked<FiduAuthService>).clearAllAuthTokens.mockImplementation(() => {
       throw new Error('Cleanup failed');
     });
 

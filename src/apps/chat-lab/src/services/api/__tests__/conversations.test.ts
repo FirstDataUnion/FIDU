@@ -1,6 +1,5 @@
 import { conversationsApi } from '../conversations';
 import { fiduVaultAPIClient } from '../apiClientFIDUVault';
-import { refreshTokenService } from '../refreshTokenService';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import type { Message } from '../../../types';
 import type { ConversationDataPacket } from '../conversations';
@@ -15,17 +14,17 @@ jest.mock('../apiClientFIDUVault', () => ({
   },
 }));
 
-// Mock the refresh token service
-jest.mock('../refreshTokenService', () => ({
-  refreshTokenService: {
-    getAccessToken: jest.fn(),
-    createAuthInterceptor: jest.fn(),
-    clearAllAuthTokens: jest.fn(),
-  },
+// Mock the FiduAuthService
+const mockFiduAuthService = {
+  getAccessToken: jest.fn(),
+  createAuthInterceptor: jest.fn(),
+  clearAllAuthTokens: jest.fn(),
+};
+jest.mock('../../auth/FiduAuthService', () => ({
+  getFiduAuthService: jest.fn(() => mockFiduAuthService),
 }));
 
 const mockFiduVaultAPIClient = fiduVaultAPIClient as jest.Mocked<typeof fiduVaultAPIClient>;
-const mockRefreshTokenService = refreshTokenService as jest.Mocked<typeof refreshTokenService>;
 
 const mockConversationDataPacket: ConversationDataPacket = {
   id: '1',
@@ -737,9 +736,9 @@ describe('conversationsApi', () => {
       // Mock successful API call (interceptor handles refresh internally)
       mockFiduVaultAPIClient.get.mockResolvedValue(mockResponse);
 
-      // Mock the refresh token service to simulate successful refresh
-      mockRefreshTokenService.getAccessToken.mockReturnValue('new-token');
-      mockRefreshTokenService.createAuthInterceptor.mockReturnValue({
+      // Mock the FiduAuthService to simulate successful refresh
+      mockFiduAuthService.getAccessToken.mockReturnValue('new-token');
+      mockFiduAuthService.createAuthInterceptor.mockReturnValue({
         request: jest.fn((config) => config),
         response: jest.fn((response) => response),
         error: jest.fn().mockResolvedValue(mockResponse),
@@ -755,9 +754,9 @@ describe('conversationsApi', () => {
       // Mock API call that will fail due to authentication
       mockFiduVaultAPIClient.get.mockRejectedValue(new Error('Authentication required. Please log in again.'));
 
-      // Mock refresh token service to simulate refresh failure
-      mockRefreshTokenService.getAccessToken.mockReturnValue(null);
-      mockRefreshTokenService.createAuthInterceptor.mockReturnValue({
+      // Mock FiduAuthService to simulate refresh failure
+      mockFiduAuthService.getAccessToken.mockReturnValue(null);
+      mockFiduAuthService.createAuthInterceptor.mockReturnValue({
         request: jest.fn((config) => config),
         response: jest.fn((response) => response),
         error: jest.fn().mockRejectedValue(new Error('Authentication required. Please log in again.')),
@@ -772,8 +771,8 @@ describe('conversationsApi', () => {
       
       await expect(conversationsApi.getAll({}, 1, 20, 'profile-1')).rejects.toThrow('Server error');
       
-      // Verify refresh token service was not called
-      expect(mockRefreshTokenService.getAccessToken).not.toHaveBeenCalled();
+      // Verify FiduAuthService was not called
+      expect(mockFiduAuthService.getAccessToken).not.toHaveBeenCalled();
     });
 
     it('should handle successful requests without refresh', async () => {

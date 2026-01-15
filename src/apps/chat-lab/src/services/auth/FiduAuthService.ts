@@ -1,5 +1,7 @@
+import { AxiosError } from 'axios';
 import type { User } from '../../types';
 import { detectRuntimeEnvironment } from '../../utils/environment';
+import { beginLogout, completeLogout, currentLogoutSource } from '../auth/logoutCoordinator';
 
 export interface FiduAuthTokens {
   access_token?: string;
@@ -38,13 +40,45 @@ export class TokenRefreshError extends Error {
   }
 }
 
+/**
+ * FiduAuthService - Centralized FIDU Authentication Service
+ * 
+ * This service manages the entire lifecycle of FIDU authentication tokens with strict security principles:
+ * 
+ * **Token Storage Architecture:**
+ * - **Access Token**: Lives ONLY in memory (this.cachedAccessToken)
+ *   - Never stored in localStorage, sessionStorage, or cookies
+ *   - Entire lifecycle (acquisition, refresh, clearing) managed exclusively by this service
+ *   - Automatically refreshed when expired preemptively or via interceptors
+ *   - Cleared on logout or authentication failure
+ * 
+ * - **Refresh Token**: Lives ONLY in HTTP-only cookies
+ *   - Managed by the backend server for security
+ *   - Not accessible to JavaScript code
+ *   - Used to obtain new access tokens when they expire
+ * 
+ * **Interceptor-Based Authentication:**
+ * - All API calls requiring FIDU auth use axios interceptors provided by createAuthInterceptor()
+ * - Ensures consistent behavior across all call sites
+ * - First 401 on any request triggers automatic token refresh and request retry
+ * - If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
+ * 
+ * **Key Methods:**
+ * - setTokens(): Store tokens (access token cached in memory, refresh token in HTTP-only cookie)
+ * - ensureAccessToken(): Ensure access token is available (from memory or via refresh)
+ * - clearTokens(): Clear all tokens (memory cache and cookies)
+ * - createAuthInterceptor(): Create axios interceptors for automatic token management
+ * 
+ * **Important**: Never access or store FIDU access tokens outside of this service.
+ * Always use the interceptors provided by createAuthInterceptor() for API calls.
+ */
 export class FiduAuthService {
   private basePath: string;
   private environment: string;
 
   private cachedAccessToken: string | null = null;
   private cachedRefreshTokenAvailable: boolean | null = null;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<void> | null = null;
   private lastRefreshError: Error | null = null;
   private tokenExpiresAt: number | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
@@ -58,6 +92,18 @@ export class FiduAuthService {
     this.environment = detectRuntimeEnvironment();
   }
 
+  /**
+   * Store FIDU authentication tokens
+   * 
+   * **Token Storage:**
+   * - Access token: Stored in memory
+   * - Refresh token: Stored in HTTP-only cookie by backend (not accessible to JavaScript)
+   * 
+   * @param accessToken - FIDU access token (JWT)
+   * @param refreshToken - FIDU refresh token
+   * @param user - User information
+   * @returns true if tokens were stored successfully
+   */
   async setTokens(accessToken: string, refreshToken: string, user: User): Promise<boolean> {
     try {
       console.log(`🔑 Storing FIDU auth tokens in HTTP-only cookies for ${this.environment} environment...`);
@@ -97,7 +143,7 @@ export class FiduAuthService {
     }
   }
 
-  async getTokens(): Promise<FiduAuthTokens | null> {
+  private async getTokens(): Promise<FiduAuthTokens | null> {
     try {
       const url = `${this.basePath}/api/auth/fidu/get-tokens?env=${this.environment}`;
       console.log(`🔄 [FiduAuth] Fetching tokens from: ${url}`);
@@ -108,13 +154,7 @@ export class FiduAuthService {
       });
 
       if (!response.ok) {
-        if (response.status === 404 || response.status === 401) {
-          console.warn(`⚠️ [FiduAuth] No tokens found in cookies (status: ${response.status}) - cookies may have expired or been cleared`);
-        } else if (response.status >= 500) {
-          console.error(`❌ [FiduAuth] Backend error retrieving tokens (status: ${response.status}) - this may be temporary`);
-        } else {
-          console.error(`❌ [FiduAuth] Failed to retrieve tokens from cookies (status: ${response.status})`);
-        }
+        console.warn('⚠️ [FiduAuth] Failed to retrieve FIDU auth tokens:', response.status);
         return null;
       }
 
@@ -127,31 +167,16 @@ export class FiduAuthService {
 
       if (data.access_token && data.access_token.trim() !== '') {
         this.cachedAccessToken = data.access_token;
-        console.log('✅ [FiduAuth] Access token retrieved from cookies');
       }
 
       if (typeof data.refresh_token === 'string') {
         this.cachedRefreshTokenAvailable = data.refresh_token.trim() !== '';
-        if (this.cachedRefreshTokenAvailable) {
-          console.log('✅ [FiduAuth] Refresh token found in cookies');
-        } else {
-          console.warn('⚠️ [FiduAuth] Refresh token field exists but is empty');
-        }
-      } else {
-        console.warn('⚠️ [FiduAuth] No refresh_token field in response');
       }
 
       const hasTokens = !!(data.access_token || data.refresh_token || data.user);
-      if (!hasTokens) {
-        console.warn('⚠️ [FiduAuth] Tokens retrieved but all fields are empty - cookies may have expired');
-      }
-
       return hasTokens ? data : null;
     } catch (error) {
       console.error('❌ [FiduAuth] Error retrieving tokens from cookies:', error);
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('❌ [FiduAuth] Network error - backend may be unavailable');
-      }
       return null;
     }
   }
@@ -161,21 +186,8 @@ export class FiduAuthService {
       return this.cachedRefreshTokenAvailable;
     }
 
-    try {
-      const tokens = await this.getTokens();
-      const hasRefresh = !!(tokens?.refresh_token && tokens.refresh_token.trim() !== '');
-      
-      if (hasRefresh) {
-        console.log('✅ [FiduAuth] Refresh token found in cookies');
-      } else {
-        console.warn('⚠️ [FiduAuth] No refresh token found in cookies');
-      }
-      
-      return hasRefresh;
-    } catch (error) {
-      console.error('❌ [FiduAuth] Error checking for refresh token:', error);
-      return false;
-    }
+    const tokens = await this.getTokens();
+    return !!tokens?.refresh_token;
   }
 
   async isAuthenticated(): Promise<boolean> {
@@ -188,126 +200,10 @@ export class FiduAuthService {
     }
   }
 
-  /**
-   * Ensure user is authenticated, attempting restoration if needed
-   * This is an async version of isAuthenticated() that attempts restoration
-   * Use this when you need to guarantee authentication state
-   */
-  async ensureAuthenticated(): Promise<boolean> {
-    // Fast path: if we have a cached token, check if it's valid
-    if (this.cachedAccessToken && this.cachedAccessToken.trim() !== '') {
-      // Check if token is expired (if we have expiration info)
-      if (this.tokenExpiresAt && this.tokenExpiresAt > Date.now() + (5 * 60 * 1000)) {
-        return true;
-      }
-      // If no expiration info or token might be expired, continue to slow path
-    }
-    
-    // Slow path: try to restore from cookies
+  private async getAccessToken(): Promise<string | null> {
     try {
-      console.log('🔄 [FiduAuth] Attempting to restore authentication from cookies...');
-      const tokens = await this.getTokens();
-      
-      if (!tokens) {
-        console.warn('⚠️ [FiduAuth] No tokens found in cookies');
-        return false;
-      }
-      
-      // If we have an access token, use it
-      if (tokens.access_token && tokens.access_token.trim() !== '') {
-        console.log('✅ [FiduAuth] Access token found in cookies, restoring...');
-        this.cachedAccessToken = tokens.access_token;
-        return true;
-      }
-      
-      // If refresh token exists, attempt refresh
-      if (tokens.refresh_token && tokens.refresh_token.trim() !== '') {
-        console.log('🔄 [FiduAuth] Access token missing but refresh token found, attempting refresh...');
-        try {
-          const refreshed = await this.refreshAccessToken();
-          if (refreshed) {
-            console.log('✅ [FiduAuth] Successfully refreshed access token');
-            return true;
-          }
-          console.warn('⚠️ [FiduAuth] Token refresh returned null');
-        } catch (refreshError) {
-          console.error('❌ [FiduAuth] Token refresh failed:', refreshError);
-          // Don't return false yet - check if it's a recoverable error
-          if (refreshError instanceof AuthenticationRequiredError) {
-            console.error('❌ [FiduAuth] Refresh token is invalid or expired');
-            return false;
-          }
-          // For other errors (network, etc.), we might want to retry
-          console.warn('⚠️ [FiduAuth] Refresh failed with recoverable error, will retry later');
-          return false;
-        }
-      } else {
-        console.warn('⚠️ [FiduAuth] No refresh token found in cookies');
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('❌ [FiduAuth] Failed to ensure authentication:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get authentication status with async restoration attempt
-   * Use this when you need accurate auth state
-   */
-  async getAuthStatusAsync(): Promise<{
-    isAuthenticated: boolean;
-    user: User | null;
-    hasRefreshToken: boolean;
-  }> {
-    const authenticated = await this.ensureAuthenticated();
-    
-    if (authenticated) {
-      const tokens = await this.getTokens();
-      return {
-        isAuthenticated: true,
-        user: tokens?.user || null,
-        hasRefreshToken: !!(tokens?.refresh_token),
-      };
-    }
-    
-    return {
-      isAuthenticated: false,
-      user: null,
-      hasRefreshToken: false,
-    };
-  }
-
-  async getAccessToken(): Promise<string | null> {
-    // If tokens missing, try to restore from cookies first
-    if (!this.cachedAccessToken) {
-      console.log('🔄 Tokens missing from memory, attempting to restore from cookies...');
-      const tokens = await this.getTokens();
-      if (tokens?.access_token && tokens.access_token.trim() !== '') {
-        this.cachedAccessToken = tokens.access_token;
-        console.log('✅ Tokens restored from cookies');
-        return tokens.access_token;
-      }
-      
-      // If access token missing but refresh token exists, attempt refresh
-      if (tokens?.refresh_token) {
-        try {
-          console.log('🔄 Access token missing but refresh token exists, attempting refresh...');
-          const refreshed = await this.refreshAccessToken();
-          if (refreshed) {
-            console.log('✅ Token refreshed successfully');
-            return refreshed;
-          }
-        } catch (error) {
-          console.warn('⚠️ Failed to refresh token during auto-restore:', error);
-        }
-      }
-    }
-
-    // Continue with existing logic
-    try {
-      return await this.ensureAccessToken();
+      await this.ensureAccessToken();
+      return this.cachedAccessToken;
     } catch (error) {
       if (error instanceof AuthenticationRequiredError || error instanceof TokenAcquisitionTimeoutError) {
         return null;
@@ -317,31 +213,24 @@ export class FiduAuthService {
     }
   }
 
-  async getAccessTokenOrThrow(options?: EnsureAccessTokenOptions): Promise<string> {
-    const token = await this.ensureAccessToken(options);
-    if (!token) {
-      throw new AuthenticationRequiredError();
-    }
-    return token;
-  }
-
-  async ensureAccessToken(options: EnsureAccessTokenOptions = {}): Promise<string | null> {
+  async ensureAccessToken(options: EnsureAccessTokenOptions = {}): Promise<void> {
     const { forceRefresh = false, timeoutMs = 10000, onWait, maxAttempts = 3 } = options;
 
     if (!forceRefresh && this.cachedAccessToken && this.cachedAccessToken.trim() !== '') {
-      return this.cachedAccessToken;
+      return;
     }
 
     if (!forceRefresh) {
       const tokens = await this.getTokens();
       if (tokens?.access_token && tokens.access_token.trim() !== '') {
-        return tokens.access_token;
+        return;
       }
     }
 
     if (this.refreshPromise) {
       if (onWait) onWait();
-      return await this.waitForPromise(this.refreshPromise, timeoutMs);
+      await this.waitForPromise(this.refreshPromise, timeoutMs);
+      return;
     }
 
     const refreshTask = this.refreshAccessTokenWithRetry(maxAttempts);
@@ -349,7 +238,6 @@ export class FiduAuthService {
       .then((token) => {
         this.cachedAccessToken = token;
         this.lastRefreshError = null;
-        return token;
       })
       .catch((error) => {
         this.lastRefreshError = error;
@@ -360,22 +248,19 @@ export class FiduAuthService {
       });
 
     if (onWait) onWait();
-    return await this.waitForPromise(this.refreshPromise, timeoutMs);
+    await this.waitForPromise(this.refreshPromise, timeoutMs);
   }
 
-  async refreshAccessToken(): Promise<string | null> {
-    try {
-      const token = await this.refreshAccessTokenWithRetry();
-      return token;
-    } catch (error) {
-      if (error instanceof AuthenticationRequiredError) {
-        return null;
-      }
-      console.error('❌ Failed to refresh FIDU access token:', error);
-      return null;
-    }
-  }
-
+  /**
+   * Clear all FIDU authentication tokens
+   * 
+   * **Clears:**
+   * - Access token from memory (this.cachedAccessToken)
+   * - Refresh token from HTTP-only cookies (via backend)
+   * - All cached state
+   * 
+   * @returns true if tokens were cleared successfully
+   */
   async clearTokens(): Promise<boolean> {
     try {
       const response = await fetch(`${this.basePath}/api/auth/fidu/clear-tokens?env=${this.environment}`, {
@@ -437,6 +322,7 @@ export class FiduAuthService {
 
     for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt += 1) {
       try {
+        console.log('🔐 Refreshing access token with retry... ', attempt, ' of ', maxAttempts);
         const token = await this.refreshAccessTokenInternal();
         return token;
       } catch (error) {
@@ -497,12 +383,6 @@ export class FiduAuthService {
       // Track expiration
       if (typeof expiresIn === 'number') {
         this.tokenExpiresAt = Date.now() + (expiresIn * 1000);
-        localStorage.setItem('token_expires_at', String(this.tokenExpiresAt));
-      }
-
-      localStorage.setItem('auth_token', accessToken);
-      if (typeof expiresIn === 'number') {
-        localStorage.setItem('token_expires_in', String(expiresIn));
       }
 
       this.cachedAccessToken = accessToken;
@@ -553,9 +433,7 @@ export class FiduAuthService {
     this.cachedRefreshTokenAvailable = null;
     this.lastRefreshError = null;
     this.tokenExpiresAt = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('token_expires_in');
-    localStorage.removeItem('token_expires_at');
+    this.deleteThingsThatShouldNotExist();
   }
 
   /**
@@ -567,14 +445,7 @@ export class FiduAuthService {
     this.stopProactiveRefresh();
     
     if (!this.tokenExpiresAt) {
-      // Try to get expiration from localStorage
-      const storedExpiresAt = localStorage.getItem('token_expires_at');
-      if (storedExpiresAt) {
-        this.tokenExpiresAt = parseInt(storedExpiresAt, 10);
-      } else {
-        // No expiration info, can't schedule refresh
-        return;
-      }
+      return;
     }
     
     const now = Date.now();
@@ -584,7 +455,7 @@ export class FiduAuthService {
     if (timeUntilExpiration <= tenMinutes) {
       // Less than 10 minutes remaining, refresh immediately
       console.log('🔄 Token expires soon, refreshing immediately...');
-      this.refreshAccessToken().catch(error => {
+      this.refreshAccessTokenInternal().catch(error => {
         console.warn('⚠️ Proactive refresh failed:', error);
         // Retry after 1 minute
         setTimeout(() => {
@@ -598,7 +469,7 @@ export class FiduAuthService {
       
       this.refreshTimer = setTimeout(() => {
         console.log('🔄 Proactive token refresh triggered');
-        this.refreshAccessToken()
+        this.refreshAccessTokenInternal()
           .then(() => {
             // Restart proactive refresh with new expiration
             this.startProactiveRefresh();
@@ -636,7 +507,7 @@ export class FiduAuthService {
     
     this.validationInterval = setInterval(async () => {
       try {
-        const authenticated = await this.ensureAuthenticated();
+        const authenticated = await this.isAuthenticated();
         if (!authenticated) {
           console.warn('⚠️ Periodic validation: Authentication lost');
           // Could emit event here if needed
@@ -658,6 +529,237 @@ export class FiduAuthService {
       this.validationInterval = null;
     }
   }
+
+
+  /**
+   * Check if the current access token is expired
+   * We'll use a simple heuristic: if we have a refresh token, assume the access token might be expired
+   */
+  private isAccessTokenExpired(): boolean {
+    const accessToken = this.cachedAccessToken;
+    
+    // If no access token, it's expired
+    if (!accessToken) return true;
+    
+    // If we have a refresh token, check if access token is expired
+    try {
+      // Decode JWT to check expiration
+      const payload = this.decodeJWT(accessToken);
+      if (payload && payload.exp) {
+        // Add 5 minute buffer for safety
+        const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+        return Date.now() >= (payload.exp * 1000) - bufferTime;
+      }
+    } catch (error) {
+      // If we can't decode the JWT, assume it's expired
+      console.warn('Could not decode JWT token, assuming expired:', error);
+      return true;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Decode a JWT token to extract payload
+   */
+  private decodeJWT(token: string): any {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('Error decoding JWT:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create axios interceptors for automatic FIDU authentication
+   * 
+   * **Usage**: All API calls requiring FIDU auth should use these interceptors.
+   * 
+   * **Example:**
+   * ```typescript
+   * const authInterceptor = getFiduAuthService().createAuthInterceptor();
+   * 
+   * // Add auth interceptor first
+   * client.interceptors.request.use(
+   *   authInterceptor.request,
+   *   (error) => Promise.reject(error)
+   * );
+   * 
+   * client.interceptors.response.use(
+   *   authInterceptor.response,
+   *   authInterceptor.error
+   * );
+   * 
+   * // Additional interceptors run after authInterceptor
+   * client.interceptors.response.use(
+   *   client_specific_interceptor.response,
+   *   client_specific_interceptor.error
+   * );
+   * ```
+   * 
+   * **Behavior:**
+   * - Request interceptor: Ensures access token is available (from memory or via refresh) and adds to Authorization header
+   * - Response interceptor: Passes through successful responses
+   * - Error interceptor: 
+   *   - On 401: Automatically refreshes token and retries the request
+   *   - If the token refresh returns 401, or if the retried request returns 401: Triggers automatic logout
+   * 
+   * **Token Management:**
+   * - Access token retrieved from memory (this.cachedAccessToken)
+   * - Refresh token retrieved from HTTP-only cookies (via backend)
+   * - All token operations happen automatically - no manual intervention needed
+   * 
+   * @returns Object with request, response, and error interceptor functions
+   */
+  createAuthInterceptor() {
+    return {
+      // Request interceptor
+      request: async (config: any) => {
+        const headers = config.headers ?? (config.headers = {});
+        const skipGuard = Boolean(config?.skipFiduAuthGuard);
+
+        if (skipGuard) {
+          return config;
+        }
+
+        try {
+          await getFiduAuthService().ensureAccessToken({
+            onWait: () => console.log('🔐 Ensuring FIDU auth before identity service request...'),
+          });
+          const token = this.cachedAccessToken;
+
+          if (token && token.trim() !== '') {
+            headers.Authorization = `Bearer ${token}`;
+            return config;
+          }
+        } catch (error) {
+          if (error instanceof AuthenticationRequiredError) {
+            this.clearAllAuthTokens();
+            await this.dispatchLogout();
+            return Promise.reject(error);
+          }
+
+          if (error instanceof TokenAcquisitionTimeoutError) {
+            return Promise.reject(error);
+          }
+
+          console.warn('Failed to ensure FIDU auth token before request:', error);
+        }
+
+        return Promise.reject(new Error('Authentication required. Please log in again.'));
+      },
+      
+      // Response interceptor
+      response: (response: any) => response,
+      
+      // Error interceptor
+      error: async (error: any) => {
+        const originalRequest = error.config;
+        
+        // If it's a 401 error and we haven't retried yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            // Attempt to refresh the token
+            const newToken = await this.refreshAccessTokenWithRetry();
+            
+            // Update the authorization header
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            
+            // Retry the original request
+            return await this.retryRequest(originalRequest);
+          } catch (refreshError) {
+            let errorToThrow = refreshError;
+            if (refreshError instanceof AxiosError && refreshError.response?.status === 401) {
+              errorToThrow = new AuthenticationRequiredError('Authentication failed while retrying with refreshed token.');
+            }
+            if (errorToThrow instanceof AuthenticationRequiredError) {
+              console.error('Token refresh authentication failure, logging out user:', errorToThrow);
+              this.clearAllAuthTokens();
+              await this.dispatchLogout();
+            } else {
+              console.error('Token refresh network error:', errorToThrow);
+            }
+
+            throw errorToThrow;
+          }
+        }
+        
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * Dispatch logout action to update Redux state
+   * This ensures the UI properly reflects the authentication state change
+  */
+  private async dispatchLogout(): Promise<void> {
+    const started = beginLogout('auto');
+
+    if (!started) {
+      const source = currentLogoutSource();
+      console.log('🔁 Logout already in progress, skipping duplicate auto-dispatch', { source });
+      return;
+    }
+
+    try {
+      const { store } = await import('../../store');
+      const { logout } = await import('../../store/slices/authSlice');
+      await store.dispatch(logout());
+    } catch (error) {
+      console.error('Logout dispatch failed:', error);
+      completeLogout();
+      window.location.reload();
+    }
+  }
+
+  /**
+   * Clear all authentication tokens and data
+   */
+  clearAllAuthTokens(): void {
+    this.deleteThingsThatShouldNotExist();
+
+    this.resetCache();
+  }
+
+  /**
+   * Things that have previously been stored in localStorage or cookies but
+   * shouldn't be there anymore. This is a cleanup step to ensure we're not
+   * leaving things on people's machines forever.
+   * 
+   * Added January 2026 - remove in... March? April? Once no regular users
+   * have these left.
+   */
+  private deleteThingsThatShouldNotExist(): void {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('fiduRefreshToken');
+    localStorage.removeItem('token_expires_in');
+    localStorage.removeItem('user');
+    localStorage.removeItem('current_profile');
+    localStorage.removeItem('fiduToken');
+    
+    // Clear cookies
+    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+    document.cookie = 'refresh_token=; path=/; max-age=0; samesite=lax';
+    document.cookie = 'fiduRefreshToken=; path=/; max-age=0; samesite=lax';
+  }
+
+  /**
+   * Retry a failed request with new configuration
+   */
+  private async retryRequest(config: any): Promise<any> {
+    // Import axios dynamically to avoid circular dependencies
+    const { default: axios } = await import('axios');
+    return axios(config);
+  }
 }
 
 let fiduAuthServiceInstance: FiduAuthService | null = null;
@@ -668,10 +770,3 @@ export const getFiduAuthService = (): FiduAuthService => {
   }
   return fiduAuthServiceInstance;
 };
-
-// Legacy aliases to ease migration
-export const getFiduTokenService = getFiduAuthService;
-export const getFiduAuthCookieService = getFiduAuthService;
-export { FiduAuthService as FiduAuthCookieService };
-
-

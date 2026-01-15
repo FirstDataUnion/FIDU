@@ -5,6 +5,7 @@
 
 import { CloudStorageAdapter } from '../CloudStorageAdapter';
 import type { StorageConfig } from '../../types';
+import { Conversation } from '../../../../types';
 
 // Mock environment utils
 jest.mock('../../../../utils/environment', () => ({
@@ -261,7 +262,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
       const conversation = {
         id: conversationId,
         title: 'Test Conversation',
-        platform: 'gpt-4',
+        platform: 'chatgpt' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tags: [],
@@ -279,7 +280,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
           role: 'user' as const,
           content: 'Hello',
           timestamp: new Date().toISOString(),
-          platform: 'gpt-4',
+          platform: 'chatgpt' as const,
           metadata: {},
           isEdited: false,
         },
@@ -289,7 +290,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
           role: 'assistant' as const,
           content: 'Hi there!',
           timestamp: new Date().toISOString(),
-          platform: 'gpt-4',
+          platform: 'chatgpt' as const,
           metadata: {},
           isEdited: false,
         },
@@ -322,7 +323,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
       const conversation = {
         id: conversationId,
         title: 'Test Conversation 2',
-        platform: 'gpt-4',
+        platform: 'chatgpt' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tags: [],
@@ -340,7 +341,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
           role: 'user' as const,
           content: 'Test message',
           timestamp: new Date().toISOString(),
-          platform: 'gpt-4',
+          platform: 'chatgpt' as const,
           metadata: {},
           isEdited: false,
         },
@@ -368,7 +369,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
       const _conversation = {
         id: conversationId,
         title: 'Test Conversation 3',
-        platform: 'gpt-4',
+        platform: 'chatgpt',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tags: [],

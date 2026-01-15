@@ -37,6 +37,17 @@ describe('GoogleDriveAuth - Token Management', () => {
       hasRefreshToken: jest.fn().mockResolvedValue(true),
       ensureAccessToken: jest.fn().mockResolvedValue('fidu-token'),
       isAuthenticated: jest.fn().mockResolvedValue(true),
+      createAuthInterceptor: jest.fn().mockReturnValue({
+        request: jest.fn().mockImplementation((config) => {
+          return Promise.resolve(config);
+        }),
+        response: jest.fn().mockImplementation((response) => {
+          return Promise.resolve(response);
+        }),
+        error: jest.fn().mockImplementation((error) => {
+          return Promise.reject(error);
+        }),
+      }),
     };
     (getFiduAuthService as jest.Mock).mockReturnValue(mockFiduAuthService);
     
@@ -117,15 +128,6 @@ describe('GoogleDriveAuth - Token Management', () => {
       // Mock restoreFromCookies to succeed
       const restoreSpy = jest.spyOn(authService as any, 'restoreFromCookies')
         .mockResolvedValue(true);
-      
-      // Mock loadTokensFromCookies
-      jest.spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: Date.now() + 3600000,
-          scope: 'test-scope',
-        });
       
       // Mock refreshAccessToken
       jest.spyOn(authService as any, 'refreshAccessToken')
@@ -334,60 +336,6 @@ describe('GoogleDriveAuth - Token Management', () => {
     });
   });
 
-  describe('getAuthStatusAsync()', () => {
-    it('should return auth status with async restoration', async () => {
-      // Setup: tokens are null
-      (authService as any).tokens = null;
-      (authService as any).user = {
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      
-      // Mock restoreFromCookies to actually set tokens
-      jest.spyOn(authService as any, 'restoreFromCookies')
-        .mockImplementation(async () => {
-          (authService as any).tokens = {
-            refreshToken: 'refresh-token',
-            accessToken: 'new-access-token',
-            expiresAt: Date.now() + 3600000,
-            scope: 'test-scope',
-          };
-          return true;
-        });
-      
-      // Execute
-      const status = await authService.getAuthStatusAsync();
-      
-      // Verify
-      expect(status.isAuthenticated).toBe(true);
-      expect(status.user).toEqual({
-        id: 'test-user',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      expect(status.expiresAt).toBeGreaterThan(Date.now());
-    });
-
-    it('should return false when restoration fails', async () => {
-      // Setup: tokens are null
-      (authService as any).tokens = null;
-      (authService as any).user = null;
-      
-      // Mock restoreFromCookies to fail
-      jest.spyOn(authService as any, 'restoreFromCookies')
-        .mockResolvedValue(false);
-      
-      // Execute
-      const status = await authService.getAuthStatusAsync();
-      
-      // Verify
-      expect(status.isAuthenticated).toBe(false);
-      expect(status.user).toBeNull();
-      expect(status.expiresAt).toBeNull();
-    });
-  });
-
   // ============================================================================
   // Proactive Token Refresh
   // ============================================================================
@@ -438,7 +386,15 @@ describe('GoogleDriveAuth - Token Management', () => {
       
       // Mock refreshAccessToken
       const refreshSpy = jest.spyOn(authService as any, 'refreshAccessToken')
-        .mockResolvedValue('new-access-token');
+      .mockImplementation(() => {
+        (authService as any).tokens = {
+          accessToken: 'new-access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + (60 * 60 * 1000),
+          scope: 'test-scope',
+        };
+        return Promise.resolve('new-access-token');
+      });
       
       // Execute
       await (authService as any).startProactiveRefresh();

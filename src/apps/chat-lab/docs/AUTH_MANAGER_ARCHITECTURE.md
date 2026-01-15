@@ -4,6 +4,32 @@
 
 The `AuthManager` is a centralized service that coordinates all authentication operations for FIDU Chat Lab. It was introduced to solve race conditions, duplicate auth attempts, and fragmented auth state management.
 
+## FIDU Authentication Token Architecture
+
+**Important**: The FIDU authentication system follows strict security principles:
+
+- **FIDU Access Token**: Lives **only in memory** within `FiduAuthService`
+  - Never stored in localStorage, sessionStorage, or cookies
+  - Entire lifecycle (acquisition, refresh, clearing) managed exclusively by `FiduAuthService`
+  - Automatically refreshed when expired via interceptors
+  - Cleared on logout or authentication failure
+
+- **FIDU Refresh Token**: Lives **only in HTTP-only cookies**
+  - Managed by the backend server for security
+  - Not accessible to JavaScript code
+  - Used to obtain new access tokens when they expire
+
+- **API Call Authentication**: All calls requiring FIDU auth use axios interceptors provided by `FiduAuthService`
+  - Ensures consistent behavior across all call sites
+  - First 401 on any request triggers automatic token refresh and request retry
+  - If the token refresh returns 401, or if the retried request returns 401, automatic logout is triggered
+
+This architecture ensures:
+- Consistent authentication behavior across all API calls
+- Better security (access tokens never persist to storage)
+- Easier maintenance (all token logic in one place)
+- Less flaky user experience (automatic retry and refresh)
+
 ## Problem Statement
 
 ### Before AuthManager
@@ -72,10 +98,15 @@ The previous authentication architecture had several issues:
         ┌──────────────────────────────────────┐
         │                                       │
         ▼                                       ▼
-┌──────────────────┐              ┌──────────────────────┐
-│ FiduAuthService  │              │ GoogleDriveAuthService│
-│ (HTTP Cookies)   │              │ (OAuth + HTTP Cookies)│
-└──────────────────┘              └──────────────────────┘
+        ┌──────────────────┐              ┌──────────────────────┐
+        │ FiduAuthService  │              │ GoogleDriveAuthService│
+        │                  │              │                      │
+        │ Access Token:    │              │ (OAuth + HTTP Cookies)│
+        │ Memory Only      │              │                      │
+        │                  │              │                      │
+        │ Refresh Token:   │              │                      │
+        │ HTTP Cookies     │              │                      │
+        └──────────────────┘              └──────────────────────┘
 ```
 
 ### Key Features
@@ -376,5 +407,9 @@ describe('AuthManager', () => {
 
 The `AuthManager` provides a robust, centralized solution for authentication in FIDU Chat Lab. It eliminates race conditions, reduces server load, and provides a better user experience through coordinated auth operations and automatic state management.
 
-**Key Takeaway**: Always use `AuthManager` for auth operations. Never call `authService.initialize()` directly.
+**Key Takeaways**: 
+- Always use `AuthManager` for auth operations. Never call `authService.initialize()` directly.
+- **FIDU access tokens exist only in memory** within `FiduAuthService` - never access or store them elsewhere
+- **All FIDU-authenticated API calls** must use the interceptors provided by `FiduAuthService` for consistent behavior
+- Token refresh and clearing happens automatically through interceptors - no manual intervention needed
 

@@ -1,9 +1,27 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
-import type { Profile, User } from "../../types";
+import type { IdentityServiceProfile, IdentityServiceUser, Profile, User } from "../../types";
 import { getIdentityServiceUrl } from "../../utils/environment";
-import { refreshTokenService } from "./refreshTokenService";
+import { getFiduAuthService } from "../auth/FiduAuthService";
 import { ApiError, type ErrorResponse } from './apiClients';
+
+
+export interface EncryptionKeyData {
+  id: string;
+  key: string;
+  algorithm: string;
+  created_at: string;
+  version: number;
+}
+
+export interface EncryptionKeyResponse {
+  encryption_key: EncryptionKeyData;
+}
+
+export interface WrappedWorkspaceKeyResponse {
+  wrapped_key: string;
+  algorithm: string;
+}
 
 // Identity Service API Configuration
 const IDENTITY_SERVICE_API_CONFIG = {
@@ -27,8 +45,8 @@ class IdentityServiceAPIClient {
   }
 
   private setupInterceptors(): void {    
-    // Use the refresh token service's auth interceptor for consistent behavior
-    const authInterceptor = refreshTokenService.createAuthInterceptor();
+    // Use the FiduAuthService's auth interceptor for consistent behavior
+    const authInterceptor = getFiduAuthService().createAuthInterceptor();
     
     // Request interceptor
     this.client.interceptors.request.use(
@@ -58,7 +76,7 @@ class IdentityServiceAPIClient {
           if (error.response) {
             throw new ApiError(
               error.response.status,
-              error.response.data?.message || 'Identity Service API error',
+              error.response.data?.error || error.response.data?.message || 'Identity Service API error',
               error.response.data
             );
           } else if (error.request) {
@@ -79,17 +97,8 @@ class IdentityServiceAPIClient {
     );
   }
 
-  async fetchCurrentUser(token?: string): Promise<User> {
-    const config: Record<string, any> = {};
-    if (token) {
-      config.headers = {
-        ...(config.headers || {}),
-        Authorization: `Bearer ${token}`,
-      };
-      config.skipFiduAuthGuard = true;
-    }
-
-    const response = await this.client.get('/user', config);
+  async fetchCurrentUser(): Promise<User> {
+    const response = await this.client.get('/user');
     return createUserFromResponse(response.data);
   }
 
@@ -106,6 +115,37 @@ class IdentityServiceAPIClient {
   async deleteProfile(profile_id: string): Promise<boolean> {
     await this.client.delete(`/profiles/${profile_id}`);
     return true;
+  }
+
+  async getEncryptionKey(): Promise<string> {
+    try {
+    const response = await this.client.get(`/encryption/key`);
+    const data: EncryptionKeyResponse = response.data;
+    if (!data.encryption_key || !data.encryption_key.key || typeof data.encryption_key.key !== 'string') {
+      console.error('❌ [IdentityServiceClient] Invalid key format:', data);
+      throw new Error('Invalid encryption key format received from server');
+    }
+    return data.encryption_key.key;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return await this.createEncryptionKey();
+      }
+      throw error;
+    }
+  }
+
+  async createEncryptionKey(): Promise<string> {
+    const response = await this.client.post(`/encryption/key`);
+    const data: EncryptionKeyResponse = response.data;
+    if (!data.encryption_key || !data.encryption_key.key || typeof data.encryption_key.key !== 'string') {
+      console.error('❌ [IdentityServiceClient] Invalid key format:', data);
+      throw new Error('Invalid encryption key format received from server');
+    }
+    return data.encryption_key.key;
+  }
+
+  async deleteEncryptionKey(): Promise<void> {
+    await this.client.delete(`/encryption/key`);
   }
 
   // Workspace API methods
@@ -289,31 +329,19 @@ class IdentityServiceAPIClient {
   }
 
   /**
-   * Create encryption key for workspace
-   */
-  async createEncryptionKey(workspaceId: string, encryptedKey: string): Promise<{ encryption_key: { workspace_id: string; encrypted_key: string } }> {
-    const response = await this.client.post(`/workspaces/${workspaceId}/encryption-key`, {
-      encrypted_key: encryptedKey,
-    });
-    return response.data;
-  }
-
-  /**
    * Get wrapped encryption key for workspace
    */
-  async getWrappedEncryptionKey(workspaceId: string): Promise<{ encryption_key: { workspace_id: string; encrypted_key: string } }> {
+  async getWrappedWorkspaceEncryptionKey(workspaceId: string): Promise<string> {
     const response = await this.client.get(`/workspaces/${workspaceId}/encryption-key`);
-    return response.data;
-  }
-
-  /**
-   * Rotate encryption key for workspace
-   */
-  async rotateEncryptionKey(workspaceId: string, newEncryptedKey: string): Promise<{ encryption_key: { workspace_id: string; encrypted_key: string } }> {
-    const response = await this.client.post(`/workspaces/${workspaceId}/encryption-key/rotate`, {
-      encrypted_key: newEncryptedKey,
-    });
-    return response.data;
+    const data: WrappedWorkspaceKeyResponse = response.data;
+    if (!data.wrapped_key || typeof data.wrapped_key !== 'string') {
+      console.error('❌ [IdentityServiceClient] Invalid wrapped key format:', data);
+      throw new Error('Invalid wrapped encryption key format received from server');
+    }
+    if (data.algorithm !== 'AES-256-GCM') {
+      console.warn(`⚠️ [IdentityServiceClient] Unexpected algorithm: ${data.algorithm}, expected AES-256-GCM`);
+    }
+    return data.wrapped_key;
   }
 
   /**
@@ -330,22 +358,26 @@ class IdentityServiceAPIClient {
 // Create and export a singleton instance
 export const identityServiceAPIClient = new IdentityServiceAPIClient();
 
-export async function fetchCurrentUser(token?: string) {
-  return await identityServiceAPIClient.fetchCurrentUser(token);
+export async function fetchCurrentUser() {
+  return await identityServiceAPIClient.fetchCurrentUser();
 }
 
-function createUserFromResponse(externalUser: any): User {
+function createUserFromResponse(externalUser: {user: IdentityServiceUser}): User {
+  return externalUserToInternalUser(externalUser.user);
+}
+
+export function externalUserToInternalUser(externalUser: IdentityServiceUser): User {
   return {
-    id: externalUser.user.id,
-    email: externalUser.user.email,
-    name: externalUser.user.name,
-    create_timestamp: externalUser.user.created_at,
-    update_timestamp: externalUser.user.updated_at,
-    profiles: externalUser.user.profiles.map(externalProfileToInternalProfile)
+    id: externalUser.id,
+    email: externalUser.email,
+    name: externalUser.name,
+    create_timestamp: externalUser.created_at,
+    update_timestamp: externalUser.updated_at,
+    profiles: externalUser.profiles.map(externalProfileToInternalProfile)
   };
 }
 
-export function externalProfileToInternalProfile(externalProfile: any): Profile {
+export function externalProfileToInternalProfile(externalProfile: IdentityServiceProfile): Profile {
   return {
     id: externalProfile.id,
     user_id: externalProfile.user_id,
@@ -355,62 +387,30 @@ export function externalProfileToInternalProfile(externalProfile: any): Profile 
   };
 }
 
-export async function createProfile(display_name: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.createProfile(display_name);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function createProfile(display_name: string) {
   return await identityServiceAPIClient.createProfile(display_name);
 }
 
-export async function updateProfile(profile_id: string, display_name: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.updateProfile(profile_id, display_name);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function updateProfile(profile_id: string, display_name: string) {
   return await identityServiceAPIClient.updateProfile(profile_id, display_name);
 }
 
-export async function deleteProfile(profile_id: string, token?: string) {
-  // If a specific token is provided, temporarily set it for this request
-  if (token) {
-    const originalToken = refreshTokenService.getAccessToken();
-    localStorage.setItem('auth_token', token);
-    try {
-      return await identityServiceAPIClient.deleteProfile(profile_id);
-    } finally {
-      // Restore original token
-      if (originalToken) {
-        localStorage.setItem('auth_token', originalToken);
-      } else {
-        localStorage.removeItem('auth_token');
-      }
-    }
-  }
-  
+export async function deleteProfile(profile_id: string) {
   return await identityServiceAPIClient.deleteProfile(profile_id);
+}
+
+export async function getEncryptionKey() {
+  return await identityServiceAPIClient.getEncryptionKey();
+}
+
+export async function createEncryptionKey() {
+  return await identityServiceAPIClient.createEncryptionKey();
+}
+
+export async function deleteEncryptionKey() {
+  return await identityServiceAPIClient.deleteEncryptionKey();
+}
+
+export async function getWrappedWorkspaceKey(workspaceId: string) {
+  return await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(workspaceId);
 }

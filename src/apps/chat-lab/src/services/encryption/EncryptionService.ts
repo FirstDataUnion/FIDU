@@ -4,7 +4,7 @@
  * Integrates with identity service for key management
  */
 
-import { IdentityServiceClient } from './IdentityServiceClient';
+import { identityServiceAPIClient } from '../api/apiClientIdentityService';
 
 export interface EncryptionResult {
   encryptedData: string;
@@ -20,11 +20,6 @@ export class EncryptionService {
   private keyCache = new Map<string, { key: CryptoKey; expires: number }>();
   private workspaceKeyCache = new Map<string, { key: CryptoKey; expires: number }>();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-  private identityServiceClient: IdentityServiceClient;
-
-  constructor() {
-    this.identityServiceClient = new IdentityServiceClient();
-  }
 
   /**
    * Encrypt data for a specific user or workspace
@@ -145,7 +140,7 @@ export class EncryptionService {
     }
 
     // Fetch key from identity service
-    const keyString = await this.identityServiceClient.getEncryptionKey(userId);
+    const keyString = await identityServiceAPIClient.getEncryptionKey();
     
     // Convert string key to CryptoKey
     const keyBuffer = this.base64ToArrayBuffer(keyString);
@@ -184,7 +179,7 @@ export class EncryptionService {
 
     try {
       // 1. Fetch wrapped key from identity service
-      const wrappedKeyBase64 = await this.identityServiceClient.getWrappedWorkspaceKey(workspaceId);
+      const wrappedKeyBase64 = await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(workspaceId);
       
       // 2. Get user's personal encryption key
       const personalKey = await this.getEncryptionKey(userId);
