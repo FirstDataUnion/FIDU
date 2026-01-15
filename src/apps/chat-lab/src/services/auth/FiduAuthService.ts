@@ -639,7 +639,6 @@ export class FiduAuthService {
             return config;
           }
         } catch (error) {
-          // TODO think through when this happens and how to make it clear to upstream components that they need to handle it
           if (error instanceof AuthenticationRequiredError) {
             this.clearAllAuthTokens();
             await this.dispatchLogout();
@@ -712,9 +711,9 @@ export class FiduAuthService {
     }
 
     try {
-      // const { store } = await loadStoreModule();
-      // const { logout } = await loadAuthSliceModule();
-      // await store.dispatch(logout());
+      const { store } = await import('../../store');
+      const { logout } = await import('../../store/slices/authSlice');
+      await store.dispatch(logout());
     } catch (error) {
       console.error('Logout dispatch failed:', error);
       completeLogout();
@@ -735,6 +734,9 @@ export class FiduAuthService {
    * Things that have previously been stored in localStorage or cookies but
    * shouldn't be there anymore. This is a cleanup step to ensure we're not
    * leaving things on people's machines forever.
+   * 
+   * Added January 2026 - remove in... March? April? Once no regular users
+   * have these left.
    */
   private deleteThingsThatShouldNotExist(): void {
     localStorage.removeItem('auth_token');
