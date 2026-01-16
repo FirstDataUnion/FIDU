@@ -8,7 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "18"
+  NODE_VERSION: "24"
 
 jobs:
   # Python Backend Tests
