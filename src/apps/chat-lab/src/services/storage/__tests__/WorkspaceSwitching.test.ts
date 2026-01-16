@@ -70,8 +70,7 @@ describe('StorageService - Workspace Switching', () => {
     (unsyncedDataManager.markAsSynced as jest.Mock) = jest.fn();
 
     // Mock createStorageAdapter
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createStorageAdapter } = require('../StorageFactory');
+    const { createStorageAdapter } = jest.requireMock('../StorageFactory');
     (createStorageAdapter as jest.Mock).mockReturnValue(mockAdapter);
 
     storageService = new StorageService();
@@ -174,8 +173,7 @@ describe('StorageService - Workspace Switching', () => {
       await storageService.switchWorkspace('workspace-2');
 
       // Verify createStorageAdapter was called with updated config
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createStorageAdapter } = require('../StorageFactory');
+      const { createStorageAdapter } = jest.requireMock('../StorageFactory');
       const lastCall = (createStorageAdapter as jest.Mock).mock.calls[
         (createStorageAdapter as jest.Mock).mock.calls.length - 1
       ];
@@ -190,8 +188,7 @@ describe('StorageService - Workspace Switching', () => {
       // Personal workspace is virtual - pass null
       await storageService.switchWorkspace(null);
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createStorageAdapter } = require('../StorageFactory');
+      const { createStorageAdapter } = jest.requireMock('../StorageFactory');
       const lastCall = (createStorageAdapter as jest.Mock).mock.calls[
         (createStorageAdapter as jest.Mock).mock.calls.length - 1
       ];

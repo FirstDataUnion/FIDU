@@ -39,8 +39,7 @@ jest.mock('../../../services/auth/GoogleDriveAuth', () => ({
   }),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mockAuthApi = require('../../../services/api/auth').authApi;
+const mockAuthApi = jest.requireMock('../../../services/api/auth').authApi;
 
 // Mock localStorage
 const mockLocalStorage = {

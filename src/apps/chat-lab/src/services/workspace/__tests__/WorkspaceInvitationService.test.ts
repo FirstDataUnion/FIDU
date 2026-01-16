@@ -3,6 +3,7 @@
  * Focuses on validation logic, flow steps, and error handling
  */
 
+import { ApiError } from '../../api/apiClients';
 import {
   WorkspaceInvitationService,
   AcceptInvitationOptions,
@@ -43,10 +44,9 @@ describe('WorkspaceInvitationService', () => {
         googleEmail: 'user@gmail.com',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
       });
@@ -66,10 +66,9 @@ describe('WorkspaceInvitationService', () => {
         googleEmail: 'user@gmail.com',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(false),
       });
@@ -87,10 +86,9 @@ describe('WorkspaceInvitationService', () => {
         googleEmail: 'user@gmail.com',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(false),
       });
@@ -109,18 +107,16 @@ describe('WorkspaceInvitationService', () => {
 
   describe('Folder Access Grant Flow', () => {
     beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
       });
     });
 
     it('should fail if user cancels folder picker', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       DrivePicker.mockImplementation(() => ({
         grantAccessToSharedFolder: jest.fn().mockResolvedValue({
           success: false,
@@ -141,8 +137,7 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should fail if user selects wrong folder', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       DrivePicker.mockImplementation(() => ({
         grantAccessToSharedFolder: jest.fn().mockResolvedValue({
           success: false,
@@ -163,8 +158,7 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should fail if folder picker succeeds but file picker is cancelled', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       DrivePicker.mockImplementation(() => ({
         grantAccessToSharedFolder: jest.fn().mockResolvedValue({
           success: true,
@@ -189,8 +183,7 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should fail if user does not select enough files', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       DrivePicker.mockImplementation(() => ({
         grantAccessToSharedFolder: jest.fn().mockResolvedValue({
           success: true,
@@ -215,8 +208,7 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should fail if folder access verification fails after picker', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       DrivePicker.mockImplementation(() => ({
         grantAccessToSharedFolder: jest.fn().mockResolvedValue({
           success: true,
@@ -244,12 +236,10 @@ describe('WorkspaceInvitationService', () => {
 
   describe('API Invitation Acceptance', () => {
     beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -269,12 +259,9 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should handle 404 invitation not found error', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { ApiError } = require('../../api/apiClients');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
 
       const apiError = new ApiError(404, 'Not Found', {});
       identityServiceAPIClient.acceptInvitation = jest
@@ -294,12 +281,9 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should handle 400 invalid invitation error', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { ApiError } = require('../../api/apiClients');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
 
       const apiError = new ApiError(400, 'Bad Request', {
         error: 'Invitation already accepted',
@@ -321,10 +305,9 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should handle missing workspace files after acceptance', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
 
       identityServiceAPIClient.acceptInvitation = jest
         .fn()
@@ -348,20 +331,17 @@ describe('WorkspaceInvitationService', () => {
 
   describe('Progress Reporting', () => {
     it('should report progress through all steps', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getWorkspaceRegistry } = require('../WorkspaceRegistry');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getStorageService } = require('../../storage/StorageService');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      const { getWorkspaceRegistry } = jest.requireMock('../WorkspaceRegistry');
+      const { getStorageService } = jest.requireMock(
+        '../../storage/StorageService'
+      );
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -420,20 +400,17 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should report 100% progress on completion', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getWorkspaceRegistry } = require('../WorkspaceRegistry');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getStorageService } = require('../../storage/StorageService');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      const { getWorkspaceRegistry } = jest.requireMock('../WorkspaceRegistry');
+      const { getStorageService } = jest.requireMock(
+        '../../storage/StorageService'
+      );
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -486,16 +463,13 @@ describe('WorkspaceInvitationService', () => {
 
   describe('Local Workspace Creation', () => {
     beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        getGoogleDriveAuthService,
-      } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const {
-        identityServiceAPIClient,
-      } = require('../../api/apiClientIdentityService');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -525,10 +499,10 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should create local workspace entry with correct properties', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getWorkspaceRegistry } = require('../WorkspaceRegistry');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getStorageService } = require('../../storage/StorageService');
+      const { getWorkspaceRegistry } = jest.requireMock('../WorkspaceRegistry');
+      const { getStorageService } = jest.requireMock(
+        '../../storage/StorageService'
+      );
 
       const upsertWorkspaceMock = jest.fn();
       getWorkspaceRegistry.mockReturnValue({
@@ -564,10 +538,10 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should switch to the new workspace after creation', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getWorkspaceRegistry } = require('../WorkspaceRegistry');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getStorageService } = require('../../storage/StorageService');
+      const { getWorkspaceRegistry } = jest.requireMock('../WorkspaceRegistry');
+      const { getStorageService } = jest.requireMock(
+        '../../storage/StorageService'
+      );
 
       const switchWorkspaceMock = jest.fn().mockResolvedValue(undefined);
 
@@ -592,10 +566,10 @@ describe('WorkspaceInvitationService', () => {
     });
 
     it('should return workspace ID on success', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getWorkspaceRegistry } = require('../WorkspaceRegistry');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getStorageService } = require('../../storage/StorageService');
+      const { getWorkspaceRegistry } = jest.requireMock('../WorkspaceRegistry');
+      const { getStorageService } = jest.requireMock(
+        '../../storage/StorageService'
+      );
 
       getWorkspaceRegistry.mockReturnValue({
         upsertWorkspace: jest.fn(),
