@@ -67,8 +67,12 @@ jest.mock('../../drive/GoogleDriveService', () => ({
   GoogleDriveService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),
     isAuthenticated: jest.fn(() => false),
-    uploadFile: jest.fn(() => Promise.resolve({ success: true, fileId: 'mock-file-id' })),
-    downloadFile: jest.fn(() => Promise.resolve({ success: true, data: new ArrayBuffer(0) })),
+    uploadFile: jest.fn(() =>
+      Promise.resolve({ success: true, fileId: 'mock-file-id' })
+    ),
+    downloadFile: jest.fn(() =>
+      Promise.resolve({ success: true, data: new ArrayBuffer(0) })
+    ),
     listFiles: jest.fn(() => Promise.resolve({ success: true, files: [] })),
     deleteFile: jest.fn(() => Promise.resolve({ success: true })),
   })),
@@ -120,22 +124,28 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for API key operations', async () => {
       // CloudStorageAdapter requires authentication for API key operations
-      await expect(adapter.getAPIKey('openai')).rejects.toThrow('Cloud storage adapter not fully initialized');
-      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow('Cloud storage adapter not fully initialized');
+      await expect(adapter.getAPIKey('openai')).rejects.toThrow(
+        'Cloud storage adapter not fully initialized'
+      );
+      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow(
+        'Cloud storage adapter not fully initialized'
+      );
     });
 
     it('should return consistent error messages for API key operations', async () => {
       try {
         await adapter.getAPIKey('openai');
       } catch (error) {
-        expect((error as Error).message).toContain('Cloud storage adapter not fully initialized');
+        expect((error as Error).message).toContain(
+          'Cloud storage adapter not fully initialized'
+        );
       }
     });
   });
 
   describe('Context Operations', () => {
-    const mockContext = { 
-      id: 'test-context', 
+    const mockContext = {
+      id: 'test-context',
       name: 'Test Context',
       title: 'Test Context',
       body: 'Test body',
@@ -158,17 +168,27 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for context operations', async () => {
       // CloudStorageAdapter requires authentication
-      await expect(adapter.getContexts()).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.createContext(mockContext, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.updateContext(mockContext, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.deleteContext('test-context')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.getContexts()).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
+      await expect(
+        adapter.createContext(mockContext, 'test-profile')
+      ).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(
+        adapter.updateContext(mockContext, 'test-profile')
+      ).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.deleteContext('test-context')).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
     });
 
     it('should return consistent error messages', async () => {
       try {
         await adapter.getContexts();
       } catch (error) {
-        expect((error as Error).message).toContain('User must authenticate with Google Drive first');
+        expect((error as Error).message).toContain(
+          'User must authenticate with Google Drive first'
+        );
       }
     });
   });
@@ -194,17 +214,27 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for system prompt operations', async () => {
       // CloudStorageAdapter requires authentication
-      await expect(adapter.getSystemPrompts()).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.createSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.updateSystemPrompt(mockSystemPrompt, 'test-profile')).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.deleteSystemPrompt('test-prompt')).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.getSystemPrompts()).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
+      await expect(
+        adapter.createSystemPrompt(mockSystemPrompt, 'test-profile')
+      ).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(
+        adapter.updateSystemPrompt(mockSystemPrompt, 'test-profile')
+      ).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.deleteSystemPrompt('test-prompt')).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
     });
 
     it('should return consistent error messages for system prompts', async () => {
       try {
         await adapter.getSystemPrompts();
       } catch (error) {
-        expect((error as Error).message).toContain('User must authenticate with Google Drive first');
+        expect((error as Error).message).toContain(
+          'User must authenticate with Google Drive first'
+        );
       }
     });
   });
@@ -216,7 +246,9 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should require authentication for sync operations', async () => {
       // CloudStorageAdapter requires authentication for sync
-      await expect(adapter.sync()).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.sync()).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
     });
   });
 
@@ -227,13 +259,21 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should handle invalid inputs gracefully', async () => {
       // Test with invalid inputs - these should still require authentication
-      await expect(adapter.getAPIKey('')).rejects.toThrow('Cloud storage adapter not fully initialized');
-      await expect(adapter.getContexts(undefined, -1, -1)).rejects.toThrow('User must authenticate with Google Drive first');
-      await expect(adapter.getSystemPrompts(undefined, -1, -1)).rejects.toThrow('User must authenticate with Google Drive first');
+      await expect(adapter.getAPIKey('')).rejects.toThrow(
+        'Cloud storage adapter not fully initialized'
+      );
+      await expect(adapter.getContexts(undefined, -1, -1)).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
+      await expect(adapter.getSystemPrompts(undefined, -1, -1)).rejects.toThrow(
+        'User must authenticate with Google Drive first'
+      );
     });
 
     it('should handle missing data gracefully', async () => {
-      await expect(adapter.getConversationById('non-existent')).rejects.toThrow();
+      await expect(
+        adapter.getConversationById('non-existent')
+      ).rejects.toThrow();
       await expect(adapter.getMessages('non-existent')).rejects.toThrow();
     });
   });
@@ -245,7 +285,9 @@ describe('CloudStorageAdapter Integration Tests', () => {
 
     it('should maintain consistent behavior across authentication states', async () => {
       // Should consistently require authentication
-      await expect(adapter.getContexts()).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.getContexts()).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
   });
 
@@ -253,12 +295,12 @@ describe('CloudStorageAdapter Integration Tests', () => {
     it('should preserve original message IDs when saving and loading conversations', async () => {
       // This test verifies that message IDs are preserved in metadata and restored when loading
       // This is critical for alert-to-message matching functionality
-      
+
       const profileId = 'test-profile-id';
       const conversationId = 'test-conv-id';
       const originalMessageId1 = 'msg-1234567890-user';
       const originalMessageId2 = 'msg-1234567891-ai';
-      
+
       const conversation = {
         id: conversationId,
         title: 'Test Conversation',
@@ -301,7 +343,7 @@ describe('CloudStorageAdapter Integration Tests', () => {
       try {
         await adapter.createConversation(profileId, conversation, messages);
         const loadedMessages = await adapter.getMessages(conversationId);
-        
+
         // Verify original message IDs are preserved
         expect(loadedMessages).toHaveLength(2);
         expect(loadedMessages[0].id).toBe(originalMessageId1);
@@ -315,11 +357,11 @@ describe('CloudStorageAdapter Integration Tests', () => {
     it('should preserve originalMessageId in metadata when saving', async () => {
       // This test verifies that originalMessageId is stored in interaction metadata
       // This ensures the ID can be restored even if the message structure changes
-      
+
       const profileId = 'test-profile-id';
       const conversationId = 'test-conv-id-2';
       const originalMessageId = 'msg-9876543210-user';
-      
+
       const conversation = {
         id: conversationId,
         title: 'Test Conversation 2',
@@ -362,10 +404,10 @@ describe('CloudStorageAdapter Integration Tests', () => {
     it('should fallback to generated ID when originalMessageId is not available', async () => {
       // This test verifies backward compatibility with old conversations
       // that don't have originalMessageId in metadata
-      
+
       const _profileId = 'test-profile-id';
       const conversationId = 'test-conv-id-3';
-      
+
       const _conversation = {
         id: conversationId,
         title: 'Test Conversation 3',
@@ -393,30 +435,42 @@ describe('CloudStorageAdapter Integration Tests', () => {
         }
       } catch (error) {
         // Expected if authentication is not available or conversation doesn't exist
-        expect((error as Error).message).toMatch(/authenticate|initialized|not found/i);
+        expect((error as Error).message).toMatch(
+          /authenticate|initialized|not found/i
+        );
       }
     });
   });
 
   describe('API Key Management', () => {
     it('should handle getAllAPIKeys when not initialized', async () => {
-      await expect(adapter.getAllAPIKeys()).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.getAllAPIKeys()).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
 
     it('should require initialization for saveAPIKey', async () => {
-      await expect(adapter.saveAPIKey('openai', 'sk-test123')).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.saveAPIKey('openai', 'sk-test123')).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
 
     it('should require initialization for deleteAPIKey', async () => {
-      await expect(adapter.deleteAPIKey('test-id')).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.deleteAPIKey('test-id')).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
 
     it('should handle getAPIKey when not initialized', async () => {
-      await expect(adapter.getAPIKey('openai')).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.getAPIKey('openai')).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
 
     it('should handle isAPIKeyAvailable when not initialized', async () => {
-      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow('Cloud storage adapter not initialized');
+      await expect(adapter.isAPIKeyAvailable('openai')).rejects.toThrow(
+        'Cloud storage adapter not initialized'
+      );
     });
   });
 });

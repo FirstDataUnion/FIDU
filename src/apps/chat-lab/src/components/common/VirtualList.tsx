@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+} from 'react';
 import { Box } from '@mui/material';
 
 interface VirtualListProps<T> {
@@ -16,7 +22,7 @@ function VirtualList<T>({
   itemHeight,
   renderItem,
   overscan = 5,
-  className
+  className,
 }: VirtualListProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,10 +32,10 @@ function VirtualList<T>({
     const start = Math.floor(scrollTop / itemHeight);
     const visibleCount = Math.ceil(height / itemHeight);
     const end = start + visibleCount;
-    
+
     return {
       start: Math.max(0, start - overscan),
-      end: Math.min(items.length, end + overscan)
+      end: Math.min(items.length, end + overscan),
     };
   }, [scrollTop, height, itemHeight, items.length, overscan]);
 
@@ -57,7 +63,7 @@ function VirtualList<T>({
   const visibleItems = useMemo(() => {
     const { start, end } = visibleRange;
     const itemsToRender = [];
-    
+
     for (let i = start; i < end; i++) {
       if (items[i]) {
         itemsToRender.push(
@@ -67,7 +73,7 @@ function VirtualList<T>({
               position: 'absolute',
               top: i * itemHeight,
               height: itemHeight,
-              width: '100%'
+              width: '100%',
             }}
           >
             {renderItem(items[i], i)}
@@ -75,7 +81,7 @@ function VirtualList<T>({
         );
       }
     }
-    
+
     return itemsToRender;
   }, [items, visibleRange, itemHeight, renderItem]);
 
@@ -86,7 +92,7 @@ function VirtualList<T>({
       style={{
         height,
         overflow: 'auto',
-        position: 'relative'
+        position: 'relative',
       }}
       onScroll={handleScroll}
     >

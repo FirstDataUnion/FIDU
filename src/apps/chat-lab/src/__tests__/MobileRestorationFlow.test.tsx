@@ -53,7 +53,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock successful API calls
     (fetch as jest.Mock)
       .mockResolvedValueOnce({
@@ -62,10 +62,11 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'new-access-token',
-          expires_in: 3600,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'new-access-token',
+            expires_in: 3600,
+          }),
       });
   });
 
@@ -91,20 +92,22 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
       // Mock successful token refresh
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'new-access-token',
-          expires_in: 3600,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'new-access-token',
+            expires_in: 3600,
+          }),
       });
 
       // Mock user info fetch
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          id: 'test-user-id',
-          email: 'test@example.com',
-          name: 'Test User',
-        }),
+        json: () =>
+          Promise.resolve({
+            id: 'test-user-id',
+            email: 'test@example.com',
+            name: 'Test User',
+          }),
       });
 
       const response = await fetch('/fidu-chat-lab/api/oauth/refresh-token', {
@@ -197,7 +200,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
         ok: false,
         status: 500,
       });
-      
+
       // Temporarily replace global fetch
       const originalFetch = global.fetch;
       global.fetch = mockFetch;
@@ -209,7 +212,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
 
       expect(response.ok).toBe(false);
       expect(response.status).toBe(500);
-      
+
       // Restore original fetch
       global.fetch = originalFetch;
     });
@@ -220,7 +223,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
         ok: true,
         json: () => Promise.resolve({}),
       });
-      
+
       // Temporarily replace global fetch
       const originalFetch = global.fetch;
       global.fetch = mockFetch;
@@ -233,7 +236,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
       expect(response.ok).toBe(true);
       const data = await response.json();
       expect(data.settings).toBeUndefined();
-      
+
       // Restore original fetch
       global.fetch = originalFetch;
     });

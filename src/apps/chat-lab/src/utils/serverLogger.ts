@@ -18,17 +18,21 @@ class ServerLogger {
 
   constructor() {
     const envInfo = getEnvironmentInfo();
-    
+
     // Disable server logging when in local mode (no server to send logs to)
     const isLocalMode = envInfo.storageMode === 'local';
-    
+
     // Enable server logging in development or when explicitly enabled, but not in local mode
-    this.isEnabled = !isLocalMode && (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SERVER_LOGGING === 'true');
-    
+    this.isEnabled =
+      !isLocalMode
+      && (import.meta.env.DEV
+        || import.meta.env.VITE_ENABLE_SERVER_LOGGING === 'true');
+
     // Determine if we should log to console
     // In development mode, always log to console
     // In production mode, only log to console if VITE_KEEP_CONSOLE_LOGS is true
-    this.shouldLogToConsole = import.meta.env.DEV || import.meta.env.VITE_KEEP_CONSOLE_LOGS === 'true';
+    this.shouldLogToConsole =
+      import.meta.env.DEV || import.meta.env.VITE_KEEP_CONSOLE_LOGS === 'true';
   }
 
   private async sendToServer(logData: LogData): Promise<void> {

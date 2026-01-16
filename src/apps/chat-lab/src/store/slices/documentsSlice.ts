@@ -7,7 +7,12 @@ export const fetchDocuments = createAsyncThunk(
   async (profileId: string | undefined, { rejectWithValue }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const response = await storageService.getDocuments(undefined, 1, 100, profileId);
+      const response = await storageService.getDocuments(
+        undefined,
+        1,
+        100,
+        profileId
+      );
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message);
@@ -16,18 +21,18 @@ export const fetchDocuments = createAsyncThunk(
 );
 
 const initialState: DocumentsState = {
-    items: [],
-    loading: false,
-    error: null,
-}
+  items: [],
+  loading: false,
+  error: null,
+};
 
 const documentsSlice = createSlice({
   name: 'documents',
   initialState,
   reducers: {},
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchDocuments.pending, (state) => {
+      .addCase(fetchDocuments.pending, state => {
         state.loading = true;
         state.error = null;
       })

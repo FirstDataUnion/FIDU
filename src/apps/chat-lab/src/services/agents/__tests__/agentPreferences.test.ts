@@ -42,7 +42,9 @@ describe('agentPreferences', () => {
     it('should return empty object when localStorage is empty', () => {
       const prefs = loadAgentPreferences();
       expect(prefs).toEqual({});
-      expect(localStorageMock.getItem).toHaveBeenCalledWith(BACKGROUND_AGENT_PREFS_KEY);
+      expect(localStorageMock.getItem).toHaveBeenCalledWith(
+        BACKGROUND_AGENT_PREFS_KEY
+      );
     });
 
     it('should load preferences from localStorage', () => {
@@ -53,18 +55,21 @@ describe('agentPreferences', () => {
           contextLastN: 10,
         },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(stored));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(stored)
+      );
+
       const prefs = loadAgentPreferences();
       expect(prefs).toEqual(stored);
     });
 
     it('should handle corrupted JSON gracefully', () => {
       localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, 'invalid json{');
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const prefs = loadAgentPreferences();
-      
+
       expect(prefs).toEqual({});
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
@@ -72,10 +77,10 @@ describe('agentPreferences', () => {
 
     it('should return empty object on parse error', () => {
       localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, 'not-json');
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const prefs = loadAgentPreferences();
-      
+
       expect(prefs).toEqual({});
       consoleSpy.mockRestore();
     });
@@ -89,9 +94,9 @@ describe('agentPreferences', () => {
           verbosityThreshold: 30,
         },
       };
-      
+
       saveAgentPreferences(prefs);
-      
+
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
         BACKGROUND_AGENT_PREFS_KEY,
         JSON.stringify(prefs)
@@ -102,15 +107,15 @@ describe('agentPreferences', () => {
       const prefs: AllAgentPreferences = {
         'agent-1': { runEveryNTurns: 5, verbosityThreshold: 30 },
       };
-      
+
       // Simulate quota exceeded error
       localStorageMock.setItem.mockImplementationOnce(() => {
         throw new Error('QuotaExceededError');
       });
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       saveAgentPreferences(prefs);
-      
+
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
@@ -130,8 +135,11 @@ describe('agentPreferences', () => {
           contextLastN: 10,
         },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(stored));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(stored)
+      );
+
       const pref = getAgentPreference('agent-1');
       expect(pref).toEqual(stored['agent-1']);
     });
@@ -143,7 +151,7 @@ describe('agentPreferences', () => {
         runEveryNTurns: 5,
         verbosityThreshold: 30,
       });
-      
+
       const stored = JSON.parse(localStorageMock.setItem.mock.calls[0][1]);
       expect(stored['agent-1']).toEqual({
         runEveryNTurns: 5,
@@ -158,13 +166,20 @@ describe('agentPreferences', () => {
           verbosityThreshold: 30,
         },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(existing));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(existing)
+      );
+
       setAgentPreference('agent-1', {
         verbosityThreshold: 40, // Update only this field
       });
-      
-      const stored = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const stored = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(stored['agent-1']).toEqual({
         runEveryNTurns: 5, // Preserved
         verbosityThreshold: 40, // Updated
@@ -177,7 +192,7 @@ describe('agentPreferences', () => {
         verbosityThreshold: 30,
         contextLastN: 12,
       });
-      
+
       const stored = JSON.parse(localStorageMock.setItem.mock.calls[0][1]);
       expect(stored['agent-1'].contextLastN).toBe(12);
     });
@@ -187,14 +202,21 @@ describe('agentPreferences', () => {
         'agent-1': { runEveryNTurns: 5, verbosityThreshold: 30 },
         'agent-2': { runEveryNTurns: 10, verbosityThreshold: 50 },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(existing));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(existing)
+      );
+
       setAgentPreference('agent-1', {
         runEveryNTurns: 6,
         verbosityThreshold: 35,
       });
-      
-      const stored = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const stored = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(stored['agent-1'].runEveryNTurns).toBe(6);
       expect(stored['agent-2']).toEqual(existing['agent-2']); // Preserved
     });
@@ -206,11 +228,18 @@ describe('agentPreferences', () => {
         'agent-1': { runEveryNTurns: 5, verbosityThreshold: 30 },
         'agent-2': { runEveryNTurns: 10, verbosityThreshold: 50 },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(existing));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(existing)
+      );
+
       deleteAgentPreference('agent-1');
-      
-      const stored = JSON.parse(localStorageMock.setItem.mock.calls[localStorageMock.setItem.mock.calls.length - 1][1]);
+
+      const stored = JSON.parse(
+        localStorageMock.setItem.mock.calls[
+          localStorageMock.setItem.mock.calls.length - 1
+        ][1]
+      );
       expect(stored['agent-1']).toBeUndefined();
       expect(stored['agent-2']).toEqual(existing['agent-2']); // Preserved
     });
@@ -228,24 +257,28 @@ describe('agentPreferences', () => {
         'agent-1': { runEveryNTurns: 5, verbosityThreshold: 30 },
         'agent-2': { runEveryNTurns: 10, verbosityThreshold: 50 },
       };
-      localStorageMock.setItem(BACKGROUND_AGENT_PREFS_KEY, JSON.stringify(existing));
-      
+      localStorageMock.setItem(
+        BACKGROUND_AGENT_PREFS_KEY,
+        JSON.stringify(existing)
+      );
+
       clearAllAgentPreferences();
-      
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith(BACKGROUND_AGENT_PREFS_KEY);
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith(
+        BACKGROUND_AGENT_PREFS_KEY
+      );
     });
 
     it('should handle errors gracefully', () => {
       localStorageMock.removeItem.mockImplementationOnce(() => {
         throw new Error('Storage error');
       });
-      
+
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       clearAllAgentPreferences();
-      
+
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });
 });
-

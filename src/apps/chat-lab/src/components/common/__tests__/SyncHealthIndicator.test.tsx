@@ -17,11 +17,7 @@ jest.mock('../../../services/storage/UnifiedStorageService');
 const theme = createTheme();
 
 const renderWithTheme = (component: React.ReactElement) => {
-  return render(
-    <ThemeProvider theme={theme}>
-      {component}
-    </ThemeProvider>
-  );
+  return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>);
 };
 
 describe('SyncHealthIndicator', () => {
@@ -37,7 +33,7 @@ describe('SyncHealthIndicator', () => {
     };
 
     mockGetAdapter = jest.fn().mockReturnValue(mockAdapter);
-    
+
     (getUnifiedStorageService as jest.Mock).mockReturnValue({
       getAdapter: mockGetAdapter,
     });
@@ -53,7 +49,9 @@ describe('SyncHealthIndicator', () => {
         smartAutoSync: null,
       });
 
-      const { container } = renderWithTheme(<SyncHealthIndicator variant="compact" />);
+      const { container } = renderWithTheme(
+        <SyncHealthIndicator variant="compact" />
+      );
       await waitFor(() => {
         expect(container.firstChild).toBeNull();
       });
@@ -72,7 +70,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 1m ago/)).toBeInTheDocument();
       });
@@ -91,7 +89,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 5m ago/)).toBeInTheDocument();
         expect(screen.getByText(/retrying 1\/2/)).toBeInTheDocument();
@@ -111,10 +109,12 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 2h ago/)).toBeInTheDocument();
-        expect(screen.getByText(/sync failing - 5 attempts/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/sync failing - 5 attempts/)
+        ).toBeInTheDocument();
       });
     });
 
@@ -130,7 +130,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Never synced/)).toBeInTheDocument();
       });
@@ -151,7 +151,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced just now/)).toBeInTheDocument();
       });
@@ -170,7 +170,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 15m ago/)).toBeInTheDocument();
       });
@@ -189,7 +189,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 3h ago/)).toBeInTheDocument();
       });
@@ -208,7 +208,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 2d ago/)).toBeInTheDocument();
       });
@@ -229,7 +229,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         // Material-UI Tooltip uses aria-label, not title
         const tooltip = screen.getByLabelText(/Local changes pending sync/);
@@ -250,10 +250,12 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         // Material-UI Tooltip uses aria-label, not title
-        const tooltip = screen.getByLabelText(/All data synced to Google Drive/);
+        const tooltip = screen.getByLabelText(
+          /All data synced to Google Drive/
+        );
         expect(tooltip).toBeInTheDocument();
       });
     });
@@ -271,12 +273,16 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         // Material-UI Tooltip uses aria-label, not title
-        const tooltip = screen.getByLabelText(/Sync is retrying after 2 failure/);
+        const tooltip = screen.getByLabelText(
+          /Sync is retrying after 2 failure/
+        );
         expect(tooltip).toBeInTheDocument();
-        expect(tooltip.getAttribute('aria-label')).toContain('Will recover automatically');
+        expect(tooltip.getAttribute('aria-label')).toContain(
+          'Will recover automatically'
+        );
       });
     });
 
@@ -293,7 +299,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         // Material-UI Tooltip uses aria-label, not title
         const tooltip = screen.getByLabelText(/Sync has failed 3 times/);
@@ -307,7 +313,7 @@ describe('SyncHealthIndicator', () => {
   describe('Status Updates', () => {
     it('should update when sync status changes', async () => {
       const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-      
+
       // Initial status
       mockAdapter.getSyncStatus
         .mockResolvedValueOnce({
@@ -331,14 +337,14 @@ describe('SyncHealthIndicator', () => {
         });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 1m ago/)).toBeInTheDocument();
       });
 
       // Advance timer to trigger update (component polls every 10 seconds)
       jest.advanceTimersByTime(10000);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/retrying 1\/2/)).toBeInTheDocument();
       });
@@ -349,8 +355,10 @@ describe('SyncHealthIndicator', () => {
         smartAutoSync: undefined,
       });
 
-      const { container } = renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+      const { container } = renderWithTheme(
+        <SyncHealthIndicator variant="compact" />
+      );
+
       await waitFor(() => {
         expect(container.firstChild).toBeNull();
       });
@@ -371,7 +379,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="compact" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Synced 1m ago/)).toBeInTheDocument();
       });
@@ -390,7 +398,7 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="full" />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Sync Status/)).toBeInTheDocument();
         expect(screen.getByText(/Synced 1m ago/)).toBeInTheDocument();
@@ -410,11 +418,12 @@ describe('SyncHealthIndicator', () => {
       });
 
       renderWithTheme(<SyncHealthIndicator variant="full" />);
-      
+
       await waitFor(() => {
-        expect(screen.getByText(/Error: Connection timeout/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Error: Connection timeout/)
+        ).toBeInTheDocument();
       });
     });
   });
 });
-

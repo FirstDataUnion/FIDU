@@ -53,15 +53,21 @@ export class BrowserSQLiteManager {
     return this.mockConversations.filter(p => p.user_id === userId);
   }
 
-  async getDataPacketsByConversationId(conversationId: string): Promise<DataPacketRow[]> {
-    return this.mockConversations.filter(p => p.conversation_id === conversationId);
+  async getDataPacketsByConversationId(
+    conversationId: string
+  ): Promise<DataPacketRow[]> {
+    return this.mockConversations.filter(
+      p => p.conversation_id === conversationId
+    );
   }
 
   async deleteDataPacket(id: string): Promise<void> {
     this.mockConversations = this.mockConversations.filter(p => p.id !== id);
   }
 
-  async deleteDataPacketsByConversationId(conversationId: string): Promise<void> {
+  async deleteDataPacketsByConversationId(
+    conversationId: string
+  ): Promise<void> {
     this.mockConversations = this.mockConversations.filter(
       p => p.conversation_id !== conversationId
     );
@@ -129,4 +135,3 @@ export class BrowserSQLiteManager {
     this.mockAPIKeys = keys;
   }
 }
-

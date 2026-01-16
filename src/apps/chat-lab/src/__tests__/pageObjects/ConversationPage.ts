@@ -87,7 +87,9 @@ export class ConversationPage {
 
   async clickTagButton(conversationTitle: string) {
     const conversation = this.getConversationByTitle(conversationTitle);
-    const tagButton = conversation.closest('[data-testid="conversation-card"]')?.querySelector('[title="Manage Tags"]');
+    const tagButton = conversation
+      .closest('[data-testid="conversation-card"]')
+      ?.querySelector('[title="Manage Tags"]');
     if (tagButton) {
       fireEvent.click(tagButton as HTMLElement);
     }
@@ -109,7 +111,9 @@ export class ConversationPage {
   // Assertions
   async expectConversationCount(count: number) {
     await waitFor(() => {
-      expect(this.getFilteredConversations()).toHaveTextContent(count.toString());
+      expect(this.getFilteredConversations()).toHaveTextContent(
+        count.toString()
+      );
     });
   }
 

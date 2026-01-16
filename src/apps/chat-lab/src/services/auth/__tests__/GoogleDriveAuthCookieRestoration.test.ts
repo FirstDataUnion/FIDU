@@ -27,11 +27,11 @@ class MockGoogleDriveAuthService {
       }
 
       const data = await response.json();
-      
+
       // Mock successful token refresh
       this.tokens = {
         accessToken: data.access_token,
-        expiresAt: Date.now() + (data.expires_in * 1000),
+        expiresAt: Date.now() + data.expires_in * 1000,
       };
 
       // Mock user info fetch
@@ -44,7 +44,7 @@ class MockGoogleDriveAuthService {
       }
 
       return false;
-             } catch {
+    } catch {
       return false;
     }
   }
@@ -57,22 +57,22 @@ class MockGoogleDriveAuthService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const success = await this.restoreFromCookies();
-        
+
         if (success) {
           return true;
         }
-        
+
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
-             } catch {
+      } catch {
         if (attempt === maxRetries) {
           return false;
         }
       }
     }
-    
+
     return false;
   }
 
@@ -120,7 +120,7 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
   beforeEach(() => {
     authService = new MockGoogleDriveAuthService(mockConfig);
     jest.clearAllMocks();
-    
+
     // Mock navigator.onLine
     Object.defineProperty(navigator, 'onLine', {
       writable: true,
@@ -133,20 +133,22 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
       // Mock successful token refresh
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          access_token: 'new-access-token',
-          expires_in: 3600,
-        }),
+        json: () =>
+          Promise.resolve({
+            access_token: 'new-access-token',
+            expires_in: 3600,
+          }),
       });
 
       // Mock user info fetch
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          id: 'test-user-id',
-          email: 'test@example.com',
-          name: 'Test User',
-        }),
+        json: () =>
+          Promise.resolve({
+            id: 'test-user-id',
+            email: 'test@example.com',
+            name: 'Test User',
+          }),
       });
 
       const result = await authService.restoreFromCookies();
@@ -165,9 +167,10 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 401,
-        json: () => Promise.resolve({
-          error: 'invalid_grant',
-        }),
+        json: () =>
+          Promise.resolve({
+            error: 'invalid_grant',
+          }),
       });
 
       const result = await authService.restoreFromCookies();
@@ -190,18 +193,20 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            access_token: 'new-access-token',
-            expires_in: 3600,
-          }),
+          json: () =>
+            Promise.resolve({
+              access_token: 'new-access-token',
+              expires_in: 3600,
+            }),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            id: 'test-user-id',
-            email: 'test@example.com',
-            name: 'Test User',
-          }),
+          json: () =>
+            Promise.resolve({
+              id: 'test-user-id',
+              email: 'test@example.com',
+              name: 'Test User',
+            }),
         });
 
       const result = await authService.restoreFromCookiesWithRetry(2);
@@ -257,17 +262,19 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
   describe('initialization with cookie restoration', () => {
     it('should attempt cookie restoration when no tokens in memory', async () => {
       // Mock the restoreFromCookies method
-      const restoreSpy = jest.spyOn(authService, 'restoreFromCookies')
+      const restoreSpy = jest
+        .spyOn(authService, 'restoreFromCookies')
         .mockResolvedValueOnce(true);
 
       // Mock user info fetch
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          id: 'test-user-id',
-          email: 'test@example.com',
-          name: 'Test User',
-        }),
+        json: () =>
+          Promise.resolve({
+            id: 'test-user-id',
+            email: 'test@example.com',
+            name: 'Test User',
+          }),
       });
 
       await authService.initialize();
@@ -276,7 +283,8 @@ describe('GoogleDriveAuthService - Cookie Restoration', () => {
     });
 
     it('should handle cookie restoration failure gracefully', async () => {
-      const restoreSpy = jest.spyOn(authService, 'restoreFromCookies')
+      const restoreSpy = jest
+        .spyOn(authService, 'restoreFromCookies')
         .mockResolvedValueOnce(false);
 
       await authService.initialize();

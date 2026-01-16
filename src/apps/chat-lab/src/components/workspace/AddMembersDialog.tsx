@@ -17,10 +17,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Remove as RemoveIcon,
-} from '@mui/icons-material';
+import { Add as AddIcon, Remove as RemoveIcon } from '@mui/icons-material';
 import { identityServiceAPIClient } from '../../services/api/apiClientIdentityService';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import { ApiError } from '../../services/api/apiClients';
@@ -45,12 +42,16 @@ export default function AddMembersDialog({
   const [memberEmails, setMemberEmails] = useState<string[]>(['']);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailValidationErrors, setEmailValidationErrors] = useState<Map<number, string>>(new Map());
-  
+  const [emailValidationErrors, setEmailValidationErrors] = useState<
+    Map<number, string>
+  >(new Map());
+
   // Debounce timer for email validation
-  const emailValidationTimerRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const emailValidationTimerRef = useRef<Map<number, NodeJS.Timeout>>(
+    new Map()
+  );
   const memberEmailsRef = useRef(memberEmails);
-  
+
   // Keep ref in sync with state
   useEffect(() => {
     memberEmailsRef.current = memberEmails;
@@ -76,9 +77,9 @@ export default function AddMembersDialog({
     } else {
       const newEmails = memberEmails.filter((_, i) => i !== index);
       setMemberEmails(newEmails);
-      
+
       // Clear validation error for removed field
-      setEmailValidationErrors((prev) => {
+      setEmailValidationErrors(prev => {
         const errors = new Map(prev);
         errors.delete(index);
         // Shift errors for fields after the removed one
@@ -111,7 +112,7 @@ export default function AddMembersDialog({
       validateEmailDebounced(index);
       emailValidationTimerRef.current.delete(index);
     }, 300);
-    
+
     emailValidationTimerRef.current.set(index, timer);
   };
 
@@ -125,17 +126,17 @@ export default function AddMembersDialog({
     // Use ref to get latest memberEmails state
     const allEmails = memberEmailsRef.current;
     const email = allEmails[index] || '';
-    
-    setEmailValidationErrors((prevErrors) => {
+
+    setEmailValidationErrors(prevErrors => {
       const errors = new Map(prevErrors);
-      
+
       // Check for duplicate emails (case-insensitive)
       const trimmedEmail = email.trim().toLowerCase();
       if (trimmedEmail) {
         const duplicates = allEmails
           .map((e, i) => ({ email: e.trim().toLowerCase(), index: i }))
-          .filter((e) => e.email === trimmedEmail && e.index !== index);
-        
+          .filter(e => e.email === trimmedEmail && e.index !== index);
+
         if (duplicates.length > 0) {
           errors.set(index, 'This email is already added');
         } else if (!validateEmail(email)) {
@@ -146,7 +147,7 @@ export default function AddMembersDialog({
       } else {
         errors.delete(index);
       }
-      
+
       return errors;
     });
   };
@@ -155,7 +156,7 @@ export default function AddMembersDialog({
   useEffect(() => {
     const timerRef = emailValidationTimerRef.current;
     return () => {
-      timerRef.forEach((timer) => {
+      timerRef.forEach(timer => {
         clearTimeout(timer);
       });
       timerRef.clear();
@@ -174,7 +175,9 @@ export default function AddMembersDialog({
     }
 
     // Check for validation errors
-    const hasErrors = Array.from(emailValidationErrors.values()).some(error => error !== undefined);
+    const hasErrors = Array.from(emailValidationErrors.values()).some(
+      error => error !== undefined
+    );
     if (hasErrors) {
       setError('Please fix email validation errors before adding members');
       return;
@@ -185,19 +188,24 @@ export default function AddMembersDialog({
 
     try {
       // Step 1: Add members via ID service (validates and returns Google emails)
-      const result = await identityServiceAPIClient.addMembers(workspaceId, validEmails);
-      
+      const result = await identityServiceAPIClient.addMembers(
+        workspaceId,
+        validEmails
+      );
+
       // Check if any members are missing Google emails
       // Match members back to original emails by index (API returns in same order)
       const membersWithoutGoogle = result.members
         .map((m, index) => ({ member: m, email: validEmails[index] }))
         .filter(({ member }) => !member.google_email);
-      
+
       if (membersWithoutGoogle.length > 0) {
-        const emails = membersWithoutGoogle.map(({ email }) => email).join(', ');
+        const emails = membersWithoutGoogle
+          .map(({ email }) => email)
+          .join(', ');
         throw new Error(
-          `The following members have not connected their Google Drive accounts: ${emails}. ` +
-          `Please ask them to connect their Google Drive account in Chat Lab before inviting them.`
+          `The following members have not connected their Google Drive accounts: ${emails}. `
+            + `Please ask them to connect their Google Drive account in Chat Lab before inviting them.`
         );
       }
 
@@ -213,13 +221,13 @@ export default function AddMembersDialog({
         // Share with each new member
         // Include supportsAllDrives=true to support shared folders and shared drives
         const shareResults = await Promise.allSettled(
-          newMemberGoogleEmails.map(async (email) => {
+          newMemberGoogleEmails.map(async email => {
             const response = await fetch(
               `https://www.googleapis.com/drive/v3/files/${driveFolderId}/permissions?supportsAllDrives=true`,
               {
                 method: 'POST',
                 headers: {
-                  'Authorization': `Bearer ${accessToken}`,
+                  Authorization: `Bearer ${accessToken}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -232,7 +240,9 @@ export default function AddMembersDialog({
 
             if (!response.ok) {
               const errorText = await response.text();
-              throw new Error(`Failed to share folder with ${email}: ${response.status} ${response.statusText}. ${errorText}`);
+              throw new Error(
+                `Failed to share folder with ${email}: ${response.status} ${response.statusText}. ${errorText}`
+              );
             }
           })
         );
@@ -241,16 +251,27 @@ export default function AddMembersDialog({
         const failures = shareResults.filter(r => r.status === 'rejected');
         if (failures.length > 0) {
           const failureMessages = failures
-            .map(r => r.status === 'rejected' ? r.reason?.message || String(r.reason) : '')
+            .map(r =>
+              r.status === 'rejected'
+                ? r.reason?.message || String(r.reason)
+                : ''
+            )
             .filter(Boolean);
-          console.warn('Some members could not be shared with:', failureMessages);
-          
+          console.warn(
+            'Some members could not be shared with:',
+            failureMessages
+          );
+
           // If all shares failed, throw an error
           if (failures.length === newMemberGoogleEmails.length) {
-            throw new Error(`Failed to share folder with any members: ${failureMessages.join('; ')}`);
+            throw new Error(
+              `Failed to share folder with any members: ${failureMessages.join('; ')}`
+            );
           }
           // If some failed, show warning but continue
-          setError(`Members added, but some folder shares failed: ${failureMessages.join('; ')}`);
+          setError(
+            `Members added, but some folder shares failed: ${failureMessages.join('; ')}`
+          );
         }
       }
 
@@ -261,9 +282,10 @@ export default function AddMembersDialog({
       onClose();
     } catch (err: any) {
       console.error('Failed to add members:', err);
-      
+
       if (err instanceof ApiError) {
-        const errorMessage = err.data?.error || err.data?.details || err.message;
+        const errorMessage =
+          err.data?.error || err.data?.details || err.message;
         setError(errorMessage);
       } else if (err instanceof Error) {
         setError(err.message);
@@ -273,14 +295,22 @@ export default function AddMembersDialog({
     } finally {
       setIsAdding(false);
     }
-  }, [memberEmails, emailValidationErrors, workspaceId, driveFolderId, onSuccess, onClose]);
+  }, [
+    memberEmails,
+    emailValidationErrors,
+    workspaceId,
+    driveFolderId,
+    onSuccess,
+    onClose,
+  ]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Members to {workspaceName}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Invite team members to this workspace. They will receive an invitation and can accept it from their Workspaces page.
+          Invite team members to this workspace. They will receive an invitation
+          and can accept it from their Workspaces page.
         </Typography>
 
         {error && (
@@ -291,13 +321,16 @@ export default function AddMembersDialog({
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {memberEmails.map((email, index) => (
-            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            <Box
+              key={index}
+              sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
+            >
               <TextField
                 fullWidth
                 label={`Member ${index + 1} Email`}
                 placeholder="member@example.com"
                 value={email}
-                onChange={(e) => handleMemberEmailChange(index, e.target.value)}
+                onChange={e => handleMemberEmailChange(index, e.target.value)}
                 error={emailValidationErrors.has(index)}
                 helperText={emailValidationErrors.get(index)}
                 disabled={isAdding}
@@ -342,4 +375,3 @@ export default function AddMembersDialog({
     </Dialog>
   );
 }
-

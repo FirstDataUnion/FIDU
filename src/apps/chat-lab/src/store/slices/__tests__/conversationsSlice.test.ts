@@ -53,7 +53,9 @@ jest.mock('../../../services/conversationsService', () => ({
   },
 }));
 
-const mockConversationsService = conversationsService as jest.Mocked<typeof conversationsService>;
+const mockConversationsService = conversationsService as jest.Mocked<
+  typeof conversationsService
+>;
 
 const mockConversation: Conversation = {
   id: '1',
@@ -125,9 +127,12 @@ describe('conversationsSlice', () => {
 
   describe('reducers', () => {
     it('should handle setFilters', () => {
-      const action = setFilters({ searchQuery: 'test', platforms: ['chatgpt'] } as any);
+      const action = setFilters({
+        searchQuery: 'test',
+        platforms: ['chatgpt'],
+      } as any);
       const state = conversationsSlice(initialState, action);
-      
+
       expect(state.filters.searchQuery).toBe('test');
       expect(state.filters.platforms).toEqual(['chatgpt']);
     });
@@ -145,16 +150,16 @@ describe('conversationsSlice', () => {
           sortOrder: 'asc' as const,
         },
       };
-      
+
       const state = conversationsSlice(stateWithFilters, clearFilters());
-      
+
       expect(state.filters).toEqual(initialState.filters);
     });
 
     it('should handle setPagination', () => {
       const action = setPagination({ page: 2, limit: 50 } as any);
       const state = conversationsSlice(initialState, action);
-      
+
       expect(state.pagination.page).toBe(2);
       expect(state.pagination.limit).toBe(50);
     });
@@ -165,9 +170,12 @@ describe('conversationsSlice', () => {
         currentConversation: mockConversation,
         currentMessages: mockMessages,
       };
-      
-      const state = conversationsSlice(stateWithCurrent, clearCurrentConversation());
-      
+
+      const state = conversationsSlice(
+        stateWithCurrent,
+        clearCurrentConversation()
+      );
+
       expect(state.currentConversation).toBeNull();
     });
 
@@ -176,9 +184,9 @@ describe('conversationsSlice', () => {
         ...initialState,
         error: 'Test error',
       };
-      
+
       const state = conversationsSlice(stateWithError, clearError());
-      
+
       expect(state.error).toBeNull();
     });
 
@@ -188,15 +196,15 @@ describe('conversationsSlice', () => {
         items: [mockConversation],
         currentConversation: mockConversation,
       };
-      
+
       const updatedConversation = {
         ...mockConversation,
         title: 'Updated Title',
       };
-      
+
       const action = updateConversationLocally(updatedConversation as any);
       const state = conversationsSlice(stateWithItems, action);
-      
+
       expect(state.items[0].title).toBe('Updated Title');
       expect(state.currentConversation?.title).toBe('Updated Title');
     });
@@ -207,7 +215,7 @@ describe('conversationsSlice', () => {
       it('should handle fetchConversations.pending', () => {
         const action = fetchConversations.pending('', {});
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -219,17 +227,21 @@ describe('conversationsSlice', () => {
           page: 1,
           limit: 20,
         };
-        
+
         mockConversationsService.getAll.mockResolvedValue(mockResponse);
-        
-        const thunk = fetchConversations({ filters: undefined, page: 1, limit: 20 });
+
+        const thunk = fetchConversations({
+          filters: undefined,
+          page: 1,
+          limit: 20,
+        });
         const dispatch = jest.fn();
         const getState = jest.fn(() => ({
           auth: { currentProfile: { id: 'profile-1' } },
         }));
-        
+
         await thunk(dispatch, getState, undefined);
-        
+
         expect(mockConversationsService.getAll).toHaveBeenCalledWith(
           undefined,
           1,
@@ -245,7 +257,7 @@ describe('conversationsSlice', () => {
           {}
         );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.error).toBe('Failed to fetch');
       });
@@ -256,10 +268,12 @@ describe('conversationsSlice', () => {
         const getState = jest.fn(() => ({
           auth: { currentProfile: null },
         }));
-        
+
         const result = await thunk(dispatch, getState, undefined);
         expect(result.type).toBe('conversations/fetchConversations/rejected');
-        expect((result as any).error.message).toBe('No profile selected. Please select a profile to continue.');
+        expect((result as any).error.message).toBe(
+          'No profile selected. Please select a profile to continue.'
+        );
       });
     });
 
@@ -267,7 +281,7 @@ describe('conversationsSlice', () => {
       it('should handle fetchConversation.pending', () => {
         const action = fetchConversation.pending('', '1');
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -275,7 +289,7 @@ describe('conversationsSlice', () => {
       it('should handle fetchConversation.fulfilled', () => {
         const action = fetchConversation.fulfilled(mockConversation, '', '1');
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.currentConversation).toEqual(mockConversation);
       });
@@ -287,7 +301,7 @@ describe('conversationsSlice', () => {
           '1'
         );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.error).toBe('Failed to fetch');
       });
@@ -297,15 +311,19 @@ describe('conversationsSlice', () => {
       it('should handle fetchConversationMessages.pending', () => {
         const action = fetchConversationMessages.pending('', '1');
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.messagesLoading).toBe(true);
         expect(state.error).toBeNull();
       });
 
       it('should handle fetchConversationMessages.fulfilled', () => {
-        const action = fetchConversationMessages.fulfilled(mockMessages, '', '1');
+        const action = fetchConversationMessages.fulfilled(
+          mockMessages,
+          '',
+          '1'
+        );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.messagesLoading).toBe(false);
         expect(state.currentMessages).toEqual(mockMessages);
       });
@@ -317,7 +335,7 @@ describe('conversationsSlice', () => {
           '1'
         );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.messagesLoading).toBe(false);
         expect(state.error).toBe('Failed to fetch');
       });
@@ -327,15 +345,19 @@ describe('conversationsSlice', () => {
       it('should handle saveConversation.pending', () => {
         const action = saveConversation.pending('', mockConversation);
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(true);
         expect(state.error).toBeNull();
       });
 
       it('should handle saveConversation.fulfilled for new conversation', () => {
-        const action = saveConversation.fulfilled(mockConversation, '', mockConversation);
+        const action = saveConversation.fulfilled(
+          mockConversation,
+          '',
+          mockConversation
+        );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.items).toContain(mockConversation);
       });
@@ -345,15 +367,19 @@ describe('conversationsSlice', () => {
           ...initialState,
           items: [mockConversation],
         };
-        
+
         const updatedConversation = {
           ...mockConversation,
           title: 'Updated Title',
         };
-        
-        const action = saveConversation.fulfilled(updatedConversation, '', updatedConversation);
+
+        const action = saveConversation.fulfilled(
+          updatedConversation,
+          '',
+          updatedConversation
+        );
         const state = conversationsSlice(stateWithItems, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.items[0].title).toBe('Updated Title');
       });
@@ -365,7 +391,7 @@ describe('conversationsSlice', () => {
           mockConversation
         );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.error).toBe('Failed to save');
       });
@@ -375,7 +401,7 @@ describe('conversationsSlice', () => {
       it('should handle deleteConversation.pending', () => {
         const action = deleteConversation.pending('', '1');
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(true);
         expect(state.error).toBeNull();
       });
@@ -387,10 +413,10 @@ describe('conversationsSlice', () => {
           currentConversation: mockConversation,
           currentMessages: mockMessages,
         };
-        
+
         const action = deleteConversation.fulfilled('1', '', '1');
         const state = conversationsSlice(stateWithItems, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.items).toHaveLength(0);
         expect(state.currentConversation).toBeNull();
@@ -404,7 +430,7 @@ describe('conversationsSlice', () => {
           '1'
         );
         const state = conversationsSlice(initialState, action);
-        
+
         expect(state.loading).toBe(false);
         expect(state.error).toBe('Failed to delete');
       });
@@ -417,15 +443,19 @@ describe('conversationsSlice', () => {
           items: [mockConversation],
           currentConversation: mockConversation,
         };
-        
+
         const archivedConversation = {
           ...mockConversation,
           isArchived: true,
         };
-        
-        const action = archiveConversation.fulfilled(archivedConversation, '', '1');
+
+        const action = archiveConversation.fulfilled(
+          archivedConversation,
+          '',
+          '1'
+        );
         const state = conversationsSlice(stateWithItems, action);
-        
+
         expect(state.items[0].isArchived).toBe(true);
         expect(state.currentConversation?.isArchived).toBe(true);
       });
@@ -437,21 +467,25 @@ describe('conversationsSlice', () => {
           ...mockConversation,
           isArchived: true,
         };
-        
+
         const stateWithItems = {
           ...initialState,
           items: [archivedConversation],
           currentConversation: archivedConversation,
         };
-        
+
         const unarchivedConversation = {
           ...mockConversation,
           isArchived: false,
         };
-        
-        const action = unarchiveConversation.fulfilled(unarchivedConversation, '', '1');
+
+        const action = unarchiveConversation.fulfilled(
+          unarchivedConversation,
+          '',
+          '1'
+        );
         const state = conversationsSlice(stateWithItems, action);
-        
+
         expect(state.items[0].isArchived).toBe(false);
         expect(state.currentConversation?.isArchived).toBe(false);
       });
@@ -464,15 +498,19 @@ describe('conversationsSlice', () => {
           items: [mockConversation],
           currentConversation: mockConversation,
         };
-        
+
         const favoritedConversation = {
           ...mockConversation,
           isFavorite: true,
         };
-        
-        const action = toggleFavoriteConversation.fulfilled(favoritedConversation, '', '1');
+
+        const action = toggleFavoriteConversation.fulfilled(
+          favoritedConversation,
+          '',
+          '1'
+        );
         const state = conversationsSlice(stateWithItems, action);
-        
+
         expect(state.items[0].isFavorite).toBe(true);
         expect(state.currentConversation?.isFavorite).toBe(true);
       });

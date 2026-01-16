@@ -90,20 +90,23 @@ const mockSystemPrompts: SystemPrompt[] = [
   {
     id: 'sys-1',
     name: 'Technical Assistant',
-    content: 'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
-    description: 'General technical assistance with focus on software development',
+    content:
+      'You are an expert technical assistant with deep knowledge of software development, architecture, and best practices. Provide clear, accurate, and actionable advice.',
+    description:
+      'General technical assistance with focus on software development',
     tokenCount: 42,
     isDefault: true,
     isBuiltIn: true,
     source: 'built-in',
     categories: ['Technical', 'General'],
     createdAt: new Date('2024-01-10').toISOString(),
-    updatedAt: new Date('2024-01-10').toISOString()
+    updatedAt: new Date('2024-01-10').toISOString(),
   },
   {
     id: 'sys-2',
     name: 'Code Reviewer',
-    content: 'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
+    content:
+      'You are a senior code reviewer. Analyze code for best practices, security vulnerabilities, performance issues, and maintainability. Provide specific, actionable feedback.',
     description: 'Specialized in code review and quality assessment',
     tokenCount: 38,
     isDefault: false,
@@ -111,12 +114,13 @@ const mockSystemPrompts: SystemPrompt[] = [
     source: 'built-in',
     categories: ['Development', 'Code Quality'],
     createdAt: new Date('2024-01-12').toISOString(),
-    updatedAt: new Date('2024-01-12').toISOString()
+    updatedAt: new Date('2024-01-12').toISOString(),
   },
   {
     id: 'sys-3',
     name: 'API Designer',
-    content: 'You are an expert API architect. Help design RESTful APIs, GraphQL schemas, and integration patterns following industry standards and best practices.',
+    content:
+      'You are an expert API architect. Help design RESTful APIs, GraphQL schemas, and integration patterns following industry standards and best practices.',
     description: 'Specialized in API design and architecture',
     tokenCount: 35,
     isDefault: false,
@@ -124,12 +128,13 @@ const mockSystemPrompts: SystemPrompt[] = [
     source: 'built-in',
     categories: ['Architecture', 'API Design'],
     createdAt: new Date('2024-01-08').toISOString(),
-    updatedAt: new Date('2024-01-08').toISOString()
+    updatedAt: new Date('2024-01-08').toISOString(),
   },
   {
     id: 'sys-4',
     name: 'UI/UX Consultant',
-    content: 'You are a UI/UX expert with extensive experience in modern design patterns, accessibility, and user research. Provide insights on user experience and interface design.',
+    content:
+      'You are a UI/UX expert with extensive experience in modern design patterns, accessibility, and user research. Provide insights on user experience and interface design.',
     description: 'Focused on user experience and interface design',
     tokenCount: 40,
     isDefault: false,
@@ -137,31 +142,33 @@ const mockSystemPrompts: SystemPrompt[] = [
     source: 'built-in',
     categories: ['Design', 'UI/UX'],
     createdAt: new Date('2024-01-15').toISOString(),
-    updatedAt: new Date('2024-01-15').toISOString()
-  }
+    updatedAt: new Date('2024-01-15').toISOString(),
+  },
 ];
 
 const mockPromptTemplates: PromptTemplate[] = [
   {
     id: 'tpl-1',
     name: 'Code Review Request',
-    prompt: 'Please review the following code for best practices, potential issues, and improvements:\n\n```\n[CODE_HERE]\n```\n\nFocus on:\n- Security vulnerabilities\n- Performance optimization\n- Code maintainability\n- Best practices compliance',
+    prompt:
+      'Please review the following code for best practices, potential issues, and improvements:\n\n```\n[CODE_HERE]\n```\n\nFocus on:\n- Security vulnerabilities\n- Performance optimization\n- Code maintainability\n- Best practices compliance',
     systemPromptId: 'sys-2',
     contextIds: [],
     description: 'Template for requesting code reviews',
     tokenCount: 65,
-    createdAt: new Date('2024-01-10').toISOString()
+    createdAt: new Date('2024-01-10').toISOString(),
   },
   {
     id: 'tpl-2',
     name: 'API Design Consultation',
-    prompt: 'I need help designing an API for [DOMAIN]. The requirements are:\n\n- [REQUIREMENT_1]\n- [REQUIREMENT_2]\n- [REQUIREMENT_3]\n\nPlease suggest:\n1. Resource structure\n2. Endpoint design\n3. Authentication strategy\n4. Error handling approach',
+    prompt:
+      'I need help designing an API for [DOMAIN]. The requirements are:\n\n- [REQUIREMENT_1]\n- [REQUIREMENT_2]\n- [REQUIREMENT_3]\n\nPlease suggest:\n1. Resource structure\n2. Endpoint design\n3. Authentication strategy\n4. Error handling approach',
     systemPromptId: 'sys-3',
     contextIds: ['ctx-2'],
     description: 'Template for API design discussions',
     tokenCount: 78,
-    createdAt: new Date('2024-01-12').toISOString()
-  }
+    createdAt: new Date('2024-01-12').toISOString(),
+  },
 ];
 
 const availableModels = getAllModels().map(model => model.id);
@@ -172,17 +179,22 @@ export const fetchPromptLabData = createAsyncThunk(
   async () => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
-    return { 
+    return {
       systemPrompts: mockSystemPrompts,
       promptTemplates: mockPromptTemplates,
-      executions: []
+      executions: [],
     };
   }
 );
 
 export const executePrompt = createAsyncThunk(
   'promptLab/executePrompt',
-  async ({ prompt, systemPromptId, contextIds, models }: {
+  async ({
+    prompt,
+    systemPromptId,
+    contextIds,
+    models,
+  }: {
     prompt: string;
     systemPromptId: string;
     contextIds: string[];
@@ -190,7 +202,7 @@ export const executePrompt = createAsyncThunk(
   }) => {
     // Simulate API call with longer delay for execution
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Mock responses
     const responses: ModelResponse[] = models.map(model => ({
       model,
@@ -198,7 +210,7 @@ export const executePrompt = createAsyncThunk(
       tokenCount: Math.floor(Math.random() * 1000) + 200,
       timeMs: Math.floor(Math.random() * 5000) + 1000,
       cost: Math.random() * 0.5 + 0.1,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }));
 
     const execution: PromptExecution = {
@@ -209,7 +221,7 @@ export const executePrompt = createAsyncThunk(
       models,
       responses,
       createdAt: new Date().toISOString(),
-      bestResponseModel: responses[0].model // Mock selection
+      bestResponseModel: responses[0].model, // Mock selection
     };
 
     return execution;
@@ -221,37 +233,46 @@ export const generateContextSuggestions = createAsyncThunk(
   async (prompt: string) => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     // Mock suggestions based on keywords
     const suggestions: ContextSuggestion[] = [];
-    
-    if (prompt.toLowerCase().includes('react') || prompt.toLowerCase().includes('component')) {
+
+    if (
+      prompt.toLowerCase().includes('react')
+      || prompt.toLowerCase().includes('component')
+    ) {
       suggestions.push({
         contextId: 'ctx-1',
         contextName: 'React Development Patterns',
         relevanceScore: 0.85,
         reason: 'Contains React patterns and best practices',
-        tokenCount: 4500
+        tokenCount: 4500,
       });
     }
-    
-    if (prompt.toLowerCase().includes('api') || prompt.toLowerCase().includes('rest')) {
+
+    if (
+      prompt.toLowerCase().includes('api')
+      || prompt.toLowerCase().includes('rest')
+    ) {
       suggestions.push({
         contextId: 'ctx-2',
         contextName: 'API Design Guidelines',
         relevanceScore: 0.92,
         reason: 'Relevant API design principles',
-        tokenCount: 3200
+        tokenCount: 3200,
       });
     }
-    
-    if (prompt.toLowerCase().includes('auth') || prompt.toLowerCase().includes('security')) {
+
+    if (
+      prompt.toLowerCase().includes('auth')
+      || prompt.toLowerCase().includes('security')
+    ) {
       suggestions.push({
         contextId: 'ctx-3',
         contextName: 'Authentication & Security',
         relevanceScore: 0.78,
         reason: 'Security best practices and auth patterns',
-        tokenCount: 1800
+        tokenCount: 1800,
       });
     }
 
@@ -287,24 +308,29 @@ const promptLabSlice = createSlice({
       }
       state.estimatedCost = state.selectedModels.length * 0.05; // Mock calculation
     },
-    clearCurrentPrompt: (state) => {
+    clearCurrentPrompt: state => {
       state.currentPrompt = '';
       state.contextSuggestions = [];
       state.totalTokenCount = 0;
     },
-    selectBestResponse: (state, action: PayloadAction<{ executionId: string; model: string }>) => {
-      const execution = state.executions.find(e => e.id === action.payload.executionId);
+    selectBestResponse: (
+      state,
+      action: PayloadAction<{ executionId: string; model: string }>
+    ) => {
+      const execution = state.executions.find(
+        e => e.id === action.payload.executionId
+      );
       if (execution) {
         execution.bestResponseModel = action.payload.model;
       }
     },
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
-    }
+    },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchPromptLabData.pending, (state) => {
+      .addCase(fetchPromptLabData.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -314,7 +340,9 @@ const promptLabSlice = createSlice({
         state.promptTemplates = action.payload.promptTemplates;
         state.executions = action.payload.executions;
         // Set default system prompt
-        const defaultPrompt = action.payload.systemPrompts.find(p => p.isDefault);
+        const defaultPrompt = action.payload.systemPrompts.find(
+          p => p.isDefault
+        );
         if (defaultPrompt) {
           state.selectedSystemPrompts = [defaultPrompt.id];
         }
@@ -323,7 +351,7 @@ const promptLabSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch prompt lab data';
       })
-      .addCase(executePrompt.pending, (state) => {
+      .addCase(executePrompt.pending, state => {
         state.isExecuting = true;
         state.error = null;
       })
@@ -352,8 +380,8 @@ export const {
   toggleModel,
   clearCurrentPrompt,
   selectBestResponse,
-  clearError
+  clearError,
 } = promptLabSlice.actions;
 
 export { availableModels };
-export default promptLabSlice.reducer; 
+export default promptLabSlice.reducer;

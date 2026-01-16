@@ -5,10 +5,14 @@ import { preprocessMarkdown } from './markdownPreprocessor';
  */
 export const getPlatformColor = (platform: string): string => {
   switch (platform.toLowerCase()) {
-    case 'chatgpt': return '#00A67E';
-    case 'claude': return '#FF6B35';
-    case 'gemini': return '#4285F4';
-    default: return '#666';
+    case 'chatgpt':
+      return '#00A67E';
+    case 'claude':
+      return '#FF6B35';
+    case 'gemini':
+      return '#4285F4';
+    default:
+      return '#666';
   }
 };
 
@@ -17,10 +21,14 @@ export const getPlatformColor = (platform: string): string => {
  */
 export const getRoleColor = (role: string): string => {
   switch (role.toLowerCase()) {
-    case 'user': return '#1976d2';
-    case 'assistant': return '#388e3c';
-    case 'system': return '#f57c00';
-    default: return '#666';
+    case 'user':
+      return '#1976d2';
+    case 'assistant':
+      return '#388e3c';
+    case 'system':
+      return '#f57c00';
+    default:
+      return '#666';
   }
 };
 
@@ -29,10 +37,14 @@ export const getRoleColor = (role: string): string => {
  */
 export const getRoleIcon = (role: string): string => {
   switch (role.toLowerCase()) {
-    case 'user': return '👤';
-    case 'assistant': return '🤖';
-    case 'system': return '⚙️';
-    default: return '💬';
+    case 'user':
+      return '👤';
+    case 'assistant':
+      return '🤖';
+    case 'system':
+      return '⚙️';
+    default:
+      return '💬';
   }
 };
 
@@ -41,20 +53,35 @@ export const getRoleIcon = (role: string): string => {
  */
 export const getTagColor = (tagName: string): string => {
   const colors = [
-    '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
-    '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
-    '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800',
-    '#ff5722', '#795548', '#9e9e9e', '#607d8b'
+    '#f44336',
+    '#e91e63',
+    '#9c27b0',
+    '#673ab7',
+    '#3f51b5',
+    '#2196f3',
+    '#03a9f4',
+    '#00bcd4',
+    '#009688',
+    '#4caf50',
+    '#8bc34a',
+    '#cddc39',
+    '#ffeb3b',
+    '#ffc107',
+    '#ff9800',
+    '#ff5722',
+    '#795548',
+    '#9e9e9e',
+    '#607d8b',
   ];
-  
+
   // Generate a hash from the tag name to get consistent colors
   let hash = 0;
   for (let i = 0; i < tagName.length; i++) {
     const char = tagName.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
-  
+
   return colors[Math.abs(hash) % colors.length];
 };
 
@@ -64,7 +91,7 @@ export const getTagColor = (tagName: string): string => {
 export const formatDate = (date: Date): string => {
   const now = new Date();
   const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-  
+
   if (diffInHours < 24) {
     if (diffInHours < 1) {
       const diffInMinutes = Math.floor(diffInHours * 60);
@@ -89,7 +116,7 @@ export const formatTimestamp = (timestamp: Date | string): string => {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   });
 };
 
@@ -111,7 +138,7 @@ export const getModelDisplayName = (modelId: string): string => {
   }
 
   const modelLower = modelId.toLowerCase();
-  
+
   // Handle OpenRouter/AutoRouter
   if (modelLower.includes('autorouter') || modelLower.includes('openrouter')) {
     return 'AutoRouter';
@@ -139,7 +166,10 @@ export const getModelDisplayName = (modelId: string): string => {
 
   // Handle Anthropic models
   // Check for 3.5 (dot) or 3-5 (hyphen) variants first - must come before claude-3-sonnet check
-  if (modelLower.includes('claude-3.5-sonnet') || modelLower.includes('claude-3-5-sonnet')) {
+  if (
+    modelLower.includes('claude-3.5-sonnet')
+    || modelLower.includes('claude-3-5-sonnet')
+  ) {
     return 'Claude 3.5 Sonnet';
   }
   if (modelLower.includes('claude-3-opus')) {
@@ -188,7 +218,7 @@ const PROVIDER_DISPLAY_OVERRIDES: Record<string, string> = {
   amazon: 'Amazon',
   bedrock: 'Amazon Bedrock',
   alephalpha: 'Aleph Alpha',
-  cohere: 'Cohere'
+  cohere: 'Cohere',
 };
 
 const formatActualModelSegment = (segment: string): string => {
@@ -197,25 +227,27 @@ const formatActualModelSegment = (segment: string): string => {
     return segment;
   }
 
-  return tokens.map((token) => {
-    if (!token) {
-      return token;
-    }
+  return tokens
+    .map(token => {
+      if (!token) {
+        return token;
+      }
 
-    if (/^[a-z]+$/.test(token) && token.length <= 3) {
-      return token.toUpperCase();
-    }
-
-    if (/^[a-z0-9]+$/i.test(token)) {
-      if (token.length <= 3 || /^[0-9]/.test(token)) {
+      if (/^[a-z]+$/.test(token) && token.length <= 3) {
         return token.toUpperCase();
       }
 
-      return token.charAt(0).toUpperCase() + token.slice(1);
-    }
+      if (/^[a-z0-9]+$/i.test(token)) {
+        if (token.length <= 3 || /^[0-9]/.test(token)) {
+          return token.toUpperCase();
+        }
 
-    return token;
-  }).join(' ');
+        return token.charAt(0).toUpperCase() + token.slice(1);
+      }
+
+      return token;
+    })
+    .join(' ');
 };
 
 export interface ActualModelInfo {
@@ -226,7 +258,9 @@ export interface ActualModelInfo {
   modelDisplay: string;
 }
 
-export const parseActualModelInfo = (actualModel?: string | null): ActualModelInfo | null => {
+export const parseActualModelInfo = (
+  actualModel?: string | null
+): ActualModelInfo | null => {
   if (!actualModel || typeof actualModel !== 'string') {
     return null;
   }
@@ -236,7 +270,10 @@ export const parseActualModelInfo = (actualModel?: string | null): ActualModelIn
     return null;
   }
 
-  const parts = trimmedValue.split('/').map(part => part.trim()).filter(Boolean);
+  const parts = trimmedValue
+    .split('/')
+    .map(part => part.trim())
+    .filter(Boolean);
   if (parts.length < 2) {
     return null;
   }
@@ -249,7 +286,8 @@ export const parseActualModelInfo = (actualModel?: string | null): ActualModelIn
   }
 
   const providerDisplay =
-    PROVIDER_DISPLAY_OVERRIDES[providerRaw.toLowerCase()] ?? formatActualModelSegment(providerRaw);
+    PROVIDER_DISPLAY_OVERRIDES[providerRaw.toLowerCase()]
+    ?? formatActualModelSegment(providerRaw);
 
   const formattedModelDisplay = (() => {
     const display = getModelDisplayName(modelRaw);
@@ -264,7 +302,7 @@ export const parseActualModelInfo = (actualModel?: string | null): ActualModelIn
     providerRaw,
     modelRaw,
     providerDisplay,
-    modelDisplay: formattedModelDisplay
+    modelDisplay: formattedModelDisplay,
   };
 };
 
@@ -300,7 +338,9 @@ export const calculatePrimaryModelsDisplay = (models: string[]): string => {
 /**
  * Calculate primary models display from interactions array (data packet format)
  */
-export const calculatePrimaryModelsFromInteractions = (interactions: Array<{ actor?: string; model?: string }>): string => {
+export const calculatePrimaryModelsFromInteractions = (
+  interactions: Array<{ actor?: string; model?: string }>
+): string => {
   // Extract models from assistant/bot messages only
   const assistantModels = interactions
     .filter(interaction => {
@@ -316,12 +356,16 @@ export const calculatePrimaryModelsFromInteractions = (interactions: Array<{ act
 /**
  * Calculate primary models display from Message array (frontend format)
  */
-export const calculatePrimaryModelsFromMessages = (messages: Array<{ role: string; platform?: string }>): string => {
+export const calculatePrimaryModelsFromMessages = (
+  messages: Array<{ role: string; platform?: string }>
+): string => {
   // Extract models from assistant messages only
   const assistantModels = messages
     .filter(message => message.role === 'assistant' || message.role === 'bot')
     .map(message => message.platform || '')
-    .filter(platform => platform && platform !== 'unknown' && platform !== 'other');
+    .filter(
+      platform => platform && platform !== 'unknown' && platform !== 'other'
+    );
 
   return calculatePrimaryModelsDisplay(assistantModels);
 };
@@ -331,28 +375,40 @@ export const calculatePrimaryModelsFromMessages = (messages: Array<{ role: strin
  * Returns array of unique model IDs (e.g., ["autorouter", "gpt-4o"])
  */
 export const extractUniqueModels = (
-  messagesOrInteractions: Array<{ role?: string; actor?: string; platform?: string; model?: string }>
+  messagesOrInteractions: Array<{
+    role?: string;
+    actor?: string;
+    platform?: string;
+    model?: string;
+  }>
 ): string[] => {
   const models: string[] = [];
-  
+
   for (const item of messagesOrInteractions) {
     // Determine if this is an assistant/bot message
-    const isAssistant = 
-      item.role === 'assistant' || 
-      item.role === 'bot' ||
-      (item.actor && (item.actor.toLowerCase() === 'assistant' || item.actor.toLowerCase() === 'bot'));
-    
+    const isAssistant =
+      item.role === 'assistant'
+      || item.role === 'bot'
+      || (item.actor
+        && (item.actor.toLowerCase() === 'assistant'
+          || item.actor.toLowerCase() === 'bot'));
+
     if (!isAssistant) continue;
-    
+
     // Get model from either 'platform' (Message format) or 'model' (interaction format)
     const model = item.platform || item.model || '';
-    
+
     // Filter out invalid models
-    if (model && model !== 'unknown' && model !== 'other' && model.trim() !== '') {
+    if (
+      model
+      && model !== 'unknown'
+      && model !== 'other'
+      && model.trim() !== ''
+    ) {
       models.push(model);
     }
   }
-  
+
   // Return unique models only
   return [...new Set(models)];
-}; 
+};

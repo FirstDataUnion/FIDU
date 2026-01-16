@@ -1,6 +1,6 @@
 /**
  * Unit tests for AuthErrorBoundary component
- * 
+ *
  * Tests error catching, recovery, and automatic page reload logic
  */
 
@@ -8,7 +8,10 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthErrorBoundary } from '../AuthErrorBoundary';
 import * as logoutCoordinator from '../../../services/auth/logoutCoordinator';
-import { type FiduAuthService, getFiduAuthService } from '../../../services/auth/FiduAuthService';
+import {
+  type FiduAuthService,
+  getFiduAuthService,
+} from '../../../services/auth/FiduAuthService';
 
 // Mock dependencies
 const mockFiduAuthService = {
@@ -22,9 +25,9 @@ jest.mock('../../../services/auth/logoutCoordinator', () => ({
 }));
 
 // Component that throws an error
-const ThrowError: React.FC<{ shouldThrow: boolean; errorMessage: string }> = ({ 
-  shouldThrow, 
-  errorMessage 
+const ThrowError: React.FC<{ shouldThrow: boolean; errorMessage: string }> = ({
+  shouldThrow,
+  errorMessage,
 }) => {
   if (shouldThrow) {
     throw new Error(errorMessage);
@@ -65,7 +68,9 @@ describe('AuthErrorBoundary', () => {
     );
 
     expect(screen.getByText('Authentication Error')).toBeInTheDocument();
-    expect(screen.getByText(/An authentication error occurred/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/An authentication error occurred/)
+    ).toBeInTheDocument();
   });
 
   it('should display error message', () => {
@@ -126,7 +131,9 @@ describe('AuthErrorBoundary', () => {
       </AuthErrorBoundary>
     );
 
-    const clearButton = screen.getByRole('button', { name: /Clear Data & Reload/i });
+    const clearButton = screen.getByRole('button', {
+      name: /Clear Data & Reload/i,
+    });
     expect(clearButton).toBeInTheDocument();
 
     fireEvent.click(clearButton);
@@ -166,7 +173,9 @@ describe('AuthErrorBoundary', () => {
     );
 
     // Should NOT show multiple errors warning
-    expect(screen.queryByText(/Multiple errors detected/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Multiple errors detected/i)
+    ).not.toBeInTheDocument();
   });
 
   it('should render custom fallback if provided', () => {
@@ -190,7 +199,9 @@ describe('AuthErrorBoundary', () => {
     );
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[AuthErrorBoundary] Caught authentication error'),
+      expect.stringContaining(
+        '[AuthErrorBoundary] Caught authentication error'
+      ),
       expect.objectContaining({
         error: 'Detailed error',
       })
@@ -198,7 +209,9 @@ describe('AuthErrorBoundary', () => {
   });
 
   it('should handle cleanup errors gracefully', () => {
-    (getFiduAuthService() as jest.Mocked<FiduAuthService>).clearAllAuthTokens.mockImplementation(() => {
+    (
+      getFiduAuthService() as jest.Mocked<FiduAuthService>
+    ).clearAllAuthTokens.mockImplementation(() => {
       throw new Error('Cleanup failed');
     });
 
@@ -214,4 +227,3 @@ describe('AuthErrorBoundary', () => {
     expect(screen.getByText('Authentication Error')).toBeInTheDocument();
   });
 });
-

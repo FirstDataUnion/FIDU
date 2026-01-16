@@ -9,7 +9,7 @@ describe('Cookie-Based Authentication and Settings Smoke Tests', () => {
   describe('Critical Path Verification', () => {
     it('should have cookie settings service available', () => {
       const service = getCookieSettingsService();
-      
+
       expect(service).toBeDefined();
       expect(typeof service.setSettings).toBe('function');
       expect(typeof service.getSettings).toBe('function');
@@ -18,11 +18,7 @@ describe('Cookie-Based Authentication and Settings Smoke Tests', () => {
 
     it('should have proper base path detection', () => {
       // Test path detection logic
-      const testPaths = [
-        '/fidu-chat-lab/some-page',
-        '/some-page',
-        '/',
-      ];
+      const testPaths = ['/fidu-chat-lab/some-page', '/some-page', '/'];
 
       testPaths.forEach(path => {
         Object.defineProperty(window, 'location', {
@@ -30,7 +26,9 @@ describe('Cookie-Based Authentication and Settings Smoke Tests', () => {
           writable: true,
         });
 
-        const basePath = path.includes('/fidu-chat-lab') ? '/fidu-chat-lab' : '';
+        const basePath = path.includes('/fidu-chat-lab')
+          ? '/fidu-chat-lab'
+          : '';
         expect(typeof basePath).toBe('string');
       });
     });

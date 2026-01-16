@@ -25,13 +25,16 @@ const searchSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
-    setFilters: (state, action: PayloadAction<Partial<SearchState['filters']>>) => {
+    setFilters: (
+      state,
+      action: PayloadAction<Partial<SearchState['filters']>>
+    ) => {
       state.filters = { ...state.filters, ...action.payload };
     },
     setSuggestions: (state, action: PayloadAction<string[]>) => {
       state.suggestions = action.payload;
     },
-    clearSearch: (state) => {
+    clearSearch: state => {
       state.query = '';
       state.results = [];
       state.loading = false;
@@ -48,4 +51,4 @@ export const {
   clearSearch,
 } = searchSlice.actions;
 
-export default searchSlice.reducer; 
+export default searchSlice.reducer;

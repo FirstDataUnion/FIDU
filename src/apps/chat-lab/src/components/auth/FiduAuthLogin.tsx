@@ -1,11 +1,11 @@
 /**
  * Simplified FIDU Authentication Login Component
- * 
+ *
  * Handles user login via FIDU Auth SDK with:
  * - Automatic SDK loading and initialization
  * - OAuth flow handling
  * - Error recovery
- * 
+ *
  * Broken into smaller hooks and components for better maintainability:
  * - useFiduSDK: SDK loading and initialization
  * - useFiduAuth: Authentication event handlers
@@ -20,7 +20,14 @@ declare global {
 }
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Box, Paper, Typography, CircularProgress, Alert, Button } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  CircularProgress,
+  Alert,
+  Button,
+} from '@mui/material';
 import { useFiduSDK } from '../../hooks/useFiduSDK';
 import { useFiduAuth } from '../../hooks/useFiduAuth';
 import { getFiduAuthService } from '../../services/auth/FiduAuthService';
@@ -30,7 +37,8 @@ const FiduAuthLogin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { isLoading: sdkLoading, error: sdkError, sdk, isReady } = useFiduSDK();
-  const { handleAuthSuccess, handleAuthError, handleLogout } = useFiduAuth(setError);
+  const { handleAuthSuccess, handleAuthError, handleLogout } =
+    useFiduAuth(setError);
 
   // Combine SDK error with local error
   useEffect(() => {
@@ -40,20 +48,31 @@ const FiduAuthLogin: React.FC = () => {
   }, [sdkError]);
 
   // Wrap auth handlers to track loading state
-  const wrappedHandleAuthSuccess = useCallback(async (user: IdentityServiceUser, accessToken: string, portalUrl: any, refreshToken: string) => {
-    setIsAuthenticating(true);
-    try {
-      await handleAuthSuccess(user, accessToken, portalUrl, refreshToken);
-    } finally {
-      // Don't set false here - let Redux state take over
-      // setIsAuthenticating(false) would be called but we'll transition to app
-    }
-  }, [handleAuthSuccess]);
+  const wrappedHandleAuthSuccess = useCallback(
+    async (
+      user: IdentityServiceUser,
+      accessToken: string,
+      portalUrl: any,
+      refreshToken: string
+    ) => {
+      setIsAuthenticating(true);
+      try {
+        await handleAuthSuccess(user, accessToken, portalUrl, refreshToken);
+      } finally {
+        // Don't set false here - let Redux state take over
+        // setIsAuthenticating(false) would be called but we'll transition to app
+      }
+    },
+    [handleAuthSuccess]
+  );
 
-  const wrappedHandleAuthError = useCallback((err: any) => {
-    setIsAuthenticating(false);
-    handleAuthError(err);
-  }, [handleAuthError]);
+  const wrappedHandleAuthError = useCallback(
+    (err: any) => {
+      setIsAuthenticating(false);
+      handleAuthError(err);
+    },
+    [handleAuthError]
+  );
 
   // Initialize SDK and widget when ready
   useEffect(() => {
@@ -75,21 +94,32 @@ const FiduAuthLogin: React.FC = () => {
     }
 
     // Initialize SDK - automatically detects SSO tokens in URL
-    sdk.init().then((isAuthenticated: boolean) => {
-      if (!isAuthenticated) {
-        console.log('🔑 User not authenticated, showing login widget');
-        sdk.showLoginWidget('fiduAuthContainer');
-      } else {
-        console.log('✅ User already authenticated via SSO');
-      }
-    }).catch((initError: Error) => {
-      console.error('❌ SDK initialization failed:', initError);
-      setError('Failed to initialize authentication. Please refresh the page.');
-    });
+    sdk
+      .init()
+      .then((isAuthenticated: boolean) => {
+        if (!isAuthenticated) {
+          console.log('🔑 User not authenticated, showing login widget');
+          sdk.showLoginWidget('fiduAuthContainer');
+        } else {
+          console.log('✅ User already authenticated via SSO');
+        }
+      })
+      .catch((initError: Error) => {
+        console.error('❌ SDK initialization failed:', initError);
+        setError(
+          'Failed to initialize authentication. Please refresh the page.'
+        );
+      });
 
-  
     // Event listeners are tied to the SDK instance lifecycle
-  }, [isReady, sdk, error, wrappedHandleAuthSuccess, wrappedHandleAuthError, handleLogout]);
+  }, [
+    isReady,
+    sdk,
+    error,
+    wrappedHandleAuthSuccess,
+    wrappedHandleAuthError,
+    handleLogout,
+  ]);
 
   // Show loading overlay when authenticating
   if (isAuthenticating) {
@@ -108,11 +138,14 @@ const FiduAuthLogin: React.FC = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 3
+          gap: 3,
         }}
       >
         <CircularProgress size={64} thickness={4} />
-        <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 600 }}>
+        <Typography
+          variant="h5"
+          sx={{ color: 'primary.main', fontWeight: 600 }}
+        >
           Logging You In
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -136,15 +169,15 @@ const FiduAuthLogin: React.FC = () => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        p: 2
+        p: 2,
       }}
     >
       <Paper
         elevation={24}
-        sx={{ 
-          p: 4, 
-          width: '100%', 
-          maxWidth: 450, 
+        sx={{
+          p: 4,
+          width: '100%',
+          maxWidth: 450,
           mx: 2,
           borderRadius: 3,
           position: 'relative',
@@ -156,55 +189,56 @@ const FiduAuthLogin: React.FC = () => {
             right: 0,
             bottom: 0,
             borderRadius: 3,
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
-            pointerEvents: 'none'
-          }
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+            pointerEvents: 'none',
+          },
         }}
       >
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          gutterBottom 
+        <Typography
+          variant="h4"
+          component="h1"
+          gutterBottom
           align="center"
-          sx={{ 
+          sx={{
             fontWeight: 600,
             background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            mb: 1
+            mb: 1,
           }}
         >
           Welcome Back
         </Typography>
-        <Typography 
-          variant="body1" 
-          color="text.secondary" 
-          align="center" 
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          align="center"
           sx={{ mb: 4, opacity: 0.8 }}
         >
           Sign in to your FIDU account to continue
         </Typography>
         {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
+          <Alert
+            severity="error"
+            sx={{
               mb: 3,
               borderRadius: 2,
               '& .MuiAlert-icon': {
-                fontSize: '1.5rem'
-              }
+                fontSize: '1.5rem',
+              },
             }}
           >
             {error}
           </Alert>
         )}
         {sdkLoading ? (
-          <Box 
-            display="flex" 
+          <Box
+            display="flex"
             flexDirection="column"
-            justifyContent="center" 
-            alignItems="center" 
+            justifyContent="center"
+            alignItems="center"
             minHeight={250}
             gap={2}
           >
@@ -218,18 +252,22 @@ const FiduAuthLogin: React.FC = () => {
             <div id="fiduAuthContainer" style={{ minHeight: 250 }} />
             {error && (
               <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
                   If the login form doesn't appear, you can try:
                 </Typography>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   onClick={() => window.location.reload()}
                   sx={{ mr: 1 }}
                 >
                   Reload Page
                 </Button>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   onClick={() => {
                     getFiduAuthService().clearAllAuthTokens();
                     window.location.reload();
@@ -247,4 +285,4 @@ const FiduAuthLogin: React.FC = () => {
   );
 };
 
-export default FiduAuthLogin; 
+export default FiduAuthLogin;

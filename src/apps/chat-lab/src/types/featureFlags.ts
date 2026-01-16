@@ -19,10 +19,14 @@ const featureFlagKeySet = new Set(
   Object.keys(featureFlagsReference) as FeatureFlagKey[]
 );
 
-export const KNOWN_FEATURE_FLAG_KEYS = Array.from(featureFlagKeySet) as FeatureFlagKey[];
+export const KNOWN_FEATURE_FLAG_KEYS = Array.from(
+  featureFlagKeySet
+) as FeatureFlagKey[];
 
 export const isFeatureFlagKey = (value: unknown): value is FeatureFlagKey => {
-  return typeof value === 'string' && featureFlagKeySet.has(value as FeatureFlagKey);
+  return (
+    typeof value === 'string' && featureFlagKeySet.has(value as FeatureFlagKey)
+  );
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
@@ -41,10 +45,13 @@ export const validateFeatureFlagsPayload = (
 ): FeatureFlagsMap => {
   if (!isPlainObject(payload)) {
     // TODO should this be a warning and return an all-flags-disabled map?
-    throw new FeatureFlagValidationError('Feature flags payload must be an object.');
+    throw new FeatureFlagValidationError(
+      'Feature flags payload must be an object.'
+    );
   }
 
-  const parsedFlags: Partial<Record<FeatureFlagKey, FeatureFlagDefinition>> = {};
+  const parsedFlags: Partial<Record<FeatureFlagKey, FeatureFlagDefinition>> =
+    {};
   const validationErrors: [string, string, string?][] = [];
 
   for (const [rawKey, rawValue] of Object.entries(payload)) {
@@ -67,7 +74,10 @@ export const validateFeatureFlagsPayload = (
       continue;
     }
 
-    if (user_configurable !== undefined && typeof user_configurable !== 'boolean') {
+    if (
+      user_configurable !== undefined
+      && typeof user_configurable !== 'boolean'
+    ) {
       validationErrors.push(['Invalid user_configurable flag', rawKey]);
       continue;
     }
@@ -108,7 +118,7 @@ export const validateFeatureFlagsPayload = (
       depends_on = Array.from(deduped);
     }
 
-    const flag: FeatureFlagDefinition = {enabled};
+    const flag: FeatureFlagDefinition = { enabled };
     if (user_configurable !== undefined) {
       flag.user_configurable = user_configurable;
     }
@@ -130,10 +140,10 @@ export const validateFeatureFlagsPayload = (
 
   if (validationErrors.length > 0) {
     console.warn(
-      "🏳️ [FeatureFlags] Ignored unknown feature flag keys in payload:", validationErrors
+      '🏳️ [FeatureFlags] Ignored unknown feature flag keys in payload:',
+      validationErrors
     );
   }
 
   return parsedFlags as FeatureFlagsMap;
 };
-

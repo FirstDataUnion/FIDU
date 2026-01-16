@@ -43,7 +43,9 @@ export const saveAgentPreferences = (prefs: AllAgentPreferences): void => {
 /**
  * Get preferences for a specific agent
  */
-export const getAgentPreference = (agentId: string): BackgroundAgentPreferences | null => {
+export const getAgentPreference = (
+  agentId: string
+): BackgroundAgentPreferences | null => {
   const allPrefs = loadAgentPreferences();
   return allPrefs[agentId] || null;
 };
@@ -82,4 +84,3 @@ export const clearAllAgentPreferences = (): void => {
     console.warn('Failed to clear background agent preferences:', error);
   }
 };
-

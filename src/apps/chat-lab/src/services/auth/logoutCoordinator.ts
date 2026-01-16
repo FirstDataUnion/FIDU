@@ -1,6 +1,6 @@
 /**
  * Logout Coordinator
- * 
+ *
  * Prevents multiple simultaneous logout operations and provides automatic timeout recovery.
  * This prevents infinite logout loops by ensuring stale logout states are automatically cleared.
  */
@@ -25,7 +25,7 @@ const state: LogoutState = {
 
 /**
  * Begin a logout operation
- * 
+ *
  * @param source - The source of the logout (manual or auto)
  * @returns true if logout can proceed, false if already in progress
  */
@@ -33,28 +33,35 @@ export function beginLogout(source: LogoutSource): boolean {
   // If logout is already in progress, check for timeout
   if (state.inProgress) {
     const now = Date.now();
-    const isTimedOut = state.startTime && (now - state.startTime) > LOGOUT_TIMEOUT_MS;
-    
+    const isTimedOut =
+      state.startTime && now - state.startTime > LOGOUT_TIMEOUT_MS;
+
     if (isTimedOut) {
-      console.warn('⚠️ [LogoutCoordinator] Previous logout timed out after 10s, forcing reset');
+      console.warn(
+        '⚠️ [LogoutCoordinator] Previous logout timed out after 10s, forcing reset'
+      );
       forceResetLogoutState();
     } else {
-      console.log(`🔁 [LogoutCoordinator] Logout already in progress (${state.source}), rejecting new ${source} logout`);
+      console.log(
+        `🔁 [LogoutCoordinator] Logout already in progress (${state.source}), rejecting new ${source} logout`
+      );
       return false;
     }
   }
-  
+
   // Start new logout operation
   state.inProgress = true;
   state.source = source;
   state.startTime = Date.now();
-  
+
   // Set timeout to auto-reset if logout gets stuck
   state.timeoutId = window.setTimeout(() => {
-    console.error('❌ [LogoutCoordinator] Logout timeout reached - forcing reset to prevent infinite loop');
+    console.error(
+      '❌ [LogoutCoordinator] Logout timeout reached - forcing reset to prevent infinite loop'
+    );
     forceResetLogoutState();
   }, LOGOUT_TIMEOUT_MS);
-  
+
   console.log(`🚀 [LogoutCoordinator] Starting ${source} logout`);
   return true;
 }
@@ -64,13 +71,15 @@ export function beginLogout(source: LogoutSource): boolean {
  * Clears the timeout and resets state
  */
 export function completeLogout(): void {
-  console.log(`✅ [LogoutCoordinator] Logout completed successfully (source: ${state.source})`);
-  
+  console.log(
+    `✅ [LogoutCoordinator] Logout completed successfully (source: ${state.source})`
+  );
+
   if (state.timeoutId !== null) {
     window.clearTimeout(state.timeoutId);
     state.timeoutId = null;
   }
-  
+
   state.inProgress = false;
   state.source = null;
   state.startTime = null;
@@ -95,7 +104,9 @@ export function currentLogoutSource(): LogoutSource | null {
  * Clears any stale logout state
  */
 export function markAuthenticated(): void {
-  console.log('✅ [LogoutCoordinator] User authenticated - clearing logout state');
+  console.log(
+    '✅ [LogoutCoordinator] User authenticated - clearing logout state'
+  );
   forceResetLogoutState();
 }
 
@@ -115,10 +126,9 @@ function forceResetLogoutState(): void {
   if (state.timeoutId !== null) {
     window.clearTimeout(state.timeoutId);
   }
-  
+
   state.inProgress = false;
   state.source = null;
   state.startTime = null;
   state.timeoutId = null;
 }
-

@@ -33,11 +33,7 @@ const defaultProps = {
 };
 
 const renderWithTheme = (component: React.ReactElement) => {
-  return render(
-    <ThemeProvider theme={theme}>
-      {component}
-    </ThemeProvider>
-  );
+  return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>);
 };
 
 describe('ConversationCard', () => {
@@ -47,32 +43,34 @@ describe('ConversationCard', () => {
 
   it('should render conversation title', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
   });
 
   it('should render platform chip with correct color', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+
     const platformChip = screen.getByText('ChatGPT');
     expect(platformChip).toBeInTheDocument();
   });
 
   it('should render message count', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+
     expect(screen.getByText('5 messages')).toBeInTheDocument();
   });
 
   it('should render last message', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
-    expect(screen.getByText('This is the last message in the conversation')).toBeInTheDocument();
+
+    expect(
+      screen.getByText('This is the last message in the conversation')
+    ).toBeInTheDocument();
   });
 
   it('should render all tags', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+
     expect(screen.getByText('ai')).toBeInTheDocument();
     expect(screen.getByText('chat')).toBeInTheDocument();
     expect(screen.getByText('test')).toBeInTheDocument();
@@ -80,7 +78,7 @@ describe('ConversationCard', () => {
 
   it('should render updated date', () => {
     renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+
     // Test that the date is rendered (using real formatDate function)
     expect(screen.getByText(/Updated:/)).toBeInTheDocument();
     // Timezone-agnostic: just check that a date is rendered (could be 12/31/2023 or 01/01/2024)
@@ -92,22 +90,28 @@ describe('ConversationCard', () => {
     renderWithTheme(
       <ConversationCard {...defaultProps} onSelect={mockOnSelect} />
     );
-    
+
     fireEvent.click(screen.getByText('Test Conversation'));
-    
+
     expect(mockOnSelect).toHaveBeenCalledWith(mockConversation);
   });
 
   it('should call onTagManagement when tag button is clicked', () => {
     const mockOnTagManagement = jest.fn();
     renderWithTheme(
-      <ConversationCard {...defaultProps} onTagManagement={mockOnTagManagement} />
+      <ConversationCard
+        {...defaultProps}
+        onTagManagement={mockOnTagManagement}
+      />
     );
-    
+
     const tagButton = screen.getByTitle('Manage Tags');
     fireEvent.click(tagButton);
-    
-    expect(mockOnTagManagement).toHaveBeenCalledWith(mockConversation, expect.any(Object));
+
+    expect(mockOnTagManagement).toHaveBeenCalledWith(
+      mockConversation,
+      expect.any(Object)
+    );
   });
 
   it('should show favorite icon when conversation is favorited', () => {
@@ -115,11 +119,14 @@ describe('ConversationCard', () => {
       ...mockConversation,
       isFavorite: true,
     };
-    
+
     renderWithTheme(
-      <ConversationCard {...defaultProps} conversation={favoritedConversation} />
+      <ConversationCard
+        {...defaultProps}
+        conversation={favoritedConversation}
+      />
     );
-    
+
     // The favorite icon should be present (we can't easily test the icon itself, but we can test the structure)
     const iconContainer = screen.getByText('Test Conversation').parentElement;
     expect(iconContainer).toBeInTheDocument();
@@ -130,11 +137,11 @@ describe('ConversationCard', () => {
       ...mockConversation,
       isArchived: true,
     };
-    
+
     renderWithTheme(
       <ConversationCard {...defaultProps} conversation={archivedConversation} />
     );
-    
+
     // The archive icon should be present
     const iconContainer = screen.getByText('Test Conversation').parentElement;
     expect(iconContainer).toBeInTheDocument();
@@ -144,7 +151,7 @@ describe('ConversationCard', () => {
     renderWithTheme(
       <ConversationCard {...defaultProps} isSelectedForContext={true} />
     );
-    
+
     // The check icon should be present
     const iconContainer = screen.getByText('Test Conversation').parentElement;
     expect(iconContainer).toBeInTheDocument();
@@ -154,7 +161,7 @@ describe('ConversationCard', () => {
     renderWithTheme(
       <ConversationCard {...defaultProps} isCurrentlyViewing={true} />
     );
-    
+
     // The chat icon should be present
     const iconContainer = screen.getByText('Test Conversation').parentElement;
     expect(iconContainer).toBeInTheDocument();
@@ -165,13 +172,18 @@ describe('ConversationCard', () => {
       ...mockConversation,
       lastMessage: undefined,
     };
-    
+
     renderWithTheme(
-      <ConversationCard {...defaultProps} conversation={conversationWithoutLastMessage} />
+      <ConversationCard
+        {...defaultProps}
+        conversation={conversationWithoutLastMessage}
+      />
     );
-    
+
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
-    expect(screen.queryByText('This is the last message in the conversation')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('This is the last message in the conversation')
+    ).not.toBeInTheDocument();
   });
 
   it('should handle conversation without tags', () => {
@@ -179,11 +191,14 @@ describe('ConversationCard', () => {
       ...mockConversation,
       tags: [],
     };
-    
+
     renderWithTheme(
-      <ConversationCard {...defaultProps} conversation={conversationWithoutTags} />
+      <ConversationCard
+        {...defaultProps}
+        conversation={conversationWithoutTags}
+      />
     );
-    
+
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
     expect(screen.queryByText('ai')).not.toBeInTheDocument();
   });
@@ -193,76 +208,85 @@ describe('ConversationCard', () => {
       ...mockConversation,
       platform: 'claude' as const,
     };
-    
+
     renderWithTheme(
       <ConversationCard {...defaultProps} conversation={claudeConversation} />
     );
-    
+
     expect(screen.getByText('Claude')).toBeInTheDocument();
   });
 
   it('should handle long titles with ellipsis', () => {
     const longTitleConversation = {
       ...mockConversation,
-      title: 'This is a very long conversation title that should be truncated with ellipsis when it exceeds the maximum width',
+      title:
+        'This is a very long conversation title that should be truncated with ellipsis when it exceeds the maximum width',
     };
-    
+
     renderWithTheme(
-      <ConversationCard {...defaultProps} conversation={longTitleConversation} />
+      <ConversationCard
+        {...defaultProps}
+        conversation={longTitleConversation}
+      />
     );
-    
+
     expect(screen.getByText(longTitleConversation.title)).toBeInTheDocument();
   });
 
   it('should handle long last messages with ellipsis', () => {
     const longMessageConversation = {
       ...mockConversation,
-      lastMessage: 'This is a very long last message that should be truncated with ellipsis when it exceeds the maximum number of lines allowed in the conversation card display',
+      lastMessage:
+        'This is a very long last message that should be truncated with ellipsis when it exceeds the maximum number of lines allowed in the conversation card display',
     };
-    
+
     renderWithTheme(
-      <ConversationCard {...defaultProps} conversation={longMessageConversation} />
+      <ConversationCard
+        {...defaultProps}
+        conversation={longMessageConversation}
+      />
     );
-    
-    expect(screen.getByText(longMessageConversation.lastMessage)).toBeInTheDocument();
+
+    expect(
+      screen.getByText(longMessageConversation.lastMessage)
+    ).toBeInTheDocument();
   });
 
   it('should prevent event propagation when tag button is clicked', () => {
     const mockOnSelect = jest.fn();
     const mockOnTagManagement = jest.fn();
-    
+
     renderWithTheme(
-      <ConversationCard 
-        {...defaultProps} 
+      <ConversationCard
+        {...defaultProps}
         onSelect={mockOnSelect}
         onTagManagement={mockOnTagManagement}
       />
     );
-    
+
     const tagButton = screen.getByTitle('Manage Tags');
     fireEvent.click(tagButton);
-    
+
     expect(mockOnSelect).not.toHaveBeenCalled();
     expect(mockOnTagManagement).toHaveBeenCalled();
   });
 
   it('should display updated conversation title when conversation changes', () => {
-    const { rerender } = renderWithTheme(<ConversationCard {...defaultProps} />);
-    
+    const { rerender } = renderWithTheme(
+      <ConversationCard {...defaultProps} />
+    );
+
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
-    
+
     const updatedConversation = {
       ...mockConversation,
       title: 'Updated Conversation',
     };
-    
+
     rerender(
-      <ConversationCard 
-        {...defaultProps} 
-        conversation={updatedConversation}
-      />
+      <ConversationCard {...defaultProps} conversation={updatedConversation} />
     );
-    
+
     expect(screen.getByText('Updated Conversation')).toBeInTheDocument();
   });
 });

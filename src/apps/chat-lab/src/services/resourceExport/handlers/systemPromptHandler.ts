@@ -21,11 +21,19 @@ export class SystemPromptHandler implements ResourceHandler<SystemPrompt> {
 
   async getAllResources(profileId: string): Promise<SystemPrompt[]> {
     const storage = getUnifiedStorageService();
-    const response = await storage.getSystemPrompts(undefined, 1, 1000, profileId);
+    const response = await storage.getSystemPrompts(
+      undefined,
+      1,
+      1000,
+      profileId
+    );
     return response.systemPrompts || [];
   }
 
-  async exportResource(resource: SystemPrompt, _profileId: string): Promise<ExportableResource> {
+  async exportResource(
+    resource: SystemPrompt,
+    _profileId: string
+  ): Promise<ExportableResource> {
     // Sanitize system prompt - remove ownership IDs and timestamps
     const exportData: SystemPromptExport = {
       id: resource.id, // Preserve original ID for reference resolution
@@ -53,10 +61,10 @@ export class SystemPromptHandler implements ResourceHandler<SystemPrompt> {
     idMapping?: IdMapping
   ): Promise<SystemPrompt> {
     const exportData = exportable.data as SystemPromptExport;
-    
+
     // Generate new ID
     const newId = uuidv4();
-    
+
     // Update ID mapping if provided
     if (idMapping) {
       idMapping[exportData.id] = newId;
@@ -101,4 +109,3 @@ export class SystemPromptHandler implements ResourceHandler<SystemPrompt> {
     return true;
   }
 }
-

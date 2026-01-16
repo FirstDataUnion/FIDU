@@ -19,7 +19,7 @@ export const lightModeColors = {
   text: {
     primary: '#212121',
     secondary: '#757575',
-  }
+  },
 };
 
 export const darkModeColors = {
@@ -42,19 +42,25 @@ export const darkModeColors = {
   text: {
     primary: '#FFFFFF',
     secondary: '#B0B0B0',
-  }
+  },
 };
 
 export const getThemeColors = (mode: 'light' | 'dark') => {
   return mode === 'light' ? lightModeColors : darkModeColors;
 };
 
-export const getPrimaryColor = (mode: 'light' | 'dark', variant: 'main' | 'light' | 'dark' = 'main') => {
+export const getPrimaryColor = (
+  mode: 'light' | 'dark',
+  variant: 'main' | 'light' | 'dark' = 'main'
+) => {
   const colors = getThemeColors(mode);
   return colors.primary[variant];
 };
 
-export const getSecondaryColor = (mode: 'light' | 'dark', variant: 'main' | 'light' | 'dark' = 'main') => {
+export const getSecondaryColor = (
+  mode: 'light' | 'dark',
+  variant: 'main' | 'light' | 'dark' = 'main'
+) => {
   const colors = getThemeColors(mode);
   return colors.secondary[variant];
 };

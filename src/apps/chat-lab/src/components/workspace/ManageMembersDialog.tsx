@@ -62,14 +62,17 @@ export default function ManageMembersDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [memberToRemove, setMemberToRemove] = useState<WorkspaceMember | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<WorkspaceMember | null>(
+    null
+  );
 
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await identityServiceAPIClient.getWorkspaceMembers(workspaceId);
+      const response =
+        await identityServiceAPIClient.getWorkspaceMembers(workspaceId);
       setMembers(response.members || []);
     } catch (err: any) {
       console.error('Failed to fetch members:', err);
@@ -108,7 +111,10 @@ export default function ManageMembersDialog({
 
     try {
       // Step 1: Remove from ID service
-      await identityServiceAPIClient.removeMember(workspaceId, member.fidu_email);
+      await identityServiceAPIClient.removeMember(
+        workspaceId,
+        member.fidu_email
+      );
 
       // Step 2: Revoke Drive folder access (google_email should always be set per API spec)
       if (member.google_email && driveFolderId) {
@@ -122,7 +128,7 @@ export default function ManageMembersDialog({
             `https://www.googleapis.com/drive/v3/files/${driveFolderId}/permissions?supportsAllDrives=true`,
             {
               headers: {
-                'Authorization': `Bearer ${accessToken}`,
+                Authorization: `Bearer ${accessToken}`,
               },
             }
           );
@@ -141,29 +147,33 @@ export default function ManageMembersDialog({
                 {
                   method: 'DELETE',
                   headers: {
-                    'Authorization': `Bearer ${accessToken}`,
+                    Authorization: `Bearer ${accessToken}`,
                   },
                 }
               );
             }
           }
         } catch (driveError) {
-          console.warn('Failed to revoke Drive access (member removed from workspace anyway):', driveError);
+          console.warn(
+            'Failed to revoke Drive access (member removed from workspace anyway):',
+            driveError
+          );
           // Don't fail the whole operation if Drive revocation fails
         }
       }
 
       // Refresh members list
       await fetchMembers();
-      
+
       if (onSuccess) {
         onSuccess();
       }
     } catch (err: any) {
       console.error('Failed to remove member:', err);
-      
+
       if (err instanceof ApiError) {
-        const errorMessage = err.data?.error || err.data?.details || err.message;
+        const errorMessage =
+          err.data?.error || err.data?.details || err.message;
         setError(errorMessage);
       } else if (err instanceof Error) {
         setError(err.message);
@@ -195,7 +205,7 @@ export default function ManageMembersDialog({
           </Typography>
         ) : (
           <List>
-            {members.map((member) => (
+            {members.map(member => (
               <ListItem
                 key={member.id}
                 secondaryAction={
@@ -239,7 +249,8 @@ export default function ManageMembersDialog({
                     </Box>
                   }
                   secondary={
-                    member.google_email && member.google_email !== member.fidu_email
+                    member.google_email
+                    && member.google_email !== member.fidu_email
                       ? `Google: ${member.google_email}`
                       : undefined
                   }
@@ -263,12 +274,17 @@ export default function ManageMembersDialog({
         <DialogTitle>Remove Member</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove <strong>{memberToRemove?.fidu_email}</strong> from this workspace?
-            This will revoke their access to the workspace folder and they will no longer be able to access workspace data.
+            Are you sure you want to remove{' '}
+            <strong>{memberToRemove?.fidu_email}</strong> from this workspace?
+            This will revoke their access to the workspace folder and they will
+            no longer be able to access workspace data.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMemberToRemove(null)} disabled={isRemoving !== null}>
+          <Button
+            onClick={() => setMemberToRemove(null)}
+            disabled={isRemoving !== null}
+          >
             Cancel
           </Button>
           <Button
@@ -276,7 +292,9 @@ export default function ManageMembersDialog({
             color="error"
             variant="contained"
             disabled={isRemoving !== null}
-            startIcon={isRemoving ? <CircularProgress size={16} /> : <DeleteIcon />}
+            startIcon={
+              isRemoving ? <CircularProgress size={16} /> : <DeleteIcon />
+            }
           >
             {isRemoving ? 'Removing...' : 'Remove Member'}
           </Button>
@@ -285,4 +303,3 @@ export default function ManageMembersDialog({
     </Dialog>
   );
 }
-

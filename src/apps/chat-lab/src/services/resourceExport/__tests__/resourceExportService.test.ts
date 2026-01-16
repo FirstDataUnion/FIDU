@@ -54,21 +54,21 @@ describe('ResourceExportService', () => {
     const mockConversationHandler = new ConversationHandler();
     const mockDocumentHandler = new DocumentHandler();
 
-    (SystemPromptHandler as jest.MockedClass<typeof SystemPromptHandler>).mockImplementation(
-      () => mockSystemPromptHandler
-    );
-    (ContextHandler as jest.MockedClass<typeof ContextHandler>).mockImplementation(
-      () => mockContextHandler
-    );
-    (BackgroundAgentHandler as jest.MockedClass<typeof BackgroundAgentHandler>).mockImplementation(
-      () => mockBackgroundAgentHandler
-    );
-    (ConversationHandler as jest.MockedClass<typeof ConversationHandler>).mockImplementation(
-      () => mockConversationHandler
-    );
-    (DocumentHandler as jest.MockedClass<typeof DocumentHandler>).mockImplementation(
-      () => mockDocumentHandler
-    );
+    (
+      SystemPromptHandler as jest.MockedClass<typeof SystemPromptHandler>
+    ).mockImplementation(() => mockSystemPromptHandler);
+    (
+      ContextHandler as jest.MockedClass<typeof ContextHandler>
+    ).mockImplementation(() => mockContextHandler);
+    (
+      BackgroundAgentHandler as jest.MockedClass<typeof BackgroundAgentHandler>
+    ).mockImplementation(() => mockBackgroundAgentHandler);
+    (
+      ConversationHandler as jest.MockedClass<typeof ConversationHandler>
+    ).mockImplementation(() => mockConversationHandler);
+    (
+      DocumentHandler as jest.MockedClass<typeof DocumentHandler>
+    ).mockImplementation(() => mockDocumentHandler);
   });
 
   describe('exportResources', () => {
@@ -103,9 +103,11 @@ describe('ResourceExportService', () => {
       ];
 
       // Mock the handler's getAllResources method
-      const handler = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
+      const handler = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
       handler.getAllResources = jest.fn().mockResolvedValue(mockSystemPrompts);
-      handler.exportResource = jest.fn().mockImplementation(async (sp) => ({
+      handler.exportResource = jest.fn().mockImplementation(async sp => ({
         originalId: sp.id,
         resourceType: 'systemPrompt' as const,
         data: {
@@ -125,7 +127,11 @@ describe('ResourceExportService', () => {
         systemPromptIds: ['sp-1', 'sp-2'],
       };
 
-      const result = await service.exportResources(selection, mockProfileId, mockUserEmail);
+      const result = await service.exportResources(
+        selection,
+        mockProfileId,
+        mockUserEmail
+      );
 
       expect(result.version).toBe(RESOURCE_EXPORT_VERSION);
       expect(result.exportedBy).toBe(mockUserEmail);
@@ -165,9 +171,11 @@ describe('ResourceExportService', () => {
         },
       ];
 
-      const handler = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
+      const handler = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
       handler.getAllResources = jest.fn().mockResolvedValue(mockSystemPrompts);
-      handler.exportResource = jest.fn().mockImplementation(async (sp) => ({
+      handler.exportResource = jest.fn().mockImplementation(async sp => ({
         originalId: sp.id,
         resourceType: 'systemPrompt' as const,
         data: {
@@ -208,7 +216,11 @@ describe('ResourceExportService', () => {
     it('should include metadata in export', async () => {
       const selection = {};
 
-      const result = await service.exportResources(selection, mockProfileId, mockUserEmail);
+      const result = await service.exportResources(
+        selection,
+        mockProfileId,
+        mockUserEmail
+      );
 
       expect(result.metadata).toBeDefined();
       expect(result.metadata?.appVersion).toBeDefined();
@@ -231,7 +243,7 @@ describe('ResourceExportService', () => {
 
       const mockLink = document.createElement('a');
       mockLink.click = clickSpy;
-      
+
       createElementSpy.mockReturnValue(mockLink);
 
       // Mock URL methods
@@ -259,33 +271,49 @@ describe('ResourceExportService', () => {
 
   describe('getAvailableResources', () => {
     it('should filter out built-in and system resources', async () => {
-      const handlerSP = service['systemPromptHandler'] as jest.Mocked<SystemPromptHandler>;
-      handlerSP.getAllResources = jest.fn().mockResolvedValue([
-        { id: 'sp-1', isBuiltIn: false } as any,
-        { id: 'sp-2', isBuiltIn: true } as any,
-      ]);
+      const handlerSP = service[
+        'systemPromptHandler'
+      ] as jest.Mocked<SystemPromptHandler>;
+      handlerSP.getAllResources = jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'sp-1', isBuiltIn: false } as any,
+          { id: 'sp-2', isBuiltIn: true } as any,
+        ]);
 
-      const handlerCtx = service['contextHandler'] as jest.Mocked<ContextHandler>;
-      handlerCtx.getAllResources = jest.fn().mockResolvedValue([
-        { id: 'ctx-1', isBuiltIn: false } as any,
-        { id: 'ctx-2', isBuiltIn: true } as any,
-      ]);
+      const handlerCtx = service[
+        'contextHandler'
+      ] as jest.Mocked<ContextHandler>;
+      handlerCtx.getAllResources = jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'ctx-1', isBuiltIn: false } as any,
+          { id: 'ctx-2', isBuiltIn: true } as any,
+        ]);
 
-      const handlerAgent = service['backgroundAgentHandler'] as jest.Mocked<BackgroundAgentHandler>;
-      handlerAgent.getAllResources = jest.fn().mockResolvedValue([
-        { id: 'agent-1', isSystem: false } as any,
-        { id: 'agent-2', isSystem: true } as any,
-      ]);
+      const handlerAgent = service[
+        'backgroundAgentHandler'
+      ] as jest.Mocked<BackgroundAgentHandler>;
+      handlerAgent.getAllResources = jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'agent-1', isSystem: false } as any,
+          { id: 'agent-2', isSystem: true } as any,
+        ]);
 
-      const handlerConv = service['conversationHandler'] as jest.Mocked<ConversationHandler>;
-      handlerConv.getAllResources = jest.fn().mockResolvedValue([
-        { id: 'conv-1' } as any,
-      ]);
+      const handlerConv = service[
+        'conversationHandler'
+      ] as jest.Mocked<ConversationHandler>;
+      handlerConv.getAllResources = jest
+        .fn()
+        .mockResolvedValue([{ id: 'conv-1' } as any]);
 
-      const handlerDoc = service['documentHandler'] as jest.Mocked<DocumentHandler>;
-      handlerDoc.getAllResources = jest.fn().mockResolvedValue([
-        { id: 'doc-1' } as any,
-      ]);
+      const handlerDoc = service[
+        'documentHandler'
+      ] as jest.Mocked<DocumentHandler>;
+      handlerDoc.getAllResources = jest
+        .fn()
+        .mockResolvedValue([{ id: 'doc-1' } as any]);
 
       const result = await service.getAvailableResources(mockProfileId);
 
@@ -297,4 +325,3 @@ describe('ResourceExportService', () => {
     });
   });
 });
-

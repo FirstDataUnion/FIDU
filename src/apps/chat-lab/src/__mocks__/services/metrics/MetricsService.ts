@@ -33,7 +33,10 @@ export class MetricsService {
     // Mock implementation - do nothing
   }
 
-  async recordError(_error: Error, _context?: Record<string, any>): Promise<void> {
+  async recordError(
+    _error: Error,
+    _context?: Record<string, any>
+  ): Promise<void> {
     // Mock implementation - do nothing
   }
 
@@ -45,8 +48,11 @@ export class MetricsService {
     // Mock implementation - do nothing
   }
 
-  static recordGoogleApiRequest(_service: string, _operation: string, _status: string): void {
+  static recordGoogleApiRequest(
+    _service: string,
+    _operation: string,
+    _status: string
+  ): void {
     // Mock implementation - do nothing
   }
 }
-

@@ -10,7 +10,9 @@ import type { Conversation } from '../../types';
 const theme = createTheme();
 
 // Mock conversation data factory
-export const createMockConversation = (overrides: Partial<Conversation> = {}): Conversation => ({
+export const createMockConversation = (
+  overrides: Partial<Conversation> = {}
+): Conversation => ({
   id: '1',
   title: 'Test Conversation',
   platform: 'chatgpt',
@@ -27,8 +29,11 @@ export const createMockConversation = (overrides: Partial<Conversation> = {}): C
 });
 
 // Create multiple mock conversations
-export const createMockConversations = (count: number, baseOverrides: Partial<Conversation> = {}): Conversation[] => {
-  return Array.from({ length: count }, (_, index) => 
+export const createMockConversations = (
+  count: number,
+  baseOverrides: Partial<Conversation> = {}
+): Conversation[] => {
+  return Array.from({ length: count }, (_, index) =>
     createMockConversation({
       id: `${index + 1}`,
       title: `Conversation ${index + 1}`,
@@ -93,12 +98,10 @@ export const renderWithProviders = (
   { initialState = {}, ...renderOptions }: CustomRenderOptions = {}
 ) => {
   const store = createTestStore(initialState);
-  
+
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        {children}
-      </ThemeProvider>
+      <ThemeProvider theme={theme}>{children}</ThemeProvider>
     </Provider>
   );
 
@@ -118,7 +121,9 @@ export const expectConversationNotVisible = (title: string) => {
 };
 
 export const expectConversationCount = (count: number) => {
-  expect(screen.getByTestId('filtered-conversations')).toHaveTextContent(count.toString());
+  expect(screen.getByTestId('filtered-conversations')).toHaveTextContent(
+    count.toString()
+  );
 };
 
 // Mock functions for common interactions

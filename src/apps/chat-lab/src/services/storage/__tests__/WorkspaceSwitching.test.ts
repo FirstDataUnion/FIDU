@@ -64,12 +64,13 @@ describe('StorageService - Workspace Switching', () => {
     (getWorkspaceRegistry as jest.Mock).mockReturnValue(mockWorkspaceRegistry);
 
     // Mock unsyncedDataManager
-    (unsyncedDataManager.hasUnsynced as jest.Mock) = jest.fn().mockReturnValue(false);
+    (unsyncedDataManager.hasUnsynced as jest.Mock) = jest
+      .fn()
+      .mockReturnValue(false);
     (unsyncedDataManager.markAsSynced as jest.Mock) = jest.fn();
 
     // Mock createStorageAdapter
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createStorageAdapter } = require('../StorageFactory');
+    const { createStorageAdapter } = jest.requireMock('../StorageFactory');
     (createStorageAdapter as jest.Mock).mockReturnValue(mockAdapter);
 
     storageService = new StorageService();
@@ -96,16 +97,20 @@ describe('StorageService - Workspace Switching', () => {
       await storageService.switchWorkspace('workspace-2');
 
       // Verify workspace registry was queried
-      expect(mockWorkspaceRegistry.getWorkspace).toHaveBeenCalledWith('workspace-2');
-      
+      expect(mockWorkspaceRegistry.getWorkspace).toHaveBeenCalledWith(
+        'workspace-2'
+      );
+
       // Verify adapter was closed
       expect(mockAdapter.close).toHaveBeenCalled();
-      
+
       // Verify new adapter was initialized
       expect(mockAdapter.initialize).toHaveBeenCalledTimes(2); // Once for initial, once for switch
-      
+
       // Verify active workspace was set
-      expect(mockWorkspaceRegistry.setActiveWorkspace).toHaveBeenCalledWith('workspace-2');
+      expect(mockWorkspaceRegistry.setActiveWorkspace).toHaveBeenCalledWith(
+        'workspace-2'
+      );
     });
 
     it('should sync before switching if there are unsynced changes', async () => {
@@ -130,9 +135,9 @@ describe('StorageService - Workspace Switching', () => {
     it('should throw error if workspace not found', async () => {
       mockWorkspaceRegistry.getWorkspace.mockReturnValue(null);
 
-      await expect(storageService.switchWorkspace('non-existent')).rejects.toThrow(
-        'Workspace not found: non-existent'
-      );
+      await expect(
+        storageService.switchWorkspace('non-existent')
+      ).rejects.toThrow('Workspace not found: non-existent');
     });
 
     it('should throw error if sync fails before switching', async () => {
@@ -148,9 +153,9 @@ describe('StorageService - Workspace Switching', () => {
       (unsyncedDataManager.hasUnsynced as jest.Mock).mockReturnValue(true);
       mockAdapter.sync.mockRejectedValue(new Error('Sync failed'));
 
-      await expect(storageService.switchWorkspace('workspace-2')).rejects.toThrow(
-        'Failed to sync current workspace'
-      );
+      await expect(
+        storageService.switchWorkspace('workspace-2')
+      ).rejects.toThrow('Failed to sync current workspace');
     });
 
     it('should update config with workspace context', async () => {
@@ -168,8 +173,7 @@ describe('StorageService - Workspace Switching', () => {
       await storageService.switchWorkspace('workspace-2');
 
       // Verify createStorageAdapter was called with updated config
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createStorageAdapter } = require('../StorageFactory');
+      const { createStorageAdapter } = jest.requireMock('../StorageFactory');
       const lastCall = (createStorageAdapter as jest.Mock).mock.calls[
         (createStorageAdapter as jest.Mock).mock.calls.length - 1
       ];
@@ -184,8 +188,7 @@ describe('StorageService - Workspace Switching', () => {
       // Personal workspace is virtual - pass null
       await storageService.switchWorkspace(null);
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createStorageAdapter } = require('../StorageFactory');
+      const { createStorageAdapter } = jest.requireMock('../StorageFactory');
       const lastCall = (createStorageAdapter as jest.Mock).mock.calls[
         (createStorageAdapter as jest.Mock).mock.calls.length - 1
       ];
@@ -194,9 +197,11 @@ describe('StorageService - Workspace Switching', () => {
       expect(config.workspaceId).toBeUndefined();
       expect(config.workspaceType).toBe('personal');
       expect(config.driveFolderId).toBeUndefined();
-      
+
       // Verify registry was updated to null
-      expect(mockWorkspaceRegistry.setActiveWorkspace).toHaveBeenCalledWith(null);
+      expect(mockWorkspaceRegistry.setActiveWorkspace).toHaveBeenCalledWith(
+        null
+      );
     });
   });
 
@@ -224,4 +229,3 @@ describe('StorageService - Workspace Switching', () => {
     });
   });
 });
-

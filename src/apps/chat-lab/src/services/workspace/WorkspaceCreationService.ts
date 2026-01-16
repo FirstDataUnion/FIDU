@@ -3,7 +3,10 @@
  * Orchestrates the creation of shared workspaces
  */
 
-import { getGoogleDriveAuthService, GoogleDriveAuthService } from '../auth/GoogleDriveAuth';
+import {
+  getGoogleDriveAuthService,
+  GoogleDriveAuthService,
+} from '../auth/GoogleDriveAuth';
 import { DrivePicker } from '../drive/DrivePicker';
 import { GoogleDriveService } from '../storage/drive/GoogleDriveService';
 import { BrowserSQLiteManager } from '../storage/database/BrowserSQLiteManager';
@@ -13,7 +16,10 @@ import { getWorkspaceRegistry } from './WorkspaceRegistry';
 import { getStorageService } from '../storage/StorageService';
 import { store } from '../../store';
 import { switchWorkspace } from '../../store/slices/unifiedStorageSlice';
-import { CONVERSATIONS_DB_FILENAME, METADATA_JSON_FILENAME } from '../../constants/workspaceFiles';
+import {
+  CONVERSATIONS_DB_FILENAME,
+  METADATA_JSON_FILENAME,
+} from '../../constants/workspaceFiles';
 import type { WorkspaceMetadata } from '../../types';
 
 export interface CreateWorkspaceOptions {
@@ -25,7 +31,15 @@ export interface CreateWorkspaceOptions {
 }
 
 export interface WorkspaceCreationProgress {
-  step: 'checking-scope' | 'creating-folder' | 'registering-workspace' | 'creating-files' | 'registering-files' | 'sharing-folder' | 'switching-workspace' | 'complete';
+  step:
+    | 'checking-scope'
+    | 'creating-folder'
+    | 'registering-workspace'
+    | 'creating-files'
+    | 'registering-files'
+    | 'sharing-folder'
+    | 'switching-workspace'
+    | 'complete';
   message: string;
   progress: number; // 0-100
 }
@@ -36,11 +50,17 @@ export class WorkspaceCreationService {
   /**
    * Set progress callback
    */
-  setProgressCallback(callback: (progress: WorkspaceCreationProgress) => void): void {
+  setProgressCallback(
+    callback: (progress: WorkspaceCreationProgress) => void
+  ): void {
     this.onProgress = callback;
   }
 
-  private reportProgress(step: WorkspaceCreationProgress['step'], message: string, progress: number): void {
+  private reportProgress(
+    step: WorkspaceCreationProgress['step'],
+    message: string,
+    progress: number
+  ): void {
     if (this.onProgress) {
       this.onProgress({ step, message, progress });
     }
@@ -55,7 +75,7 @@ export class WorkspaceCreationService {
     if (!options.name || !options.name.trim()) {
       throw new Error('Workspace name is required');
     }
-    
+
     if (options.name.trim().length > 255) {
       throw new Error('Workspace name must be 255 characters or less');
     }
@@ -76,7 +96,7 @@ export class WorkspaceCreationService {
       const trimmed = email.trim();
       return trimmed.length > 0 && !emailRegex.test(trimmed);
     });
-    
+
     if (invalidEmails.length > 0) {
       throw new Error(`Invalid email addresses: ${invalidEmails.join(', ')}`);
     }
@@ -94,7 +114,7 @@ export class WorkspaceCreationService {
         }
       }
     });
-    
+
     if (duplicates.length > 0) {
       throw new Error(`Duplicate email addresses: ${duplicates.join(', ')}`);
     }
@@ -102,53 +122,66 @@ export class WorkspaceCreationService {
 
   /**
    * Create a new shared workspace
-   * 
+   *
    * @param options - Workspace creation options including name, members, and folder configuration
    * @returns Promise resolving to workspace ID and folder ID
    * @throws Error if validation fails, permissions are insufficient, or workspace creation fails
    */
-  async createWorkspace(options: CreateWorkspaceOptions): Promise<{ workspaceId: string; folderId: string }> {
+  async createWorkspace(
+    options: CreateWorkspaceOptions
+  ): Promise<{ workspaceId: string; folderId: string }> {
     // Validate inputs
     this.validateOptions(options);
-    
+
     const authService = await getGoogleDriveAuthService();
-    
+
     // Step 1: Check for drive.file scope
     this.reportProgress('checking-scope', 'Checking permissions...', 10);
-    
+
     const hasDriveFileScope = await authService.hasDriveFileScope();
     if (!hasDriveFileScope) {
-      throw new Error('drive.file scope required. Please re-authenticate with additional permissions.');
+      throw new Error(
+        'drive.file scope required. Please re-authenticate with additional permissions.'
+      );
     }
 
     // Step 2: Create or select folder
-    this.reportProgress('creating-folder', 'Setting up Google Drive folder...', 20);
+    this.reportProgress(
+      'creating-folder',
+      'Setting up Google Drive folder...',
+      20
+    );
     const folderId = await this.getOrCreateFolder(authService, options);
-    
+
     // Step 3: Register with ID service early (before creating files)
     // This validates that all members have connected Google Drive and returns their Google emails
-    this.reportProgress('registering-workspace', 'Registering workspace and validating members...', 30);
+    this.reportProgress(
+      'registering-workspace',
+      'Registering workspace and validating members...',
+      30
+    );
     const { workspaceId, members } = await this.registerWorkspace(
-      options.name, 
-      folderId, 
+      options.name,
+      folderId,
       options.memberEmails
     );
-    
+
     // Extract Google emails from members (excluding owner, who already has access)
     const memberGoogleEmails = members
       .filter(m => m.role === 'member' && m.google_email)
       .map(m => m.google_email!);
-    
+
     // Step 4: Create database files in folder
     this.reportProgress('creating-files', 'Creating workspace files...', 50);
-    const { conversationsFileId, metadataFileId } = await this.createWorkspaceFiles(
-      authService, 
-      folderId, 
-      options.name
-    );
-    
+    const { conversationsFileId, metadataFileId } =
+      await this.createWorkspaceFiles(authService, folderId, options.name);
+
     // Step 5: Register file IDs with ID service
-    this.reportProgress('registering-files', 'Registering workspace files...', 60);
+    this.reportProgress(
+      'registering-files',
+      'Registering workspace files...',
+      60
+    );
     try {
       await identityServiceAPIClient.registerWorkspaceFiles(
         workspaceId,
@@ -157,28 +190,51 @@ export class WorkspaceCreationService {
         metadataFileId
       );
     } catch (error: any) {
-      console.error('Failed to register workspace files with ID service:', error);
+      console.error(
+        'Failed to register workspace files with ID service:',
+        error
+      );
       // Don't fail the whole process - files are created and stored locally
       // But log the error so we know about it
-      console.warn('Workspace files created but not registered with ID service. Members may need to manually configure files.');
+      console.warn(
+        'Workspace files created but not registered with ID service. Members may need to manually configure files.'
+      );
     }
-    
+
     // Step 6: Share folder with members using Google emails from ID service
-    this.reportProgress('sharing-folder', 'Sharing folder with team members...', 70);
-    await this.shareFolderWithMembers(authService, folderId, memberGoogleEmails);
-    
+    this.reportProgress(
+      'sharing-folder',
+      'Sharing folder with team members...',
+      70
+    );
+    await this.shareFolderWithMembers(
+      authService,
+      folderId,
+      memberGoogleEmails
+    );
+
     // Step 7: Create local registry entry and switch
-    this.reportProgress('switching-workspace', 'Switching to new workspace...', 90);
-    await this.setupLocalWorkspace(workspaceId, options.name, folderId, conversationsFileId, metadataFileId);
-    
+    this.reportProgress(
+      'switching-workspace',
+      'Switching to new workspace...',
+      90
+    );
+    await this.setupLocalWorkspace(
+      workspaceId,
+      options.name,
+      folderId,
+      conversationsFileId,
+      metadataFileId
+    );
+
     this.reportProgress('complete', 'Workspace created successfully!', 100);
-    
+
     return { workspaceId, folderId };
   }
 
   /**
    * Get or create folder based on options
-   * 
+   *
    * @param authService - Google Drive authentication service
    * @param options - Workspace creation options
    * @returns Promise resolving to the folder ID
@@ -193,32 +249,39 @@ export class WorkspaceCreationService {
     switch (options.folderCreationMethod) {
       case 'create': {
         // Use folderName if provided, otherwise fall back to workspace name
-        const folderNameToUse = options.folderName?.trim() || options.name.trim();
+        const folderNameToUse =
+          options.folderName?.trim() || options.name.trim();
         return await drivePicker.createFolder(folderNameToUse);
       }
-      
+
       case 'select': {
         // Validation already done in validateOptions, but double-check for safety
         if (!options.selectedFolderId) {
           throw new Error('No folder selected');
         }
         // Verify access (folder was already verified in the dialog, but verify again for safety)
-        const hasAccess = await drivePicker.verifyFolderAccess(options.selectedFolderId);
+        const hasAccess = await drivePicker.verifyFolderAccess(
+          options.selectedFolderId
+        );
         if (!hasAccess) {
-          throw new Error('App does not have access to the selected folder. Please select a folder created by this app or grant access via Google Picker.');
+          throw new Error(
+            'App does not have access to the selected folder. Please select a folder created by this app or grant access via Google Picker.'
+          );
         }
         return options.selectedFolderId;
       }
-      
+
       default:
-        throw new Error(`Unknown folder creation method: ${options.folderCreationMethod}`);
+        throw new Error(
+          `Unknown folder creation method: ${options.folderCreationMethod}`
+        );
     }
   }
 
   /**
    * Create workspace files (conversations.db and metadata.json)
    * Note: api_keys.db is NOT created for shared workspaces
-   * 
+   *
    * @param authService - Google Drive authentication service
    * @param folderId - Google Drive folder ID where files will be created
    * @param workspaceName - Name of the workspace (used in metadata)
@@ -236,24 +299,24 @@ export class WorkspaceCreationService {
       apiKeysDbName: 'fidu_api_keys',
       enableEncryption: false, // Will be enabled after workspace setup
     });
-    
+
     try {
       await dbManager.initialize();
-      
+
       // Export conversations database (empty)
       const conversationsData = await dbManager.exportConversationsDB();
-      
+
       // Create Drive service for the folder
       const driveService = new GoogleDriveService(authService, folderId);
       await driveService.initialize();
-      
+
       // Upload conversations database
       const conversationsFileId = await driveService.uploadFile(
         CONVERSATIONS_DB_FILENAME,
         conversationsData,
         'application/x-sqlite3'
       );
-      
+
       // Create metadata.json with actual workspace name
       const metadata = {
         workspace_name: workspaceName,
@@ -261,14 +324,16 @@ export class WorkspaceCreationService {
         created_at: new Date().toISOString(),
         version: '1',
       };
-      
-      const metadataData = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
+
+      const metadataData = new TextEncoder().encode(
+        JSON.stringify(metadata, null, 2)
+      );
       const metadataFileId = await driveService.uploadFile(
         METADATA_JSON_FILENAME,
         metadataData,
         'application/json'
       );
-      
+
       return { conversationsFileId, metadataFileId };
     } finally {
       // Ensure cleanup even if an error occurs
@@ -278,7 +343,7 @@ export class WorkspaceCreationService {
 
   /**
    * Share folder with team members using their Google email addresses
-   * 
+   *
    * @param authService - Google Drive authentication service
    * @param folderId - Google Drive folder ID to share
    * @param googleEmails - Array of Google email addresses to share with
@@ -298,13 +363,13 @@ export class WorkspaceCreationService {
     // Share with each member
     // Include supportsAllDrives=true to support shared folders and shared drives
     const shareResults = await Promise.allSettled(
-      googleEmails.map(async (email) => {
+      googleEmails.map(async email => {
         const response = await fetch(
           `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?supportsAllDrives=true`,
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
+              Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -317,7 +382,9 @@ export class WorkspaceCreationService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to share folder with ${email}: ${response.status} ${response.statusText} - ${errorText}`);
+          throw new Error(
+            `Failed to share folder with ${email}: ${response.status} ${response.statusText} - ${errorText}`
+          );
         }
       })
     );
@@ -326,13 +393,17 @@ export class WorkspaceCreationService {
     const failures = shareResults.filter(r => r.status === 'rejected');
     if (failures.length > 0) {
       const failureMessages = failures
-        .map(r => r.status === 'rejected' ? r.reason?.message || String(r.reason) : '')
+        .map(r =>
+          r.status === 'rejected' ? r.reason?.message || String(r.reason) : ''
+        )
         .filter(Boolean);
       console.warn('Some members could not be shared with:', failureMessages);
-      
+
       // If all shares failed, throw an error
       if (failures.length === googleEmails.length) {
-        throw new Error(`Failed to share folder with any members: ${failureMessages.join('; ')}`);
+        throw new Error(
+          `Failed to share folder with any members: ${failureMessages.join('; ')}`
+        );
       }
     }
   }
@@ -341,33 +412,40 @@ export class WorkspaceCreationService {
    * Register workspace with ID service
    * This validates that all members have connected Google Drive accounts
    * and returns their Google email addresses for Drive sharing
-   * 
+   *
    * @throws Error if any member hasn't connected Google Drive or other validation fails
    */
   private async registerWorkspace(
     name: string,
     folderId: string,
     memberEmails: string[]
-  ): Promise<{ workspaceId: string; members: Array<{ fidu_email: string; google_email: string | null; role: 'owner' | 'member' }> }> {
+  ): Promise<{
+    workspaceId: string;
+    members: Array<{
+      fidu_email: string;
+      google_email: string | null;
+      role: 'owner' | 'member';
+    }>;
+  }> {
     try {
       // Create workspace with members in one call
       // The API validates that all members have connected Google Drive
       const result = await identityServiceAPIClient.createWorkspace(
-        name, 
-        folderId, 
+        name,
+        folderId,
         memberEmails.length > 0 ? memberEmails : undefined
       );
-      
+
       // Check if any members are missing Google emails (shouldn't happen due to validation, but be safe)
       const membersWithoutGoogle = result.members.filter(m => !m.google_email);
       if (membersWithoutGoogle.length > 0) {
         const emails = membersWithoutGoogle.map(m => m.fidu_email).join(', ');
         throw new Error(
-          `The following members have not connected their Google Drive accounts: ${emails}. ` +
-          `Please ask them to connect their Google Drive account in Chat Lab before inviting them to a workspace.`
+          `The following members have not connected their Google Drive accounts: ${emails}. `
+            + `Please ask them to connect their Google Drive account in Chat Lab before inviting them to a workspace.`
         );
       }
-      
+
       return {
         workspaceId: result.workspace.id,
         members: result.members,
@@ -377,37 +455,43 @@ export class WorkspaceCreationService {
       let errorMessage = '';
       if (error instanceof ApiError) {
         // ApiError may have message in data.error or data.details
-        errorMessage = error.data?.error || error.data?.details || error.message;
+        errorMessage =
+          error.data?.error || error.data?.details || error.message;
       } else if (error instanceof Error) {
         errorMessage = error.message;
       } else {
         errorMessage = String(error);
       }
-      
+
       // Handle specific error cases from the API
-      if (errorMessage.includes('must connect their Google Drive account') ||
-          errorMessage.includes('connect their Google Drive')) {
+      if (
+        errorMessage.includes('must connect their Google Drive account')
+        || errorMessage.includes('connect their Google Drive')
+      ) {
         // Re-throw with a user-friendly message
         throw new Error(
-          errorMessage || 
-          'One or more members have not connected their Google Drive account. ' +
-          'All members must connect their Google Drive account in Chat Lab before being invited to a shared workspace.'
+          errorMessage
+            || 'One or more members have not connected their Google Drive account. '
+              + 'All members must connect their Google Drive account in Chat Lab before being invited to a shared workspace.'
         );
       }
-      
+
       // Check for user not found errors
       if (errorMessage.includes('not found')) {
         throw new Error(
-          errorMessage || 
-          'One or more members were not found. Please verify the email addresses are correct.'
+          errorMessage
+            || 'One or more members were not found. Please verify the email addresses are correct.'
         );
       }
-      
+
       // For 400 Bad Request errors, use the API error message
       if (error instanceof ApiError && error.status === 400) {
-        throw new Error(errorMessage || 'Invalid request. Please check the member email addresses and try again.');
+        throw new Error(
+          errorMessage
+            || 'Invalid request. Please check the member email addresses and try again.'
+        );
       }
-      
+
       // Re-throw other errors as-is
       throw error;
     }
@@ -416,7 +500,7 @@ export class WorkspaceCreationService {
   /**
    * Setup local workspace registry entry and switch to it
    * Creates the workspace metadata directly with the server ID (avoids creating temporary ID)
-   * 
+   *
    * @param workspaceId - Server-assigned workspace ID
    * @param name - Workspace name
    * @param folderId - Google Drive folder ID
@@ -431,7 +515,7 @@ export class WorkspaceCreationService {
     metadataFileId: string
   ): Promise<void> {
     const workspaceRegistry = getWorkspaceRegistry();
-    
+
     // Create workspace metadata directly with server ID (no temporary ID needed)
     const localWorkspace: WorkspaceMetadata = {
       id: workspaceId,
@@ -448,13 +532,13 @@ export class WorkspaceCreationService {
       createdAt: new Date().toISOString(),
       lastAccessed: new Date().toISOString(),
     };
-    
+
     workspaceRegistry.upsertWorkspace(localWorkspace);
-    
+
     // Switch to new workspace
     const storageService = getStorageService();
     await storageService.switchWorkspace(workspaceId);
-    
+
     // Update Redux state
     store.dispatch(switchWorkspace(workspaceId));
   }
@@ -469,4 +553,3 @@ export function getWorkspaceCreationService(): WorkspaceCreationService {
   }
   return workspaceCreationServiceInstance;
 }
-

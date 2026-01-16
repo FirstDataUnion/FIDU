@@ -51,26 +51,41 @@ import type { AcceptInvitationProgress } from '../services/workspace/WorkspaceIn
 
 const WorkspacesPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
-  const { user } = useAppSelector((state) => state.auth);
-  
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
+  const { user } = useAppSelector(state => state.auth);
+
   const [workspaces, setWorkspaces] = useState<WorkspaceMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState<{ workspace: WorkspaceMetadata } | null>(null);
-  const [showAddMembersDialog, setShowAddMembersDialog] = useState<{ workspace: WorkspaceMetadata } | null>(null);
-  const [showManageMembersDialog, setShowManageMembersDialog] = useState<{ workspace: WorkspaceMetadata } | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState<{
+    workspace: WorkspaceMetadata;
+  } | null>(null);
+  const [showAddMembersDialog, setShowAddMembersDialog] = useState<{
+    workspace: WorkspaceMetadata;
+  } | null>(null);
+  const [showManageMembersDialog, setShowManageMembersDialog] = useState<{
+    workspace: WorkspaceMetadata;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDriveFolder, setDeleteDriveFolder] = useState(true);
   const [isSwitching, setIsSwitching] = useState<string | null>(null);
-  const [hasDriveFileScope, setHasDriveFileScope] = useState<boolean | null>(null);
+  const [hasDriveFileScope, setHasDriveFileScope] = useState<boolean | null>(
+    null
+  );
   const [isCheckingScope, setIsCheckingScope] = useState(false);
-  
+
   // Invitation state
-  const { invitations, isLoading: invitationsLoading, refresh: refreshInvitations } = useWorkspaceInvitations();
-  const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
-  const [acceptProgress, setAcceptProgress] = useState<AcceptInvitationProgress | null>(null);
+  const {
+    invitations,
+    isLoading: invitationsLoading,
+    refresh: refreshInvitations,
+  } = useWorkspaceInvitations();
+  const [acceptingInvitationId, setAcceptingInvitationId] = useState<
+    string | null
+  >(null);
+  const [acceptProgress, setAcceptProgress] =
+    useState<AcceptInvitationProgress | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
 
   // Load workspaces on mount
@@ -95,13 +110,15 @@ const WorkspacesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      checkDriveFileScope();
+    checkDriveFileScope();
   }, [checkDriveFileScope]);
 
   const handleRequestDriveFileScope = async () => {
     try {
       const authService = await getGoogleDriveAuthService();
-      await authService.requestAdditionalScopes(['https://www.googleapis.com/auth/drive.file']);
+      await authService.requestAdditionalScopes([
+        'https://www.googleapis.com/auth/drive.file',
+      ]);
       // After re-authentication, check scope again
       await checkDriveFileScope();
     } catch (error) {
@@ -111,46 +128,55 @@ const WorkspacesPage: React.FC = () => {
   };
 
   // Handle accepting invitation
-  const handleAcceptInvitation = async (invitation: { workspace_id: string; workspace_name: string; drive_folder_id: string }) => {
+  const handleAcceptInvitation = async (invitation: {
+    workspace_id: string;
+    workspace_name: string;
+    drive_folder_id: string;
+  }) => {
     if (acceptingInvitationId) return; // Prevent multiple simultaneous acceptances
-    
+
     setAcceptingInvitationId(invitation.workspace_id);
     setError(null);
     setShowAcceptDialog(true);
     setAcceptProgress(null);
-    
+
     try {
       // Get Google email from auth service
       const authService = await getGoogleDriveAuthService();
       const user = await authService.getUser();
-      
+
       const invitationService = getWorkspaceInvitationService();
       invitationService.setProgressCallback(setAcceptProgress);
-      
+
       // Validate invitation has required fields
       // Check for both snake_case and camelCase variants
-      const driveFolderId = invitation.drive_folder_id || (invitation as any).driveFolderId;
+      const driveFolderId =
+        invitation.drive_folder_id || (invitation as any).driveFolderId;
       if (!driveFolderId) {
-        console.error('❌ [WorkspacesPage] Invitation missing folder ID:', invitation);
-        throw new Error('Invitation is missing folder ID. Please contact the workspace owner.');
+        console.error(
+          '❌ [WorkspacesPage] Invitation missing folder ID:',
+          invitation
+        );
+        throw new Error(
+          'Invitation is missing folder ID. Please contact the workspace owner.'
+        );
       }
-      
+
       await invitationService.acceptInvitation({
         workspaceId: invitation.workspace_id,
         workspaceName: invitation.workspace_name,
         driveFolderId: driveFolderId,
         googleEmail: user.email,
       });
-      
+
       // Wait a moment to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Close dialog and refresh
       setShowAcceptDialog(false);
       setAcceptProgress(null);
       refreshInvitations();
       loadWorkspaces(); // Reload workspaces to show new one
-      
     } catch (err: any) {
       console.error('Failed to accept invitation:', err);
       setError(err.message || 'Failed to accept invitation');
@@ -162,7 +188,9 @@ const WorkspacesPage: React.FC = () => {
   };
 
   // Handle declining invitation (placeholder for now)
-  const handleDeclineInvitation = async (invitation: { workspace_id: string }) => {
+  const handleDeclineInvitation = async (invitation: {
+    workspace_id: string;
+  }) => {
     // TODO: Implement decline API call when available
     console.log('Decline invitation:', invitation.workspace_id);
     setError('Decline functionality not yet implemented');
@@ -171,10 +199,10 @@ const WorkspacesPage: React.FC = () => {
   const loadWorkspaces = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const registry = getWorkspaceRegistry();
-      
+
       // Sync workspaces from API first to ensure we have the latest data
       // This is critical for members who were added to workspaces in previous sessions
       try {
@@ -182,7 +210,7 @@ const WorkspacesPage: React.FC = () => {
       } catch {
         // Continue with local registry if sync fails (e.g., offline, API error)
       }
-      
+
       const allWorkspaces = registry.getWorkspaces();
       setWorkspaces(allWorkspaces);
     } catch (err: any) {
@@ -204,10 +232,10 @@ const WorkspacesPage: React.FC = () => {
 
   const handleSwitchWorkspace = async (workspaceId: string) => {
     if (isSwitching) return; // Prevent multiple switches
-    
+
     setIsSwitching(workspaceId);
     setError(null);
-    
+
     try {
       await dispatch(switchWorkspace(workspaceId)).unwrap();
       loadWorkspaces(); // Reload to update active status
@@ -233,16 +261,19 @@ const WorkspacesPage: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!showDeleteDialog) return;
-    
+
     const { workspace } = showDeleteDialog;
     setIsDeleting(true);
     setError(null);
-    
+
     try {
       // Delete Google Drive folder if option is checked and folder exists
       if (deleteDriveFolder && workspace.driveFolderId) {
         try {
-          console.log('🗑️ Deleting Google Drive folder:', workspace.driveFolderId);
+          console.log(
+            '🗑️ Deleting Google Drive folder:',
+            workspace.driveFolderId
+          );
           const authService = await getGoogleDriveAuthService();
           const driveService = new GoogleDriveService(authService);
           await driveService.initialize();
@@ -250,28 +281,33 @@ const WorkspacesPage: React.FC = () => {
           console.log('✅ Google Drive folder deleted successfully');
         } catch (driveErr: any) {
           // Log but don't fail the whole operation if Drive deletion fails
-          console.warn('⚠️ Failed to delete Google Drive folder (continuing with workspace deletion):', driveErr);
+          console.warn(
+            '⚠️ Failed to delete Google Drive folder (continuing with workspace deletion):',
+            driveErr
+          );
           // Only show error if it's not a 404 (folder already deleted)
           if (!driveErr.message?.includes('404')) {
-            setError(`Note: Could not delete Google Drive folder: ${driveErr.message}. Workspace will still be deleted.`);
+            setError(
+              `Note: Could not delete Google Drive folder: ${driveErr.message}. Workspace will still be deleted.`
+            );
           }
         }
       }
-      
+
       // Delete from ID service
       await identityServiceAPIClient.deleteWorkspace(workspace.id);
-      
+
       // Remove from local registry
       const registry = getWorkspaceRegistry();
       registry.removeWorkspace(workspace.id);
-      
+
       // If this was the active workspace, switch to personal (virtual)
       const activeWorkspace = registry.getActiveWorkspace();
       if (!activeWorkspace || activeWorkspace.id === workspace.id) {
         // Switch to personal workspace (virtual - pass null)
         await dispatch(switchWorkspace(null)).unwrap();
       }
-      
+
       setShowDeleteDialog(null);
       setDeleteDriveFolder(true); // Reset for next time
       loadWorkspaces();
@@ -332,21 +368,21 @@ const WorkspacesPage: React.FC = () => {
   };
 
   const activeWorkspaceId = getActiveWorkspaceId();
-  const activeWorkspace = activeWorkspaceId 
+  const activeWorkspace = activeWorkspaceId
     ? workspaces.find(w => w.id === activeWorkspaceId)
     : null;
   const isInSharedWorkspace = activeWorkspace?.type === 'shared';
-  
+
   // Personal workspace is virtual (always available, not stored)
   const personalWorkspaceName = user?.name || user?.email || 'My';
-  
+
   // Handler to switch to personal workspace (virtual - no stored entry)
   const handleSwitchToPersonal = async () => {
     if (isSwitching) return; // Prevent multiple switches
-    
+
     setIsSwitching('personal');
     setError(null);
-    
+
     try {
       // Switch to personal workspace by passing null
       await dispatch(switchWorkspace(null)).unwrap();
@@ -361,7 +397,12 @@ const WorkspacesPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -369,7 +410,14 @@ const WorkspacesPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          mb: 3,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h4" component="h1">
             Workspaces
@@ -384,18 +432,30 @@ const WorkspacesPage: React.FC = () => {
           {isInSharedWorkspace && (
             <Button
               variant="outlined"
-              startIcon={isSwitching === 'personal' ? <CircularProgress size={16} /> : <HomeIcon />}
+              startIcon={
+                isSwitching === 'personal' ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <HomeIcon />
+                )
+              }
               onClick={handleSwitchToPersonal}
-              disabled={isSwitching !== null || unifiedStorage.isSwitchingWorkspace}
+              disabled={
+                isSwitching !== null || unifiedStorage.isSwitchingWorkspace
+              }
             >
-              {isSwitching === 'personal' ? 'Switching...' : 'Back to Personal Workspace'}
+              {isSwitching === 'personal'
+                ? 'Switching...'
+                : 'Back to Personal Workspace'}
             </Button>
           )}
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateWorkspace}
-            disabled={unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false}
+            disabled={
+              unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
+            }
           >
             Create Workspace
           </Button>
@@ -404,7 +464,8 @@ const WorkspacesPage: React.FC = () => {
 
       {unifiedStorage.mode !== 'cloud' && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          Workspaces are only available in cloud storage mode. Please switch to cloud storage in Settings.
+          Workspaces are only available in cloud storage mode. Please switch to
+          cloud storage in Settings.
         </Alert>
       )}
 
@@ -416,43 +477,56 @@ const WorkspacesPage: React.FC = () => {
 
       {/* drive.file scope check */}
       {isCheckingScope && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2">
-                Checking permissions...
-              </Typography>
-            </Box>
-          </Alert>
-        )}
-        {!isCheckingScope && hasDriveFileScope === false && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Additional permissions required:</strong> To create or join shared workspaces, the app needs access to create and manage files in your Google Drive (or those shared with you).
-            </Typography>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleRequestDriveFileScope}
-              sx={{ mt: 1 }}
-            >
-              Grant Access
-            </Button>
-          </Alert>
-        )}
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2">Checking permissions...</Typography>
+          </Box>
+        </Alert>
+      )}
+      {!isCheckingScope && hasDriveFileScope === false && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            <strong>Additional permissions required:</strong> To create or join
+            shared workspaces, the app needs access to create and manage files
+            in your Google Drive (or those shared with you).
+          </Typography>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleRequestDriveFileScope}
+            sx={{ mt: 1 }}
+          >
+            Grant Access
+          </Button>
+        </Alert>
+      )}
 
       {/* Pending Invitations Section */}
       {invitations.length > 0 && (
         <Card sx={{ mb: 3, border: 2, borderColor: 'warning.main' }}>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2,
+              }}
+            >
               <Typography variant="h6">
                 Pending Invitations ({invitations.length})
               </Typography>
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={invitationsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                startIcon={
+                  invitationsLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <RefreshIcon />
+                  )
+                }
                 onClick={() => refreshInvitations()}
                 disabled={invitationsLoading}
               >
@@ -460,7 +534,7 @@ const WorkspacesPage: React.FC = () => {
               </Button>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {invitations.map((invitation) => (
+              {invitations.map(invitation => (
                 <Box
                   key={invitation.workspace_id}
                   sx={{
@@ -478,17 +552,25 @@ const WorkspacesPage: React.FC = () => {
                       {invitation.workspace_name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Invited by {invitation.owner_name || invitation.owner_email || 'Unknown'}
+                      Invited by{' '}
+                      {invitation.owner_name
+                        || invitation.owner_email
+                        || 'Unknown'}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
                       variant="contained"
                       onClick={() => handleAcceptInvitation(invitation)}
-                      disabled={acceptingInvitationId !== null || hasDriveFileScope === false}
+                      disabled={
+                        acceptingInvitationId !== null
+                        || hasDriveFileScope === false
+                      }
                       size="small"
                     >
-                      {acceptingInvitationId === invitation.workspace_id ? 'Accepting...' : 'Accept'}
+                      {acceptingInvitationId === invitation.workspace_id
+                        ? 'Accepting...'
+                        : 'Accept'}
                     </Button>
                     <Button
                       variant="outlined"
@@ -511,13 +593,22 @@ const WorkspacesPage: React.FC = () => {
         <Card
           sx={{
             border: activeWorkspaceId === null ? 2 : 1,
-            borderColor: activeWorkspaceId === null ? 'primary.main' : 'divider',
+            borderColor:
+              activeWorkspaceId === null ? 'primary.main' : 'divider',
           }}
         >
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+              }}
+            >
               <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
                   <Typography variant="h6" component="h2">
                     {personalWorkspaceName}'s Workspace
                   </Typography>
@@ -529,26 +620,32 @@ const WorkspacesPage: React.FC = () => {
                       size="small"
                     />
                   )}
-                  <Chip
-                    label="Personal"
-                    size="small"
-                    color="default"
-                  />
+                  <Chip label="Personal" size="small" color="default" />
                 </Box>
-                
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Your personal workspace. All your conversations, contexts, and prompts are stored here.
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Your personal workspace. All your conversations, contexts, and
+                  prompts are stored here.
                 </Typography>
-                
+
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   {activeWorkspaceId !== null && (
                     <Button
                       variant="outlined"
                       size="small"
                       onClick={handleSwitchToPersonal}
-                      disabled={isSwitching !== null || unifiedStorage.isSwitchingWorkspace}
+                      disabled={
+                        isSwitching !== null
+                        || unifiedStorage.isSwitchingWorkspace
+                      }
                     >
-                      {isSwitching === 'personal' ? 'Switching...' : 'Switch to Personal'}
+                      {isSwitching === 'personal'
+                        ? 'Switching...'
+                        : 'Switch to Personal'}
                     </Button>
                   )}
                 </Box>
@@ -561,16 +658,22 @@ const WorkspacesPage: React.FC = () => {
         {workspaces.length === 0 ? (
           <Card>
             <CardContent>
-              <Typography variant="body1" color="text.secondary" align="center" sx={{ py: 4 }}>
-                No shared workspaces. Create a new workspace to collaborate with your team.
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                align="center"
+                sx={{ py: 4 }}
+              >
+                No shared workspaces. Create a new workspace to collaborate with
+                your team.
               </Typography>
             </CardContent>
           </Card>
         ) : (
-          workspaces.map((workspace) => {
+          workspaces.map(workspace => {
             const isActive = workspace.id === activeWorkspaceId;
             const isSwitchingThis = isSwitching === workspace.id;
-            
+
             return (
               <Card
                 key={workspace.id}
@@ -580,9 +683,22 @@ const WorkspacesPage: React.FC = () => {
                 }}
               >
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
                     <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 1,
+                        }}
+                      >
                         <Typography variant="h6" component="h2">
                           {workspace.name}
                         </Typography>
@@ -594,83 +710,117 @@ const WorkspacesPage: React.FC = () => {
                             size="small"
                           />
                         )}
-                        <Chip
-                          label="Shared"
-                          size="small"
-                          color="secondary"
-                        />
+                        <Chip label="Shared" size="small" color="secondary" />
                         {workspace.role && (
                           <Chip
-                            label={workspace.role === 'owner' ? 'Owner' : 'Member'}
+                            label={
+                              workspace.role === 'owner' ? 'Owner' : 'Member'
+                            }
                             size="small"
                             variant="outlined"
                           />
                         )}
                       </Box>
-                      
-                      <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap' }}>
+
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 2,
+                          mt: 2,
+                          flexWrap: 'wrap',
+                        }}
+                      >
                         {workspace.driveFolderId && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
                             <FolderIcon fontSize="small" color="action" />
                             <Typography variant="body2" color="text.secondary">
-                              Folder ID: {workspace.driveFolderId.substring(0, 20)}...
+                              Folder ID:{' '}
+                              {workspace.driveFolderId.substring(0, 20)}...
                             </Typography>
                           </Box>
                         )}
                         {workspace.members && workspace.members.length > 0 && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
                             <PeopleIcon fontSize="small" color="action" />
                             <Typography variant="body2" color="text.secondary">
-                              {workspace.members.length} member{workspace.members.length !== 1 ? 's' : ''}
+                              {workspace.members.length} member
+                              {workspace.members.length !== 1 ? 's' : ''}
                             </Typography>
                           </Box>
                         )}
                         <Typography variant="body2" color="text.secondary">
-                          Last accessed: {new Date(workspace.lastAccessed).toLocaleDateString()}
+                          Last accessed:{' '}
+                          {new Date(
+                            workspace.lastAccessed
+                          ).toLocaleDateString()}
                         </Typography>
                       </Box>
                     </Box>
-                    
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+
+                    <Box
+                      sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
+                    >
                       {!isActive && (
                         <Button
                           variant="outlined"
                           onClick={() => handleSwitchWorkspace(workspace.id)}
-                          disabled={isSwitching !== null || unifiedStorage.isSwitchingWorkspace}
+                          disabled={
+                            isSwitching !== null
+                            || unifiedStorage.isSwitchingWorkspace
+                          }
                         >
-                          {isSwitchingThis ? <CircularProgress size={16} /> : 'Switch'}
+                          {isSwitchingThis ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            'Switch'
+                          )}
                         </Button>
                       )}
                       {/* Only show management buttons for workspace owners - members should never see these */}
-                      {workspace.type === 'shared' && workspace.role === 'owner' && (
-                        <>
-                          <IconButton
-                            color="primary"
-                            onClick={() => handleAddMembersClick(workspace)}
-                            size="small"
-                            title="Add Members"
-                          >
-                            <PersonAddIcon />
-                          </IconButton>
-                          <IconButton
-                            color="primary"
-                            onClick={() => handleManageMembersClick(workspace)}
-                            size="small"
-                            title="Manage Members"
-                          >
-                            <PeopleIcon />
-                          </IconButton>
-                          <IconButton
-                            color="error"
-                            onClick={() => handleDeleteClick(workspace)}
-                            disabled={isDeleting}
-                            size="small"
-                            title="Delete Workspace"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </>
-                      )}
+                      {workspace.type === 'shared'
+                        && workspace.role === 'owner' && (
+                          <>
+                            <IconButton
+                              color="primary"
+                              onClick={() => handleAddMembersClick(workspace)}
+                              size="small"
+                              title="Add Members"
+                            >
+                              <PersonAddIcon />
+                            </IconButton>
+                            <IconButton
+                              color="primary"
+                              onClick={() =>
+                                handleManageMembersClick(workspace)
+                              }
+                              size="small"
+                              title="Manage Members"
+                            >
+                              <PeopleIcon />
+                            </IconButton>
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteClick(workspace)}
+                              disabled={isDeleting}
+                              size="small"
+                              title="Delete Workspace"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
                       {/* Members should not see any management buttons */}
                     </Box>
                   </Box>
@@ -698,15 +848,16 @@ const WorkspacesPage: React.FC = () => {
         <DialogTitle>Delete Workspace</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the workspace "{showDeleteDialog?.workspace.name}"? 
-            This action cannot be undone and will remove the workspace for all members.
+            Are you sure you want to delete the workspace "
+            {showDeleteDialog?.workspace.name}"? This action cannot be undone
+            and will remove the workspace for all members.
           </DialogContentText>
           {showDeleteDialog?.workspace.driveFolderId && (
             <FormControlLabel
               control={
                 <Checkbox
                   checked={deleteDriveFolder}
-                  onChange={(e) => setDeleteDriveFolder(e.target.checked)}
+                  onChange={e => setDeleteDriveFolder(e.target.checked)}
                   disabled={isDeleting}
                 />
               }
@@ -724,7 +875,9 @@ const WorkspacesPage: React.FC = () => {
             color="error"
             variant="contained"
             disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+            startIcon={
+              isDeleting ? <CircularProgress size={16} /> : <DeleteIcon />
+            }
           >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
@@ -743,17 +896,25 @@ const WorkspacesPage: React.FC = () => {
           {acceptProgress && (
             <>
               <Box sx={{ mb: 2 }}>
-                <LinearProgress variant="determinate" value={acceptProgress.progress} />
+                <LinearProgress
+                  variant="determinate"
+                  value={acceptProgress.progress}
+                />
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   {acceptProgress.message}
                 </Typography>
               </Box>
               {acceptProgress.step === 'granting-access' && (
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  You may be asked to select the shared folder in Google Drive to grant the app access.
+                  You may be asked to select the shared folder in Google Drive
+                  to grant the app access.
                   {acceptProgress.message.includes('select') && (
-                    <Typography variant="body2" sx={{ mt: 1, fontSize: '0.875rem' }}>
-                      If you don't see the folder, make sure you've accepted the Google Drive share invitation first.
+                    <Typography
+                      variant="body2"
+                      sx={{ mt: 1, fontSize: '0.875rem' }}
+                    >
+                      If you don't see the folder, make sure you've accepted the
+                      Google Drive share invitation first.
                     </Typography>
                   )}
                 </Alert>
@@ -803,4 +964,3 @@ const WorkspacesPage: React.FC = () => {
 };
 
 export default WorkspacesPage;
-

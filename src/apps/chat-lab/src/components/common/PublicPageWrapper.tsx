@@ -11,7 +11,7 @@ interface PublicPageWrapperProps {
 
 const PublicPageWrapper: React.FC<PublicPageWrapperProps> = ({ children }) => {
   return (
-    <Container 
+    <Container
       maxWidth={false}
       sx={{
         minHeight: '100vh',
@@ -25,4 +25,3 @@ const PublicPageWrapper: React.FC<PublicPageWrapperProps> = ({ children }) => {
 };
 
 export default PublicPageWrapper;
-

@@ -25,7 +25,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Chip
+  Chip,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import {
@@ -34,7 +34,7 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon
+  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
@@ -53,7 +53,7 @@ const SUPPORTED_PROVIDERS = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic (Claude)' },
   { value: 'google', label: 'Google (Gemini)' },
-  { value: 'openrouter', label: 'OpenRouter' }
+  { value: 'openrouter', label: 'OpenRouter' },
 ];
 
 export const APIKeyManager: React.FC = () => {
@@ -71,7 +71,7 @@ export const APIKeyManager: React.FC = () => {
 
   const envInfo = getEnvironmentInfo();
   const { isInitialized, storageMode } = useStorage();
-  
+
   // Only hide the component if we're in local deployment mode AND using local storage mode
   // This allows API key management in all storage modes
   const isLocalDeployment = envInfo.storageMode === 'local';
@@ -82,14 +82,16 @@ export const APIKeyManager: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Check if storage is initialized
       if (!isInitialized) {
-        setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
+        setError(
+          'Storage is not set up yet. Please configure your storage options in Settings before managing API keys.'
+        );
         setLoading(false);
         return;
       }
-      
+
       const storage = getUnifiedStorageService();
       const keys = await storage.getAllAPIKeys();
       setApiKeys(keys);
@@ -111,7 +113,7 @@ export const APIKeyManager: React.FC = () => {
     setSelectedProvider(provider);
     setApiKeyValue('');
     setShowApiKey(false);
-    
+
     // Check if we're editing an existing key
     const existingKey = apiKeys.find(key => key.provider === provider);
     setIsEditing(!!existingKey);
@@ -125,7 +127,9 @@ export const APIKeyManager: React.FC = () => {
 
     // Check if storage is initialized
     if (!isInitialized) {
-      setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
+      setError(
+        'Storage is not set up yet. Please configure your storage options in Settings before managing API keys.'
+      );
       return;
     }
 
@@ -133,18 +137,22 @@ export const APIKeyManager: React.FC = () => {
       setSaving(true);
       setError(null);
       const storage = getUnifiedStorageService();
-      
+
       await storage.saveAPIKey(selectedProvider, apiKeyValue.trim());
-      
-      setSuccess(isEditing ? 'API key updated successfully!' : 'API key added successfully!');
+
+      setSuccess(
+        isEditing
+          ? 'API key updated successfully!'
+          : 'API key added successfully!'
+      );
       setSelectedProvider('');
       setApiKeyValue('');
       setShowApiKey(false);
       setIsEditing(false);
-      
+
       // Reload the keys
       await loadAPIKeys();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -165,7 +173,9 @@ export const APIKeyManager: React.FC = () => {
 
     // Check if storage is initialized
     if (!isInitialized) {
-      setError('Storage is not set up yet. Please configure your storage options in Settings before managing API keys.');
+      setError(
+        'Storage is not set up yet. Please configure your storage options in Settings before managing API keys.'
+      );
       setDeleteDialogOpen(false);
       return;
     }
@@ -174,14 +184,14 @@ export const APIKeyManager: React.FC = () => {
       setError(null);
       const storage = getUnifiedStorageService();
       await storage.deleteAPIKey(keyToDelete.id);
-      
+
       setSuccess('API key deleted successfully!');
       setDeleteDialogOpen(false);
       setKeyToDelete(null);
-      
+
       // Reload the keys
       await loadAPIKeys();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -214,13 +224,19 @@ export const APIKeyManager: React.FC = () => {
   return (
     <Card sx={{ mt: 3 }}>
       <CardContent>
-        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography
+          variant="h6"
+          gutterBottom
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
           <KeyIcon />
           API Key Management
         </Typography>
-        
+
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Manage your AI model provider API keys. These keys are encrypted and stored securely using the same encryption as your conversations and other data.
+          Manage your AI model provider API keys. These keys are encrypted and
+          stored securely using the same encryption as your conversations and
+          other data.
         </Typography>
 
         {/* Error/Success Messages */}
@@ -229,9 +245,13 @@ export const APIKeyManager: React.FC = () => {
             {error}
           </Alert>
         )}
-        
+
         {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          <Alert
+            severity="success"
+            sx={{ mb: 2 }}
+            onClose={() => setSuccess(null)}
+          >
             {success}
           </Alert>
         )}
@@ -240,34 +260,36 @@ export const APIKeyManager: React.FC = () => {
         {!isInitialized && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              <strong>Storage not configured:</strong> You need to set up your storage options before you can manage API keys. 
-              Please go to the Storage Settings section above to configure your preferred storage method (Cloud Storage or File System).
+              <strong>Storage not configured:</strong> You need to set up your
+              storage options before you can manage API keys. Please go to the
+              Storage Settings section above to configure your preferred storage
+              method (Cloud Storage or File System).
             </Typography>
           </Alert>
         )}
 
         {/* Add/Update API Key Form */}
-        <Box 
+        <Box
           component="form"
-          onSubmit={(e) => {
+          onSubmit={e => {
             e.preventDefault();
             handleSaveAPIKey();
           }}
-          sx={{ 
-            mb: 4, 
-            p: 2, 
-            backgroundColor: 'background.paper', 
-            borderRadius: 1, 
-            border: 1, 
+          sx={{
+            mb: 4,
+            p: 2,
+            backgroundColor: 'background.paper',
+            borderRadius: 1,
+            border: 1,
             borderColor: 'divider',
             opacity: !isInitialized ? 0.6 : 1,
-            pointerEvents: !isInitialized ? 'none' : 'auto'
+            pointerEvents: !isInitialized ? 'none' : 'auto',
           }}
         >
           <Typography variant="subtitle1" gutterBottom>
             {isEditing ? 'Update API Key' : 'Add New API Key'}
           </Typography>
-          
+
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <FormControl fullWidth>
               <InputLabel id="provider-select-label">Provider</InputLabel>
@@ -282,7 +304,7 @@ export const APIKeyManager: React.FC = () => {
                 <MenuItem value="">
                   <em>Select a provider</em>
                 </MenuItem>
-                {SUPPORTED_PROVIDERS.map((provider) => (
+                {SUPPORTED_PROVIDERS.map(provider => (
                   <MenuItem key={provider.value} value={provider.value}>
                     {provider.label}
                   </MenuItem>
@@ -295,7 +317,7 @@ export const APIKeyManager: React.FC = () => {
                 label="API Key"
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKeyValue}
-                onChange={(e) => setApiKeyValue(e.target.value)}
+                onChange={e => setApiKeyValue(e.target.value)}
                 disabled={saving || !selectedProvider}
                 placeholder="Enter your API key"
                 autoComplete="off"
@@ -317,11 +339,23 @@ export const APIKeyManager: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              startIcon={saving ? <CircularProgress size={20} /> : isEditing ? <EditIcon /> : <AddIcon />}
+              startIcon={
+                saving ? (
+                  <CircularProgress size={20} />
+                ) : isEditing ? (
+                  <EditIcon />
+                ) : (
+                  <AddIcon />
+                )
+              }
               disabled={saving || !selectedProvider || !apiKeyValue.trim()}
               color={isEditing ? 'warning' : 'primary'}
             >
-              {saving ? 'Saving...' : isEditing ? 'Update API Key' : 'Add API Key'}
+              {saving
+                ? 'Saving...'
+                : isEditing
+                  ? 'Update API Key'
+                  : 'Add API Key'}
             </Button>
           </Box>
         </Box>
@@ -337,7 +371,8 @@ export const APIKeyManager: React.FC = () => {
           </Box>
         ) : apiKeys.length === 0 ? (
           <Alert severity="info">
-            No API keys configured yet. Add your first API key above to get started.
+            No API keys configured yet. Add your first API key above to get
+            started.
           </Alert>
         ) : (
           <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -351,12 +386,12 @@ export const APIKeyManager: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {apiKeys.map((key) => (
+                {apiKeys.map(key => (
                   <TableRow key={key.id}>
                     <TableCell>
-                      <Chip 
-                        label={getProviderLabel(key.provider)} 
-                        size="small" 
+                      <Chip
+                        label={getProviderLabel(key.provider)}
+                        size="small"
                         color="primary"
                         variant="outlined"
                       />
@@ -387,22 +422,28 @@ export const APIKeyManager: React.FC = () => {
           aria-labelledby="delete-dialog-title"
           aria-describedby="delete-dialog-description"
         >
-          <DialogTitle id="delete-dialog-title">
-            Delete API Key
-          </DialogTitle>
+          <DialogTitle id="delete-dialog-title">Delete API Key</DialogTitle>
           <DialogContent>
             <DialogContentText id="delete-dialog-description">
               Are you sure you want to delete the API key for{' '}
-              <strong>{keyToDelete ? getProviderLabel(keyToDelete.provider) : ''}</strong>?
-              <br /><br />
-              This action cannot be undone. You will need to re-enter the API key if you want to use this provider again.
+              <strong>
+                {keyToDelete ? getProviderLabel(keyToDelete.provider) : ''}
+              </strong>
+              ?
+              <br />
+              <br />
+              This action cannot be undone. You will need to re-enter the API
+              key if you want to use this provider again.
             </DialogContentText>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleDeleteCancel}>
-              Cancel
-            </Button>
-            <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>
+            <Button onClick={handleDeleteCancel}>Cancel</Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              color="error"
+              variant="contained"
+              autoFocus
+            >
               Delete
             </Button>
           </DialogActions>

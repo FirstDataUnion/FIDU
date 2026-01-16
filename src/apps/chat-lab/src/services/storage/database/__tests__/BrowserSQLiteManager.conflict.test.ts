@@ -1,7 +1,7 @@
 /**
  * Tests for BrowserSQLiteManager conflict resolution logic
  * Tests the migrateDataPackets fork-on-conflict functionality
- * 
+ *
  * Note: These tests focus on the conflict detection and metadata logic
  * without importing the actual BrowserSQLiteManager (which has import.meta issues in Jest)
  */
@@ -27,20 +27,22 @@ function extractTitleFromDataPacket(dataJson: string): string {
       return 'Untitled';
     }
     // Try common title fields
-    return data.conversationTitle || 
-           data.context_title || 
-           data.title ||
-           data.system_prompt_name || 
-           data.name || 
-           'Untitled';
+    return (
+      data.conversationTitle
+      || data.context_title
+      || data.title
+      || data.system_prompt_name
+      || data.name
+      || 'Untitled'
+    );
   } catch {
     return 'Untitled';
   }
 }
 
 function addConflictMetadata(
-  dataJson: string, 
-  originalId: string, 
+  dataJson: string,
+  originalId: string,
   originalTitle: string,
   userName?: string,
   isSharedWorkspace: boolean = true,
@@ -48,33 +50,33 @@ function addConflictMetadata(
 ): string {
   try {
     const parsedData = JSON.parse(dataJson);
-    
+
     // Handle encrypted data - return as-is (can't modify encrypted content without re-encryption)
     if (parsedData.encrypted) {
       return dataJson;
     }
-    
+
     // Determine the copy label based on workspace type
     const forkedByLabel = userName || 'You';
-    const copyLabel = isSharedWorkspace 
+    const copyLabel = isSharedWorkspace
       ? `[${forkedByLabel}'s copy]`
       : `(${copyNumber})`;
-    
+
     // Handle unencrypted data
     const data = parsedData;
-    
+
     // Add conflict metadata
     data._conflictMetadata = {
       isConflictCopy: true,
       forkedFrom: originalId,
       originalTitle: originalTitle,
       conflictTimestamp: new Date().toISOString(),
-      forkedByUser: forkedByLabel
+      forkedByUser: forkedByLabel,
     };
-    
+
     // Append "[username's copy]" or "(N)" to title fields
     if (data.conversationTitle) {
-      data.conversationTitle = isSharedWorkspace 
+      data.conversationTitle = isSharedWorkspace
         ? `${data.conversationTitle} ${copyLabel}`
         : `${data.conversationTitle} ${copyLabel}`;
     }
@@ -92,7 +94,7 @@ function addConflictMetadata(
     if (data.name) {
       data.name = `${copyLabel} ${data.name}`;
     }
-    
+
     return JSON.stringify(data);
   } catch {
     return dataJson;
@@ -109,24 +111,34 @@ function detectConflict(
   localSyncStatus?: string
 ): { isConflict: boolean; shouldUpdate: boolean; shouldSkip: boolean } {
   const hasValidLastSync = !!(lastSyncTimestamp && lastSyncTimestamp !== '');
-  const lastSyncTime = hasValidLastSync ? new Date(lastSyncTimestamp).getTime() : 0;
-  
+  const lastSyncTime = hasValidLastSync
+    ? new Date(lastSyncTimestamp).getTime()
+    : 0;
+
   const remoteUpdateTime = new Date(remoteUpdateTimestamp).getTime();
   const localUpdateTime = new Date(localUpdateTimestamp).getTime();
-  
-  const remoteModifiedSinceSync = hasValidLastSync && remoteUpdateTime > lastSyncTime;
-  const localModifiedSinceSync = hasValidLastSync && (localUpdateTime > lastSyncTime || localSyncStatus === 'pending');
-  
+
+  const remoteModifiedSinceSync =
+    hasValidLastSync && remoteUpdateTime > lastSyncTime;
+  const localModifiedSinceSync =
+    hasValidLastSync
+    && (localUpdateTime > lastSyncTime || localSyncStatus === 'pending');
+
   // TRUE CONFLICT: Both sides have changes since last sync
-  if (hasValidLastSync && remoteModifiedSinceSync && localModifiedSinceSync && remoteUpdateTime !== localUpdateTime) {
+  if (
+    hasValidLastSync
+    && remoteModifiedSinceSync
+    && localModifiedSinceSync
+    && remoteUpdateTime !== localUpdateTime
+  ) {
     return { isConflict: true, shouldUpdate: true, shouldSkip: false };
   }
-  
+
   // Remote is newer - update local
   if (remoteUpdateTime > localUpdateTime) {
     return { isConflict: false, shouldUpdate: true, shouldSkip: false };
   }
-  
+
   // Local is newer or same - skip
   return { isConflict: false, shouldUpdate: false, shouldSkip: true };
 }
@@ -187,10 +199,10 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
     });
 
     it('should prioritize conversationTitle over other fields', () => {
-      const data = JSON.stringify({ 
-        conversationTitle: 'Conversation', 
+      const data = JSON.stringify({
+        conversationTitle: 'Conversation',
         title: 'Title',
-        name: 'Name'
+        name: 'Name',
       });
       const result = extractTitleFromDataPacket(data);
       expect(result).toBe('Conversation');
@@ -405,11 +417,7 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
       const lastSyncTimestamp = '2024-01-15T12:00:00.000Z';
       const timestamp = '2024-01-16T14:00:00.000Z';
 
-      const result = detectConflict(
-        timestamp,
-        timestamp,
-        lastSyncTimestamp
-      );
+      const result = detectConflict(timestamp, timestamp, lastSyncTimestamp);
 
       expect(result.isConflict).toBe(false);
       expect(result.shouldSkip).toBe(true);
@@ -482,12 +490,12 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
       );
 
       const parsed = JSON.parse(result);
-      
+
       // All original fields should be preserved
       expect(parsed.messages).toEqual([{ id: 'msg-1', content: 'Hello' }]);
       expect(parsed.platform).toBe('openai');
       expect(parsed.customField).toBe('preserved');
-      
+
       // Plus the conflict metadata
       expect(parsed._conflictMetadata).toBeDefined();
     });
@@ -508,11 +516,11 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
       );
 
       const parsed = JSON.parse(result);
-      
+
       // Original data preserved
       expect(parsed.someData).toBe('value');
       expect(parsed.nestedObject).toEqual({ key: 'value' });
-      
+
       // Conflict metadata added
       expect(parsed._conflictMetadata.isConflictCopy).toBe(true);
     });
@@ -522,9 +530,30 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
     it('should use incrementing copy numbers', () => {
       const originalData = JSON.stringify({ title: 'Document' });
 
-      const result1 = addConflictMetadata(originalData, 'id-1', 'Document', 'User', false, 1);
-      const result2 = addConflictMetadata(originalData, 'id-1', 'Document', 'User', false, 2);
-      const result3 = addConflictMetadata(originalData, 'id-1', 'Document', 'User', false, 3);
+      const result1 = addConflictMetadata(
+        originalData,
+        'id-1',
+        'Document',
+        'User',
+        false,
+        1
+      );
+      const result2 = addConflictMetadata(
+        originalData,
+        'id-1',
+        'Document',
+        'User',
+        false,
+        2
+      );
+      const result3 = addConflictMetadata(
+        originalData,
+        'id-1',
+        'Document',
+        'User',
+        false,
+        3
+      );
 
       expect(JSON.parse(result1).title).toBe('Document (1)');
       expect(JSON.parse(result2).title).toBe('Document (2)');
@@ -536,14 +565,34 @@ describe('BrowserSQLiteManager - Conflict Resolution', () => {
     it('should include user name in shared workspace copies', () => {
       const data = JSON.stringify({ title: 'Shared Doc' });
 
-      const aliceResult = addConflictMetadata(data, 'id-1', 'Shared Doc', 'Alice Smith', true, 1);
-      const bobResult = addConflictMetadata(data, 'id-1', 'Shared Doc', 'Bob Jones', true, 1);
+      const aliceResult = addConflictMetadata(
+        data,
+        'id-1',
+        'Shared Doc',
+        'Alice Smith',
+        true,
+        1
+      );
+      const bobResult = addConflictMetadata(
+        data,
+        'id-1',
+        'Shared Doc',
+        'Bob Jones',
+        true,
+        1
+      );
 
-      expect(JSON.parse(aliceResult).title).toBe("[Alice Smith's copy] Shared Doc");
+      expect(JSON.parse(aliceResult).title).toBe(
+        "[Alice Smith's copy] Shared Doc"
+      );
       expect(JSON.parse(bobResult).title).toBe("[Bob Jones's copy] Shared Doc");
 
-      expect(JSON.parse(aliceResult)._conflictMetadata.forkedByUser).toBe('Alice Smith');
-      expect(JSON.parse(bobResult)._conflictMetadata.forkedByUser).toBe('Bob Jones');
+      expect(JSON.parse(aliceResult)._conflictMetadata.forkedByUser).toBe(
+        'Alice Smith'
+      );
+      expect(JSON.parse(bobResult)._conflictMetadata.forkedByUser).toBe(
+        'Bob Jones'
+      );
     });
   });
 

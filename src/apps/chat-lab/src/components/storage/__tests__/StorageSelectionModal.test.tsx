@@ -32,9 +32,16 @@ jest.mock('../../../services/storage/UnifiedStorageService', () => ({
 
 // Mock the unified storage slice actions
 jest.mock('../../../store/slices/unifiedStorageSlice', () => ({
-  updateStorageMode: jest.fn((mode) => ({ type: 'unifiedStorage/updateStorageMode', payload: mode })),
-  markStorageConfigured: jest.fn(() => ({ type: 'unifiedStorage/markStorageConfigured' })),
-  authenticateGoogleDrive: jest.fn(() => ({ type: 'unifiedStorage/authenticateGoogleDrive' })),
+  updateStorageMode: jest.fn(mode => ({
+    type: 'unifiedStorage/updateStorageMode',
+    payload: mode,
+  })),
+  markStorageConfigured: jest.fn(() => ({
+    type: 'unifiedStorage/markStorageConfigured',
+  })),
+  authenticateGoogleDrive: jest.fn(() => ({
+    type: 'unifiedStorage/authenticateGoogleDrive',
+  })),
 }));
 
 // Mock window.matchMedia for dark mode detection
@@ -51,7 +58,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
-
 
 // Create a theme for testing
 const theme = createTheme();
@@ -87,20 +93,21 @@ const createMockStore = (initialState: any = {}) => {
     unifiedStorage: (state = mergedState.unifiedStorage, _action: any) => state,
     settings: (state = mergedState.settings, _action: any) => state,
   };
-  
+
   return configureStore({
-    reducer: reducers
+    reducer: reducers,
   });
 };
 
-const renderWithProviders = (component: React.ReactElement, initialState = {}) => {
+const renderWithProviders = (
+  component: React.ReactElement,
+  initialState = {}
+) => {
   const store = createMockStore(initialState);
   return render(
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        <MemoryRouter>
-          {component}
-        </MemoryRouter>
+        <MemoryRouter>{component}</MemoryRouter>
       </ThemeProvider>
     </Provider>
   );
@@ -116,56 +123,64 @@ describe('StorageSelectionModal', () => {
 
   it('should render modal when open', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
-    expect(screen.getByText('Welcome to the FIDU Chat Lab!')).toBeInTheDocument();
-    expect(screen.getByText('Choose your storage preference to get started')).toBeInTheDocument();
+    expect(
+      screen.getByText('Welcome to the FIDU Chat Lab!')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Choose your storage preference to get started')
+    ).toBeInTheDocument();
   });
 
   it('should not render when closed', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={false} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={false}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
-    expect(screen.queryByText('Welcome to the FIDU Chat Lab!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Welcome to the FIDU Chat Lab!')
+    ).not.toBeInTheDocument();
   });
 
   it('should render Google Drive option', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
     expect(screen.getAllByText('Google Drive:')).toHaveLength(2); // One in main content, one in learn more
     expect(screen.getByText('Auth with google')).toBeInTheDocument();
-    expect(screen.getByText('Allows you to access your data across multiple devices')).toBeInTheDocument();
+    expect(
+      screen.getByText('Allows you to access your data across multiple devices')
+    ).toBeInTheDocument();
   });
 
   it('should handle close button click', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
     // Find the close button by its icon
     const closeButton = screen.getByTestId('CloseIcon').closest('button');
     expect(closeButton).toBeInTheDocument();
-    
+
     if (closeButton) {
       fireEvent.click(closeButton);
       expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -174,14 +189,16 @@ describe('StorageSelectionModal', () => {
 
   it('should toggle learn more section', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
-    const learnMoreButton = screen.getByText('Learn more about how your data is stored');
+    const learnMoreButton = screen.getByText(
+      'Learn more about how your data is stored'
+    );
     fireEvent.click(learnMoreButton);
 
     // After clicking, there should be 2 instances of "Google Drive:" (main + learn more)
@@ -190,10 +207,10 @@ describe('StorageSelectionModal', () => {
 
   it('should disable escape key when authenticating', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
@@ -204,10 +221,10 @@ describe('StorageSelectionModal', () => {
 
   it('should show loading state for Google Drive authentication', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
@@ -220,10 +237,10 @@ describe('StorageSelectionModal', () => {
 
   it('should display error messages when authentication fails', async () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
@@ -236,14 +253,16 @@ describe('StorageSelectionModal', () => {
 
   it('should show contact information message', () => {
     renderWithProviders(
-      <StorageSelectionModal 
-        open={true} 
-        onClose={mockOnClose} 
-        onStorageConfigured={mockOnStorageConfigured} 
+      <StorageSelectionModal
+        open={true}
+        onClose={mockOnClose}
+        onStorageConfigured={mockOnStorageConfigured}
       />
     );
 
-    expect(screen.getByText(/Found an issue\? Got a feature you'd love us to add\?/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Found an issue\? Got a feature you'd love us to add\?/)
+    ).toBeInTheDocument();
     expect(screen.getByText(/hello@firstdataunion.org/)).toBeInTheDocument();
   });
 });

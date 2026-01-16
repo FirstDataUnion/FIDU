@@ -39,8 +39,8 @@ jest.mock('../../auth/GoogleDriveAuth', () => ({
 // Mock the FiduAuthService
 const mockFiduAuthService = {
   createAuthInterceptor: jest.fn(() => ({
-    request: jest.fn((config) => config),
-    response: jest.fn((response) => response),
+    request: jest.fn(config => config),
+    response: jest.fn(response => response),
     error: jest.fn(),
   })),
   clearAllAuthTokens: jest.fn(),
@@ -60,7 +60,7 @@ describe('API Client Interceptor Setup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Create mock axios instance
     mockAxiosInstance = {
       interceptors: {
@@ -80,10 +80,10 @@ describe('API Client Interceptor Setup', () => {
   describe('FiduVaultAPIClient', () => {
     it('should create client and set up interceptors', () => {
       new FiduVaultAPIClient();
-      
+
       // Verify axios.create was called
       expect(mockAxios.create).toHaveBeenCalled();
-      
+
       // Verify interceptors were set up
       expect(mockAxiosInstance.interceptors.request.use).toHaveBeenCalled();
       expect(mockAxiosInstance.interceptors.response.use).toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('API Client Interceptor Setup', () => {
 
     it('should use refresh token service for auth interceptor', () => {
       new FiduVaultAPIClient();
-      
+
       // Verify refresh token service was called
       expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalled();
     });
@@ -100,10 +100,10 @@ describe('API Client Interceptor Setup', () => {
   describe('NLPWorkbenchAPIClient', () => {
     it('should create client and set up interceptors', () => {
       new NLPWorkbenchAPIClient();
-      
+
       // Verify axios.create was called
       expect(mockAxios.create).toHaveBeenCalled();
-      
+
       // Verify interceptors were set up
       expect(mockAxiosInstance.interceptors.request.use).toHaveBeenCalled();
       expect(mockAxiosInstance.interceptors.response.use).toHaveBeenCalled();
@@ -111,7 +111,7 @@ describe('API Client Interceptor Setup', () => {
 
     it('should use refresh token service for auth interceptor', () => {
       new NLPWorkbenchAPIClient();
-      
+
       // Verify refresh token service was called
       expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalled();
     });
@@ -120,8 +120,9 @@ describe('API Client Interceptor Setup', () => {
   describe('Interceptor Configuration', () => {
     it('should set up request interceptor with proper functions', () => {
       new FiduVaultAPIClient();
-      
-      const requestInterceptorCall = mockAxiosInstance.interceptors.request.use.mock.calls[0];
+
+      const requestInterceptorCall =
+        mockAxiosInstance.interceptors.request.use.mock.calls[0];
       expect(requestInterceptorCall).toHaveLength(2);
       expect(typeof requestInterceptorCall[0]).toBe('function'); // request handler
       expect(typeof requestInterceptorCall[1]).toBe('function'); // error handler
@@ -129,8 +130,9 @@ describe('API Client Interceptor Setup', () => {
 
     it('should set up response interceptor with proper functions', () => {
       new FiduVaultAPIClient();
-      
-      const responseInterceptorCall = mockAxiosInstance.interceptors.response.use.mock.calls[0];
+
+      const responseInterceptorCall =
+        mockAxiosInstance.interceptors.response.use.mock.calls[0];
       expect(responseInterceptorCall).toHaveLength(2);
       expect(typeof responseInterceptorCall[0]).toBe('function'); // response handler
       expect(typeof responseInterceptorCall[1]).toBe('function'); // error handler
@@ -141,17 +143,19 @@ describe('API Client Interceptor Setup', () => {
     it('should call createAuthInterceptor for each client', () => {
       // Clear previous calls
       (mockFiduAuthService.createAuthInterceptor as jest.Mock).mockClear();
-      
+
       new FiduVaultAPIClient();
       new NLPWorkbenchAPIClient();
-      
+
       // Should be called twice (once for each client)
-      expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalledTimes(2);
+      expect(mockFiduAuthService.createAuthInterceptor).toHaveBeenCalledTimes(
+        2
+      );
     });
 
     it('should return proper interceptor structure', () => {
       const interceptor = mockFiduAuthService.createAuthInterceptor();
-      
+
       expect(interceptor).toHaveProperty('request');
       expect(interceptor).toHaveProperty('response');
       expect(interceptor).toHaveProperty('error');
@@ -164,20 +168,22 @@ describe('API Client Interceptor Setup', () => {
   describe('Error Handling Setup', () => {
     it('should set up error handlers for request interceptor', () => {
       new FiduVaultAPIClient();
-      
-      const requestInterceptorCall = mockAxiosInstance.interceptors.request.use.mock.calls[0];
+
+      const requestInterceptorCall =
+        mockAxiosInstance.interceptors.request.use.mock.calls[0];
       const errorHandler = requestInterceptorCall[1];
-      
+
       // Test that error handler is a function
       expect(typeof errorHandler).toBe('function');
     });
 
     it('should set up error handlers for response interceptor', () => {
       new FiduVaultAPIClient();
-      
-      const responseInterceptorCall = mockAxiosInstance.interceptors.response.use.mock.calls[0];
+
+      const responseInterceptorCall =
+        mockAxiosInstance.interceptors.response.use.mock.calls[0];
       const errorHandler = responseInterceptorCall[1];
-      
+
       // Test that error handler is a function
       expect(typeof errorHandler).toBe('function');
     });

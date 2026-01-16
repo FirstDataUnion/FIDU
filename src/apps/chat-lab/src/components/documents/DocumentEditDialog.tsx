@@ -16,8 +16,14 @@ export interface DocumentEditDialogProps {
   open: boolean;
   onClose: (document?: { id: string; title: string; content: string }) => void;
   initialDocument?: { id?: string; title: string; content: string };
-  onCreate: (document: { title: string; content: string }) => Promise<{ id: string; title: string; content: string }>;
-  onUpdate: (documentId: string, document: { title: string; content: string }) => Promise<{ id: string; title: string; content: string }>;
+  onCreate: (document: {
+    title: string;
+    content: string;
+  }) => Promise<{ id: string; title: string; content: string }>;
+  onUpdate: (
+    documentId: string,
+    document: { title: string; content: string }
+  ) => Promise<{ id: string; title: string; content: string }>;
   onDelete?: (documentId: string) => Promise<void>;
   closeOnSave?: boolean;
 }
@@ -32,17 +38,19 @@ export default function DocumentEditDialog({
   closeOnSave = true,
 }: DocumentEditDialogProps) {
   // Internal state for document ID (manages create-to-edit transition)
-  const [documentId, setDocumentId] = useState<string | undefined>(initialDocument?.id);
-  
+  const [documentId, setDocumentId] = useState<string | undefined>(
+    initialDocument?.id
+  );
+
   // Form state
   const [title, setTitle] = useState<string>('');
   const [content, setContent] = useState<string>('');
-  
+
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  
+
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -62,12 +70,12 @@ export default function DocumentEditDialog({
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    
+
     setIsSaving(true);
     try {
       const documentData = { title: title.trim(), content: content.trim() };
       let savedDocument;
-      
+
       if (documentId) {
         // Update existing document
         savedDocument = await onUpdate(documentId, documentData);
@@ -90,7 +98,7 @@ export default function DocumentEditDialog({
 
   const handleDelete = async () => {
     if (!documentId || !onDelete) return;
-    
+
     setIsDeleting(true);
     try {
       await onDelete(documentId);
@@ -119,8 +127,11 @@ export default function DocumentEditDialog({
     <>
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
         <DialogTitle>
-          {dialogTitle} {isSaved && (
-              <Box component="span" sx={{ color: "warning.main" }}>- Saved!</Box>
+          {dialogTitle}{' '}
+          {isSaved && (
+            <Box component="span" sx={{ color: 'warning.main' }}>
+              - Saved!
+            </Box>
           )}
           {isEditMode && (
             <Typography variant="body2" color="text.secondary">
@@ -134,8 +145,10 @@ export default function DocumentEditDialog({
               fullWidth
               label="Document Title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              slotProps={{ htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH } }}
+              onChange={e => setTitle(e.target.value)}
+              slotProps={{
+                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+              }}
               helperText={`${title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
               sx={{ mb: 2 }}
             />
@@ -145,7 +158,7 @@ export default function DocumentEditDialog({
               multiline
               rows={12}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={e => setContent(e.target.value)}
               sx={{ fontFamily: 'monospace' }}
             />
           </Box>
@@ -173,25 +186,43 @@ export default function DocumentEditDialog({
               onClick={handleSave}
               disabled={isSaving || !title.trim()}
             >
-              {isSaving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Create Document'}
+              {isSaving
+                ? 'Saving...'
+                : isEditMode
+                  ? 'Save Changes'
+                  : 'Create Document'}
             </Button>
           </Box>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the document "{title}"? This action cannot be undone.
+            Are you sure you want to delete the document "{title}"? This action
+            cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: 'primary.dark' }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: 'primary.dark' }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleDelete} color="error" variant="contained" disabled={isDeleting}>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={isDeleting}
+          >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
@@ -199,4 +230,3 @@ export default function DocumentEditDialog({
     </>
   );
 }
-

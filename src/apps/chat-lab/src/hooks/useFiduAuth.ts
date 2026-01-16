@@ -1,6 +1,6 @@
 /**
  * Hook to handle FIDU authentication flow
- * 
+ *
  * Manages:
  * - OAuth callbacks and token storage
  * - Google Drive authentication restoration
@@ -12,7 +12,11 @@ import { useAppDispatch, useAppSelector } from './redux';
 import { initializeAuth, logout } from '../store/slices/authSlice';
 import { externalUserToInternalUser } from '../services/api/apiClientIdentityService';
 import { getFiduAuthService } from '../services/auth/FiduAuthService';
-import { beginLogout, currentLogoutSource, markAuthenticated } from '../services/auth/logoutCoordinator';
+import {
+  beginLogout,
+  currentLogoutSource,
+  markAuthenticated,
+} from '../services/auth/logoutCoordinator';
 import { getEnvironmentInfo } from '../utils/environment';
 import type { IdentityServiceUser, User } from '../types';
 
@@ -28,7 +32,11 @@ async function persistAuthenticatedSession(
   user: User,
   tokens: NormalizedTokens
 ): Promise<void> {
-  const success = await fiduAuthService.setTokens(tokens.accessToken, tokens.refreshToken, user);
+  const success = await fiduAuthService.setTokens(
+    tokens.accessToken,
+    tokens.refreshToken,
+    user
+  );
 
   if (!success) {
     throw new Error('Failed to store auth tokens in HTTP-only cookies');
@@ -52,7 +60,7 @@ async function attemptCloudStorageRestoration(): Promise<boolean> {
     let restored = await authManager.checkAndRestore();
 
     if (!restored && authManager.isOperationInProgress()) {
-      restored = await new Promise<boolean>((resolve) => {
+      restored = await new Promise<boolean>(resolve => {
         let settled = false;
         let unsubscribeRestored: (() => void) | null = null;
         let unsubscribeLost: (() => void) | null = null;
@@ -67,20 +75,31 @@ async function attemptCloudStorageRestoration(): Promise<boolean> {
           resolve(value);
         };
 
-        unsubscribeRestored = authManager.subscribe('auth-restored', () => finish(true));
-        unsubscribeLost = authManager.subscribe('auth-lost', () => finish(false));
-        timeoutId = window.setTimeout(() => finish(false), AUTH_RESTORE_TIMEOUT_MS);
+        unsubscribeRestored = authManager.subscribe('auth-restored', () =>
+          finish(true)
+        );
+        unsubscribeLost = authManager.subscribe('auth-lost', () =>
+          finish(false)
+        );
+        timeoutId = window.setTimeout(
+          () => finish(false),
+          AUTH_RESTORE_TIMEOUT_MS
+        );
       });
     }
 
     if (restored) {
       try {
-        const { getUnifiedStorageService } = await import('../services/storage/UnifiedStorageService');
+        const { getUnifiedStorageService } =
+          await import('../services/storage/UnifiedStorageService');
         const storageService = getUnifiedStorageService();
         await storageService.reinitialize();
         return false;
       } catch (storageError) {
-        console.warn('Failed to reinitialize storage, will redirect to OAuth:', storageError);
+        console.warn(
+          'Failed to reinitialize storage, will redirect to OAuth:',
+          storageError
+        );
         return true;
       }
     }
@@ -92,68 +111,91 @@ async function attemptCloudStorageRestoration(): Promise<boolean> {
 }
 
 interface UseFiduAuthReturn {
-  handleAuthSuccess: (user: IdentityServiceUser, token: string, portalUrl: any, refreshToken: string) => Promise<void>;
+  handleAuthSuccess: (
+    user: IdentityServiceUser,
+    token: string,
+    portalUrl: any,
+    refreshToken: string
+  ) => Promise<void>;
   handleAuthError: (err: any) => void;
   handleLogout: () => void;
 }
 
-export function useFiduAuth(onError: (message: string) => void): UseFiduAuthReturn {
+export function useFiduAuth(
+  onError: (message: string) => void
+): UseFiduAuthReturn {
   const dispatch = useAppDispatch();
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
 
-  const handleAuthSuccess = useCallback(async (
-    user: IdentityServiceUser,
-    token: string | any,
-    _portalUrl: any,
-    refreshToken: string
-  ) => {
-    try {
-      const fiduAuthService = getFiduAuthService();
-      const tokens = {
-        accessToken: token,
-        refreshToken: refreshToken,
-      };
+  const handleAuthSuccess = useCallback(
+    async (
+      user: IdentityServiceUser,
+      token: string | any,
+      _portalUrl: any,
+      refreshToken: string
+    ) => {
+      try {
+        const fiduAuthService = getFiduAuthService();
+        const tokens = {
+          accessToken: token,
+          refreshToken: refreshToken,
+        };
 
-      const internalUser = externalUserToInternalUser(user);
-      await persistAuthenticatedSession(fiduAuthService, internalUser, tokens);
+        const internalUser = externalUserToInternalUser(user);
+        await persistAuthenticatedSession(
+          fiduAuthService,
+          internalUser,
+          tokens
+        );
 
-      const requireOAuthRedirect = await attemptCloudStorageRestoration();
+        const requireOAuthRedirect = await attemptCloudStorageRestoration();
 
-      // Re-initialize Redux auth state
-      await dispatch(initializeAuth());
+        // Re-initialize Redux auth state
+        await dispatch(initializeAuth());
 
-      // Redirect to OAuth callback if needed
-      if (requireOAuthRedirect) {
-        window.location.href = '/fidu-chat-lab/oauth-callback?postLogin=1';
+        // Redirect to OAuth callback if needed
+        if (requireOAuthRedirect) {
+          window.location.href = '/fidu-chat-lab/oauth-callback?postLogin=1';
+        }
+      } catch (error) {
+        // Clear tokens if authentication fails
+        const fiduAuthService = getFiduAuthService();
+        await fiduAuthService.clearTokens();
+        fiduAuthService.clearAllAuthTokens();
+        console.error('Error during authentication:', error);
+        onError(
+          'Authentication succeeded, but failed to fetch user info. Please try again.'
+        );
       }
-    } catch (error) {
-      // Clear tokens if authentication fails
-      const fiduAuthService = getFiduAuthService();
-      await fiduAuthService.clearTokens();
-      fiduAuthService.clearAllAuthTokens();
-      console.error('Error during authentication:', error);
-      onError('Authentication succeeded, but failed to fetch user info. Please try again.');
-    }
-  }, [dispatch, onError]);
+    },
+    [dispatch, onError]
+  );
 
-  const handleAuthError = useCallback((_err: any) => {
-    // Clear any existing auth data to prevent loops
-    getFiduAuthService().clearAllAuthTokens();
-    onError('Authentication failed. Please try again.');
-  }, [onError]);
+  const handleAuthError = useCallback(
+    (_err: any) => {
+      // Clear any existing auth data to prevent loops
+      getFiduAuthService().clearAllAuthTokens();
+      onError('Authentication failed. Please try again.');
+    },
+    [onError]
+  );
 
   const handleLogout = useCallback(() => {
     // Check if user is already logged out - if so, no need to trigger logout
     // This prevents the SDK from triggering unnecessary logout during initialization
     if (!isAuthenticated) {
-      console.log('ℹ️ [FIDU SDK] User already logged out, skipping unnecessary logout');
+      console.log(
+        'ℹ️ [FIDU SDK] User already logged out, skipping unnecessary logout'
+      );
       return;
     }
 
     const started = beginLogout('auto');
     if (!started) {
       const source = currentLogoutSource();
-      console.log('🔁 [FIDU SDK] Logout already in progress, skipping', { source });
+      console.log('🔁 [FIDU SDK] Logout already in progress, skipping', {
+        source,
+      });
       return;
     }
 
@@ -168,4 +210,3 @@ export function useFiduAuth(onError: (message: string) => void): UseFiduAuthRetu
     handleLogout,
   };
 }
-

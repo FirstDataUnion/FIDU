@@ -21,7 +21,7 @@ import { APP_VERSION } from '../utils/version';
 
 /**
  * Privacy Policy Page
- * 
+ *
  * Displays the full privacy policy by loading the PRIVACY_POLICY.md file.
  * This ensures a single source of truth for the privacy policy content.
  */
@@ -37,7 +37,7 @@ const PrivacyPolicyPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch the markdown file from the public URL
         // Add version as query parameter for cache-busting to ensure fresh content on each deployment
         const basePath = import.meta.env.BASE_URL || '/fidu-chat-lab/';
@@ -49,16 +49,20 @@ const PrivacyPolicyPage: React.FC = () => {
             'Cache-Control': 'no-cache',
           },
         });
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to load privacy policy: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to load privacy policy: ${response.status} ${response.statusText}`
+          );
         }
-        
+
         const text = await response.text();
         setContent(text);
       } catch (err) {
         console.error('Error loading privacy policy:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load privacy policy');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load privacy policy'
+        );
       } finally {
         setLoading(false);
       }
@@ -117,10 +121,10 @@ const PrivacyPolicyPage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Header with navigation and actions */}
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
         mb={3}
         sx={{
           '@media print': {
@@ -135,7 +139,7 @@ const PrivacyPolicyPage: React.FC = () => {
         >
           Back
         </Button>
-        
+
         <Box display="flex" gap={1}>
           <Tooltip title="Print Privacy Policy">
             <IconButton onClick={handlePrint} size="small">
@@ -188,7 +192,10 @@ const PrivacyPolicyPage: React.FC = () => {
       >
         <Typography variant="body2" color="text.secondary" align="center">
           For privacy questions or concerns, please contact us at{' '}
-          <a href="mailto:privacy@firstdataunion.org" style={{ color: 'inherit' }}>
+          <a
+            href="mailto:privacy@firstdataunion.org"
+            style={{ color: 'inherit' }}
+          >
             privacy@firstdataunion.org
           </a>
         </Typography>
@@ -198,4 +205,3 @@ const PrivacyPolicyPage: React.FC = () => {
 };
 
 export default PrivacyPolicyPage;
-

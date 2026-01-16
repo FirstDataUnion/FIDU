@@ -19,7 +19,12 @@ import type {
 } from './types';
 import { RESOURCE_EXPORT_VERSION } from './types';
 import { APP_VERSION } from '../../utils/version';
-import type { SystemPrompt, Context, Conversation, MarkdownDocument } from '../../types';
+import type {
+  SystemPrompt,
+  Context,
+  Conversation,
+  MarkdownDocument,
+} from '../../types';
 import type { BackgroundAgent } from '../api/backgroundAgents';
 
 /**
@@ -44,14 +49,18 @@ export class ResourceExportService {
 
     // Export system prompts
     if (selection.systemPromptIds && selection.systemPromptIds.length > 0) {
-      const allSystemPrompts = await this.systemPromptHandler.getAllResources(profileId);
-      const selectedSystemPrompts = allSystemPrompts.filter(sp => 
-        selection.systemPromptIds!.includes(sp.id) && !sp.isBuiltIn
+      const allSystemPrompts =
+        await this.systemPromptHandler.getAllResources(profileId);
+      const selectedSystemPrompts = allSystemPrompts.filter(
+        sp => selection.systemPromptIds!.includes(sp.id) && !sp.isBuiltIn
       );
-      
+
       const exportedSystemPrompts: SystemPromptExport[] = [];
       for (const prompt of selectedSystemPrompts) {
-        const exported = await this.systemPromptHandler.exportResource(prompt, profileId);
+        const exported = await this.systemPromptHandler.exportResource(
+          prompt,
+          profileId
+        );
         exportedSystemPrompts.push(exported.data as SystemPromptExport);
       }
       if (exportedSystemPrompts.length > 0) {
@@ -62,13 +71,16 @@ export class ResourceExportService {
     // Export contexts
     if (selection.contextIds && selection.contextIds.length > 0) {
       const allContexts = await this.contextHandler.getAllResources(profileId);
-      const selectedContexts = allContexts.filter(ctx => 
-        selection.contextIds!.includes(ctx.id) && !ctx.isBuiltIn
+      const selectedContexts = allContexts.filter(
+        ctx => selection.contextIds!.includes(ctx.id) && !ctx.isBuiltIn
       );
-      
+
       const exportedContexts: ContextExport[] = [];
       for (const context of selectedContexts) {
-        const exported = await this.contextHandler.exportResource(context, profileId);
+        const exported = await this.contextHandler.exportResource(
+          context,
+          profileId
+        );
         exportedContexts.push(exported.data as ContextExport);
       }
       if (exportedContexts.length > 0) {
@@ -77,15 +89,23 @@ export class ResourceExportService {
     }
 
     // Export background agents
-    if (selection.backgroundAgentIds && selection.backgroundAgentIds.length > 0) {
-      const allAgents = await this.backgroundAgentHandler.getAllResources(profileId);
-      const selectedAgents = allAgents.filter(agent => 
-        selection.backgroundAgentIds!.includes(agent.id) && !agent.isSystem
+    if (
+      selection.backgroundAgentIds
+      && selection.backgroundAgentIds.length > 0
+    ) {
+      const allAgents =
+        await this.backgroundAgentHandler.getAllResources(profileId);
+      const selectedAgents = allAgents.filter(
+        agent =>
+          selection.backgroundAgentIds!.includes(agent.id) && !agent.isSystem
       );
-      
+
       const exportedAgents: BackgroundAgentExport[] = [];
       for (const agent of selectedAgents) {
-        const exported = await this.backgroundAgentHandler.exportResource(agent, profileId);
+        const exported = await this.backgroundAgentHandler.exportResource(
+          agent,
+          profileId
+        );
         exportedAgents.push(exported.data as BackgroundAgentExport);
       }
       if (exportedAgents.length > 0) {
@@ -95,14 +115,18 @@ export class ResourceExportService {
 
     // Export conversations
     if (selection.conversationIds && selection.conversationIds.length > 0) {
-      const allConversations = await this.conversationHandler.getAllResources(profileId);
-      const selectedConversations = allConversations.filter(conv => 
+      const allConversations =
+        await this.conversationHandler.getAllResources(profileId);
+      const selectedConversations = allConversations.filter(conv =>
         selection.conversationIds!.includes(conv.id)
       );
-      
+
       const exportedConversations: ConversationExport[] = [];
       for (const conversation of selectedConversations) {
-        const exported = await this.conversationHandler.exportResource(conversation, profileId);
+        const exported = await this.conversationHandler.exportResource(
+          conversation,
+          profileId
+        );
         exportedConversations.push(exported.data as ConversationExport);
       }
       if (exportedConversations.length > 0) {
@@ -112,14 +136,18 @@ export class ResourceExportService {
 
     // Export documents
     if (selection.documentIds && selection.documentIds.length > 0) {
-      const allDocuments = await this.documentHandler.getAllResources(profileId);
-      const selectedDocuments = allDocuments.filter(doc => 
+      const allDocuments =
+        await this.documentHandler.getAllResources(profileId);
+      const selectedDocuments = allDocuments.filter(doc =>
         selection.documentIds!.includes(doc.id)
       );
-      
+
       const exportedDocuments: DocumentExport[] = [];
       for (const document of selectedDocuments) {
-        const exported = await this.documentHandler.exportResource(document, profileId);
+        const exported = await this.documentHandler.exportResource(
+          document,
+          profileId
+        );
         exportedDocuments.push(exported.data as DocumentExport);
       }
       if (exportedDocuments.length > 0) {
@@ -150,7 +178,9 @@ export class ResourceExportService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || `fidu-resources-${new Date().toISOString().split('T')[0]}.json`;
+    link.download =
+      filename
+      || `fidu-resources-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -167,10 +197,13 @@ export class ResourceExportService {
     conversations: Conversation[];
     documents: MarkdownDocument[];
   }> {
-    const systemPrompts = await this.systemPromptHandler.getAllResources(profileId);
+    const systemPrompts =
+      await this.systemPromptHandler.getAllResources(profileId);
     const contexts = await this.contextHandler.getAllResources(profileId);
-    const backgroundAgents = await this.backgroundAgentHandler.getAllResources(profileId);
-    const conversations = await this.conversationHandler.getAllResources(profileId);
+    const backgroundAgents =
+      await this.backgroundAgentHandler.getAllResources(profileId);
+    const conversations =
+      await this.conversationHandler.getAllResources(profileId);
     const documents = await this.documentHandler.getAllResources(profileId);
 
     return {
@@ -192,4 +225,3 @@ export function getResourceExportService(): ResourceExportService {
   }
   return exportServiceInstance;
 }
-

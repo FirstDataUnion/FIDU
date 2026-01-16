@@ -22,16 +22,24 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
 
   async getAllResources(profileId: string): Promise<Conversation[]> {
     const storage = getUnifiedStorageService();
-    const response = await storage.getConversations(undefined, 1, 1000, profileId);
+    const response = await storage.getConversations(
+      undefined,
+      1,
+      1000,
+      profileId
+    );
     return response.conversations || [];
   }
 
-  async exportResource(resource: Conversation, _profileId: string): Promise<ExportableResource> {
+  async exportResource(
+    resource: Conversation,
+    _profileId: string
+  ): Promise<ExportableResource> {
     const storage = getUnifiedStorageService();
-    
+
     // Fetch messages for this conversation
     const messages = await storage.getMessages(resource.id);
-    
+
     // Export messages
     const exportedMessages: MessageExport[] = messages.map(msg => ({
       id: msg.id,
@@ -51,23 +59,35 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
     }));
 
     // Export original prompt with preserved IDs (will be mapped on import)
-    const exportedOriginalPrompt = resource.originalPrompt ? {
-      promptText: resource.originalPrompt.promptText,
-      contextId: resource.originalPrompt.context?.id,
-      contextTitle: resource.originalPrompt.context?.title,
-      contextDescription: resource.originalPrompt.context?.body,
-      systemPromptIds: resource.originalPrompt.systemPrompts?.map(sp => sp.id) || 
-                       (resource.originalPrompt.systemPrompt?.id ? [resource.originalPrompt.systemPrompt.id] : []),
-      systemPromptContents: resource.originalPrompt.systemPrompts?.map(sp => sp.content) ||
-                            (resource.originalPrompt.systemPrompt?.content ? [resource.originalPrompt.systemPrompt.content] : []),
-      systemPromptNames: resource.originalPrompt.systemPrompts?.map(sp => sp.name) ||
-                         (resource.originalPrompt.systemPrompt?.name ? [resource.originalPrompt.systemPrompt.name] : []),
-      systemPromptId: resource.originalPrompt.systemPrompt?.id,
-      systemPromptContent: resource.originalPrompt.systemPrompt?.content,
-      systemPromptName: resource.originalPrompt.systemPrompt?.name,
-      embellishmentIds: undefined, // Not stored in originalPrompt type
-      estimatedTokens: resource.originalPrompt.metadata?.estimatedTokens || 0,
-    } : undefined;
+    const exportedOriginalPrompt = resource.originalPrompt
+      ? {
+          promptText: resource.originalPrompt.promptText,
+          contextId: resource.originalPrompt.context?.id,
+          contextTitle: resource.originalPrompt.context?.title,
+          contextDescription: resource.originalPrompt.context?.body,
+          systemPromptIds:
+            resource.originalPrompt.systemPrompts?.map(sp => sp.id)
+            || (resource.originalPrompt.systemPrompt?.id
+              ? [resource.originalPrompt.systemPrompt.id]
+              : []),
+          systemPromptContents:
+            resource.originalPrompt.systemPrompts?.map(sp => sp.content)
+            || (resource.originalPrompt.systemPrompt?.content
+              ? [resource.originalPrompt.systemPrompt.content]
+              : []),
+          systemPromptNames:
+            resource.originalPrompt.systemPrompts?.map(sp => sp.name)
+            || (resource.originalPrompt.systemPrompt?.name
+              ? [resource.originalPrompt.systemPrompt.name]
+              : []),
+          systemPromptId: resource.originalPrompt.systemPrompt?.id,
+          systemPromptContent: resource.originalPrompt.systemPrompt?.content,
+          systemPromptName: resource.originalPrompt.systemPrompt?.name,
+          embellishmentIds: undefined, // Not stored in originalPrompt type
+          estimatedTokens:
+            resource.originalPrompt.metadata?.estimatedTokens || 0,
+        }
+      : undefined;
 
     // Sanitize conversation - remove ownership IDs and timestamps
     const exportData: ConversationExport = {
@@ -100,10 +120,10 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
     idMapping?: IdMapping
   ): Promise<Conversation> {
     const exportData = exportable.data as ConversationExport;
-    
+
     // Generate new ID for conversation
     const newConversationId = uuidv4();
-    
+
     // Update ID mapping if provided
     if (idMapping) {
       idMapping[exportData.id] = newConversationId;
@@ -113,7 +133,7 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
     let mappedOriginalPrompt: Conversation['originalPrompt'] | undefined;
     if (exportData.originalPrompt && idMapping) {
       // Map context ID
-      const mappedContextId = exportData.originalPrompt.contextId 
+      const mappedContextId = exportData.originalPrompt.contextId
         ? idMapping[exportData.originalPrompt.contextId]
         : undefined;
 
@@ -124,9 +144,11 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
 
       mappedOriginalPrompt = {
         promptText: exportData.originalPrompt.promptText,
-        context: mappedContextId ? { id: mappedContextId } as any : null,
+        context: mappedContextId ? ({ id: mappedContextId } as any) : null,
         systemPrompts: [], // Will be populated if system prompts are imported
-        systemPrompt: mappedSystemPromptIds?.[0] ? { id: mappedSystemPromptIds[0] } as any : undefined,
+        systemPrompt: mappedSystemPromptIds?.[0]
+          ? ({ id: mappedSystemPromptIds[0] } as any)
+          : undefined,
         metadata: {
           estimatedTokens: exportData.originalPrompt.estimatedTokens || 0,
         },
@@ -180,4 +202,3 @@ export class ConversationHandler implements ResourceHandler<Conversation> {
     return true;
   }
 }
-

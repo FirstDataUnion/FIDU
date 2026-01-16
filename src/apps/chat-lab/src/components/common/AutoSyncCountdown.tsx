@@ -12,7 +12,9 @@ interface AutoSyncCountdownProps {
   variant?: 'compact' | 'full';
 }
 
-export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 'compact' }) => {
+export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({
+  variant = 'compact',
+}) => {
   const [countdown, setCountdown] = useState<number>(0);
   const [isEnabled, setIsEnabled] = useState<boolean>(false);
 
@@ -21,12 +23,16 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
       try {
         const storageService = getUnifiedStorageService();
         const adapter = storageService.getAdapter();
-        
+
         if ('getSyncStatus' in adapter) {
           const status = await (adapter as any).getSyncStatus();
           const smartStatus = status.smartAutoSync;
-          
-          if (smartStatus && smartStatus.enabled && smartStatus.hasUnsyncedData) {
+
+          if (
+            smartStatus
+            && smartStatus.enabled
+            && smartStatus.hasUnsyncedData
+          ) {
             setCountdown(smartStatus.countdownSeconds || 0);
             setIsEnabled(true);
           } else {
@@ -54,7 +60,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
     return null;
   }
 
-  // If countdown is 0 but we still have unsynced data, 
+  // If countdown is 0 but we still have unsynced data,
   // it means sync should happen soon or is stuck
   if (countdown <= 0) {
     return (
@@ -70,7 +76,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
             borderRadius: 1,
             border: '1px solid',
             borderColor: 'divider',
-            minWidth: 'fit-content'
+            minWidth: 'fit-content',
           }}
         >
           <Schedule sx={{ fontSize: 14, color: 'warning.main' }} />
@@ -78,7 +84,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
             variant="caption"
             sx={{
               color: 'warning.main',
-              fontWeight: 500
+              fontWeight: 500,
             }}
           >
             auto-sync pending...
@@ -91,7 +97,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    
+
     if (minutes > 0) {
       return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     } else {
@@ -119,7 +125,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
             borderRadius: 1,
             border: '1px solid',
             borderColor: 'divider',
-            minWidth: 'fit-content'
+            minWidth: 'fit-content',
           }}
         >
           <Schedule sx={{ fontSize: 14, color: getColor(countdown) }} />
@@ -128,7 +134,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
             sx={{
               color: getColor(countdown),
               fontWeight: 500,
-              fontFamily: 'monospace'
+              fontFamily: 'monospace',
             }}
           >
             auto-sync in {formatTime(countdown)}
@@ -148,7 +154,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
         backgroundColor: 'background.paper',
         borderRadius: 1,
         border: '1px solid',
-        borderColor: 'divider'
+        borderColor: 'divider',
       }}
     >
       <Schedule sx={{ fontSize: 16, color: getColor(countdown) }} />
@@ -161,7 +167,7 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({ variant = 
           sx={{
             color: getColor(countdown),
             fontWeight: 600,
-            fontFamily: 'monospace'
+            fontFamily: 'monospace',
           }}
         >
           {formatTime(countdown)}

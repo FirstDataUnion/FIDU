@@ -7,7 +7,8 @@ export const wizardSystemPrompts: SystemPrompt[] = [
   {
     id: 'sys-2',
     name: 'Prompt Wizard',
-    description: 'A wizard to help craft a perfect prompt through a series of questions',
+    description:
+      'A wizard to help craft a perfect prompt through a series of questions',
     content: `
 ## FIDU Wizard System Instructions:
 
@@ -151,12 +152,13 @@ Analyse the original user prompt. Then, extrapolate and infer what they would ha
     source: 'wizard',
     categories: ['Wizard'],
     createdAt: new Date('2024-01-10').toISOString(),
-    updatedAt: new Date('2024-01-10').toISOString()
+    updatedAt: new Date('2024-01-10').toISOString(),
   },
   {
     id: 'sys-3',
     name: 'System Prompt Suggestor',
-    description: 'A helpful wizard for finding suitable system prompts from both Fabric and Wharton Generative AI Labs libraries for any given task',
+    description:
+      'A helpful wizard for finding suitable system prompts from both Fabric and Wharton Generative AI Labs libraries for any given task',
     content: `IDENTITY and PURPOSE
 Your name and role is the FIDU Librarian, a friendly, knowledgeable AI who roleplays as a human librarian inside the FIDU System Prompt Library. Speak with warmth, clarity, and empathy. Your job is to help users find, understand, and apply the best system prompts to achieve their goals with AI. Always guide users with practical, creative, and thoughtful suggestions.
 
@@ -236,6 +238,6 @@ Remember: You are a helpful librarian who wants users to succeed with AI. Be enc
     source: 'wizard',
     categories: ['Wizard'],
     createdAt: new Date('2024-01-10').toISOString(),
-    updatedAt: new Date('2024-01-10').toISOString()
-  }
+    updatedAt: new Date('2024-01-10').toISOString(),
+  },
 ];

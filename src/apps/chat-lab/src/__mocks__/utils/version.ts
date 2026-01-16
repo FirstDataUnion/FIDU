@@ -10,11 +10,10 @@ export const getVersionDisplay = (): string => {
 export const isVersionAtLeast = (minVersion: string): boolean => {
   const [major, minor, patch] = APP_VERSION.split('.').map(Number);
   const [minMajor, minMinor, minPatch] = minVersion.split('.').map(Number);
-  
+
   if (major > minMajor) return true;
   if (major < minMajor) return false;
   if (minor > minMinor) return true;
   if (minor < minMinor) return false;
   return patch >= minPatch;
 };
-

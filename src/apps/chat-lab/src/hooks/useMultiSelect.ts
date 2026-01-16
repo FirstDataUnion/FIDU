@@ -1,6 +1,6 @@
 /**
  * useMultiSelect Hook
- * 
+ *
  * Manages multi-selection state for resource export functionality.
  * Provides selection state, toggle functions, and selection count.
  * Automatically exits selection mode when all items are deselected.
@@ -25,7 +25,7 @@ export const useMultiSelect = (): UseMultiSelectReturn => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleSelection = useCallback((id: string) => {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -53,9 +53,12 @@ export const useMultiSelect = (): UseMultiSelectReturn => {
     setSelectedIds(new Set());
   }, []);
 
-  const isSelected = useCallback((id: string) => {
-    return selectedIds.has(id);
-  }, [selectedIds]);
+  const isSelected = useCallback(
+    (id: string) => {
+      return selectedIds.has(id);
+    },
+    [selectedIds]
+  );
 
   // Automatically exit selection mode when all items are deselected
   useEffect(() => {
@@ -76,4 +79,3 @@ export const useMultiSelect = (): UseMultiSelectReturn => {
     selectionCount: selectedIds.size,
   };
 };
-

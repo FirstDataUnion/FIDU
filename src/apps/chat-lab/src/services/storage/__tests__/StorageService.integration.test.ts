@@ -32,8 +32,12 @@ jest.mock('../drive/GoogleDriveService', () => ({
   GoogleDriveService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),
     isAuthenticated: jest.fn(() => false),
-    uploadFile: jest.fn(() => Promise.resolve({ success: true, fileId: 'mock-file-id' })),
-    downloadFile: jest.fn(() => Promise.resolve({ success: true, data: new ArrayBuffer(0) })),
+    uploadFile: jest.fn(() =>
+      Promise.resolve({ success: true, fileId: 'mock-file-id' })
+    ),
+    downloadFile: jest.fn(() =>
+      Promise.resolve({ success: true, data: new ArrayBuffer(0) })
+    ),
     listFiles: jest.fn(() => Promise.resolve({ success: true, files: [] })),
     deleteFile: jest.fn(() => Promise.resolve({ success: true })),
   })),
@@ -118,7 +122,7 @@ describe('StorageService Integration Tests', () => {
       // Since environment mock is set to cloud, initialize will use cloud mode
       await service.initialize('local');
       expect(service.getCurrentMode()).toBe('cloud'); // Environment overrides parameter
-      
+
       await service.switchMode('local');
       expect(service.getCurrentMode()).toBe('local');
     });
@@ -126,7 +130,7 @@ describe('StorageService Integration Tests', () => {
     it('should switch from cloud to local mode', async () => {
       await service.initialize('cloud');
       expect(service.getCurrentMode()).toBe('cloud');
-      
+
       await service.switchMode('local');
       expect(service.getCurrentMode()).toBe('local');
     });
@@ -139,7 +143,9 @@ describe('StorageService Integration Tests', () => {
 
   describe('Adapter Access', () => {
     it('should throw error when accessing adapter before initialization', () => {
-      expect(() => service.getAdapter()).toThrow('Storage service not initialized');
+      expect(() => service.getAdapter()).toThrow(
+        'Storage service not initialized'
+      );
     });
 
     it('should return adapter after initialization', async () => {

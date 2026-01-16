@@ -54,7 +54,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { toggleSidebar } from '../../store/slices/uiSlice';
-import { logout, setCurrentProfile, createProfile } from '../../store/slices/authSlice';
+import {
+  logout,
+  setCurrentProfile,
+  createProfile,
+} from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
 import GoogleDriveStatus from '../auth/GoogleDriveStatus';
@@ -65,7 +69,10 @@ import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
 import { InsufficientPermissionsError } from '../../services/storage/drive/GoogleDriveService';
-import { setInsufficientPermissions, revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
+import {
+  setInsufficientPermissions,
+  revokeGoogleDriveAccess,
+} from '../../store/slices/googleDriveAuthSlice';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
@@ -85,32 +92,34 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { user, currentProfile, profiles } = useAppSelector((state) => state.auth);
+  const { user, currentProfile, profiles } = useAppSelector(
+    state => state.auth
+  );
   const unifiedStorage = useUnifiedStorage();
-  
+
   // Check if we're in a shared workspace (profiles should be disabled)
   const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
-  
+
   // Mobile sidebar state management
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  
+
   // Sidebar state: always open on desktop, controlled on mobile
   const sidebarOpen = isMobile ? mobileSidebarOpen : true;
-  
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [profileMenuAnchorEl, setProfileMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileMenuAnchorEl, setProfileMenuAnchorEl] =
+    useState<null | HTMLElement>(null);
   const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [isSyncInProgress, setIsSyncInProgress] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
-  
+
   // Check if we're in cloud storage mode (Google Drive)
   const isCloudStorageMode = unifiedStorage.mode === 'cloud';
-  
+
   // Check environment mode - this determines deployment type
   const envInfo = getEnvironmentInfo();
   const isCloudDeployment = envInfo.storageMode === 'cloud';
-
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -140,16 +149,15 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   };
 
   const handleProfileSwitch = (profile: Profile) => {
-
     dispatch(setCurrentProfile(profile));
     handleProfileSwitcherClose();
   };
 
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
-    
+
     const result = await dispatch(createProfile(newProfileName.trim()));
-    
+
     if (createProfile.fulfilled.match(result)) {
       setShowCreateProfileDialog(false);
       setNewProfileName('');
@@ -172,7 +180,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       console.log('Manual sync completed successfully');
     } catch (error) {
       console.error('Manual sync failed:', error);
-      
+
       // Check if this is an insufficient permissions error
       if (error instanceof InsufficientPermissionsError) {
         console.warn('⚠️ Insufficient permissions detected during sync');
@@ -187,19 +195,19 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const handleReconnect = useCallback(async () => {
     try {
       console.log('🔄 Reconnecting with correct permissions...');
-      
+
       // Close modal first
       setShowPermissionsModal(false);
-      
+
       // Revoke current access to clear tokens
       await dispatch(revokeGoogleDriveAccess()).unwrap();
-      
+
       // Small delay to ensure state is cleared
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Directly initiate OAuth flow with fresh permissions
       await dispatch(authenticateGoogleDrive()).unwrap();
-      
+
       // The authenticateGoogleDrive will redirect to Google OAuth, so we won't reach here
     } catch (error) {
       console.error('❌ Failed to reconnect:', error);
@@ -213,29 +221,76 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   }, []);
 
   const mainMenuItems = [
-    { text: 'Chat', icon: <PromptLabIcon />, path: '/prompt-lab', enabled: true },
-    { text: 'Conversations', icon: <ChatIcon />, path: '/conversations', enabled: true },
+    {
+      text: 'Chat',
+      icon: <PromptLabIcon />,
+      path: '/prompt-lab',
+      enabled: true,
+    },
+    {
+      text: 'Conversations',
+      icon: <ChatIcon />,
+      path: '/conversations',
+      enabled: true,
+    },
   ];
 
   const advancedMenuItems = [
-    { text: 'Contexts', icon: <ContextIcon />, path: '/contexts', enabled: useFeatureFlag('context') },
-    { text: 'System Prompts', icon: <PersonaIcon />, path: '/system-prompts', enabled: useFeatureFlag('system_prompts') },
-    { text: 'Background Agents', icon: <SmartToyIcon />, path: '/background-agents', enabled: useFeatureFlag('background_agents') },
-    { text: 'Documents', icon: <DocumentIcon />, path: '/documents', enabled: useFeatureFlag('documents') },
+    {
+      text: 'Contexts',
+      icon: <ContextIcon />,
+      path: '/contexts',
+      enabled: useFeatureFlag('context'),
+    },
+    {
+      text: 'System Prompts',
+      icon: <PersonaIcon />,
+      path: '/system-prompts',
+      enabled: useFeatureFlag('system_prompts'),
+    },
+    {
+      text: 'Background Agents',
+      icon: <SmartToyIcon />,
+      path: '/background-agents',
+      enabled: useFeatureFlag('background_agents'),
+    },
+    {
+      text: 'Documents',
+      icon: <DocumentIcon />,
+      path: '/documents',
+      enabled: useFeatureFlag('documents'),
+    },
   ];
-
-
 
   const systemMenuItems = [
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
-    { text: 'Workspaces', icon: <WorkspacesIcon />, path: '/workspaces', enabled: useFeatureFlag('shared_workspaces') },
-    { text: 'Import & Export', icon: <ImportExportIcon />, path: '/import-export', enabled: true },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings', enabled: true },
-    { text: 'Feature Flags', icon: <FeatureFlagIcon />, path: '/feature-flags', enabled: useFeatureFlag('feature_flag_page') },
+    {
+      text: 'Workspaces',
+      icon: <WorkspacesIcon />,
+      path: '/workspaces',
+      enabled: useFeatureFlag('shared_workspaces'),
+    },
+    {
+      text: 'Import & Export',
+      icon: <ImportExportIcon />,
+      path: '/import-export',
+      enabled: true,
+    },
+    {
+      text: 'Settings',
+      icon: <SettingsIcon />,
+      path: '/settings',
+      enabled: true,
+    },
+    {
+      text: 'Feature Flags',
+      icon: <FeatureFlagIcon />,
+      path: '/feature-flags',
+      enabled: useFeatureFlag('feature_flag_page'),
+    },
   ];
-
 
   const handleDrawerToggle = () => {
     if (isMobile) {
@@ -252,88 +307,103 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     }
   };
 
-  const renderMenuSection = (title: string, items: any[]) => (
+  const renderMenuSection = (title: string, items: any[]) =>
     items.some(item => item.enabled) && (
-    <>
-      <Divider sx={{ my: 1 }} />
-      {title && (
-        <Typography 
-          variant="overline" 
-          sx={{ 
-            px: 2, 
-            py: 1, 
-            color: 'text.secondary',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            letterSpacing: 1
-          }}
-        >
-          {title}
-        </Typography> 
-      )}
-      <List dense>
-        {items.map((item) => ( item.enabled && (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname.startsWith(item.path)}
-              onClick={() => handleNavigation(item.path)}
-              sx={{
-                mx: 1,
-                mb: 0.5,
-                borderRadius: 1,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '& .MuiListItemIcon-root': {
-                    color: 'inherit',
-                  },
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text} 
-                primaryTypographyProps={{ 
-                  fontSize: '0.875rem',
-                  fontWeight: location.pathname.startsWith(item.path) ? 600 : 400 
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        )))}
-      </List>
-    </>
-    )
-  );
+      <>
+        <Divider sx={{ my: 1 }} />
+        {title && (
+          <Typography
+            variant="overline"
+            sx={{
+              px: 2,
+              py: 1,
+              color: 'text.secondary',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              letterSpacing: 1,
+            }}
+          >
+            {title}
+          </Typography>
+        )}
+        <List dense>
+          {items.map(
+            item =>
+              item.enabled && (
+                <ListItem key={item.text} disablePadding>
+                  <ListItemButton
+                    selected={location.pathname.startsWith(item.path)}
+                    onClick={() => handleNavigation(item.path)}
+                    sx={{
+                      mx: 1,
+                      mb: 0.5,
+                      borderRadius: 1,
+                      '&.Mui-selected': {
+                        backgroundColor: 'primary.main',
+                        color: 'primary.contrastText',
+                        '& .MuiListItemIcon-root': {
+                          color: 'inherit',
+                        },
+                        '&:hover': {
+                          backgroundColor: 'primary.dark',
+                        },
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontSize: '0.875rem',
+                        fontWeight: location.pathname.startsWith(item.path)
+                          ? 600
+                          : 400,
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              )
+          )}
+        </List>
+      </>
+    );
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ fontWeight: 600 }}
+          >
             FIDU Chat Lab
           </Typography>
         </Toolbar>
-        
+
         {renderMenuSection('', mainMenuItems)}
-        
+
         {renderMenuSection('Advanced', advancedMenuItems)}
-        
+
         {renderMenuSection('System', systemMenuItems)}
       </Box>
-      
+
       {/* Footer with Policy Links */}
       <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
         <Button
           fullWidth
           size="small"
           startIcon={<HelpIcon fontSize="small" />}
-          onClick={() => window.open('https://github.com/FirstDataUnion/FIDU/issues', '_blank', 'noopener')}
+          onClick={() =>
+            window.open(
+              'https://github.com/FirstDataUnion/FIDU/issues',
+              '_blank',
+              'noopener'
+            )
+          }
           sx={{
             textTransform: 'none',
             justifyContent: 'flex-start',
@@ -419,11 +489,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         >
           Delete Account
         </Button>
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            display: 'block', 
-            mt: 1, 
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            mt: 1,
             textAlign: 'center',
             opacity: 0.5,
           }}
@@ -442,7 +512,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
           backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
-          color: 'primary.contrastText'
+          color: 'primary.contrastText',
         }}
       >
         <Toolbar>
@@ -457,86 +527,94 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               <MenuIcon />
             </IconButton>
           )}
-          
+
           {/* FIDU Vault Dashboard Button - only show in local deployment */}
           {!isCloudDeployment && (
             <Button
               color="inherit"
               startIcon={<HomeIcon />}
               onClick={() => window.open('http://127.0.0.1:4000', '_blank')}
-              sx={{ 
+              sx={{
                 mr: 2,
                 textTransform: 'none',
                 fontWeight: 500,
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                }
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
               }}
             >
               Go back to FIDU Vault Dashboard
             </Button>
           )}
-          
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            
-          </Typography>
-          
-                 {/* Google Drive Status - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Box sx={{ mr: 2 }}>
-                     <GoogleDriveStatus variant="compact" />
-                   </Box>
-                 )}
-                 
-                 {/* Sync Health Indicator - shows last successful sync and health status */}
-                 {isCloudStorageMode && (
-                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <SyncHealthIndicator variant="compact" />
-                   </Box>
-                 )}
-                 
-                 {/* Unsynced Data Indicator - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <UnsyncedDataIndicator variant="compact" />
-                   </Box>
-                 )}
-                 
-                 {/* Auto-Sync Countdown - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                     <AutoSyncCountdown variant="compact" />
-                   </Box>
-                 )}
-                 
-                 {/* Manual Sync Button - only show in cloud storage mode */}
-                 {isCloudStorageMode && (
-                   <Tooltip title={isSyncInProgress ? "Syncing..." : "Sync Now to Google Drive"} arrow>
-                     <Button
-                       color="inherit"
-                       variant="outlined"
-                       size="small"
-                       startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
-                       onClick={handleManualSync}
-                       disabled={isSyncInProgress}
-                       sx={{ 
-                         mr: 2,
-                         textTransform: 'none',
-                         borderColor: 'rgba(255,255,255,0.3)',
-                         '&:hover': {
-                           backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                           borderColor: 'rgba(255,255,255,0.8)'
-                         },
-                         '&:disabled': {
-                           opacity: 0.5
-                         }
-                       }}
-                     >
-                       {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
-                     </Button>
-                   </Tooltip>
-                 )}
-          
+
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ flexGrow: 1 }}
+          ></Typography>
+
+          {/* Google Drive Status - only show in cloud storage mode */}
+          {isCloudStorageMode && (
+            <Box sx={{ mr: 2 }}>
+              <GoogleDriveStatus variant="compact" />
+            </Box>
+          )}
+
+          {/* Sync Health Indicator - shows last successful sync and health status */}
+          {isCloudStorageMode && (
+            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+              <SyncHealthIndicator variant="compact" />
+            </Box>
+          )}
+
+          {/* Unsynced Data Indicator - only show in cloud storage mode */}
+          {isCloudStorageMode && (
+            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+              <UnsyncedDataIndicator variant="compact" />
+            </Box>
+          )}
+
+          {/* Auto-Sync Countdown - only show in cloud storage mode */}
+          {isCloudStorageMode && (
+            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+              <AutoSyncCountdown variant="compact" />
+            </Box>
+          )}
+
+          {/* Manual Sync Button - only show in cloud storage mode */}
+          {isCloudStorageMode && (
+            <Tooltip
+              title={
+                isSyncInProgress ? 'Syncing...' : 'Sync Now to Google Drive'
+              }
+              arrow
+            >
+              <Button
+                color="inherit"
+                variant="outlined"
+                size="small"
+                startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
+                onClick={handleManualSync}
+                disabled={isSyncInProgress}
+                sx={{
+                  mr: 2,
+                  textTransform: 'none',
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderColor: 'rgba(255,255,255,0.8)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.5,
+                  },
+                }}
+              >
+                {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
+              </Button>
+            </Tooltip>
+          )}
+
           {/* Profile and Logout */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {currentProfile && !isSharedWorkspace && (
@@ -546,7 +624,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 color="secondary"
                 variant="outlined"
                 onClick={handleProfileSwitcherOpen}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: 'action.hover' },
+                }}
               />
             )}
             <IconButton
@@ -558,7 +639,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 {user?.name?.[0] || user?.email?.[0] || <AccountIcon />}
               </Avatar>
             </IconButton>
-            
+
             {/* Profile Switcher Menu - Hidden in shared workspaces */}
             {!isSharedWorkspace && (
               <Menu
@@ -580,9 +661,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                   </Typography>
                 </MenuItem>
                 <Divider />
-                {profiles.map((profile) => (
-                  <MenuItem 
-                    key={profile.id} 
+                {profiles.map(profile => (
+                  <MenuItem
+                    key={profile.id}
                     onClick={() => handleProfileSwitch(profile)}
                     selected={currentProfile?.id === profile.id}
                   >
@@ -593,9 +674,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                         <AccountIcon fontSize="small" />
                       )}
                     </ListItemIcon>
-                    <ListItemText 
+                    <ListItemText
                       primary={profile.name}
-                      secondary={currentProfile?.id === profile.id ? 'Active' : undefined}
+                      secondary={
+                        currentProfile?.id === profile.id ? 'Active' : undefined
+                      }
                     />
                   </MenuItem>
                 ))}
@@ -608,7 +691,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 </MenuItem>
               </Menu>
             )}
-            
+
             {/* User Menu */}
             <Menu
               anchorEl={anchorEl}
@@ -646,7 +729,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       </AppBar>
 
       {/* Create Profile Dialog */}
-      <Dialog open={showCreateProfileDialog} onClose={() => setShowCreateProfileDialog(false)}>
+      <Dialog
+        open={showCreateProfileDialog}
+        onClose={() => setShowCreateProfileDialog(false)}
+      >
         <DialogTitle>Create New Profile</DialogTitle>
         <DialogContent>
           <TextField
@@ -656,8 +742,8 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             fullWidth
             variant="outlined"
             value={newProfileName}
-            onChange={(e) => setNewProfileName(e.target.value)}
-            onKeyPress={(e) => {
+            onChange={e => setNewProfileName(e.target.value)}
+            onKeyPress={e => {
               if (e.key === 'Enter') {
                 handleCreateProfile();
               }
@@ -665,9 +751,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCreateProfileDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handleCreateProfile} 
+          <Button onClick={() => setShowCreateProfileDialog(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateProfile}
             variant="contained"
             disabled={!newProfileName.trim()}
           >
@@ -678,7 +766,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
 
       <Box
         component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, height: '100vh' }}
+        sx={{
+          width: { md: drawerWidth },
+          flexShrink: { md: 0 },
+          height: '100vh',
+        }}
       >
         <Drawer
           variant={isMobile ? 'temporary' : 'permanent'}
@@ -693,7 +785,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               width: drawerWidth,
               height: '100vh',
               backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
-              color: 'primary.contrastText'
+              color: 'primary.contrastText',
             },
           }}
         >
@@ -712,23 +804,19 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           height: '100vh',
           boxSizing: 'border-box',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
         }}
       >
         <Toolbar sx={{ flexShrink: 0 }} />
         {/* Fixed banner outside scrollable area */}
-        {banner && (
-          <Box sx={{ flexShrink: 0 }}>
-            {banner}
-          </Box>
-        )}
+        {banner && <Box sx={{ flexShrink: 0 }}>{banner}</Box>}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {children}
-        {/* Background Agent Alerts */}
-        <AgentAlertsToaster />
+          {children}
+          {/* Background Agent Alerts */}
+          <AgentAlertsToaster />
         </Box>
       </Box>
-      
+
       {/* Insufficient Permissions Modal */}
       <InsufficientPermissionsModal
         open={showPermissionsModal}
@@ -739,4 +827,4 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   );
 };
 
-export default Layout; 
+export default Layout;

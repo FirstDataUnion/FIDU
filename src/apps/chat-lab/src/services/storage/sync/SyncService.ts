@@ -4,7 +4,10 @@
  */
 
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
-import { GoogleDriveService, InsufficientPermissionsError } from '../drive/GoogleDriveService';
+import {
+  GoogleDriveService,
+  InsufficientPermissionsError,
+} from '../drive/GoogleDriveService';
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { refreshAllDataFromStorage } from '../../../store/refreshAllData';
 
@@ -83,7 +86,7 @@ export class SyncService {
     } catch {
       // Fall through to Google user info
     }
-    
+
     // Fall back to Google account info
     const googleUser = this.authService.getCachedUser();
     if (googleUser?.name) {
@@ -122,7 +125,7 @@ export class SyncService {
     }
 
     await this.driveService.initialize();
-    
+
     // Load last sync time from localStorage (workspace-specific)
     const storageKey = this.getLastSyncKey();
     const stored = localStorage.getItem(storageKey);
@@ -157,7 +160,8 @@ export class SyncService {
 
       console.log('Full sync completed successfully');
     } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Unknown sync error';
+      this.error =
+        error instanceof Error ? error.message : 'Unknown sync error';
       console.error('Sync failed:', error);
       throw error;
     } finally {
@@ -172,26 +176,28 @@ export class SyncService {
    * @returns Merge result with counts of inserted, updated, and forked records
    */
   async syncFromDrive(
-    version: string = '1', 
+    version: string = '1',
     fileIds?: { conversationsDbId?: string; metadataJsonId?: string }
   ): Promise<MergeResult | void> {
     try {
       let conversationsDownloaded = false;
       let mergeResult: MergeResult | undefined = undefined;
-      
+
       // Get the last sync timestamp for conflict detection
       const lastSyncTimestamp = this.lastSyncTime?.toISOString();
-      
+
       // For shared workspaces with file IDs, try using them directly first
       // If that fails (e.g., 404 - file not accessible), fall back to filename search
       if (this.isSharedWorkspace && fileIds?.conversationsDbId) {
         try {
-          const conversationsData = await this.driveService.downloadFile(fileIds.conversationsDbId);
+          const conversationsData = await this.driveService.downloadFile(
+            fileIds.conversationsDbId
+          );
           // For shared workspaces, use username in conflict copies
           const currentUserName = this.getCurrentUserName();
           const importResult = await this.dbManager.importConversationsDB(
-            conversationsData, 
-            lastSyncTimestamp, 
+            conversationsData,
+            lastSyncTimestamp,
             currentUserName,
             this.isSharedWorkspace
           );
@@ -202,27 +208,35 @@ export class SyncService {
           conversationsDownloaded = true;
         } catch (error: any) {
           // If download by file ID fails (e.g., 404 - file not accessible), fall back to filename search
-          const is404 = error?.message?.includes('404') || error?.message?.includes('Not Found') || 
-                       error?.message?.includes('Failed to download file');
+          const is404 =
+            error?.message?.includes('404')
+            || error?.message?.includes('Not Found')
+            || error?.message?.includes('Failed to download file');
           if (!is404) {
-            console.error('Failed to download conversations DB by file ID:', error);
+            console.error(
+              'Failed to download conversations DB by file ID:',
+              error
+            );
             throw error;
           }
           // Fall through to filename search below
         }
       }
-      
+
       // If we didn't successfully download by file ID, use filename search
       if (!conversationsDownloaded) {
         const filesExist = await this.driveService.checkFilesExist();
-        
+
         if (filesExist.conversations) {
-          const conversationsData = await this.driveService.downloadConversationsDB(version);
+          const conversationsData =
+            await this.driveService.downloadConversationsDB(version);
           // For shared workspaces, use username in conflict copies; for personal, use numbered copies
-          const currentUserName = this.isSharedWorkspace ? this.getCurrentUserName() : undefined;
+          const currentUserName = this.isSharedWorkspace
+            ? this.getCurrentUserName()
+            : undefined;
           const importResult = await this.dbManager.importConversationsDB(
-            conversationsData, 
-            lastSyncTimestamp, 
+            conversationsData,
+            lastSyncTimestamp,
             currentUserName,
             this.isSharedWorkspace
           );
@@ -234,7 +248,8 @@ export class SyncService {
 
         // Skip API keys download for shared workspaces (security: API keys should not be shared)
         if (!this.isSharedWorkspace && filesExist.apiKeys) {
-          const apiKeysData = await this.driveService.downloadAPIKeysDB(version);
+          const apiKeysData =
+            await this.driveService.downloadAPIKeysDB(version);
           await this.dbManager.importAPIKeysDB(apiKeysData);
         }
       }
@@ -243,34 +258,37 @@ export class SyncService {
       return mergeResult;
     } catch (error) {
       console.error('Failed to sync from Drive:', error);
-      
+
       // Re-throw InsufficientPermissionsError so it can be handled by the UI
       if (error instanceof InsufficientPermissionsError) {
         throw error;
       }
-      
+
       // Check if error message suggests insufficient permissions
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || 
-          errorMessage.includes('insufficientPermissions')) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+        || errorMessage.includes('insufficientPermissions')
+      ) {
         throw new InsufficientPermissionsError(
           'Insufficient permissions to access Google Drive. Please re-authorize the app.',
           error
         );
       }
-      
+
       throw error;
     }
   }
 
   /**
    * Sync changes from local SQLite to Google Drive using download-merge-upload pattern
-   * 
+   *
    * For shared workspaces, this implements a proper merge strategy:
    * 1. Download current remote database
    * 2. Merge remote changes into local (with fork-on-conflict for true conflicts)
    * 3. Upload the merged result
-   * 
+   *
    * This prevents data loss when multiple users are making changes.
    */
   async syncToDrive(options: SyncOptions = {}): Promise<void> {
@@ -280,9 +298,10 @@ export class SyncService {
       // Check if we have pending changes
       // For shared workspaces, ignore API keys in the count
       const pendingCounts = await this.dbManager.getPendingChangesCount();
-      const hasPendingChanges = pendingCounts.dataPackets > 0 || 
-        (!this.isSharedWorkspace && pendingCounts.apiKeys > 0);
-      
+      const hasPendingChanges =
+        pendingCounts.dataPackets > 0
+        || (!this.isSharedWorkspace && pendingCounts.apiKeys > 0);
+
       if (!hasPendingChanges && !options.forceUpload) {
         console.log('No pending changes to sync');
         return;
@@ -292,33 +311,42 @@ export class SyncService {
       // This prevents data loss when same user uses multiple devices (personal) or multiple users make changes (shared)
       try {
         const filesExist = await this.driveService.checkFilesExist();
-        
+
         if (filesExist.conversations) {
-          const remoteData = await this.driveService.downloadConversationsDB(version);
+          const remoteData =
+            await this.driveService.downloadConversationsDB(version);
           const lastSyncTimestamp = this.lastSyncTime?.toISOString();
-          
+
           // For shared workspaces, use username in conflict copies; for personal, use numbered copies
-          const currentUserName = this.isSharedWorkspace ? this.getCurrentUserName() : undefined;
+          const currentUserName = this.isSharedWorkspace
+            ? this.getCurrentUserName()
+            : undefined;
           const mergeResult = await this.dbManager.importConversationsDB(
-            remoteData, 
-            lastSyncTimestamp, 
+            remoteData,
+            lastSyncTimestamp,
             currentUserName,
             this.isSharedWorkspace
           );
-          
+
           if (mergeResult) {
             this.lastMergeResult = mergeResult;
           }
         }
       } catch (error) {
         // If download fails (e.g., no remote file yet), just proceed with upload
-        console.warn('Failed to download/merge remote before upload, proceeding anyway:', error);
+        console.warn(
+          'Failed to download/merge remote before upload, proceeding anyway:',
+          error
+        );
       }
 
       // STEP 2: Export and upload the merged local database
       const conversationsData = await this.dbManager.exportConversationsDB();
       if (conversationsData && conversationsData.length > 0) {
-        await this.driveService.uploadConversationsDB(conversationsData, version);
+        await this.driveService.uploadConversationsDB(
+          conversationsData,
+          version
+        );
       }
 
       // Skip API keys sync for shared workspaces (security: API keys should not be shared)
@@ -335,13 +363,15 @@ export class SyncService {
 
       // Mark all pending changes as synced
       const pendingDataPackets = await this.dbManager.getPendingDataPackets();
-      const pendingAPIKeys = this.isSharedWorkspace ? [] : await this.dbManager.getPendingAPIKeys();
-      
+      const pendingAPIKeys = this.isSharedWorkspace
+        ? []
+        : await this.dbManager.getPendingAPIKeys();
+
       if (pendingDataPackets.length > 0) {
         const packetIds = pendingDataPackets.map(p => p.id);
         await this.dbManager.markDataPacketsAsSynced(packetIds);
       }
-      
+
       // Only mark API keys as synced if this is not a shared workspace
       if (!this.isSharedWorkspace && pendingAPIKeys.length > 0) {
         const keyIds = pendingAPIKeys.map(k => k.id);
@@ -354,29 +384,32 @@ export class SyncService {
         conversationsSize: conversationsData ? conversationsData.length : 0,
         apiKeysSize: apiKeysData ? apiKeysData.length : 0,
         syncedDataPackets: pendingDataPackets.length,
-        syncedAPIKeys: pendingAPIKeys.length
+        syncedAPIKeys: pendingAPIKeys.length,
       };
       await this.driveService.uploadMetadata(metadata, version);
 
       this.refreshReduxState();
     } catch (error) {
       console.error('Failed to sync to Drive:', error);
-      
+
       // Re-throw InsufficientPermissionsError so it can be handled by the UI
       if (error instanceof InsufficientPermissionsError) {
         throw error;
       }
-      
+
       // Check if error message suggests insufficient permissions
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || 
-          errorMessage.includes('insufficientPermissions')) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+        || errorMessage.includes('insufficientPermissions')
+      ) {
         throw new InsufficientPermissionsError(
           'Insufficient permissions to sync with Google Drive. Please re-authorize the app.',
           error
         );
       }
-      
+
       throw error;
     }
   }
@@ -390,8 +423,10 @@ export class SyncService {
       return;
     }
 
-    console.log(`Starting auto sync every ${this.syncInterval / 1000 / 60} minutes`);
-    
+    console.log(
+      `Starting auto sync every ${this.syncInterval / 1000 / 60} minutes`
+    );
+
     this.syncTimer = setInterval(async () => {
       try {
         await this.fullSync();
@@ -424,8 +459,8 @@ export class SyncService {
       filesStatus: {
         conversations: false, // TODO: Check if files exist locally
         apiKeys: false,
-        metadata: false
-      }
+        metadata: false,
+      },
     };
   }
 
@@ -436,7 +471,9 @@ export class SyncService {
     // Check if we have pending changes
     const pendingCounts = await this.dbManager.getPendingChangesCount();
     if (pendingCounts.dataPackets > 0 || pendingCounts.apiKeys > 0) {
-      console.log(`Sync needed: ${pendingCounts.dataPackets} data packets and ${pendingCounts.apiKeys} API keys pending`);
+      console.log(
+        `Sync needed: ${pendingCounts.dataPackets} data packets and ${pendingCounts.apiKeys} API keys pending`
+      );
       return true;
     }
 
@@ -447,11 +484,13 @@ export class SyncService {
 
     const timeSinceLastSync = Date.now() - this.lastSyncTime.getTime();
     const needsTimeSync = timeSinceLastSync > this.syncInterval;
-    
+
     if (needsTimeSync) {
-      console.log(`Sync needed: ${Math.round(timeSinceLastSync / 1000 / 60)} minutes since last sync`);
+      console.log(
+        `Sync needed: ${Math.round(timeSinceLastSync / 1000 / 60)} minutes since last sync`
+      );
     }
-    
+
     return needsTimeSync;
   }
 
@@ -467,7 +506,7 @@ export class SyncService {
    */
   setSyncInterval(intervalMs: number): void {
     this.syncInterval = intervalMs;
-    
+
     // Restart auto sync with new interval
     if (this.syncTimer) {
       this.stopAutoSync();

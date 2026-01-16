@@ -84,25 +84,24 @@ export interface MarkdownDocument {
   tags: string[];
 }
 
-
 // Workspace Types
 export interface WorkspaceMetadata {
   id: string;
   name: string;
   type: 'personal' | 'shared';
-  driveFolderId?: string;  // null/undefined for AppData (personal), folder ID for shared
-  
+  driveFolderId?: string; // null/undefined for AppData (personal), folder ID for shared
+
   // File locations within the Drive folder
   files?: {
     conversationsDbId?: string;
     apiKeysDbId?: string;
     metadataJsonId?: string;
   };
-  
+
   // Membership (for shared workspaces)
   role?: 'owner' | 'member';
   members?: Array<{ email: string; role: 'owner' | 'member' }>;
-  
+
   // Timestamps
   createdAt: string;
   lastAccessed: string;
@@ -193,7 +192,6 @@ export interface BackgroundAgentAlertMetadata {
   parsedResult?: Record<string, any>;
 }
 
-
 // Front End types
 
 export interface Message {
@@ -235,7 +233,6 @@ export interface Tag {
   usageCount: number;
   category?: string;
 }
-
 
 export interface SearchResult {
   type: 'conversation' | 'message' | 'context' | 'prompt' | 'tag';
@@ -342,7 +339,11 @@ export interface AnalyticsData {
     topTags: Array<{ tag: string; count: number }>;
   };
   usageStats: {
-    dailyActivity: Array<{ date: string; conversations: number; messages: number }>;
+    dailyActivity: Array<{
+      date: string;
+      conversations: number;
+      messages: number;
+    }>;
     peakUsageHours: Array<{ hour: number; activity: number }>;
     platformUsage: Record<string, { time: number; messages: number }>;
   };
@@ -496,7 +497,7 @@ export interface UnifiedStorageState {
   mode: 'local' | 'cloud';
   status: 'unconfigured' | 'configuring' | 'configured' | 'error';
   userSelectedMode: boolean; // Whether user has made a selection from settings page
-  
+
   // Google Drive specific state
   googleDrive: {
     isAuthenticated: boolean;
@@ -506,7 +507,7 @@ export interface UnifiedStorageState {
     showAuthModal: boolean;
     expiresAt: number | null;
   };
-  
+
   // Error handling
   error: string | null;
   isLoading: boolean;
@@ -584,7 +585,7 @@ export const STORES = {
   MESSAGES: 'messages',
   TAGS: 'tags',
   SETTINGS: 'settings',
-  ATTACHMENTS: 'attachments'
+  ATTACHMENTS: 'attachments',
 } as const;
 
-export type StoreNames = typeof STORES[keyof typeof STORES]; 
+export type StoreNames = (typeof STORES)[keyof typeof STORES];

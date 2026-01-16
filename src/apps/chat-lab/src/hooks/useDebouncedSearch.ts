@@ -9,7 +9,7 @@ interface UseDebouncedSearchOptions {
 export const useDebouncedSearch = ({
   delay = 300,
   minLength = 2,
-  onSearch
+  onSearch,
 }: UseDebouncedSearchOptions = {}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -61,13 +61,16 @@ export const useDebouncedSearch = ({
   }, []);
 
   // Get search suggestions (placeholder for future implementation)
-  const getSuggestions = useCallback((query: string): string[] => {
-    if (query.length < minLength) return [];
-    
-    // This could be expanded to include actual search suggestions
-    // For now, return empty array
-    return [];
-  }, [minLength]);
+  const getSuggestions = useCallback(
+    (query: string): string[] => {
+      if (query.length < minLength) return [];
+
+      // This could be expanded to include actual search suggestions
+      // For now, return empty array
+      return [];
+    },
+    [minLength]
+  );
 
   return {
     searchQuery,
@@ -75,6 +78,6 @@ export const useDebouncedSearch = ({
     isSearching,
     updateSearchQuery,
     clearSearch,
-    getSuggestions
+    getSuggestions,
   };
 };

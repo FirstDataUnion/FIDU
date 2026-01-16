@@ -32,7 +32,7 @@ import 'katex/dist/katex.min.css';
 
 /**
  * Enhanced Markdown Component with advanced features
- * 
+ *
  * Features:
  * - Syntax highlighting for code blocks
  * - Copy buttons for code blocks
@@ -89,11 +89,15 @@ const CodeBlock: React.FC<{
     return (
       <code
         style={{
-          backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          backgroundColor:
+            theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.1)'
+              : 'rgba(0, 0, 0, 0.1)',
           padding: '2px 4px',
           borderRadius: '4px',
           fontSize: '0.9em',
-          fontFamily: 'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          fontFamily:
+            'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         }}
       >
         {children}
@@ -132,7 +136,11 @@ const CodeBlock: React.FC<{
                 },
               }}
             >
-              {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
+              {copied ? (
+                <CheckIcon fontSize="small" />
+              ) : (
+                <CopyIcon fontSize="small" />
+              )}
             </IconButton>
           </Tooltip>
         </Box>
@@ -144,7 +152,8 @@ const CodeBlock: React.FC<{
           overflow: 'auto',
           fontSize: '14px',
           lineHeight: 1.5,
-          fontFamily: 'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          fontFamily:
+            'Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         }}
       >
         <code className={className}>{children}</code>
@@ -156,9 +165,11 @@ const CodeBlock: React.FC<{
 /**
  * Enhanced Table Component with horizontal scrolling
  */
-const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const theme = useTheme();
-  
+
   return (
     <Paper
       elevation={1}
@@ -169,9 +180,7 @@ const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       }}
     >
       <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-        <Table sx={{ minWidth: 650 }}>
-          {children}
-        </Table>
+        <Table sx={{ minWidth: 650 }}>{children}</Table>
       </Box>
     </Paper>
   );
@@ -180,9 +189,12 @@ const EnhancedTable: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 /**
  * Enhanced Link Component
  */
-const EnhancedLink: React.FC<{ href?: string; children: React.ReactNode }> = ({ href, children }) => {
+const EnhancedLink: React.FC<{ href?: string; children: React.ReactNode }> = ({
+  href,
+  children,
+}) => {
   const isExternal = href?.startsWith('http');
-  
+
   return (
     <Link
       href={href}
@@ -207,16 +219,21 @@ const EnhancedLink: React.FC<{ href?: string; children: React.ReactNode }> = ({ 
 /**
  * Enhanced Blockquote Component
  */
-const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const theme = useTheme();
-  
+
   return (
     <Box
       sx={{
         borderLeft: `4px solid ${theme.palette.primary.main}`,
         paddingLeft: 2,
         margin: '16px 0',
-        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        backgroundColor:
+          theme.palette.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.05)'
+            : 'rgba(0, 0, 0, 0.05)',
         padding: '12px 16px',
         borderRadius: '0 8px 8px 0',
         fontStyle: 'italic',
@@ -232,7 +249,7 @@ const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children 
  */
 // const EnhancedList: React.FC<{ children: React.ReactNode; ordered?: boolean }> = ({ children, ordered = false }) => {
 //   const Component = ordered ? 'ol' : 'ul';
-//   
+//
 //   return (
 //     <Box
 //       component={Component}
@@ -250,7 +267,10 @@ const EnhancedBlockquote: React.FC<{ children: React.ReactNode }> = ({ children 
 /**
  * Task List Item Component
  */
-const TaskListItem: React.FC<{ children: React.ReactNode; checked: boolean }> = ({ children, checked }) => {
+const TaskListItem: React.FC<{
+  children: React.ReactNode;
+  checked: boolean;
+}> = ({ children, checked }) => {
   return (
     <ListItem sx={{ padding: 0, alignItems: 'flex-start' }}>
       <Checkbox
@@ -261,11 +281,11 @@ const TaskListItem: React.FC<{ children: React.ReactNode; checked: boolean }> = 
       />
       <ListItemText
         primary={children}
-        sx={{ 
+        sx={{
           '& .MuiListItemText-primary': {
             textDecoration: checked ? 'line-through' : 'none',
             opacity: checked ? 0.7 : 1,
-          }
+          },
         }}
       />
     </ListItem>
@@ -275,12 +295,10 @@ const TaskListItem: React.FC<{ children: React.ReactNode; checked: boolean }> = 
 /**
  * Strikethrough Component
  */
-const Strikethrough: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <span style={{ textDecoration: 'line-through' }}>
-      {children}
-    </span>
-  );
+const Strikethrough: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  return <span style={{ textDecoration: 'line-through' }}>{children}</span>;
 };
 
 /**
@@ -304,13 +322,15 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
   preprocess = true,
 }) => {
   const theme = useTheme();
-  
+
   // Decode HTML entities first
   const decodedContent = content ? decodeHtmlEntities(content) : '';
-  
+
   // Preprocess the content if enabled
-  const processedContent = preprocess ? preprocessMarkdown(decodedContent) : decodedContent;
-  
+  const processedContent = preprocess
+    ? preprocessMarkdown(decodedContent)
+    : decodedContent;
+
   return (
     <Box
       className={className}
@@ -380,107 +400,120 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
-                    // Code blocks with syntax highlighting
-                    code: ({ node, inline, className, children, ...props }: any) => (
-                      <CodeBlock
-                        node={node}
-                        inline={inline}
-                        className={className}
-                        showCopyButton={showCopyButtons && !inline}
-                        {...props}
-                      >
-                        {children}
-                      </CodeBlock>
-                    ),
-                    
-                    // Enhanced tables
-                    table: ({ children, ...props }) => (
-                      <EnhancedTable {...props}>
-                        {children}
-                      </EnhancedTable>
-                    ),
-                    thead: ({ children, ...props }) => (
-                      <TableHead {...props}>
-                        {children}
-                      </TableHead>
-                    ),
-                    tbody: ({ children, ...props }) => (
-                      <TableBody {...props}>
-                        {children}
-                      </TableBody>
-                    ),
-                    tr: ({ children, ...props }) => (
-                      <TableRow {...props}>
-                        {children}
-                      </TableRow>
-                    ),
-                    th: ({ children, ...props }) => (
-                      <TableCell {...props} component="th" sx={{ fontWeight: 600 }} align="left">
-                        {children}
-                      </TableCell>
-                    ),
-                    td: ({ children, ...props }) => (
-                      <TableCell {...props} align="left">
-                        {children}
-                      </TableCell>
-                    ),
-                    
-                    // Enhanced links
-                    a: ({ href, children, ...props }) => (
-                      <EnhancedLink href={href} {...props}>
-                        {children}
-                      </EnhancedLink>
-                    ),
-                    
-                    // Enhanced blockquotes
-                    blockquote: ({ children, ...props }) => (
-                      <EnhancedBlockquote {...props}>
-                        {children}
-                      </EnhancedBlockquote>
-                    ),
-                    
-                    // Enhanced lists with tighter spacing
-                    ul: ({ children, ...props }) => (
-                      <Box component="ul" sx={{ margin: 0, paddingLeft: '20px', '& li': { marginBottom: '1px' } }} {...props}>
-                        {children}
-                      </Box>
-                    ),
-                    ol: ({ children, ...props }) => (
-                      <Box component="ol" sx={{ margin: 0, paddingLeft: '20px', '& li': { marginBottom: '1px' } }} {...props}>
-                        {children}
-                      </Box>
-                    ),
-                    
-                    // Task list items
-                    li: ({ children, ...props }: any) => {
-                      // Check if this is a task list item
-                      const text = String(children);
-                      if (text.includes('[x]') || text.includes('[ ]')) {
-                        const checked = text.includes('[x]');
-                        const cleanText = text.replace(/^\s*\[[x ]\]\s*/, '');
-                        return (
-                          <TaskListItem checked={checked}>
-                            {cleanText}
-                          </TaskListItem>
-                        );
-                      }
-                      return <li {...props}>{children}</li>;
-                    },
-                    
-                    // Strikethrough
-                    del: ({ children, ...props }) => (
-                      <Strikethrough {...props}>
-                        {children}
-                      </Strikethrough>
-                    ),
-                    
-                    // Horizontal rules
-                    hr: ({ ...props }) => <Divider {...props} />,
-                  }}
-                >
-                  {processedContent}
-                </ReactMarkdown>
-              );
+                // Code blocks with syntax highlighting
+                code: ({
+                  node,
+                  inline,
+                  className,
+                  children,
+                  ...props
+                }: any) => (
+                  <CodeBlock
+                    node={node}
+                    inline={inline}
+                    className={className}
+                    showCopyButton={showCopyButtons && !inline}
+                    {...props}
+                  >
+                    {children}
+                  </CodeBlock>
+                ),
+
+                // Enhanced tables
+                table: ({ children, ...props }) => (
+                  <EnhancedTable {...props}>{children}</EnhancedTable>
+                ),
+                thead: ({ children, ...props }) => (
+                  <TableHead {...props}>{children}</TableHead>
+                ),
+                tbody: ({ children, ...props }) => (
+                  <TableBody {...props}>{children}</TableBody>
+                ),
+                tr: ({ children, ...props }) => (
+                  <TableRow {...props}>{children}</TableRow>
+                ),
+                th: ({ children, ...props }) => (
+                  <TableCell
+                    {...props}
+                    component="th"
+                    sx={{ fontWeight: 600 }}
+                    align="left"
+                  >
+                    {children}
+                  </TableCell>
+                ),
+                td: ({ children, ...props }) => (
+                  <TableCell {...props} align="left">
+                    {children}
+                  </TableCell>
+                ),
+
+                // Enhanced links
+                a: ({ href, children, ...props }) => (
+                  <EnhancedLink href={href} {...props}>
+                    {children}
+                  </EnhancedLink>
+                ),
+
+                // Enhanced blockquotes
+                blockquote: ({ children, ...props }) => (
+                  <EnhancedBlockquote {...props}>{children}</EnhancedBlockquote>
+                ),
+
+                // Enhanced lists with tighter spacing
+                ul: ({ children, ...props }) => (
+                  <Box
+                    component="ul"
+                    sx={{
+                      margin: 0,
+                      paddingLeft: '20px',
+                      '& li': { marginBottom: '1px' },
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+                ol: ({ children, ...props }) => (
+                  <Box
+                    component="ol"
+                    sx={{
+                      margin: 0,
+                      paddingLeft: '20px',
+                      '& li': { marginBottom: '1px' },
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+
+                // Task list items
+                li: ({ children, ...props }: any) => {
+                  // Check if this is a task list item
+                  const text = String(children);
+                  if (text.includes('[x]') || text.includes('[ ]')) {
+                    const checked = text.includes('[x]');
+                    const cleanText = text.replace(/^\s*\[[x ]\]\s*/, '');
+                    return (
+                      <TaskListItem checked={checked}>{cleanText}</TaskListItem>
+                    );
+                  }
+                  return <li {...props}>{children}</li>;
+                },
+
+                // Strikethrough
+                del: ({ children, ...props }) => (
+                  <Strikethrough {...props}>{children}</Strikethrough>
+                ),
+
+                // Horizontal rules
+                hr: ({ ...props }) => <Divider {...props} />,
+              }}
+            >
+              {processedContent}
+            </ReactMarkdown>
+          );
         } catch (error) {
           console.error('Error rendering markdown:', error);
           return (

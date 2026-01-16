@@ -4,7 +4,12 @@
  */
 
 import { getStorageService } from './StorageService';
-import type { Conversation, Message, FilterOptions, ConversationsResponse } from '../../types';
+import type {
+  Conversation,
+  Message,
+  FilterOptions,
+  ConversationsResponse,
+} from '../../types';
 
 export class UnifiedStorageService {
   private storageService = getStorageService();
@@ -54,7 +59,12 @@ export class UnifiedStorageService {
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.createConversation(profileId, conversation, messages, originalPrompt);
+    return await adapter.createConversation(
+      profileId,
+      conversation,
+      messages,
+      originalPrompt
+    );
   }
 
   async updateConversation(
@@ -63,7 +73,11 @@ export class UnifiedStorageService {
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.updateConversation(conversation, messages, originalPrompt);
+    return await adapter.updateConversation(
+      conversation,
+      messages,
+      originalPrompt
+    );
   }
 
   async getConversations(
@@ -118,7 +132,12 @@ export class UnifiedStorageService {
   }
 
   // Context operations
-  async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getContexts(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     const adapter = this.storageService.getAdapter();
     return await adapter.getContexts(queryParams, page, limit, profileId);
   }
@@ -144,7 +163,12 @@ export class UnifiedStorageService {
   }
 
   // System Prompt operations
-  async getSystemPrompts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getSystemPrompts(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     const adapter = this.storageService.getAdapter();
     return await adapter.getSystemPrompts(queryParams, page, limit, profileId);
   }
@@ -170,18 +194,32 @@ export class UnifiedStorageService {
   }
 
   // Background Agent operations
-  async getBackgroundAgents(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getBackgroundAgents(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).getBackgroundAgents !== 'function') {
-      throw new Error('Background Agents are not supported by the current storage adapter');
+      throw new Error(
+        'Background Agents are not supported by the current storage adapter'
+      );
     }
-    return await (adapter as any).getBackgroundAgents(queryParams, page, limit, profileId);
+    return await (adapter as any).getBackgroundAgents(
+      queryParams,
+      page,
+      limit,
+      profileId
+    );
   }
 
   async getBackgroundAgentById(agentId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).getBackgroundAgentById !== 'function') {
-      throw new Error('Background Agents are not supported by the current storage adapter');
+      throw new Error(
+        'Background Agents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).getBackgroundAgentById(agentId);
   }
@@ -189,7 +227,9 @@ export class UnifiedStorageService {
   async createBackgroundAgent(agent: any, profileId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).createBackgroundAgent !== 'function') {
-      throw new Error('Background Agents are not supported by the current storage adapter');
+      throw new Error(
+        'Background Agents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).createBackgroundAgent(agent, profileId);
   }
@@ -197,7 +237,9 @@ export class UnifiedStorageService {
   async updateBackgroundAgent(agent: any, profileId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).updateBackgroundAgent !== 'function') {
-      throw new Error('Background Agents are not supported by the current storage adapter');
+      throw new Error(
+        'Background Agents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).updateBackgroundAgent(agent, profileId);
   }
@@ -205,24 +247,40 @@ export class UnifiedStorageService {
   async deleteBackgroundAgent(agentId: string): Promise<string> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).deleteBackgroundAgent !== 'function') {
-      throw new Error('Background Agents are not supported by the current storage adapter');
+      throw new Error(
+        'Background Agents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).deleteBackgroundAgent(agentId);
   }
 
   // Document operations
-  async getDocuments(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getDocuments(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).getDocuments !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
-    return await (adapter as any).getDocuments(queryParams, page, limit, profileId);
+    return await (adapter as any).getDocuments(
+      queryParams,
+      page,
+      limit,
+      profileId
+    );
   }
 
   async getDocumentById(documentId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).getDocumentById !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).getDocumentById(documentId);
   }
@@ -230,7 +288,9 @@ export class UnifiedStorageService {
   async createDocument(document: any, profileId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).createDocument !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).createDocument(document, profileId);
   }
@@ -238,7 +298,9 @@ export class UnifiedStorageService {
   async updateDocument(document: any, profileId: string): Promise<any> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).updateDocument !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).updateDocument(document, profileId);
   }
@@ -250,23 +312,32 @@ export class UnifiedStorageService {
    * @param profileId - The profile ID that owns the document
    * @returns The updated document
    */
-  async appendTextToDocument(documentId: string, text: string, profileId: string): Promise<any> {
+  async appendTextToDocument(
+    documentId: string,
+    text: string,
+    profileId: string
+  ): Promise<any> {
     const adapter = this.storageService.getAdapter();
-    if (typeof (adapter as any).getDocumentById !== 'function' || typeof (adapter as any).updateDocument !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+    if (
+      typeof (adapter as any).getDocumentById !== 'function'
+      || typeof (adapter as any).updateDocument !== 'function'
+    ) {
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
-    
+
     // Get the current document
     const document = await (adapter as any).getDocumentById(documentId);
-    
+
     if (!document) {
       throw new Error(`Document with ID ${documentId} not found`);
     }
-    
+
     // Append text with a newline separator (add double newline for markdown paragraph separation)
     const separator = document.content.trim().length > 0 ? '\n\n---\n\n' : '';
     const updatedContent = document.content + separator + text;
-    
+
     // Update the document
     return await (adapter as any).updateDocument(
       { ...document, content: updatedContent },
@@ -277,7 +348,9 @@ export class UnifiedStorageService {
   async deleteDocument(documentId: string): Promise<void> {
     const adapter = this.storageService.getAdapter();
     if (typeof (adapter as any).deleteDocument !== 'function') {
-      throw new Error('Documents are not supported by the current storage adapter');
+      throw new Error(
+        'Documents are not supported by the current storage adapter'
+      );
     }
     return await (adapter as any).deleteDocument(documentId);
   }
@@ -293,11 +366,16 @@ export class UnifiedStorageService {
    */
   async clearAllCloudDatabaseFiles(): Promise<void> {
     const adapter = this.storageService.getAdapter();
-    // Check if the adapter supports clearing database files 
-    if ('clearAllCloudDatabaseFiles' in adapter && typeof adapter.clearAllCloudDatabaseFiles === 'function') {
+    // Check if the adapter supports clearing database files
+    if (
+      'clearAllCloudDatabaseFiles' in adapter
+      && typeof adapter.clearAllCloudDatabaseFiles === 'function'
+    ) {
       return await (adapter as any).clearAllCloudDatabaseFiles();
     } else {
-      throw new Error('Clear cloud database files not supported by current storage adapter');
+      throw new Error(
+        'Clear cloud database files not supported by current storage adapter'
+      );
     }
   }
 

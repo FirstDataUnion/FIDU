@@ -11,13 +11,15 @@ import { MetricsService } from '../services/metrics/MetricsService';
 function getCurrentPage(): string {
   const path = window.location.pathname;
   const basePath = '/fidu-chat-lab';
-  
+
   // Remove base path if present
-  let cleanPath = path.startsWith(basePath) ? path.substring(basePath.length) : path;
-  
+  let cleanPath = path.startsWith(basePath)
+    ? path.substring(basePath.length)
+    : path;
+
   // Remove leading slash
   cleanPath = cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath;
-  
+
   // Use route name or default to 'root'
   return cleanPath || 'root';
 }
@@ -49,12 +51,12 @@ function getErrorType(error: any): string {
  */
 export function initializeErrorTracking(): void {
   // Track uncaught errors
-  window.addEventListener('error', (event) => {
+  window.addEventListener('error', event => {
     const errorType = getErrorType(event.error);
     const page = getCurrentPage();
-    
+
     console.error('🔴 [ErrorTracking] Uncaught error:', event.error);
-    
+
     MetricsService.recordError(errorType, page, {
       message: event.message,
       filename: event.filename || 'unknown',
@@ -64,12 +66,15 @@ export function initializeErrorTracking(): void {
   });
 
   // Track unhandled promise rejections
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener('unhandledrejection', event => {
     const errorType = 'UnhandledPromiseRejection';
     const page = getCurrentPage();
-    
-    console.error('🔴 [ErrorTracking] Unhandled promise rejection:', event.reason);
-    
+
+    console.error(
+      '🔴 [ErrorTracking] Unhandled promise rejection:',
+      event.reason
+    );
+
     MetricsService.recordError(errorType, page, {
       reason: String(event.reason),
     });
@@ -84,7 +89,7 @@ export function initializeErrorTracking(): void {
 export function trackError(error: any, context?: Record<string, string>): void {
   const errorType = getErrorType(error);
   const page = getCurrentPage();
-  
+
   MetricsService.recordError(errorType, page, {
     message: error?.message || String(error),
     ...context,
@@ -94,9 +99,13 @@ export function trackError(error: any, context?: Record<string, string>): void {
 /**
  * Track API errors specifically
  */
-export function trackApiError(endpoint: string, statusCode: number, errorMessage?: string): void {
+export function trackApiError(
+  endpoint: string,
+  statusCode: number,
+  errorMessage?: string
+): void {
   const page = getCurrentPage();
-  
+
   MetricsService.recordError('ApiError', page, {
     endpoint,
     status_code: String(statusCode),
@@ -107,9 +116,13 @@ export function trackApiError(endpoint: string, statusCode: number, errorMessage
 /**
  * Track storage errors
  */
-export function trackStorageError(adapter: string, operation: string, errorMessage: string): void {
+export function trackStorageError(
+  adapter: string,
+  operation: string,
+  errorMessage: string
+): void {
   const page = getCurrentPage();
-  
+
   MetricsService.recordError('StorageError', page, {
     adapter,
     operation,
@@ -122,10 +135,9 @@ export function trackStorageError(adapter: string, operation: string, errorMessa
  */
 export function trackAuthError(provider: string, errorMessage: string): void {
   const page = getCurrentPage();
-  
+
   MetricsService.recordError('AuthError', page, {
     provider,
     message: errorMessage,
   });
 }
-

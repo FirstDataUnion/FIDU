@@ -3,10 +3,10 @@
  * This adapter implements the storage interface for local mode
  */
 
-import type { 
-  StorageAdapter, 
-  ConversationsResponse, 
-  StorageConfig 
+import type {
+  StorageAdapter,
+  ConversationsResponse,
+  StorageConfig,
 } from '../types';
 import type { Conversation, Message, FilterOptions } from '../../../types';
 import { conversationsApi } from '../../api/conversations';
@@ -39,26 +39,35 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // Conversation operations
   async createConversation(
-    profileId: string, 
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    profileId: string,
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
-    return await conversationsApi.createConversation(profileId, conversation, messages, originalPrompt);
+    return await conversationsApi.createConversation(
+      profileId,
+      conversation,
+      messages,
+      originalPrompt
+    );
   }
 
   async updateConversation(
-    conversation: Partial<Conversation>, 
-    messages: Message[], 
+    conversation: Partial<Conversation>,
+    messages: Message[],
     originalPrompt?: Conversation['originalPrompt']
   ): Promise<Conversation> {
-    return await conversationsApi.updateConversation(conversation, messages, originalPrompt);
+    return await conversationsApi.updateConversation(
+      conversation,
+      messages,
+      originalPrompt
+    );
   }
 
   async getConversations(
-    filters?: FilterOptions, 
-    page = 1, 
-    limit = 20, 
+    filters?: FilterOptions,
+    page = 1,
+    limit = 20,
     profileId?: string
   ): Promise<ConversationsResponse> {
     return await conversationsApi.getAll(filters, page, limit, profileId);
@@ -74,31 +83,46 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
-    return await apiKeyService.getAPIKeyForProvider(provider as 'openai' | 'anthropic' | 'google');
+    return await apiKeyService.getAPIKeyForProvider(
+      provider as 'openai' | 'anthropic' | 'google'
+    );
   }
 
   async isAPIKeyAvailable(provider: string): Promise<boolean> {
-    return await apiKeyService.isAPIKeyAvailable(provider as 'openai' | 'anthropic' | 'google');
+    return await apiKeyService.isAPIKeyAvailable(
+      provider as 'openai' | 'anthropic' | 'google'
+    );
   }
 
   async getAllAPIKeys(): Promise<any[]> {
     // In local mode, API keys are managed through FIDU Vault UI
-    console.warn('[LocalStorageAdapter] getAllAPIKeys not supported in local mode. Manage API keys through FIDU Vault.');
+    console.warn(
+      '[LocalStorageAdapter] getAllAPIKeys not supported in local mode. Manage API keys through FIDU Vault.'
+    );
     return [];
   }
 
   async saveAPIKey(_provider: string, _apiKey: string): Promise<any> {
     // In local mode, API keys are managed through FIDU Vault UI
-    throw new Error('API key management not supported in local mode. Please use FIDU Vault to manage API keys.');
+    throw new Error(
+      'API key management not supported in local mode. Please use FIDU Vault to manage API keys.'
+    );
   }
 
   async deleteAPIKey(_id: string): Promise<void> {
     // In local mode, API keys are managed through FIDU Vault UI
-    throw new Error('API key management not supported in local mode. Please use FIDU Vault to manage API keys.');
+    throw new Error(
+      'API key management not supported in local mode. Please use FIDU Vault to manage API keys.'
+    );
   }
 
   // Context operations
-  async getContexts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getContexts(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     return await contextsApi.getAll(queryParams, page, limit, profileId);
   }
 
@@ -120,7 +144,12 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 
   // System Prompt operations
-  async getSystemPrompts(queryParams?: any, page = 1, limit = 20, profileId?: string): Promise<any> {
+  async getSystemPrompts(
+    queryParams?: any,
+    page = 1,
+    limit = 20,
+    profileId?: string
+  ): Promise<any> {
     return await systemPromptsApi.getAll(queryParams, page, limit, profileId);
   }
 
@@ -154,7 +183,9 @@ export class LocalStorageAdapter implements StorageAdapter {
   // Helper methods
   private ensureInitialized(): void {
     if (!this.isInitialized()) {
-      throw new Error('Local storage adapter not initialized. Please configure your storage options in Settings first.');
+      throw new Error(
+        'Local storage adapter not initialized. Please configure your storage options in Settings first.'
+      );
     }
   }
 }

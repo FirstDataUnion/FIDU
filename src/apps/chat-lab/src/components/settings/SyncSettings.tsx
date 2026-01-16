@@ -14,7 +14,7 @@ import {
   Select,
   MenuItem,
   FormHelperText,
-  Alert
+  Alert,
 } from '@mui/material';
 import { Schedule } from '@mui/icons-material';
 import type { SelectChangeEvent } from '@mui/material';
@@ -25,30 +25,34 @@ import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageS
 
 export const SyncSettings: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { settings } = useAppSelector((state) => state.settings);
+  const { settings } = useAppSelector(state => state.settings);
   const unifiedStorage = useUnifiedStorage();
-  
+
   // Only show sync settings for Google Drive (cloud) mode
   const isCloudStorageMode = unifiedStorage.mode === 'cloud';
 
   const handleSyncDelayChange = (event: SelectChangeEvent<number>) => {
     const newDelay = event.target.value as number;
     console.log('🔍 [SyncSettings] Changing delay to:', newDelay);
-    
+
     dispatch(updateSyncDelay(newDelay));
-    
+
     // Update the smart auto-sync service with new delay
     try {
       const storageService = getUnifiedStorageService();
       const adapter = storageService.getAdapter();
-      
+
       console.log('🔍 [SyncSettings] Adapter:', adapter);
-      
+
       if ('updateAutoSyncConfig' in adapter) {
-        console.log('🔍 [SyncSettings] Calling updateAutoSyncConfig with:', { delayMinutes: newDelay });
+        console.log('🔍 [SyncSettings] Calling updateAutoSyncConfig with:', {
+          delayMinutes: newDelay,
+        });
         (adapter as any).updateAutoSyncConfig({ delayMinutes: newDelay });
       } else {
-        console.warn('🔍 [SyncSettings] Adapter does not have updateAutoSyncConfig method');
+        console.warn(
+          '🔍 [SyncSettings] Adapter does not have updateAutoSyncConfig method'
+        );
       }
     } catch (error) {
       console.error('Failed to update auto-sync config:', error);
@@ -77,10 +81,11 @@ export const SyncSettings: React.FC = () => {
             Auto-Sync Settings
           </Typography>
         </Box>
-        
+
         <Alert severity="info" sx={{ mb: 3 }}>
-          Auto-sync automatically uploads your data to Google Drive after changes are made. 
-          The delay determines how long to wait before syncing to avoid interrupting your workflow.
+          Auto-sync automatically uploads your data to Google Drive after
+          changes are made. The delay determines how long to wait before syncing
+          to avoid interrupting your workflow.
         </Alert>
 
         <FormControl fullWidth>
@@ -91,20 +96,32 @@ export const SyncSettings: React.FC = () => {
             label="Auto-Sync Delay"
             onChange={handleSyncDelayChange}
           >
-            {delayOptions.map((option) => (
+            {delayOptions.map(option => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
               </MenuItem>
             ))}
           </Select>
           <FormHelperText>
-            How long to wait before automatically syncing changes to Google Drive
+            How long to wait before automatically syncing changes to Google
+            Drive
           </FormHelperText>
         </FormControl>
 
-        <Box sx={{ mt: 2, p: 2, backgroundColor: 'background.default', borderRadius: 1 }}>
+        <Box
+          sx={{
+            mt: 2,
+            p: 2,
+            backgroundColor: 'background.default',
+            borderRadius: 1,
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
-            <strong>Current setting:</strong> Auto-sync will trigger {settings.syncSettings.autoSyncDelayMinutes === 1 ? 'immediately' : `after ${settings.syncSettings.autoSyncDelayMinutes} minutes`} when data changes are detected.
+            <strong>Current setting:</strong> Auto-sync will trigger{' '}
+            {settings.syncSettings.autoSyncDelayMinutes === 1
+              ? 'immediately'
+              : `after ${settings.syncSettings.autoSyncDelayMinutes} minutes`}{' '}
+            when data changes are detected.
           </Typography>
         </Box>
       </CardContent>

@@ -1,6 +1,6 @@
 /**
  * Simplified tests for useFiduAuth hook
- * 
+ *
  * Focus: Core authentication logic (token handling, errors, logout flow)
  * Simplified: Mock setup is minimal - just what's needed for the tests
  */
@@ -8,7 +8,10 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useFiduAuth } from '../useFiduAuth';
 import * as logoutCoordinator from '../../services/auth/logoutCoordinator';
-import { AuthenticationRequiredError, getFiduAuthService } from '../../services/auth/FiduAuthService';
+import {
+  AuthenticationRequiredError,
+  getFiduAuthService,
+} from '../../services/auth/FiduAuthService';
 import { IdentityServiceUser } from '../../types';
 
 // Minimal mocks - only what's necessary
@@ -21,30 +24,33 @@ jest.mock('../../utils/environment', () => ({
 }));
 
 jest.mock('../../services/auth/FiduAuthService', () => {
-    const actual = jest.requireActual('../../services/auth/FiduAuthService');
-    const mockFiduAuthServiceInstance = {
-      setTokens: jest.fn().mockResolvedValue(true),
-      clearTokens: jest.fn().mockResolvedValue(true),
-      getTokens: jest.fn().mockResolvedValue({ access_token: 'test-token' }),
-      clearAllAuthTokens: jest.fn(),
-      // For the real apiClientIdentityService implementation of externalUserToInternalUser
-      createAuthInterceptor: jest.fn(() => ({
-        request: jest.fn((config) => config),
-        response: jest.fn((response) => response),
-        error: jest.fn(),
-      })),
-    } as unknown as jest.Mocked<ReturnType<typeof getFiduAuthService>>;
+  const actual = jest.requireActual('../../services/auth/FiduAuthService');
+  const mockFiduAuthServiceInstance = {
+    setTokens: jest.fn().mockResolvedValue(true),
+    clearTokens: jest.fn().mockResolvedValue(true),
+    getTokens: jest.fn().mockResolvedValue({ access_token: 'test-token' }),
+    clearAllAuthTokens: jest.fn(),
+    // For the real apiClientIdentityService implementation of externalUserToInternalUser
+    createAuthInterceptor: jest.fn(() => ({
+      request: jest.fn(config => config),
+      response: jest.fn(response => response),
+      error: jest.fn(),
+    })),
+  } as unknown as jest.Mocked<ReturnType<typeof getFiduAuthService>>;
 
-    return {
-      getFiduAuthService: jest.fn(() => mockFiduAuthServiceInstance),
-      AuthenticationRequiredError: actual.AuthenticationRequiredError,
-    };
-  },
-);
-const mockFiduAuthService = getFiduAuthService() as jest.Mocked<ReturnType<typeof getFiduAuthService>>;
+  return {
+    getFiduAuthService: jest.fn(() => mockFiduAuthServiceInstance),
+    AuthenticationRequiredError: actual.AuthenticationRequiredError,
+  };
+});
+const mockFiduAuthService = getFiduAuthService() as jest.Mocked<
+  ReturnType<typeof getFiduAuthService>
+>;
 
 jest.mock('../../services/api/apiClientIdentityService', () => ({
-  externalUserToInternalUser: jest.requireActual('../../services/api/apiClientIdentityService').externalUserToInternalUser,
+  externalUserToInternalUser: jest.requireActual(
+    '../../services/api/apiClientIdentityService'
+  ).externalUserToInternalUser,
 }));
 
 jest.mock('../../services/auth/logoutCoordinator', () => ({
@@ -63,11 +69,10 @@ jest.mock('../../hooks/redux', () => ({
     return selector({
       auth: {
         isAuthenticated: mockIsAuthenticated(),
-      }
+      },
     });
   }),
 }));
-
 
 const testIdentityServiceUser: IdentityServiceUser = {
   id: 'user-123',
@@ -119,7 +124,9 @@ describe('useFiduAuth (Simplified)', () => {
     });
 
     it('should handle authentication errors', async () => {
-      (mockFiduAuthService.setTokens as jest.Mock).mockRejectedValueOnce(new AuthenticationRequiredError());
+      (mockFiduAuthService.setTokens as jest.Mock).mockRejectedValueOnce(
+        new AuthenticationRequiredError()
+      );
 
       const { result } = renderHook(() => useFiduAuth(mockOnError));
 
@@ -144,7 +151,9 @@ describe('useFiduAuth (Simplified)', () => {
       result.current.handleAuthError(new Error('Auth failed'));
 
       expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
-      expect(mockOnError).toHaveBeenCalledWith('Authentication failed. Please try again.');
+      expect(mockOnError).toHaveBeenCalledWith(
+        'Authentication failed. Please try again.'
+      );
     });
   });
 
@@ -152,7 +161,7 @@ describe('useFiduAuth (Simplified)', () => {
     it('should trigger logout coordination when authenticated', () => {
       // Mock user as authenticated
       mockIsAuthenticated.mockReturnValueOnce(true);
-      
+
       const { result } = renderHook(() => useFiduAuth(mockOnError));
 
       result.current.handleLogout();
@@ -163,7 +172,7 @@ describe('useFiduAuth (Simplified)', () => {
     it('should skip logout if user is already logged out', () => {
       // Mock user as not authenticated (default)
       mockIsAuthenticated.mockReturnValueOnce(false);
-      
+
       const { result } = renderHook(() => useFiduAuth(mockOnError));
 
       result.current.handleLogout();
@@ -191,14 +200,13 @@ describe('useFiduAuth (Simplified)', () => {
    * - Successful authentication
    * - Error handling
    * - Logout coordination
-   * 
+   *
    * Removed tests for:
    * - Token format variations (string vs object) - implementation detail
    * - Cookie setting - browser behavior
    * - Email allowlist - tested separately in integration tests
    * - Edge cases that are less likely to break
-   * 
+   *
    * This gives us confidence in the core logic without brittle setup
    */
 });
-

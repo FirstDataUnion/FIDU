@@ -43,12 +43,13 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'NLP Workbench',
     agentId: 'agent-1760704967617415350',
     maxTokens: 128000,
-    description: 'Intelligent routing system that automatically selects the best model for your task',
+    description:
+      'Intelligent routing system that automatically selects the best model for your task',
     capabilities: ['routing', 'optimization', 'task-analysis'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
-    executionPath: 'openrouter'
+    executionPath: 'openrouter',
   },
 
   // OpenAI Models
@@ -58,13 +59,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705053398115593',
     maxTokens: 16385,
-    description: 'Fast and cost-effective model for simple tasks and quick responses',
+    description:
+      'Fast and cost-effective model for simple tasks and quick responses',
     capabilities: ['text-generation', 'conversation', 'summarization'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-3.5-turbo-instruct': {
     id: 'gpt-3.5-turbo-instruct',
@@ -72,13 +74,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705089403635100',
     maxTokens: 16385,
-    description: 'Instruction-tuned version optimized for following specific directions',
-    capabilities: ['instruction-following', 'task-completion', 'structured-output'],
+    description:
+      'Instruction-tuned version optimized for following specific directions',
+    capabilities: [
+      'instruction-following',
+      'task-completion',
+      'structured-output',
+    ],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4': {
     id: 'gpt-4',
@@ -86,13 +93,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705320712272823',
     maxTokens: 128000,
-    description: 'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
+    description:
+      'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
     capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-turbo': {
     id: 'gpt-4-turbo',
@@ -106,7 +114,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o': {
     id: 'gpt-4o',
@@ -114,13 +122,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705506337652774',
     maxTokens: 128000,
-    description: 'Multimodal GPT-4 model with vision capabilities and enhanced performance',
+    description:
+      'Multimodal GPT-4 model with vision capabilities and enhanced performance',
     capabilities: ['multimodal', 'vision', 'reasoning', 'analysis'],
     category: 'multimodal',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-search-preview': {
     id: 'gpt-4o-search-preview',
@@ -128,13 +137,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705560426328350',
     maxTokens: 128000,
-    description: 'GPT-4o with real-time web search capabilities for current information',
+    description:
+      'GPT-4o with real-time web search capabilities for current information',
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini': {
     id: 'gpt-4o-mini',
@@ -142,13 +152,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705613286137890',
     maxTokens: 128000,
-    description: 'Compact GPT-4o model for cost-effective usage with good performance',
+    description:
+      'Compact GPT-4o model for cost-effective usage with good performance',
     capabilities: ['multimodal', 'reasoning', 'cost-effective'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini-search-preview': {
     id: 'gpt-4o-mini-search-preview',
@@ -156,13 +167,19 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705659828798869',
     maxTokens: 128000,
-    description: 'GPT-4o Mini with web search capabilities for current information',
-    capabilities: ['web-search', 'real-time-info', 'multimodal', 'cost-effective'],
+    description:
+      'GPT-4o Mini with web search capabilities for current information',
+    capabilities: [
+      'web-search',
+      'real-time-info',
+      'multimodal',
+      'cost-effective',
+    ],
     category: 'search',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5': {
     id: 'gpt-5',
@@ -170,13 +187,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705693833449461',
     maxTokens: 128000,
-    description: 'Latest GPT-5 model with advanced capabilities and improved reasoning',
+    description:
+      'Latest GPT-5 model with advanced capabilities and improved reasoning',
     capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-mini': {
     id: 'gpt-5-mini',
@@ -184,13 +202,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705730738170554',
     maxTokens: 128000,
-    description: 'Compact GPT-5 model for efficient processing with advanced capabilities',
-    capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
+    description:
+      'Compact GPT-5 model for efficient processing with advanced capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'efficient-processing',
+      'cost-effective',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-nano': {
     id: 'gpt-5-nano',
@@ -204,10 +227,10 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
-  // GPT-5-Pro is very expensive and slow, often causing requests to timeout. 
-  // Going to leave it out for now, but it's an option. 
+  // GPT-5-Pro is very expensive and slow, often causing requests to timeout.
+  // Going to leave it out for now, but it's an option.
   // 'gpt-5-pro': {
   //   id: 'gpt-5-pro',
   //   name: 'GPT-5 Pro',
@@ -228,13 +251,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1761212031501504422',
     maxTokens: 128000,
-    description: 'Open Source GPT-20B model with fantastic performance and good capabilities',
+    description:
+      'Open Source GPT-20B model with fantastic performance and good capabilities',
     capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-oss-120b': {
     id: 'gpt-oss-120b',
@@ -242,13 +266,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760960117597658953',
     maxTokens: 128000,
-    description: 'Open Source GPT-120B model with maximum capabilities and performance',
+    description:
+      'Open Source GPT-120B model with maximum capabilities and performance',
     capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5.2': {
     id: 'gpt-5.2',
@@ -256,13 +281,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1765539267526666554',
     maxTokens: 400000,
-    description: 'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
+    description:
+      'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
     capabilities: ['advanced-reasoning', 'general-use', 'long-context'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5.2-chat': {
     id: 'gpt-5.2-chat',
@@ -270,13 +296,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1765539293026890574',
     maxTokens: 128000,
-    description: 'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
+    description:
+      'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
     capabilities: ['fast-responses', 'general-use', 'conversation'],
     category: 'general',
     costTier: 'premium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
 
   // Anthropic Claude Models
@@ -292,7 +319,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-haiku-3.5': {
     id: 'claude-haiku-3.5',
@@ -300,13 +327,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706358784244479',
     maxTokens: 200000,
-    description: 'Enhanced Claude Haiku with improved performance and capabilities',
+    description:
+      'Enhanced Claude Haiku with improved performance and capabilities',
     capabilities: ['fast-responses', 'improved-performance', 'conversation'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-opus-4': {
     id: 'claude-opus-4',
@@ -314,13 +342,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706383558420507',
     maxTokens: 200000,
-    description: 'Most capable Claude model with advanced reasoning and analysis capabilities',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'creative-writing'],
+    description:
+      'Most capable Claude model with advanced reasoning and analysis capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'creative-writing',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-opus-4.1': {
     id: 'claude-opus-4.1',
@@ -328,13 +361,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706407136556576',
     maxTokens: 200000,
-    description: 'Enhanced Claude Opus with improved reasoning and updated knowledge',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
+    description:
+      'Enhanced Claude Opus with improved reasoning and updated knowledge',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'updated-knowledge',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-3.7': {
     id: 'claude-sonnet-3.7',
@@ -348,7 +386,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-4': {
     id: 'claude-sonnet-4',
@@ -356,13 +394,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706461560174997',
     maxTokens: 200000,
-    description: 'Enhanced Claude Sonnet with improved capabilities and performance',
-    capabilities: ['improved-capabilities', 'balanced-performance', 'general-use'],
+    description:
+      'Enhanced Claude Sonnet with improved capabilities and performance',
+    capabilities: [
+      'improved-capabilities',
+      'balanced-performance',
+      'general-use',
+    ],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-4.5': {
     id: 'claude-sonnet-4.5',
@@ -370,13 +413,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706478542170589',
     maxTokens: 200000,
-    description: 'Latest Claude Sonnet with enhanced performance and capabilities',
+    description:
+      'Latest Claude Sonnet with enhanced performance and capabilities',
     capabilities: ['latest-features', 'enhanced-performance', 'general-use'],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
 
   // Google Gemini Models
@@ -386,13 +430,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706522943960820',
     maxTokens: 32768,
-    description: 'Fast and efficient Gemini model for quick responses and general tasks',
+    description:
+      'Fast and efficient Gemini model for quick responses and general tasks',
     capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.0-flash-lite': {
     id: 'gemini-2.0-flash-lite',
@@ -400,13 +445,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706551033086790',
     maxTokens: 32768,
-    description: 'Ultra-lightweight Gemini model for maximum speed and efficiency',
+    description:
+      'Ultra-lightweight Gemini model for maximum speed and efficiency',
     capabilities: ['ultra-fast', 'lightweight', 'efficient'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
@@ -414,13 +460,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706590897101696',
     maxTokens: 32768,
-    description: 'Enhanced Gemini Flash with improved performance and capabilities',
+    description:
+      'Enhanced Gemini Flash with improved performance and capabilities',
     capabilities: ['improved-performance', 'fast-responses', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-flash-lite': {
     id: 'gemini-2.5-flash-lite',
@@ -434,7 +481,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-pro': {
     id: 'gemini-2.5-pro',
@@ -442,13 +489,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706637079605131',
     maxTokens: 32768,
-    description: 'Google\'s most capable Gemini model for complex tasks and advanced reasoning',
+    description:
+      "Google's most capable Gemini model for complex tasks and advanced reasoning",
     capabilities: ['advanced-reasoning', 'complex-tasks', 'multimodal'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-3-pro-preview': {
     id: 'gemini-3-pro-preview',
@@ -456,13 +504,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1764583614624156727',
     maxTokens: 1000000,
-    description: 'Gemini 3 Pro is Google\'s flagship frontier model for high-precision multimodal reasoning',
+    description:
+      "Gemini 3 Pro is Google's flagship frontier model for high-precision multimodal reasoning",
     capabilities: ['advanced-reasoning', 'programming', 'multimodal'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-3-flash-preview': {
     id: 'gemini-3-flash-preview',
@@ -470,13 +519,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1766054495312101606',
     maxTokens: 1000000,
-    description: 'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
+    description:
+      'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
     capabilities: ['fast-responses', 'conversation', 'coding'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
 
   // Meta Llama Models
@@ -486,13 +536,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Meta',
     agentId: 'agent-1760706657551628343',
     maxTokens: 128000,
-    description: 'Advanced Llama model with enhanced capabilities and performance',
-    capabilities: ['advanced-capabilities', 'enhanced-performance', 'reasoning'],
+    description:
+      'Advanced Llama model with enhanced capabilities and performance',
+    capabilities: [
+      'advanced-capabilities',
+      'enhanced-performance',
+      'reasoning',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'meta'
+    providerKey: 'meta',
   },
   'llama-4-scout': {
     id: 'llama-4-scout',
@@ -500,13 +555,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Meta',
     agentId: 'agent-1760706677004528555',
     maxTokens: 128000,
-    description: 'Efficient Llama model optimized for speed and cost-effectiveness',
+    description:
+      'Efficient Llama model optimized for speed and cost-effectiveness',
     capabilities: ['efficient-processing', 'cost-effective', 'fast-responses'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'meta'
+    providerKey: 'meta',
   },
 
   // Mistral Models
@@ -516,13 +572,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760706702760080740',
     maxTokens: 128000,
-    description: 'Balanced Mistral model with good performance for general tasks',
+    description:
+      'Balanced Mistral model with good performance for general tasks',
     capabilities: ['balanced-performance', 'general-tasks', 'reasoning'],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-codestral-2508': {
     id: 'mistral-codestral-2508',
@@ -530,13 +587,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707034347611905',
     maxTokens: 128000,
-    description: 'Specialized Mistral model optimized for coding and programming tasks',
+    description:
+      'Specialized Mistral model optimized for coding and programming tasks',
     capabilities: ['coding', 'programming', 'code-generation', 'debugging'],
     category: 'coding',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-ministral-3b': {
     id: 'mistral-ministral-3b',
@@ -544,13 +602,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707075366443333',
     maxTokens: 128000,
-    description: 'Compact 3B parameter Mistral model for fast and efficient processing',
+    description:
+      'Compact 3B parameter Mistral model for fast and efficient processing',
     capabilities: ['fast-processing', 'efficient', 'lightweight'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-ministral-8b': {
     id: 'mistral-ministral-8b',
@@ -558,13 +617,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707108767100052',
     maxTokens: 128000,
-    description: '8B parameter Mistral model with balanced performance and efficiency',
+    description:
+      '8B parameter Mistral model with balanced performance and efficiency',
     capabilities: ['balanced-performance', 'efficient', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-small': {
     id: 'mistral-small',
@@ -578,7 +638,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-tiny': {
     id: 'mistral-tiny',
@@ -592,7 +652,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-large': {
     id: 'mistral-large',
@@ -600,13 +660,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707180706454867',
     maxTokens: 128000,
-    description: 'Large Mistral model with advanced capabilities for complex tasks',
+    description:
+      'Large Mistral model with advanced capabilities for complex tasks',
     capabilities: ['advanced-capabilities', 'complex-tasks', 'reasoning'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
 
   // Microsoft Phi Models
@@ -616,13 +677,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707202082019962',
     maxTokens: 128000,
-    description: 'Microsoft\'s Phi-4 model with strong reasoning and mathematical capabilities',
+    description:
+      "Microsoft's Phi-4 model with strong reasoning and mathematical capabilities",
     capabilities: ['reasoning', 'mathematics', 'analysis'],
     category: 'reasoning',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
   'microsoft-phi-4-multimodal': {
     id: 'microsoft-phi-4-multimodal',
@@ -630,13 +692,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707223792061056',
     maxTokens: 128000,
-    description: 'Multimodal Phi-4 model with vision and text processing capabilities',
+    description:
+      'Multimodal Phi-4 model with vision and text processing capabilities',
     capabilities: ['multimodal', 'vision', 'reasoning', 'mathematics'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
   'microsoft-phi-4-reasoning-plus': {
     id: 'microsoft-phi-4-reasoning-plus',
@@ -644,13 +707,19 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707248047608924',
     maxTokens: 128000,
-    description: 'Enhanced Phi-4 model with advanced reasoning and problem-solving capabilities',
-    capabilities: ['advanced-reasoning', 'problem-solving', 'mathematics', 'analysis'],
+    description:
+      'Enhanced Phi-4 model with advanced reasoning and problem-solving capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'problem-solving',
+      'mathematics',
+      'analysis',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
 
   // xAI Grok Models
@@ -660,13 +729,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707269037134547',
     maxTokens: 128000,
-    description: 'xAI\'s Grok-3 model with real-time information access and conversational capabilities',
+    description:
+      "xAI's Grok-3 model with real-time information access and conversational capabilities",
     capabilities: ['real-time-info', 'conversation', 'reasoning'],
     category: 'search',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-3-mini': {
     id: 'grok-3-mini',
@@ -674,13 +744,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707632555954554',
     maxTokens: 128000,
-    description: 'Compact Grok-3 model for efficient processing with real-time capabilities',
+    description:
+      'Compact Grok-3 model for efficient processing with real-time capabilities',
     capabilities: ['real-time-info', 'efficient-processing', 'conversation'],
     category: 'search',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-4': {
     id: 'grok-4',
@@ -688,13 +759,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707653003847088',
     maxTokens: 128000,
-    description: 'Advanced Grok-4 model with enhanced reasoning and real-time information access',
+    description:
+      'Advanced Grok-4 model with enhanced reasoning and real-time information access',
     capabilities: ['advanced-reasoning', 'real-time-info', 'conversation'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-4-fast': {
     id: 'grok-4-fast',
@@ -702,16 +774,15 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707675878618837',
     maxTokens: 128000,
-    description: 'Fast Grok-4 model optimized for speed while maintaining advanced capabilities',
+    description:
+      'Fast Grok-4 model optimized for speed while maintaining advanced capabilities',
     capabilities: ['advanced-reasoning', 'real-time-info', 'fast-processing'],
     category: 'search',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'xai'
-  }
-  ,
-
+    providerKey: 'xai',
+  },
   // ===== Direct (non-OpenRouter) Models =====
   // Google Gemini (Direct)
   'gemini-2.5-flash-lite-direct': {
@@ -720,13 +791,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1757247536134017642',
     maxTokens: 32768,
-    description: 'Ultra-lightweight Gemini model for maximum speed and efficiency',
+    description:
+      'Ultra-lightweight Gemini model for maximum speed and efficiency',
     capabilities: ['ultra-fast', 'lightweight', 'efficient'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.0-flash-direct': {
     id: 'gemini-2.0-flash-direct',
@@ -734,13 +806,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1757247513434443545',
     maxTokens: 32768,
-    description: 'Fast and efficient Gemini model for quick responses and general tasks',
+    description:
+      'Fast and efficient Gemini model for quick responses and general tasks',
     capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'google'
+    providerKey: 'google',
   },
 
   // Anthropic Claude (Direct)
@@ -750,13 +823,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1758124239529968489',
     maxTokens: 200000,
-    description: 'Enhanced Claude Opus with improved reasoning and updated knowledge',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
+    description:
+      'Enhanced Claude Opus with improved reasoning and updated knowledge',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'updated-knowledge',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-haiku-3-direct': {
     id: 'claude-haiku-3-direct',
@@ -770,7 +848,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-3.7-direct': {
     id: 'claude-sonnet-3.7-direct',
@@ -784,7 +862,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
 
   // OpenAI GPT (Direct)
@@ -800,7 +878,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-mini-direct': {
     id: 'gpt-5-mini-direct',
@@ -808,13 +886,18 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247909361890725',
     maxTokens: 128000,
-    description: 'Compact GPT-5 model for efficient processing with advanced capabilities',
-    capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
+    description:
+      'Compact GPT-5 model for efficient processing with advanced capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'efficient-processing',
+      'cost-effective',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-direct': {
     id: 'gpt-5-direct',
@@ -822,13 +905,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247842543346249',
     maxTokens: 128000,
-    description: 'Latest GPT-5 model with advanced capabilities and improved reasoning',
+    description:
+      'Latest GPT-5 model with advanced capabilities and improved reasoning',
     capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini-direct': {
     id: 'gpt-4o-mini-direct',
@@ -836,13 +920,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247819944085397',
     maxTokens: 128000,
-    description: 'Compact GPT-4o model for cost-effective usage with good performance',
+    description:
+      'Compact GPT-4o model for cost-effective usage with good performance',
     capabilities: ['multimodal', 'reasoning', 'cost-effective'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-direct': {
     id: 'gpt-4-direct',
@@ -850,13 +935,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247792142471669',
     maxTokens: 128000,
-    description: 'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
+    description:
+      'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
     capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-turbo-direct': {
     id: 'gpt-4-turbo-direct',
@@ -870,7 +956,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'high',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-3.5-turbo-direct': {
     id: 'gpt-3.5-turbo-direct',
@@ -878,13 +964,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247699977175946',
     maxTokens: 16385,
-    description: 'Fast and cost-effective model for simple tasks and quick responses',
+    description:
+      'Fast and cost-effective model for simple tasks and quick responses',
     capabilities: ['text-generation', 'conversation', 'summarization'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-search-preview-direct': {
     id: 'gpt-4o-search-preview-direct',
@@ -892,13 +979,14 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760959407832164620',
     maxTokens: 128000,
-    description: 'GPT-4o with real-time web search capabilities for current information',
+    description:
+      'GPT-4o with real-time web search capabilities for current information',
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
 
   // Alibaba Cloud Models (OpenRouter)
@@ -909,12 +997,16 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197178541486845',
     maxTokens: 128000,
     description: 'Qwen3 Next 80B A3B Instruct',
-    capabilities: ['instruction-following', 'text-generation', 'general-purpose'],
+    capabilities: [
+      'instruction-following',
+      'text-generation',
+      'general-purpose',
+    ],
     category: 'general',
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-next-80B-A3B-thinking': {
     id: 'qwen3-next-80B-A3B-thinking',
@@ -928,7 +1020,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-VL-235B-A22B': {
     id: 'qwen3-VL-235B-A22B',
@@ -937,12 +1029,17 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197257694296252',
     maxTokens: 128000,
     description: 'Qwen3 VL 235B A22B',
-    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    capabilities: [
+      'multimodal',
+      'vision',
+      'image-understanding',
+      'text-generation',
+    ],
     category: 'multimodal',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-VL-30B-A3B': {
     id: 'qwen3-VL-30B-A3B',
@@ -951,12 +1048,17 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197314299086811',
     maxTokens: 128000,
     description: 'Qwen3 VL 30B A3B',
-    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    capabilities: [
+      'multimodal',
+      'vision',
+      'image-understanding',
+      'text-generation',
+    ],
     category: 'multimodal',
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-max': {
     id: 'qwen3-max',
@@ -965,12 +1067,16 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197360977319159',
     maxTokens: 128000,
     description: 'Qwen3 Max',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'maximum-capabilities'],
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'maximum-capabilities',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
 
   // Moonshot Models (OpenRouter)
@@ -986,7 +1092,7 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'moonshot'
+    providerKey: 'moonshot',
   },
   'kimi-k2-thinking': {
     id: 'kimi-k2-thinking',
@@ -995,12 +1101,17 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762786362617224021',
     maxTokens: 262000,
     description: 'Kimi K2 Thinking',
-    capabilities: ['reasoning', 'chain-of-thought', 'long-context', 'complex-problem-solving'],
+    capabilities: [
+      'reasoning',
+      'chain-of-thought',
+      'long-context',
+      'complex-problem-solving',
+    ],
     category: 'reasoning',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'moonshot'
+    providerKey: 'moonshot',
   },
 
   // DeepSeek Models (OpenRouter)
@@ -1011,12 +1122,16 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197488646887887',
     maxTokens: 128000,
     description: 'DeepSeek V3.2 Exp',
-    capabilities: ['reasoning', 'experimental-features', 'advanced-capabilities'],
+    capabilities: [
+      'reasoning',
+      'experimental-features',
+      'advanced-capabilities',
+    ],
     category: 'reasoning',
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'deepseek'
+    providerKey: 'deepseek',
   },
   'deepseek-r1': {
     id: 'deepseek-r1',
@@ -1025,12 +1140,17 @@ export const MODEL_CONFIGS_STAGING: Record<string, ModelConfig> = {
     agentId: 'agent-1762197522213697446',
     maxTokens: 128000,
     description: 'DeepSeek R1',
-    capabilities: ['reasoning', 'chain-of-thought', 'mathematics', 'complex-problem-solving'],
+    capabilities: [
+      'reasoning',
+      'chain-of-thought',
+      'mathematics',
+      'complex-problem-solving',
+    ],
     category: 'reasoning',
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'deepseek'
+    providerKey: 'deepseek',
   },
 };
 
@@ -1044,12 +1164,13 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'NLP Workbench',
     agentId: 'agent-1760704967617415350',
     maxTokens: 128000,
-    description: 'Intelligent routing system that automatically selects the best model for your task',
+    description:
+      'Intelligent routing system that automatically selects the best model for your task',
     capabilities: ['routing', 'optimization', 'task-analysis'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
-    executionPath: 'openrouter'
+    executionPath: 'openrouter',
   },
 
   // OpenAI Models
@@ -1059,13 +1180,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705053398115593',
     maxTokens: 16385,
-    description: 'Fast and cost-effective model for simple tasks and quick responses',
+    description:
+      'Fast and cost-effective model for simple tasks and quick responses',
     capabilities: ['text-generation', 'conversation', 'summarization'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-3.5-turbo-instruct': {
     id: 'gpt-3.5-turbo-instruct',
@@ -1073,13 +1195,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705089403635100',
     maxTokens: 16385,
-    description: 'Instruction-tuned version optimized for following specific directions',
-    capabilities: ['instruction-following', 'task-completion', 'structured-output'],
+    description:
+      'Instruction-tuned version optimized for following specific directions',
+    capabilities: [
+      'instruction-following',
+      'task-completion',
+      'structured-output',
+    ],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4': {
     id: 'gpt-4',
@@ -1087,13 +1214,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705320712272823',
     maxTokens: 128000,
-    description: 'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
+    description:
+      'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
     capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-turbo': {
     id: 'gpt-4-turbo',
@@ -1107,7 +1235,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o': {
     id: 'gpt-4o',
@@ -1115,13 +1243,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705506337652774',
     maxTokens: 128000,
-    description: 'Multimodal GPT-4 model with vision capabilities and enhanced performance',
+    description:
+      'Multimodal GPT-4 model with vision capabilities and enhanced performance',
     capabilities: ['multimodal', 'vision', 'reasoning', 'analysis'],
     category: 'multimodal',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-search-preview': {
     id: 'gpt-4o-search-preview',
@@ -1129,13 +1258,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705560426328350',
     maxTokens: 128000,
-    description: 'GPT-4o with real-time web search capabilities for current information',
+    description:
+      'GPT-4o with real-time web search capabilities for current information',
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini': {
     id: 'gpt-4o-mini',
@@ -1143,13 +1273,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705613286137890',
     maxTokens: 128000,
-    description: 'Compact GPT-4o model for cost-effective usage with good performance',
+    description:
+      'Compact GPT-4o model for cost-effective usage with good performance',
     capabilities: ['multimodal', 'reasoning', 'cost-effective'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini-search-preview': {
     id: 'gpt-4o-mini-search-preview',
@@ -1157,13 +1288,19 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705659828798869',
     maxTokens: 128000,
-    description: 'GPT-4o Mini with web search capabilities for current information',
-    capabilities: ['web-search', 'real-time-info', 'multimodal', 'cost-effective'],
+    description:
+      'GPT-4o Mini with web search capabilities for current information',
+    capabilities: [
+      'web-search',
+      'real-time-info',
+      'multimodal',
+      'cost-effective',
+    ],
     category: 'search',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5': {
     id: 'gpt-5',
@@ -1171,13 +1308,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705693833449461',
     maxTokens: 128000,
-    description: 'Latest GPT-5 model with advanced capabilities and improved reasoning',
+    description:
+      'Latest GPT-5 model with advanced capabilities and improved reasoning',
     capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-mini': {
     id: 'gpt-5-mini',
@@ -1185,13 +1323,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760705730738170554',
     maxTokens: 128000,
-    description: 'Compact GPT-5 model for efficient processing with advanced capabilities',
-    capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
+    description:
+      'Compact GPT-5 model for efficient processing with advanced capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'efficient-processing',
+      'cost-effective',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-nano': {
     id: 'gpt-5-nano',
@@ -1205,7 +1348,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-oss-20b': {
     id: 'gpt-oss-20b',
@@ -1213,13 +1356,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1761212031501504422',
     maxTokens: 128000,
-    description: 'Open Source GPT-20B model with fantastic performance and good capabilities',
+    description:
+      'Open Source GPT-20B model with fantastic performance and good capabilities',
     capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-oss-120b': {
     id: 'gpt-oss-120b',
@@ -1227,13 +1371,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760960117597658953',
     maxTokens: 128000,
-    description: 'Open Source GPT-120B model with maximum capabilities and performance',
+    description:
+      'Open Source GPT-120B model with maximum capabilities and performance',
     capabilities: ['open-source', 'advanced-reasoning', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5.2': {
     id: 'gpt-5.2',
@@ -1241,13 +1386,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1765540375246153919',
     maxTokens: 400000,
-    description: 'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
+    description:
+      'GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1',
     capabilities: ['advanced-reasoning', 'general-use', 'long-context'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5.2-chat': {
     id: 'gpt-5.2-chat',
@@ -1255,13 +1401,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1765540385077620140',
     maxTokens: 128000,
-    description: 'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
+    description:
+      'GPT-5.2 Chat (AKA Instant) is the fast, lightweight member of the 5.2 family, optimized for low-latency chat while retaining strong general intelligence',
     capabilities: ['fast-responses', 'general-use', 'conversation'],
     category: 'general',
     costTier: 'premium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
 
   // Anthropic Claude Models
@@ -1277,7 +1424,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-haiku-3.5': {
     id: 'claude-haiku-3.5',
@@ -1285,13 +1432,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706358784244479',
     maxTokens: 200000,
-    description: 'Enhanced Claude Haiku with improved performance and capabilities',
+    description:
+      'Enhanced Claude Haiku with improved performance and capabilities',
     capabilities: ['fast-responses', 'improved-performance', 'conversation'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-opus-4': {
     id: 'claude-opus-4',
@@ -1299,13 +1447,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706383558420507',
     maxTokens: 200000,
-    description: 'Most capable Claude model with advanced reasoning and analysis capabilities',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'creative-writing'],
+    description:
+      'Most capable Claude model with advanced reasoning and analysis capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'creative-writing',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-opus-4.1': {
     id: 'claude-opus-4.1',
@@ -1313,13 +1466,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706407136556576',
     maxTokens: 200000,
-    description: 'Enhanced Claude Opus with improved reasoning and updated knowledge',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
+    description:
+      'Enhanced Claude Opus with improved reasoning and updated knowledge',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'updated-knowledge',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-3.7': {
     id: 'claude-sonnet-3.7',
@@ -1333,7 +1491,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-4': {
     id: 'claude-sonnet-4',
@@ -1341,13 +1499,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706461560174997',
     maxTokens: 200000,
-    description: 'Enhanced Claude Sonnet with improved capabilities and performance',
-    capabilities: ['improved-capabilities', 'balanced-performance', 'general-use'],
+    description:
+      'Enhanced Claude Sonnet with improved capabilities and performance',
+    capabilities: [
+      'improved-capabilities',
+      'balanced-performance',
+      'general-use',
+    ],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-4.5': {
     id: 'claude-sonnet-4.5',
@@ -1355,13 +1518,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1760706478542170589',
     maxTokens: 200000,
-    description: 'Latest Claude Sonnet with enhanced performance and capabilities',
+    description:
+      'Latest Claude Sonnet with enhanced performance and capabilities',
     capabilities: ['latest-features', 'enhanced-performance', 'general-use'],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
 
   // Google Gemini Models
@@ -1371,13 +1535,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706522943960820',
     maxTokens: 32768,
-    description: 'Fast and efficient Gemini model for quick responses and general tasks',
+    description:
+      'Fast and efficient Gemini model for quick responses and general tasks',
     capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.0-flash-lite': {
     id: 'gemini-2.0-flash-lite',
@@ -1385,13 +1550,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706551033086790',
     maxTokens: 32768,
-    description: 'Ultra-lightweight Gemini model for maximum speed and efficiency',
+    description:
+      'Ultra-lightweight Gemini model for maximum speed and efficiency',
     capabilities: ['ultra-fast', 'lightweight', 'efficient'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
@@ -1399,13 +1565,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706590897101696',
     maxTokens: 32768,
-    description: 'Enhanced Gemini Flash with improved performance and capabilities',
+    description:
+      'Enhanced Gemini Flash with improved performance and capabilities',
     capabilities: ['improved-performance', 'fast-responses', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-flash-lite': {
     id: 'gemini-2.5-flash-lite',
@@ -1419,7 +1586,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.5-pro': {
     id: 'gemini-2.5-pro',
@@ -1427,13 +1594,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1760706637079605131',
     maxTokens: 32768,
-    description: 'Google\'s most capable Gemini model for complex tasks and advanced reasoning',
+    description:
+      "Google's most capable Gemini model for complex tasks and advanced reasoning",
     capabilities: ['advanced-reasoning', 'complex-tasks', 'multimodal'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-3-pro-preview': {
     id: 'gemini-3-pro-preview',
@@ -1441,13 +1609,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1764693555713341144',
     maxTokens: 1000000,
-    description: 'Gemini 3 Pro is Google\'s flagship frontier model for high-precision multimodal reasoning',
+    description:
+      "Gemini 3 Pro is Google's flagship frontier model for high-precision multimodal reasoning",
     capabilities: ['advanced-reasoning', 'programming', 'multimodal'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-3-flash-preview': {
     id: 'gemini-3-flash-preview',
@@ -1455,13 +1624,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1766055081708192367',
     maxTokens: 1000000,
-    description: 'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
+    description:
+      'Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance',
     capabilities: ['fast-responses', 'conversation', 'coding'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'google'
+    providerKey: 'google',
   },
 
   // Meta Llama Models
@@ -1471,13 +1641,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Meta',
     agentId: 'agent-1760706657551628343',
     maxTokens: 128000,
-    description: 'Advanced Llama model with enhanced capabilities and performance',
-    capabilities: ['advanced-capabilities', 'enhanced-performance', 'reasoning'],
+    description:
+      'Advanced Llama model with enhanced capabilities and performance',
+    capabilities: [
+      'advanced-capabilities',
+      'enhanced-performance',
+      'reasoning',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'meta'
+    providerKey: 'meta',
   },
   'llama-4-scout': {
     id: 'llama-4-scout',
@@ -1485,13 +1660,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Meta',
     agentId: 'agent-1760706677004528555',
     maxTokens: 128000,
-    description: 'Efficient Llama model optimized for speed and cost-effectiveness',
+    description:
+      'Efficient Llama model optimized for speed and cost-effectiveness',
     capabilities: ['efficient-processing', 'cost-effective', 'fast-responses'],
     category: 'general',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'meta'
+    providerKey: 'meta',
   },
 
   // Mistral Models
@@ -1501,13 +1677,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760706702760080740',
     maxTokens: 128000,
-    description: 'Balanced Mistral model with good performance for general tasks',
+    description:
+      'Balanced Mistral model with good performance for general tasks',
     capabilities: ['balanced-performance', 'general-tasks', 'reasoning'],
     category: 'general',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-codestral-2508': {
     id: 'mistral-codestral-2508',
@@ -1515,13 +1692,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707034347611905',
     maxTokens: 128000,
-    description: 'Specialized Mistral model optimized for coding and programming tasks',
+    description:
+      'Specialized Mistral model optimized for coding and programming tasks',
     capabilities: ['coding', 'programming', 'code-generation', 'debugging'],
     category: 'coding',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-ministral-3b': {
     id: 'mistral-ministral-3b',
@@ -1529,13 +1707,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707075366443333',
     maxTokens: 128000,
-    description: 'Compact 3B parameter Mistral model for fast and efficient processing',
+    description:
+      'Compact 3B parameter Mistral model for fast and efficient processing',
     capabilities: ['fast-processing', 'efficient', 'lightweight'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-ministral-8b': {
     id: 'mistral-ministral-8b',
@@ -1543,13 +1722,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707108767100052',
     maxTokens: 128000,
-    description: '8B parameter Mistral model with balanced performance and efficiency',
+    description:
+      '8B parameter Mistral model with balanced performance and efficiency',
     capabilities: ['balanced-performance', 'efficient', 'general-use'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-small': {
     id: 'mistral-small',
@@ -1563,7 +1743,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-tiny': {
     id: 'mistral-tiny',
@@ -1577,7 +1757,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
   'mistral-large': {
     id: 'mistral-large',
@@ -1585,13 +1765,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Mistral',
     agentId: 'agent-1760707180706454867',
     maxTokens: 128000,
-    description: 'Large Mistral model with advanced capabilities for complex tasks',
+    description:
+      'Large Mistral model with advanced capabilities for complex tasks',
     capabilities: ['advanced-capabilities', 'complex-tasks', 'reasoning'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'mistral'
+    providerKey: 'mistral',
   },
 
   // Microsoft Phi Models
@@ -1601,13 +1782,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707202082019962',
     maxTokens: 128000,
-    description: 'Microsoft\'s Phi-4 model with strong reasoning and mathematical capabilities',
+    description:
+      "Microsoft's Phi-4 model with strong reasoning and mathematical capabilities",
     capabilities: ['reasoning', 'mathematics', 'analysis'],
     category: 'reasoning',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
   'microsoft-phi-4-multimodal': {
     id: 'microsoft-phi-4-multimodal',
@@ -1615,13 +1797,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707223792061056',
     maxTokens: 128000,
-    description: 'Multimodal Phi-4 model with vision and text processing capabilities',
+    description:
+      'Multimodal Phi-4 model with vision and text processing capabilities',
     capabilities: ['multimodal', 'vision', 'reasoning', 'mathematics'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
   'microsoft-phi-4-reasoning-plus': {
     id: 'microsoft-phi-4-reasoning-plus',
@@ -1629,13 +1812,19 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Microsoft',
     agentId: 'agent-1760707248047608924',
     maxTokens: 128000,
-    description: 'Enhanced Phi-4 model with advanced reasoning and problem-solving capabilities',
-    capabilities: ['advanced-reasoning', 'problem-solving', 'mathematics', 'analysis'],
+    description:
+      'Enhanced Phi-4 model with advanced reasoning and problem-solving capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'problem-solving',
+      'mathematics',
+      'analysis',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'microsoft'
+    providerKey: 'microsoft',
   },
 
   // xAI Grok Models
@@ -1645,13 +1834,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707269037134547',
     maxTokens: 128000,
-    description: 'xAI\'s Grok-3 model with real-time information access and conversational capabilities',
+    description:
+      "xAI's Grok-3 model with real-time information access and conversational capabilities",
     capabilities: ['real-time-info', 'conversation', 'reasoning'],
     category: 'search',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-3-mini': {
     id: 'grok-3-mini',
@@ -1659,13 +1849,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707632555954554',
     maxTokens: 128000,
-    description: 'Compact Grok-3 model for efficient processing with real-time capabilities',
+    description:
+      'Compact Grok-3 model for efficient processing with real-time capabilities',
     capabilities: ['real-time-info', 'efficient-processing', 'conversation'],
     category: 'search',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-4': {
     id: 'grok-4',
@@ -1673,13 +1864,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707653003847088',
     maxTokens: 128000,
-    description: 'Advanced Grok-4 model with enhanced reasoning and real-time information access',
+    description:
+      'Advanced Grok-4 model with enhanced reasoning and real-time information access',
     capabilities: ['advanced-reasoning', 'real-time-info', 'conversation'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
   'grok-4-fast': {
     id: 'grok-4-fast',
@@ -1687,13 +1879,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'xAI',
     agentId: 'agent-1760707675878618837',
     maxTokens: 128000,
-    description: 'Fast Grok-4 model optimized for speed while maintaining advanced capabilities',
+    description:
+      'Fast Grok-4 model optimized for speed while maintaining advanced capabilities',
     capabilities: ['advanced-reasoning', 'real-time-info', 'fast-processing'],
     category: 'search',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'xai'
+    providerKey: 'xai',
   },
 
   // ===== Direct (non-OpenRouter) Models =====
@@ -1704,13 +1897,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1757247536134017642',
     maxTokens: 32768,
-    description: 'Ultra-lightweight Gemini model for maximum speed and efficiency',
+    description:
+      'Ultra-lightweight Gemini model for maximum speed and efficiency',
     capabilities: ['ultra-fast', 'lightweight', 'efficient'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'google'
+    providerKey: 'google',
   },
   'gemini-2.0-flash-direct': {
     id: 'gemini-2.0-flash-direct',
@@ -1718,13 +1912,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Google',
     agentId: 'agent-1757247513434443545',
     maxTokens: 32768,
-    description: 'Fast and efficient Gemini model for quick responses and general tasks',
+    description:
+      'Fast and efficient Gemini model for quick responses and general tasks',
     capabilities: ['fast-responses', 'general-tasks', 'multimodal'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'google'
+    providerKey: 'google',
   },
 
   // Anthropic Claude (Direct)
@@ -1734,13 +1929,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'Anthropic',
     agentId: 'agent-1758124239529968489',
     maxTokens: 200000,
-    description: 'Enhanced Claude Opus with improved reasoning and updated knowledge',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'updated-knowledge'],
+    description:
+      'Enhanced Claude Opus with improved reasoning and updated knowledge',
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'updated-knowledge',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-haiku-3-direct': {
     id: 'claude-haiku-3-direct',
@@ -1754,7 +1954,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
   'claude-sonnet-3.7-direct': {
     id: 'claude-sonnet-3.7-direct',
@@ -1768,7 +1968,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'anthropic'
+    providerKey: 'anthropic',
   },
 
   // OpenAI GPT (Direct)
@@ -1784,7 +1984,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-mini-direct': {
     id: 'gpt-5-mini-direct',
@@ -1792,13 +1992,18 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247909361890725',
     maxTokens: 128000,
-    description: 'Compact GPT-5 model for efficient processing with advanced capabilities',
-    capabilities: ['advanced-reasoning', 'efficient-processing', 'cost-effective'],
+    description:
+      'Compact GPT-5 model for efficient processing with advanced capabilities',
+    capabilities: [
+      'advanced-reasoning',
+      'efficient-processing',
+      'cost-effective',
+    ],
     category: 'reasoning',
     costTier: 'high',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-5-direct': {
     id: 'gpt-5-direct',
@@ -1806,13 +2011,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247842543346249',
     maxTokens: 128000,
-    description: 'Latest GPT-5 model with advanced capabilities and improved reasoning',
+    description:
+      'Latest GPT-5 model with advanced capabilities and improved reasoning',
     capabilities: ['advanced-reasoning', 'complex-analysis', 'latest-features'],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-mini-direct': {
     id: 'gpt-4o-mini-direct',
@@ -1820,13 +2026,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247819944085397',
     maxTokens: 128000,
-    description: 'Compact GPT-4o model for cost-effective usage with good performance',
+    description:
+      'Compact GPT-4o model for cost-effective usage with good performance',
     capabilities: ['multimodal', 'reasoning', 'cost-effective'],
     category: 'multimodal',
     costTier: 'medium',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-direct': {
     id: 'gpt-4-direct',
@@ -1834,13 +2041,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247792142471669',
     maxTokens: 128000,
-    description: 'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
+    description:
+      'Standard GPT-4 model with strong reasoning capabilities and broad knowledge',
     capabilities: ['reasoning', 'analysis', 'complex-problem-solving'],
     category: 'reasoning',
     costTier: 'high',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4-turbo-direct': {
     id: 'gpt-4-turbo-direct',
@@ -1854,7 +2062,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'high',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-3.5-turbo-direct': {
     id: 'gpt-3.5-turbo-direct',
@@ -1862,13 +2070,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1757247699977175946',
     maxTokens: 16385,
-    description: 'Fast and cost-effective model for simple tasks and quick responses',
+    description:
+      'Fast and cost-effective model for simple tasks and quick responses',
     capabilities: ['text-generation', 'conversation', 'summarization'],
     category: 'general',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
   'gpt-4o-search-preview-direct': {
     id: 'gpt-4o-search-preview-direct',
@@ -1876,13 +2085,14 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     provider: 'OpenAI',
     agentId: 'agent-1760959407832164620',
     maxTokens: 128000,
-    description: 'GPT-4o with real-time web search capabilities for current information',
+    description:
+      'GPT-4o with real-time web search capabilities for current information',
     capabilities: ['web-search', 'real-time-info', 'multimodal', 'reasoning'],
     category: 'search',
     costTier: 'premium',
     speed: 'medium',
     executionPath: 'direct',
-    providerKey: 'openai'
+    providerKey: 'openai',
   },
 
   // Alibaba Cloud Models (OpenRouter)
@@ -1893,12 +2103,16 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599658652780256',
     maxTokens: 128000,
     description: 'Qwen3 Next 80B A3B Instruct',
-    capabilities: ['instruction-following', 'text-generation', 'general-purpose'],
+    capabilities: [
+      'instruction-following',
+      'text-generation',
+      'general-purpose',
+    ],
     category: 'general',
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-next-80B-A3B-thinking': {
     id: 'qwen3-next-80B-A3B-thinking',
@@ -1912,7 +2126,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-VL-235B-A22B': {
     id: 'qwen3-VL-235B-A22B',
@@ -1921,12 +2135,17 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599725104019305',
     maxTokens: 128000,
     description: 'Qwen3 VL 235B A22B',
-    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    capabilities: [
+      'multimodal',
+      'vision',
+      'image-understanding',
+      'text-generation',
+    ],
     category: 'multimodal',
     costTier: 'low',
     speed: 'fast',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-VL-30B-A3B': {
     id: 'qwen3-VL-30B-A3B',
@@ -1935,12 +2154,17 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599763855951645',
     maxTokens: 128000,
     description: 'Qwen3 VL 30B A3B',
-    capabilities: ['multimodal', 'vision', 'image-understanding', 'text-generation'],
+    capabilities: [
+      'multimodal',
+      'vision',
+      'image-understanding',
+      'text-generation',
+    ],
     category: 'multimodal',
     costTier: 'low',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
   'qwen3-max': {
     id: 'qwen3-max',
@@ -1949,12 +2173,16 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599800313248888',
     maxTokens: 128000,
     description: 'Qwen3 Max',
-    capabilities: ['advanced-reasoning', 'complex-analysis', 'maximum-capabilities'],
+    capabilities: [
+      'advanced-reasoning',
+      'complex-analysis',
+      'maximum-capabilities',
+    ],
     category: 'reasoning',
     costTier: 'premium',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'alibaba-cloud'
+    providerKey: 'alibaba-cloud',
   },
 
   // Moonshot Models (OpenRouter)
@@ -1970,7 +2198,7 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'moonshot'
+    providerKey: 'moonshot',
   },
   'kimi-k2-thinking': {
     id: 'kimi-k2-thinking',
@@ -1979,12 +2207,17 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762786530690992203',
     maxTokens: 262000,
     description: 'Kimi K2 Thinking',
-    capabilities: ['reasoning', 'chain-of-thought', 'long-context', 'complex-problem-solving'],
+    capabilities: [
+      'reasoning',
+      'chain-of-thought',
+      'long-context',
+      'complex-problem-solving',
+    ],
     category: 'reasoning',
     costTier: 'medium',
     speed: 'medium',
     executionPath: 'openrouter',
-    providerKey: 'moonshot'
+    providerKey: 'moonshot',
   },
 
   // DeepSeek Models (OpenRouter)
@@ -1995,12 +2228,16 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599891628347335',
     maxTokens: 128000,
     description: 'DeepSeek V3.2 Exp',
-    capabilities: ['reasoning', 'experimental-features', 'advanced-capabilities'],
+    capabilities: [
+      'reasoning',
+      'experimental-features',
+      'advanced-capabilities',
+    ],
     category: 'reasoning',
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'deepseek'
+    providerKey: 'deepseek',
   },
   'deepseek-r1': {
     id: 'deepseek-r1',
@@ -2009,12 +2246,17 @@ export const MODEL_CONFIGS_PROD: Record<string, ModelConfig> = {
     agentId: 'agent-1762599921505493914',
     maxTokens: 128000,
     description: 'DeepSeek R1',
-    capabilities: ['reasoning', 'chain-of-thought', 'mathematics', 'complex-problem-solving'],
+    capabilities: [
+      'reasoning',
+      'chain-of-thought',
+      'mathematics',
+      'complex-problem-solving',
+    ],
     category: 'reasoning',
     costTier: 'low',
     speed: 'slow',
     executionPath: 'openrouter',
-    providerKey: 'deepseek'
+    providerKey: 'deepseek',
   },
 };
 
@@ -2036,19 +2278,33 @@ export const getAllModels = (): ModelConfig[] => {
 };
 
 export const getModelsByProvider = (provider: string): ModelConfig[] => {
-  return Object.values(getModelConfigs()).filter(model => model.provider === provider);
+  return Object.values(getModelConfigs()).filter(
+    model => model.provider === provider
+  );
 };
 
-export const getModelsByCategory = (category: ModelConfig['category']): ModelConfig[] => {
-  return Object.values(getModelConfigs()).filter(model => model.category === category);
+export const getModelsByCategory = (
+  category: ModelConfig['category']
+): ModelConfig[] => {
+  return Object.values(getModelConfigs()).filter(
+    model => model.category === category
+  );
 };
 
-export const getModelsByCostTier = (costTier: ModelConfig['costTier']): ModelConfig[] => {
-  return Object.values(getModelConfigs()).filter(model => model.costTier === costTier);
+export const getModelsByCostTier = (
+  costTier: ModelConfig['costTier']
+): ModelConfig[] => {
+  return Object.values(getModelConfigs()).filter(
+    model => model.costTier === costTier
+  );
 };
 
-export const getModelsBySpeed = (speed: ModelConfig['speed']): ModelConfig[] => {
-  return Object.values(getModelConfigs()).filter(model => model.speed === speed);
+export const getModelsBySpeed = (
+  speed: ModelConfig['speed']
+): ModelConfig[] => {
+  return Object.values(getModelConfigs()).filter(
+    model => model.speed === speed
+  );
 };
 
 // BYOK helpers
@@ -2056,21 +2312,31 @@ export const isBYOKSupported = (model: ModelConfig): boolean => {
   return model.executionPath === 'direct' && !!model.providerKey;
 };
 
-export const getModelsForMode = (options: { useBYOK: boolean; userProviders?: ProviderKey[] }): ModelConfig[] => {
+export const getModelsForMode = (options: {
+  useBYOK: boolean;
+  userProviders?: ProviderKey[];
+}): ModelConfig[] => {
   const { useBYOK, userProviders } = options;
   const models = getAllModels();
   if (!useBYOK) return models;
   const allowedProviders = new Set<ProviderKey>(userProviders || []);
   // BYOK enabled: if no provider keys are configured, show nothing
   if (allowedProviders.size === 0) return [];
-  
+
   return models.filter(m => {
     // Show OpenRouter models if user has OpenRouter key
-    if (m.executionPath === 'openrouter' && allowedProviders.has('openrouter')) {
+    if (
+      m.executionPath === 'openrouter'
+      && allowedProviders.has('openrouter')
+    ) {
       return true;
     }
     // Show direct models if user has the corresponding provider key
-    return isBYOKSupported(m) && !!m.providerKey && allowedProviders.has(m.providerKey);
+    return (
+      isBYOKSupported(m)
+      && !!m.providerKey
+      && allowedProviders.has(m.providerKey)
+    );
   });
 };
 
@@ -2097,7 +2363,7 @@ export const LEGACY_MODEL_MAPPINGS: Record<string, string> = {
   'gpt-4.0-mini': 'gpt-4o-mini',
   'gpt-5.0': 'gpt-5',
   'gpt-5.0-mini': 'gpt-5-mini',
-  'gpt-5.0-nano': 'gpt-5-nano'
+  'gpt-5.0-nano': 'gpt-5-nano',
 };
 
 // Convert legacy model ID to new model ID

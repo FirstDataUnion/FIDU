@@ -12,9 +12,9 @@ import { getEnvironmentInfo } from '../utils/environment';
  * but uses the unified storage state internally
  */
 export const useSettingsCompatibility = () => {
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
-  const settings = useAppSelector((state) => state.settings);
-  
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
+  const settings = useAppSelector(state => state.settings);
+
   return {
     settings: {
       ...settings.settings,
@@ -33,8 +33,8 @@ export const useSettingsCompatibility = () => {
  * but uses the unified storage state internally
  */
 export const useGoogleDriveAuthCompatibility = (): GoogleDriveAuthState => {
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
-  
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
+
   return {
     isAuthenticated: unifiedStorage.googleDrive.isAuthenticated,
     user: unifiedStorage.googleDrive.user as GoogleDriveUser | null,
@@ -50,9 +50,9 @@ export const useGoogleDriveAuthCompatibility = (): GoogleDriveAuthState => {
  * Hook to get unified storage state with environment-based mode restrictions
  */
 export const useUnifiedStorage = () => {
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
   const envInfo = getEnvironmentInfo();
-  
+
   // Apply environment-based restrictions
   const getAvailableModes = (): Array<'local' | 'cloud'> => {
     if (envInfo.storageMode === 'local') {
@@ -63,15 +63,15 @@ export const useUnifiedStorage = () => {
       return ['cloud'];
     }
   };
-  
+
   const isModeAvailable = (mode: 'local' | 'cloud'): boolean => {
     return getAvailableModes().includes(mode);
   };
-  
+
   const getCurrentEnvironmentMode = (): 'local' | 'cloud' => {
     return envInfo.storageMode as 'local' | 'cloud';
   };
-  
+
   return {
     ...unifiedStorage,
     availableModes: getAvailableModes(),

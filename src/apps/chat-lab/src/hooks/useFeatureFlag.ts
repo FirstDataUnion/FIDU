@@ -3,6 +3,5 @@ import { selectIsFeatureFlagEnabled } from '../store/selectors/featureFlagsSelec
 import type { FeatureFlagKey } from '../types/featureFlags';
 
 export const useFeatureFlag = (key: FeatureFlagKey): boolean => {
-  return useAppSelector((state) => selectIsFeatureFlagEnabled(state, key));
+  return useAppSelector(state => selectIsFeatureFlagEnabled(state, key));
 };
-

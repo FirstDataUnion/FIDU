@@ -18,7 +18,7 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
   unsupportedMessage,
 }) => {
   const navigate = useNavigate();
-  const unifiedStorage = useAppSelector((state) => state.unifiedStorage);
+  const unifiedStorage = useAppSelector(state => state.unifiedStorage);
   const [isSupported, setIsSupported] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
@@ -45,7 +45,12 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
   // Still loading storage configuration
   if (isSupported === null) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="50vh"
+      >
         <Typography>Checking storage support...</Typography>
       </Box>
     );
@@ -53,9 +58,10 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
 
   // Feature not supported
   if (!isSupported) {
-    const defaultMessage = unsupportedMessage || 
-      `${featureName} is not supported by your current storage adapter.`;
-    
+    const defaultMessage =
+      unsupportedMessage
+      || `${featureName} is not supported by your current storage adapter.`;
+
     let adapterName: string;
     switch (unifiedStorage.mode) {
       case 'cloud':
@@ -70,7 +76,15 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
     }
 
     return (
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Box
+        sx={{
+          p: 4,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+        }}
+      >
         <Paper sx={{ p: 4, maxWidth: 600, textAlign: 'center' }}>
           <Typography variant="h5" gutterBottom>
             Feature Not Available
@@ -97,4 +111,3 @@ export const StorageFeatureGuard: React.FC<StorageFeatureGuardProps> = ({
   // Feature is supported, render children
   return <>{children}</>;
 };
-

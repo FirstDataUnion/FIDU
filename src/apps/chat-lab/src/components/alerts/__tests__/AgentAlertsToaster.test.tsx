@@ -36,6 +36,8 @@ describe('AgentAlertsToaster', () => {
 
     // After auto-dismiss timeout, the message should be gone
     // The snackbar should be closed (open=false), so the content won't be in the DOM
-    expect(screen.queryByText('Background Agent Alert!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Background Agent Alert!')
+    ).not.toBeInTheDocument();
   });
 });

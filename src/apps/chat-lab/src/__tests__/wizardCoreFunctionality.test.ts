@@ -17,15 +17,20 @@ describe('Wizard Core Functionality Tests', () => {
     };
 
     it('should detect single PROMPT_ID tag', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
       const result = extractSystemPromptIdsFromContent(content);
       expect(result).toEqual(['fabric-create_micro_summary']);
     });
 
     it('should detect multiple PROMPT_ID tags', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
       const result = extractSystemPromptIdsFromContent(content);
-      expect(result).toEqual(['fabric-create_micro_summary', 'fabric-improve_writing']);
+      expect(result).toEqual([
+        'fabric-create_micro_summary',
+        'fabric-improve_writing',
+      ]);
     });
 
     it('should handle empty content', () => {
@@ -41,7 +46,8 @@ describe('Wizard Core Functionality Tests', () => {
     });
 
     it('should handle malformed tags gracefully', () => {
-      const content = 'Try [PROMPT_ID:valid-tag] and [PROMPT_ID:invalid@tag] and [PROMPT_ID:another-valid_tag] prompts.';
+      const content =
+        'Try [PROMPT_ID:valid-tag] and [PROMPT_ID:invalid@tag] and [PROMPT_ID:another-valid_tag] prompts.';
       const result = extractSystemPromptIdsFromContent(content);
       expect(result).toEqual(['valid-tag', 'another-valid_tag']);
     });
@@ -53,21 +59,29 @@ describe('Wizard Core Functionality Tests', () => {
     };
 
     it('should remove single PROMPT_ID tag from content', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
       const result = cleanMessageContent(content);
-      expect(result).toBe('I recommend the Create Micro Summary system prompt  for your needs.');
+      expect(result).toBe(
+        'I recommend the Create Micro Summary system prompt  for your needs.'
+      );
     });
 
     it('should remove multiple PROMPT_ID tags from content', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
       const result = cleanMessageContent(content);
-      expect(result).toBe('I recommend the Create Micro Summary system prompt  and the Improve Writing system prompt  for your needs.');
+      expect(result).toBe(
+        'I recommend the Create Micro Summary system prompt  and the Improve Writing system prompt  for your needs.'
+      );
     });
 
     it('should handle content with no PROMPT_ID tags', () => {
       const content = 'This is just regular text without any special tags.';
       const result = cleanMessageContent(content);
-      expect(result).toBe('This is just regular text without any special tags.');
+      expect(result).toBe(
+        'This is just regular text without any special tags.'
+      );
     });
 
     it('should handle empty content', () => {
@@ -77,9 +91,12 @@ describe('Wizard Core Functionality Tests', () => {
     });
 
     it('should preserve other content while removing tags', () => {
-      const content = 'Welcome! I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs. Happy writing!';
+      const content =
+        'Welcome! I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs. Happy writing!';
       const result = cleanMessageContent(content);
-      expect(result).toBe('Welcome! I recommend the Create Micro Summary system prompt  for your needs. Happy writing!');
+      expect(result).toBe(
+        'Welcome! I recommend the Create Micro Summary system prompt  for your needs. Happy writing!'
+      );
     });
   });
 
@@ -110,7 +127,7 @@ describe('Wizard Core Functionality Tests', () => {
         id: 'test-1',
         role: 'assistant' as const,
         content: 'Test message content',
-        timestamp: '2024-01-01T00:00:00.000Z'
+        timestamp: '2024-01-01T00:00:00.000Z',
       };
 
       expect(message.id).toBe('test-1');
@@ -124,14 +141,14 @@ describe('Wizard Core Functionality Tests', () => {
         id: 'test-2',
         role: 'user' as const,
         content: 'User input',
-        timestamp: '2024-01-01T00:00:00.000Z'
+        timestamp: '2024-01-01T00:00:00.000Z',
       };
 
       const assistantMessage = {
         id: 'test-3',
         role: 'assistant' as const,
         content: 'Assistant response',
-        timestamp: '2024-01-01T00:00:00.000Z'
+        timestamp: '2024-01-01T00:00:00.000Z',
       };
 
       expect(userMessage.role).toBe('user');
@@ -179,9 +196,9 @@ describe('Wizard Core Functionality Tests', () => {
         {
           id: '1',
           role: 'assistant',
-          content: 'Hello! I\'m the FIDU Librarian.',
-          timestamp: '2024-01-01T00:00:00.000Z'
-        }
+          content: "Hello! I'm the FIDU Librarian.",
+          timestamp: '2024-01-01T00:00:00.000Z',
+        },
       ];
 
       // Add user message
@@ -189,7 +206,7 @@ describe('Wizard Core Functionality Tests', () => {
         id: '2',
         role: 'user' as const,
         content: 'I need help with writing.',
-        timestamp: '2024-01-01T00:01:00.000Z'
+        timestamp: '2024-01-01T00:01:00.000Z',
       };
       messages.push(userMessage);
 
@@ -200,8 +217,9 @@ describe('Wizard Core Functionality Tests', () => {
       const assistantMessage = {
         id: '3',
         role: 'assistant' as const,
-        content: 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.',
-        timestamp: '2024-01-01T00:02:00.000Z'
+        content:
+          'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.',
+        timestamp: '2024-01-01T00:02:00.000Z',
       };
       messages.push(assistantMessage);
 
@@ -214,35 +232,39 @@ describe('Wizard Core Functionality Tests', () => {
         {
           id: '1',
           role: 'assistant' as const,
-          content: 'Hello! I\'m the FIDU Librarian.',
-          timestamp: '2024-01-01T00:00:00.000Z'
+          content: "Hello! I'm the FIDU Librarian.",
+          timestamp: '2024-01-01T00:00:00.000Z',
         },
         {
           id: '2',
           role: 'user' as const,
           content: 'I need help with writing.',
-          timestamp: '2024-01-01T00:01:00.000Z'
+          timestamp: '2024-01-01T00:01:00.000Z',
         },
         {
           id: '3',
           role: 'assistant' as const,
-          content: 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.',
-          timestamp: '2024-01-01T00:02:00.000Z'
-        }
+          content:
+            'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.',
+          timestamp: '2024-01-01T00:02:00.000Z',
+        },
       ];
 
       // Clear conversation (reset to initial greeting)
       const initialGreeting = {
         id: 'initial',
         role: 'assistant' as const,
-        content: 'Hello! I\'m the FIDU Librarian, your friendly system prompt assistant.',
-        timestamp: '2024-01-01T00:00:00.000Z'
+        content:
+          "Hello! I'm the FIDU Librarian, your friendly system prompt assistant.",
+        timestamp: '2024-01-01T00:00:00.000Z',
       };
 
       const clearedMessages = [initialGreeting];
 
       expect(clearedMessages).toHaveLength(1);
-      expect(clearedMessages[0].content).toContain('Hello! I\'m the FIDU Librarian');
+      expect(clearedMessages[0].content).toContain(
+        "Hello! I'm the FIDU Librarian"
+      );
     });
   });
 
@@ -251,13 +273,13 @@ describe('Wizard Core Functionality Tests', () => {
       {
         id: 'fabric-create_micro_summary',
         name: 'Create Micro Summary',
-        description: 'Creates micro summaries'
+        description: 'Creates micro summaries',
       },
       {
         id: 'fabric-improve_writing',
         name: 'Improve Writing',
-        description: 'Improves writing quality'
-      }
+        description: 'Improves writing quality',
+      },
     ];
 
     const getSystemPromptById = (id: string) => {
@@ -276,8 +298,9 @@ describe('Wizard Core Functionality Tests', () => {
     });
 
     it('should process message content for auto-linking', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
-      
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] for your needs.';
+
       // Extract IDs
       const promptIdRegex = /\[PROMPT_ID:([a-zA-Z0-9_-]+)\]/g;
       const matches = [];
@@ -288,7 +311,9 @@ describe('Wizard Core Functionality Tests', () => {
       }
 
       // Find corresponding prompts
-      const foundPrompts = matches.map(id => getSystemPromptById(id)).filter(Boolean);
+      const foundPrompts = matches
+        .map(id => getSystemPromptById(id))
+        .filter(Boolean);
 
       expect(matches).toEqual(['fabric-create_micro_summary']);
       expect(foundPrompts).toHaveLength(1);
@@ -296,8 +321,9 @@ describe('Wizard Core Functionality Tests', () => {
     });
 
     it('should handle multiple prompts in one message', () => {
-      const content = 'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
-      
+      const content =
+        'I recommend the Create Micro Summary system prompt [PROMPT_ID:fabric-create_micro_summary] and the Improve Writing system prompt [PROMPT_ID:fabric-improve_writing] for your needs.';
+
       const promptIdRegex = /\[PROMPT_ID:([a-zA-Z0-9_-]+)\]/g;
       const matches = [];
       let match;
@@ -306,9 +332,14 @@ describe('Wizard Core Functionality Tests', () => {
         matches.push(match[1]);
       }
 
-      const foundPrompts = matches.map(id => getSystemPromptById(id)).filter(Boolean);
+      const foundPrompts = matches
+        .map(id => getSystemPromptById(id))
+        .filter(Boolean);
 
-      expect(matches).toEqual(['fabric-create_micro_summary', 'fabric-improve_writing']);
+      expect(matches).toEqual([
+        'fabric-create_micro_summary',
+        'fabric-improve_writing',
+      ]);
       expect(foundPrompts).toHaveLength(2);
       expect(foundPrompts[0]?.name).toBe('Create Micro Summary');
       expect(foundPrompts[1]?.name).toBe('Improve Writing');
@@ -340,11 +371,13 @@ Finally, should you have a draft ready and want to polish the language, the Impr
       expect(matches).toEqual([
         'fabric-create_micro_summary',
         'fabric-create_5_sentence_summary',
-        'fabric-improve_writing'
+        'fabric-improve_writing',
       ]);
 
       expect(cleaned).not.toContain('[PROMPT_ID:');
-      expect(cleaned).toContain('I recommend the Create Micro Summary system prompt');
+      expect(cleaned).toContain(
+        'I recommend the Create Micro Summary system prompt'
+      );
       expect(cleaned).toContain('for your needs');
     });
   });

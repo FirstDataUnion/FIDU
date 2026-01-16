@@ -102,10 +102,10 @@ export class WorkspaceRegistryService {
     }
 
     this.registry.activeWorkspaceId = workspaceId;
-    
+
     // Update lastAccessed timestamp
     workspace.lastAccessed = new Date().toISOString();
-    
+
     this.saveRegistry();
   }
 
@@ -113,8 +113,10 @@ export class WorkspaceRegistryService {
    * Add or update workspace
    */
   upsertWorkspace(workspace: WorkspaceMetadata): void {
-    const existingIndex = this.registry.workspaces.findIndex(w => w.id === workspace.id);
-    
+    const existingIndex = this.registry.workspaces.findIndex(
+      w => w.id === workspace.id
+    );
+
     if (existingIndex >= 0) {
       // Update existing workspace
       this.registry.workspaces[existingIndex] = {
@@ -125,7 +127,7 @@ export class WorkspaceRegistryService {
       // Add new workspace
       this.registry.workspaces.push(workspace);
     }
-    
+
     this.saveRegistry();
   }
 
@@ -133,13 +135,15 @@ export class WorkspaceRegistryService {
    * Remove workspace
    */
   removeWorkspace(workspaceId: string): void {
-    this.registry.workspaces = this.registry.workspaces.filter(w => w.id !== workspaceId);
-    
+    this.registry.workspaces = this.registry.workspaces.filter(
+      w => w.id !== workspaceId
+    );
+
     // If we removed the active workspace, clear active workspace ID
     if (this.registry.activeWorkspaceId === workspaceId) {
       this.registry.activeWorkspaceId = null;
     }
-    
+
     this.saveRegistry();
   }
 
@@ -147,9 +151,13 @@ export class WorkspaceRegistryService {
    * Create a shared workspace
    * Note: Personal workspaces are virtual (no stored entry) - use setActiveWorkspace(null) to switch to personal
    */
-  createSharedWorkspace(name: string, driveFolderId: string, role: 'owner' | 'member' = 'owner'): WorkspaceMetadata {
+  createSharedWorkspace(
+    name: string,
+    driveFolderId: string,
+    role: 'owner' | 'member' = 'owner'
+  ): WorkspaceMetadata {
     const workspaceId = `shared-${uuidv4()}`;
-    
+
     const workspace: WorkspaceMetadata = {
       id: workspaceId,
       name,
@@ -160,9 +168,9 @@ export class WorkspaceRegistryService {
       createdAt: new Date().toISOString(),
       lastAccessed: new Date().toISOString(),
     };
-    
+
     this.upsertWorkspace(workspace);
-    
+
     return workspace;
   }
 
@@ -172,67 +180,80 @@ export class WorkspaceRegistryService {
    */
   async syncFromAPI(): Promise<void> {
     try {
-      const { identityServiceAPIClient } = await import('../api/apiClientIdentityService');
-      
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
+
       // Fetch all workspaces - the API returns the user's role directly in each workspace
-      const allWorkspacesResponse = await identityServiceAPIClient.listWorkspaces();
-      
+      const allWorkspacesResponse =
+        await identityServiceAPIClient.listWorkspaces();
+
       // Build workspace map using the role from the API response
       const allWorkspaces = new Map<string, any>();
-      
+
       allWorkspacesResponse.workspaces.forEach((ws: any) => {
         // Use the role directly from the API response - it tells us the current user's role
         allWorkspaces.set(ws.id, ws);
       });
-      
+
       // Get file IDs for each workspace (needed for sync)
-      const workspaceMetadataPromises = Array.from(allWorkspaces.values()).map(async (ws) => {
-        try {
-          const files = await identityServiceAPIClient.getWorkspaceFiles(ws.id);
-          // Map snake_case API response to camelCase WorkspaceMetadata format
-          return {
-            id: ws.id,
-            name: ws.name,
-            type: 'shared' as const,
-            driveFolderId: ws.drive_folder_id,
-            role: ws.role,
-            files: {
-              conversationsDbId: files.files.conversations_db_id,
-              metadataJsonId: files.files.metadata_json_id,
-              // API doesn't return apiKeysDbId for shared workspaces (API keys aren't synced)
-            },
-            createdAt: ws.created_at,
-            lastAccessed: this.getWorkspace(ws.id)?.lastAccessed || new Date().toISOString(), // Preserve lastAccessed if exists
-          };
-        } catch (error) {
-          console.warn(`Failed to fetch files for workspace ${ws.id}:`, error);
-          // Return workspace without files - will be added to registry anyway
-          return {
-            id: ws.id,
-            name: ws.name,
-            type: 'shared' as const,
-            driveFolderId: ws.drive_folder_id,
-            role: ws.role,
-            createdAt: ws.created_at,
-            lastAccessed: this.getWorkspace(ws.id)?.lastAccessed || new Date().toISOString(),
-          };
+      const workspaceMetadataPromises = Array.from(allWorkspaces.values()).map(
+        async ws => {
+          try {
+            const files = await identityServiceAPIClient.getWorkspaceFiles(
+              ws.id
+            );
+            // Map snake_case API response to camelCase WorkspaceMetadata format
+            return {
+              id: ws.id,
+              name: ws.name,
+              type: 'shared' as const,
+              driveFolderId: ws.drive_folder_id,
+              role: ws.role,
+              files: {
+                conversationsDbId: files.files.conversations_db_id,
+                metadataJsonId: files.files.metadata_json_id,
+                // API doesn't return apiKeysDbId for shared workspaces (API keys aren't synced)
+              },
+              createdAt: ws.created_at,
+              lastAccessed:
+                this.getWorkspace(ws.id)?.lastAccessed
+                || new Date().toISOString(), // Preserve lastAccessed if exists
+            };
+          } catch (error) {
+            console.warn(
+              `Failed to fetch files for workspace ${ws.id}:`,
+              error
+            );
+            // Return workspace without files - will be added to registry anyway
+            return {
+              id: ws.id,
+              name: ws.name,
+              type: 'shared' as const,
+              driveFolderId: ws.drive_folder_id,
+              role: ws.role,
+              createdAt: ws.created_at,
+              lastAccessed:
+                this.getWorkspace(ws.id)?.lastAccessed
+                || new Date().toISOString(),
+            };
+          }
         }
-      });
-      
+      );
+
       const workspaceMetadata = await Promise.all(workspaceMetadataPromises);
-      
+
       // Update registry with synced workspaces
       workspaceMetadata.forEach(workspace => {
         this.upsertWorkspace(workspace as any);
       });
-      
+
       // Remove workspaces from registry that are no longer in API response
       // (user was removed from workspace)
       const apiWorkspaceIds = new Set(workspaceMetadata.map(w => w.id));
       const localWorkspaceIds = this.registry.workspaces
         .filter(w => w.type === 'shared')
         .map(w => w.id);
-      
+
       localWorkspaceIds.forEach(id => {
         if (!apiWorkspaceIds.has(id)) {
           this.removeWorkspace(id);
@@ -265,4 +286,3 @@ export function getWorkspaceRegistry(): WorkspaceRegistryService {
   }
   return workspaceRegistryInstance;
 }
-

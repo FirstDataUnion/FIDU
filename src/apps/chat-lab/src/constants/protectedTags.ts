@@ -4,10 +4,10 @@
  */
 export const PROTECTED_TAGS = [
   'Chat-Bot-Conversation',
-  'FIDU-CHAT-LAB-Conversation'
+  'FIDU-CHAT-LAB-Conversation',
 ] as const;
 
-export type ProtectedTag = typeof PROTECTED_TAGS[number];
+export type ProtectedTag = (typeof PROTECTED_TAGS)[number];
 
 /**
  * Check if a tag is protected and cannot be deleted

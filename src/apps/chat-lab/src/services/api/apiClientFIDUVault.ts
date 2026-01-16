@@ -16,7 +16,6 @@ const FIDU_VAULT_API_CONFIG = {
 export class FiduVaultAPIClient {
   private client: AxiosInstance;
 
-
   constructor(config: AxiosRequestConfig = {}) {
     this.client = axios.create({
       ...FIDU_VAULT_API_CONFIG,
@@ -29,7 +28,7 @@ export class FiduVaultAPIClient {
   private setupInterceptors(): void {
     // Use the FiduAuthService's auth interceptor for consistent behavior
     const authInterceptor = getFiduAuthService().createAuthInterceptor();
-    
+
     // Request interceptor
     this.client.interceptors.request.use(
       authInterceptor.request,
@@ -48,12 +47,14 @@ export class FiduVaultAPIClient {
         } catch (authError) {
           // If the auth interceptor throws an authentication-related error,
           // let it propagate (this will trigger logout)
-          if (authError instanceof Error && 
-              (authError.message.includes('Authentication required') || 
-               authError.message.includes('Please log in again'))) {
+          if (
+            authError instanceof Error
+            && (authError.message.includes('Authentication required')
+              || authError.message.includes('Please log in again'))
+          ) {
             throw authError;
           }
-          
+
           // If auth interceptor doesn't handle it, handle other errors
           if (error.response) {
             // The request was made and the server responded with a status code
@@ -72,20 +73,18 @@ export class FiduVaultAPIClient {
             );
           } else {
             // Something happened in setting up the request that triggered an Error
-            throw new ApiError(
-              0,
-              'Error setting up request',
-              error.message
-            );
+            throw new ApiError(0, 'Error setting up request', error.message);
           }
         }
       }
     );
   }
 
-
   // Generic request methods
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async get<T>(
+    url: string,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.get<T>(url, config);
     return {
       data: response.data,
@@ -93,7 +92,11 @@ export class FiduVaultAPIClient {
     };
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async post<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.post<T>(url, data, config);
     return {
       data: response.data,
@@ -101,7 +104,11 @@ export class FiduVaultAPIClient {
     };
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async put<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.put<T>(url, data, config);
     return {
       data: response.data,
@@ -109,7 +116,10 @@ export class FiduVaultAPIClient {
     };
   }
 
-  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async delete<T>(
+    url: string,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.delete<T>(url, config);
     return {
       data: response.data,
@@ -117,7 +127,11 @@ export class FiduVaultAPIClient {
     };
   }
 
-  async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async patch<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.patch<T>(url, data, config);
     return {
       data: response.data,
@@ -130,4 +144,5 @@ export class FiduVaultAPIClient {
 export const fiduVaultAPIClient = new FiduVaultAPIClient();
 
 // Export a function to create new instances with custom config
-export const createFiduVaultAPIClient = (config: AxiosRequestConfig) => new FiduVaultAPIClient(config);
+export const createFiduVaultAPIClient = (config: AxiosRequestConfig) =>
+  new FiduVaultAPIClient(config);

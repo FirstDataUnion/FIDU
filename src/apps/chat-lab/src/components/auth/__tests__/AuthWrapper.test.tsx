@@ -30,9 +30,18 @@ const theme = createTheme();
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
-      auth: (state = { isAuthenticated: false, isLoading: false, isInitialized: true, currentProfile: null, profiles: [] }, __action: any) => state,
-      ...initialState
-    }
+      auth: (
+        state = {
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: null,
+          profiles: [],
+        },
+        __action: any
+      ) => state,
+      ...initialState,
+    },
   });
 };
 
@@ -49,7 +58,15 @@ const renderWithProvidersAndRouter = (ui: React.ReactElement, store: any) => {
 describe('AuthWrapper', () => {
   it('should render children when authenticated and profile selected', () => {
     const mockStore = createMockStore({
-      auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
+      auth: (
+        state = {
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: { id: '1', name: 'Test User' },
+        },
+        _action: any
+      ) => state,
     });
 
     renderWithProvidersAndRouter(
@@ -65,7 +82,15 @@ describe('AuthWrapper', () => {
 
   it('should render nothing when auth is not initialized', () => {
     const mockStore = createMockStore({
-      auth: (state = { isAuthenticated: false, isLoading: false, isInitialized: false, currentProfile: null }, _action: any) => state
+      auth: (
+        state = {
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: false,
+          currentProfile: null,
+        },
+        _action: any
+      ) => state,
     });
 
     renderWithProvidersAndRouter(
@@ -80,7 +105,15 @@ describe('AuthWrapper', () => {
 
   it('should render login component when not authenticated', () => {
     const mockStore = createMockStore({
-      auth: (state = { isAuthenticated: false, isLoading: false, isInitialized: true, currentProfile: null }, _action: any) => state
+      auth: (
+        state = {
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: null,
+        },
+        _action: any
+      ) => state,
     });
 
     renderWithProvidersAndRouter(
@@ -94,25 +127,42 @@ describe('AuthWrapper', () => {
     expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
   });
 
-      it('should render profile selector when authenticated but no profile selected', () => {
-        const mockStore = createMockStore({
-          auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: null, profiles: [] }, _action: any) => state
-        });
+  it('should render profile selector when authenticated but no profile selected', () => {
+    const mockStore = createMockStore({
+      auth: (
+        state = {
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: null,
+          profiles: [],
+        },
+        _action: any
+      ) => state,
+    });
 
-        renderWithProvidersAndRouter(
-          <AuthWrapper>
-            <div data-testid="protected-content">Protected Content</div>
-          </AuthWrapper>,
-          mockStore
-        );
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div data-testid="protected-content">Protected Content</div>
+      </AuthWrapper>,
+      mockStore
+    );
 
-        // Should show profile selector
-        expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
-      });
+    // Should show profile selector
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+  });
 
   it('should handle multiple children correctly', () => {
     const mockStore = createMockStore({
-      auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
+      auth: (
+        state = {
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: { id: '1', name: 'Test User' },
+        },
+        _action: any
+      ) => state,
     });
 
     renderWithProvidersAndRouter(
@@ -129,19 +179,27 @@ describe('AuthWrapper', () => {
     expect(screen.getByTestId('child-3')).toBeInTheDocument();
   });
 
-      it('should handle empty children gracefully', () => {
-        const mockStore = createMockStore({
-          auth: (state = { isAuthenticated: true, isLoading: false, isInitialized: true, currentProfile: { id: '1', name: 'Test User' } }, _action: any) => state
-        });
+  it('should handle empty children gracefully', () => {
+    const mockStore = createMockStore({
+      auth: (
+        state = {
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          currentProfile: { id: '1', name: 'Test User' },
+        },
+        _action: any
+      ) => state,
+    });
 
-        renderWithProvidersAndRouter(
-          <AuthWrapper>
-            <div>Empty children</div>
-          </AuthWrapper>,
-          mockStore
-        );
+    renderWithProvidersAndRouter(
+      <AuthWrapper>
+        <div>Empty children</div>
+      </AuthWrapper>,
+      mockStore
+    );
 
-        // Should not crash and should render the wrapper
-        expect(screen.getByText('Empty children')).toBeInTheDocument();
-      });
+    // Should not crash and should render the wrapper
+    expect(screen.getByText('Empty children')).toBeInTheDocument();
+  });
 });

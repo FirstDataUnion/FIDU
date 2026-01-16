@@ -51,7 +51,8 @@ class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              An unexpected error occurred. Please try refreshing the page or contact support if the problem persists.
+              An unexpected error occurred. Please try refreshing the page or
+              contact support if the problem persists.
             </Typography>
             <Button
               variant="contained"
@@ -61,24 +62,29 @@ class ErrorBoundary extends Component<Props, State> {
             >
               Try Again
             </Button>
-            <Button
-              variant="outlined"
-              onClick={() => window.location.reload()}
-            >
+            <Button variant="outlined" onClick={() => window.location.reload()}>
               Refresh Page
             </Button>
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <Box sx={{ mt: 3, textAlign: 'left' }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  gutterBottom
+                >
                   Error Details (Development):
                 </Typography>
-                <Typography variant="body2" component="pre" sx={{ 
-                  bgcolor: 'grey.100', 
-                  p: 2, 
-                  borderRadius: 1,
-                  overflow: 'auto',
-                  fontSize: '0.75rem'
-                }}>
+                <Typography
+                  variant="body2"
+                  component="pre"
+                  sx={{
+                    bgcolor: 'grey.100',
+                    p: 2,
+                    borderRadius: 1,
+                    overflow: 'auto',
+                    fontSize: '0.75rem',
+                  }}
+                >
                   {this.state.error.toString()}
                 </Typography>
               </Box>

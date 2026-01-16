@@ -79,18 +79,20 @@ export class BrowserSQLiteManager {
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') {
-        throw new Error('BrowserSQLiteManager can only be used in browser environment');
+        throw new Error(
+          'BrowserSQLiteManager can only be used in browser environment'
+        );
       }
 
       // Initialize sql.js from local files (served from /public)
       // Vite's BASE_URL is configured in vite.config.ts (e.g., /fidu-chat-lab/)
       const basePath = import.meta.env.BASE_URL || '/';
-      
+
       this.SQL = await initSqlJs({
         locateFile: (file: string) => {
           // WASM files are served from public directory
           return `${basePath}${file}`;
-        }
+        },
       });
 
       // Create databases
@@ -197,12 +199,14 @@ export class BrowserSQLiteManager {
     const stmt = this.conversationsDb.prepare(`
       UPDATE data_packets SET sync_status = 'synced' WHERE sync_status = 'pending'
     `);
-    
+
     const result = stmt.run();
     if (result.changes > 0) {
-      console.log(`🔧 [BrowserSQLiteManager] Marked ${result.changes} imported data packets as synced`);
+      console.log(
+        `🔧 [BrowserSQLiteManager] Marked ${result.changes} imported data packets as synced`
+      );
     }
-    
+
     stmt.free();
   }
 
@@ -310,8 +314,14 @@ export class BrowserSQLiteManager {
     }
 
     // Validate that dataPacket has a valid ID
-    if (!dataPacket.id || typeof dataPacket.id !== 'string' || dataPacket.id.trim() === '') {
-      throw new Error(`Invalid data packet ID: ${dataPacket.id}. Data packets must have a valid string ID.`);
+    if (
+      !dataPacket.id
+      || typeof dataPacket.id !== 'string'
+      || dataPacket.id.trim() === ''
+    ) {
+      throw new Error(
+        `Invalid data packet ID: ${dataPacket.id}. Data packets must have a valid string ID.`
+      );
     }
 
     const stmt = this.conversationsDb.prepare(`
@@ -327,7 +337,7 @@ export class BrowserSQLiteManager {
         // Use workspace key for shared workspaces, personal key otherwise
         const workspaceId = this.getWorkspaceIdForEncryption();
         const encryptedResult = await encryptionService.encryptData(
-          dataPacket.data || {}, 
+          dataPacket.data || {},
           dataPacket.user_id,
           workspaceId
         );
@@ -335,7 +345,7 @@ export class BrowserSQLiteManager {
           encrypted: true,
           data: encryptedResult.encryptedData,
           nonce: encryptedResult.nonce,
-          tag: encryptedResult.tag
+          tag: encryptedResult.tag,
         });
       } catch (error) {
         console.error('Failed to encrypt data packet:', error);
@@ -344,11 +354,12 @@ export class BrowserSQLiteManager {
     } else {
       dataToStore = JSON.stringify(dataPacket.data || {});
     }
-    
+
     const tagsToStore = JSON.stringify(dataPacket.tags || []);
 
     // Helper to convert undefined to null for SQLite compatibility
-    const nullIfUndefined = (value: any): any => value === undefined ? null : value;
+    const nullIfUndefined = (value: any): any =>
+      value === undefined ? null : value;
 
     try {
       stmt.run([
@@ -360,7 +371,7 @@ export class BrowserSQLiteManager {
         nullIfUndefined(dataPacket.update_timestamp),
         tagsToStore,
         dataToStore,
-        'pending' // Mark as pending sync
+        'pending', // Mark as pending sync
       ]);
 
       // Sync tags to junction table
@@ -372,7 +383,11 @@ export class BrowserSQLiteManager {
     } catch (error) {
       console.error('Error storing packet:', error);
       // Handle idempotent requests (duplicate request_id)
-      if (error instanceof Error && error.message.includes('UNIQUE constraint failed') && error.message.includes('create_request_id')) {
+      if (
+        error instanceof Error
+        && error.message.includes('UNIQUE constraint failed')
+        && error.message.includes('create_request_id')
+      ) {
         // Fetch existing packet
         return await this.getDataPacketByRequestId(requestId);
       }
@@ -388,8 +403,14 @@ export class BrowserSQLiteManager {
     }
 
     // Validate that dataPacket has a valid ID
-    if (!dataPacket.id || typeof dataPacket.id !== 'string' || dataPacket.id.trim() === '') {
-      throw new Error(`Invalid data packet ID: ${dataPacket.id}. Data packets must have a valid string ID.`);
+    if (
+      !dataPacket.id
+      || typeof dataPacket.id !== 'string'
+      || dataPacket.id.trim() === ''
+    ) {
+      throw new Error(
+        `Invalid data packet ID: ${dataPacket.id}. Data packets must have a valid string ID.`
+      );
     }
 
     // Check if request already processed
@@ -400,10 +421,11 @@ export class BrowserSQLiteManager {
     updateCheck.free();
 
     // Check if existingUpdate actually has valid data (not just an empty object)
-    const hasValidExistingUpdate = existingUpdate && 
-      existingUpdate.request_id && 
-      existingUpdate.data_packet_id && 
-      existingUpdate.update_timestamp;
+    const hasValidExistingUpdate =
+      existingUpdate
+      && existingUpdate.request_id
+      && existingUpdate.data_packet_id
+      && existingUpdate.update_timestamp;
 
     if (hasValidExistingUpdate) {
       // Request already processed, return existing packet
@@ -411,11 +433,15 @@ export class BrowserSQLiteManager {
     }
 
     // Helper to convert undefined to null for SQLite compatibility
-    const nullIfUndefined = (value: any): any => value === undefined ? null : value;
+    const nullIfUndefined = (value: any): any =>
+      value === undefined ? null : value;
 
     // Build update query dynamically
     const updateFields = ['update_timestamp = ?', 'sync_status = ?'];
-    const params = [nullIfUndefined(dataPacket.update_timestamp) || new Date().toISOString(), 'pending'];
+    const params = [
+      nullIfUndefined(dataPacket.update_timestamp) || new Date().toISOString(),
+      'pending',
+    ];
 
     if (dataPacket.tags !== undefined) {
       updateFields.push('tags = ?');
@@ -430,16 +456,18 @@ export class BrowserSQLiteManager {
           // Use workspace key for shared workspaces, personal key otherwise
           const workspaceId = this.getWorkspaceIdForEncryption();
           const encryptedResult = await encryptionService.encryptData(
-            dataPacket.data, 
+            dataPacket.data,
             dataPacket.user_id,
             workspaceId
           );
-          params.push(JSON.stringify({
-            encrypted: true,
-            data: encryptedResult.encryptedData,
-            nonce: encryptedResult.nonce,
-            tag: encryptedResult.tag
-          }));
+          params.push(
+            JSON.stringify({
+              encrypted: true,
+              data: encryptedResult.encryptedData,
+              nonce: encryptedResult.nonce,
+              tag: encryptedResult.tag,
+            })
+          );
         } catch (error) {
           console.error('Failed to encrypt data packet during update:', error);
           throw new Error('Failed to encrypt data. Please try again.');
@@ -457,7 +485,7 @@ export class BrowserSQLiteManager {
 
     try {
       const result = updateStmt.run(params);
-      
+
       if (result.changes === 0) {
         throw new Error(`Data packet with ID ${dataPacket.id} not found`);
       }
@@ -467,12 +495,13 @@ export class BrowserSQLiteManager {
         INSERT INTO data_packet_updates (request_id, data_packet_id, update_timestamp)
         VALUES (?, ?, ?)
       `);
-      
+
       // Ensure all values are defined before binding - convert undefined to null for SQLite
       updateRecordStmt.run([
         nullIfUndefined(requestId),
         nullIfUndefined(dataPacket.id),
-        nullIfUndefined(dataPacket.update_timestamp) || new Date().toISOString()
+        nullIfUndefined(dataPacket.update_timestamp)
+          || new Date().toISOString(),
       ]);
       updateRecordStmt.free();
 
@@ -514,13 +543,13 @@ export class BrowserSQLiteManager {
       // Convert array to object with proper field names
       const rowObject = {
         id: rawRow[0],
-        create_request_id: rawRow[1], 
+        create_request_id: rawRow[1],
         profile_id: rawRow[2],
         user_id: rawRow[3],
         create_timestamp: rawRow[4],
         update_timestamp: rawRow[5],
         tags: rawRow[6],
-        data: rawRow[7]
+        data: rawRow[7],
       };
 
       return await this.rowToDataPacket(rowObject);
@@ -540,13 +569,16 @@ export class BrowserSQLiteManager {
 
     try {
       const rawRow = stmt.get([requestId]);
-      console.log('🔍 [BrowserSQLiteManager] getDataPacketByRequestId raw row:', {
-        requestId,
-        rawRow,
-        type: typeof rawRow,
-        isArray: Array.isArray(rawRow)
-      });
-      
+      console.log(
+        '🔍 [BrowserSQLiteManager] getDataPacketByRequestId raw row:',
+        {
+          requestId,
+          rawRow,
+          type: typeof rawRow,
+          isArray: Array.isArray(rawRow),
+        }
+      );
+
       if (!rawRow) {
         throw new Error(`Data packet with request ID ${requestId} not found`);
       }
@@ -554,19 +586,25 @@ export class BrowserSQLiteManager {
       // Convert array to object with proper field names
       const rowObject = {
         id: rawRow[0],
-        create_request_id: rawRow[1], 
+        create_request_id: rawRow[1],
         profile_id: rawRow[2],
         user_id: rawRow[3],
         create_timestamp: rawRow[4],
         update_timestamp: rawRow[5],
         tags: rawRow[6],
-        data: rawRow[7]
+        data: rawRow[7],
       };
 
-      console.log('🔍 [BrowserSQLiteManager] getDataPacketByRequestId mapped object:', rowObject);
+      console.log(
+        '🔍 [BrowserSQLiteManager] getDataPacketByRequestId mapped object:',
+        rowObject
+      );
 
       const convertedPacket = await this.rowToDataPacket(rowObject);
-      console.log('🔍 [BrowserSQLiteManager] Converted packet:', convertedPacket);
+      console.log(
+        '🔍 [BrowserSQLiteManager] Converted packet:',
+        convertedPacket
+      );
       return convertedPacket;
     } finally {
       stmt.free();
@@ -614,7 +652,9 @@ export class BrowserSQLiteManager {
 
     if (queryParams.tags && queryParams.tags.length > 0) {
       for (const tag of queryParams.tags) {
-        conditions.push('dp.id IN (SELECT data_packet_id FROM data_packet_tags WHERE tag = ?)');
+        conditions.push(
+          'dp.id IN (SELECT data_packet_id FROM data_packet_tags WHERE tag = ?)'
+        );
         params.push(tag);
       }
     }
@@ -640,20 +680,22 @@ export class BrowserSQLiteManager {
       const rows = [];
       while (stmt.step()) {
         const rawRow = stmt.get();
-        
+
         const rowObject = {
           id: rawRow[0],
-          create_request_id: rawRow[1], 
+          create_request_id: rawRow[1],
           profile_id: rawRow[2],
           user_id: rawRow[3],
           create_timestamp: rawRow[4],
           update_timestamp: rawRow[5],
           tags: rawRow[6],
-          data: rawRow[7]
+          data: rawRow[7],
         };
         rows.push(rowObject);
       }
-      return await Promise.all(rows.map((row: any) => this.rowToDataPacket(row)));
+      return await Promise.all(
+        rows.map((row: any) => this.rowToDataPacket(row))
+      );
     } finally {
       stmt.free();
     }
@@ -679,7 +721,7 @@ export class BrowserSQLiteManager {
         INSERT OR REPLACE INTO tombstones (data_packet_id, deleted_at)
         VALUES (?, ?)
       `);
-      
+
       try {
         const deletedAt = new Date().toISOString();
         tombstoneStmt.run([id, deletedAt]);
@@ -706,12 +748,15 @@ export class BrowserSQLiteManager {
     let encryptedApiKey: string;
     if (this.config.enableEncryption) {
       try {
-        const encryptedResult = await encryptionService.encryptData(apiKey.api_key, apiKey.user_id);
+        const encryptedResult = await encryptionService.encryptData(
+          apiKey.api_key,
+          apiKey.user_id
+        );
         encryptedApiKey = JSON.stringify({
           encrypted: true,
           data: encryptedResult.encryptedData,
           nonce: encryptedResult.nonce,
-          tag: encryptedResult.tag
+          tag: encryptedResult.tag,
         });
       } catch (error) {
         console.error('Failed to encrypt API key:', error);
@@ -728,13 +773,18 @@ export class BrowserSQLiteManager {
         encryptedApiKey,
         apiKey.user_id,
         apiKey.create_timestamp,
-        apiKey.update_timestamp
+        apiKey.update_timestamp,
       ]);
 
       return apiKey;
     } catch (error) {
-      if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
-        throw new Error(`API key already exists for provider ${apiKey.provider} and user ${apiKey.user_id}`);
+      if (
+        error instanceof Error
+        && error.message.includes('UNIQUE constraint failed')
+      ) {
+        throw new Error(
+          `API key already exists for provider ${apiKey.provider} and user ${apiKey.user_id}`
+        );
       }
       throw error;
     } finally {
@@ -742,7 +792,10 @@ export class BrowserSQLiteManager {
     }
   }
 
-  async getAPIKeyByProvider(provider: string, userId: string): Promise<any | null> {
+  async getAPIKeyByProvider(
+    provider: string,
+    userId: string
+  ): Promise<any | null> {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
@@ -753,11 +806,17 @@ export class BrowserSQLiteManager {
 
     try {
       const rawRow = stmt.get([provider, userId]);
-      console.log('🔍 [BrowserSQLiteManager] getAPIKeyByProvider raw row:', rawRow);
-      
+      console.log(
+        '🔍 [BrowserSQLiteManager] getAPIKeyByProvider raw row:',
+        rawRow
+      );
+
       // Check if no row was found (can be null, undefined, or empty array)
       if (!rawRow || (Array.isArray(rawRow) && rawRow.length === 0)) {
-        console.log('🔍 [BrowserSQLiteManager] No API key found for provider:', provider);
+        console.log(
+          '🔍 [BrowserSQLiteManager] No API key found for provider:',
+          provider
+        );
         return null;
       }
 
@@ -769,10 +828,13 @@ export class BrowserSQLiteManager {
         api_key: rawRow[2],
         user_id: rawRow[3],
         create_timestamp: rawRow[4],
-        update_timestamp: rawRow[5]
+        update_timestamp: rawRow[5],
       };
 
-      console.log('🔍 [BrowserSQLiteManager] getAPIKeyByProvider mapped object:', rowObject);
+      console.log(
+        '🔍 [BrowserSQLiteManager] getAPIKeyByProvider mapped object:',
+        rowObject
+      );
       return await this.rowToAPIKey(rowObject);
     } finally {
       stmt.free();
@@ -801,7 +863,7 @@ export class BrowserSQLiteManager {
           api_key: rawRow[2],
           user_id: rawRow[3],
           create_timestamp: rawRow[4],
-          update_timestamp: rawRow[5]
+          update_timestamp: rawRow[5],
         };
         rows.push(rowObject);
       }
@@ -821,12 +883,15 @@ export class BrowserSQLiteManager {
     let encryptedApiKey: string;
     if (this.config.enableEncryption) {
       try {
-        const encryptedResult = await encryptionService.encryptData(apiKey, userId);
+        const encryptedResult = await encryptionService.encryptData(
+          apiKey,
+          userId
+        );
         encryptedApiKey = JSON.stringify({
           encrypted: true,
           data: encryptedResult.encryptedData,
           nonce: encryptedResult.nonce,
-          tag: encryptedResult.tag
+          tag: encryptedResult.tag,
         });
       } catch (error) {
         console.error('Failed to encrypt API key:', error);
@@ -848,7 +913,7 @@ export class BrowserSQLiteManager {
       if (result.changes === 0) {
         throw new Error(`API key with ID ${id} not found`);
       }
-      
+
       // Return the updated API key
       return await this.getAPIKeyById(id);
     } finally {
@@ -867,7 +932,7 @@ export class BrowserSQLiteManager {
 
     try {
       const rawRow = stmt.get([id]);
-      
+
       // Check if no row was found (can be null, undefined, or empty array)
       if (!rawRow || (Array.isArray(rawRow) && rawRow.length === 0)) {
         return null;
@@ -880,7 +945,7 @@ export class BrowserSQLiteManager {
         api_key: rawRow[2],
         user_id: rawRow[3],
         create_timestamp: rawRow[4],
-        update_timestamp: rawRow[5]
+        update_timestamp: rawRow[5],
       };
 
       return await this.rowToAPIKey(rowObject);
@@ -909,8 +974,10 @@ export class BrowserSQLiteManager {
   }
 
   // Helper methods
-  private async syncTagsToJunctionTable(dataPacketId: string, tags: string[]): Promise<void> {
-    
+  private async syncTagsToJunctionTable(
+    dataPacketId: string,
+    tags: string[]
+  ): Promise<void> {
     // Remove existing tags
     const deleteStmt = this.conversationsDb.prepare(`
       DELETE FROM data_packet_tags WHERE data_packet_id = ?
@@ -923,11 +990,11 @@ export class BrowserSQLiteManager {
       const insertStmt = this.conversationsDb.prepare(`
         INSERT INTO data_packet_tags (data_packet_id, tag) VALUES (?, ?)
       `);
-      
+
       for (const tag of tags) {
         insertStmt.run([dataPacketId, tag]);
       }
-      
+
       insertStmt.free();
     }
   }
@@ -935,18 +1002,34 @@ export class BrowserSQLiteManager {
   private async rowToDataPacket(row: any): Promise<any> {
     // Handle both object format and array format from database
     let id, profile_id, user_id, create_timestamp, update_timestamp, tags, data;
-    
+
     if (Array.isArray(row)) {
       // Array format: [id, profile_id, user_id, create_timestamp, update_timestamp, tags, data]
-      [id, profile_id, user_id, create_timestamp, update_timestamp, tags, data] = row;
+      [
+        id,
+        profile_id,
+        user_id,
+        create_timestamp,
+        update_timestamp,
+        tags,
+        data,
+      ] = row;
     } else {
       // Object format: {id: ..., profile_id: ..., ...}
-      ({ id, profile_id, user_id, create_timestamp, update_timestamp, tags, data } = row);
+      ({
+        id,
+        profile_id,
+        user_id,
+        create_timestamp,
+        update_timestamp,
+        tags,
+        data,
+      } = row);
     }
-    
+
     let parsedTags = [];
     let parsedData = {};
-    
+
     // Parse tags
     try {
       if (tags && typeof tags === 'string') {
@@ -966,11 +1049,22 @@ export class BrowserSQLiteManager {
       } else if (data) {
         parsedData = data;
       }
-      
+
       // Decrypt data if encryption is enabled and data is encrypted
-      if (this.config.enableEncryption && parsedData && typeof parsedData === 'object' && 'encrypted' in parsedData && parsedData.encrypted) {
+      if (
+        this.config.enableEncryption
+        && parsedData
+        && typeof parsedData === 'object'
+        && 'encrypted' in parsedData
+        && parsedData.encrypted
+      ) {
         try {
-          const encryptedData = parsedData as { encrypted: boolean; data: string; nonce: string; tag: string };
+          const encryptedData = parsedData as {
+            encrypted: boolean;
+            data: string;
+            nonce: string;
+            tag: string;
+          };
           // Use workspace key for shared workspaces, personal key otherwise
           const workspaceId = this.getWorkspaceIdForEncryption();
           const decryptedResult = await encryptionService.decryptData(
@@ -999,29 +1093,37 @@ export class BrowserSQLiteManager {
       create_timestamp,
       update_timestamp,
       tags: parsedTags || [],
-      data: parsedData || {}
+      data: parsedData || {},
     };
   }
 
   private async rowToAPIKey(row: any): Promise<any> {
     // Handle both object format and array format from database
     let id, provider, api_key, user_id, create_timestamp, update_timestamp;
-    
+
     if (Array.isArray(row)) {
       // Array format: [id, provider, api_key, user_id, create_timestamp, update_timestamp]
-      [id, provider, api_key, user_id, create_timestamp, update_timestamp] = row;
+      [id, provider, api_key, user_id, create_timestamp, update_timestamp] =
+        row;
     } else {
       // Object format: {id: ..., provider: ..., ...}
-      ({ id, provider, api_key, user_id, create_timestamp, update_timestamp } = row);
+      ({ id, provider, api_key, user_id, create_timestamp, update_timestamp } =
+        row);
     }
 
     // Decrypt API key if encryption is enabled and key is encrypted
     let decryptedApiKey = api_key;
-    if (this.config.enableEncryption && api_key && typeof api_key === 'string') {
+    if (
+      this.config.enableEncryption
+      && api_key
+      && typeof api_key === 'string'
+    ) {
       try {
         const parsedKey = JSON.parse(api_key);
         if (parsedKey && typeof parsedKey === 'object' && parsedKey.encrypted) {
-          console.log(`🔓 [BrowserSQLiteManager] Decrypting API key for provider: ${provider}`);
+          console.log(
+            `🔓 [BrowserSQLiteManager] Decrypting API key for provider: ${provider}`
+          );
           const decryptedResult = await encryptionService.decryptData(
             parsedKey.data,
             parsedKey.nonce,
@@ -1030,17 +1132,26 @@ export class BrowserSQLiteManager {
           );
           decryptedApiKey = decryptedResult.decryptedData;
           const keyPreview = decryptedApiKey.substring(0, 10) + '...';
-          console.log(`🔓 [BrowserSQLiteManager] API key decrypted successfully for ${provider}, preview: ${keyPreview}`);
+          console.log(
+            `🔓 [BrowserSQLiteManager] API key decrypted successfully for ${provider}, preview: ${keyPreview}`
+          );
         } else {
-          console.log(`🔓 [BrowserSQLiteManager] API key for ${provider} is not encrypted, using as-is`);
+          console.log(
+            `🔓 [BrowserSQLiteManager] API key for ${provider} is not encrypted, using as-is`
+          );
         }
       } catch (error) {
-        console.error(`❌ [BrowserSQLiteManager] Failed to decrypt API key for ${provider}:`, error);
+        console.error(
+          `❌ [BrowserSQLiteManager] Failed to decrypt API key for ${provider}:`,
+          error
+        );
         // Return empty string rather than throwing to prevent breaking the app
         decryptedApiKey = '';
       }
     } else {
-      console.log(`🔓 [BrowserSQLiteManager] Encryption disabled or no key to decrypt for ${provider}`);
+      console.log(
+        `🔓 [BrowserSQLiteManager] Encryption disabled or no key to decrypt for ${provider}`
+      );
     }
 
     return {
@@ -1049,7 +1160,7 @@ export class BrowserSQLiteManager {
       api_key: decryptedApiKey,
       user_id,
       create_timestamp,
-      update_timestamp
+      update_timestamp,
     };
   }
 
@@ -1058,11 +1169,13 @@ export class BrowserSQLiteManager {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
-    
+
     const exported = this.conversationsDb.export();
     // Ensure we always return a Uint8Array, even if database is empty
     if (!exported) {
-      console.warn('Conversations database export returned undefined, returning empty Uint8Array');
+      console.warn(
+        'Conversations database export returned undefined, returning empty Uint8Array'
+      );
       return new Uint8Array(0);
     }
     return exported;
@@ -1072,11 +1185,13 @@ export class BrowserSQLiteManager {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
-    
+
     const exported = this.apiKeysDb.export();
     // Ensure we always return a Uint8Array, even if database is empty
     if (!exported) {
-      console.warn('API keys database export returned undefined, returning empty Uint8Array');
+      console.warn(
+        'API keys database export returned undefined, returning empty Uint8Array'
+      );
       return new Uint8Array(0);
     }
     return exported;
@@ -1093,12 +1208,14 @@ export class BrowserSQLiteManager {
         return 'Untitled';
       }
       // Try common title fields
-      return data.conversationTitle || 
-             data.context_title || 
-             data.title ||
-             data.system_prompt_name || 
-             data.name || 
-             'Untitled';
+      return (
+        data.conversationTitle
+        || data.context_title
+        || data.title
+        || data.system_prompt_name
+        || data.name
+        || 'Untitled'
+      );
     } catch {
       return 'Untitled';
     }
@@ -1120,8 +1237,8 @@ export class BrowserSQLiteManager {
    * @param copyNumber - For personal workspaces, the number to use in the suffix
    */
   private async addConflictMetadata(
-    dataJson: string, 
-    originalId: string, 
+    dataJson: string,
+    originalId: string,
     originalTitle: string,
     userName?: string,
     userId?: string,
@@ -1130,7 +1247,7 @@ export class BrowserSQLiteManager {
   ): Promise<string> {
     try {
       const parsedData = JSON.parse(dataJson);
-      
+
       // Create copy label - use username for shared workspaces, numbers for personal
       let copyLabel: string;
       let forkedByLabel: string;
@@ -1142,7 +1259,7 @@ export class BrowserSQLiteManager {
         copyLabel = `(${copyNumber})`;
         forkedByLabel = 'local device';
       }
-      
+
       // Handle encrypted data - decrypt, modify, re-encrypt
       if (parsedData.encrypted && userId) {
         try {
@@ -1154,21 +1271,22 @@ export class BrowserSQLiteManager {
             userId,
             workspaceId
           );
-          
+
           // Parse the decrypted data and add conflict metadata
-          const decryptedData = typeof decryptedResult.decryptedData === 'string' 
-            ? JSON.parse(decryptedResult.decryptedData) 
-            : decryptedResult.decryptedData;
-          
+          const decryptedData =
+            typeof decryptedResult.decryptedData === 'string'
+              ? JSON.parse(decryptedResult.decryptedData)
+              : decryptedResult.decryptedData;
+
           // Add conflict metadata
           decryptedData._conflictMetadata = {
             isConflictCopy: true,
             forkedFrom: originalId,
             originalTitle: originalTitle,
             conflictTimestamp: new Date().toISOString(),
-            forkedByUser: forkedByLabel
+            forkedByUser: forkedByLabel,
           };
-          
+
           // Append "[username's copy]" to title fields
           if (decryptedData.conversationTitle) {
             decryptedData.conversationTitle = `${decryptedData.conversationTitle} ${copyLabel}`;
@@ -1185,39 +1303,42 @@ export class BrowserSQLiteManager {
           if (decryptedData.name) {
             decryptedData.name = `${decryptedData.name} ${copyLabel}`;
           }
-          
+
           // Re-encrypt the modified data
           const encryptedResult = await encryptionService.encryptData(
             decryptedData,
             userId,
             workspaceId
           );
-          
+
           return JSON.stringify({
             encrypted: true,
             data: encryptedResult.encryptedData,
             nonce: encryptedResult.nonce,
-            tag: encryptedResult.tag
+            tag: encryptedResult.tag,
           });
         } catch (encryptError) {
-          console.warn('⚠️ [BrowserSQLiteManager] Failed to decrypt/re-encrypt for conflict labeling:', encryptError);
+          console.warn(
+            '⚠️ [BrowserSQLiteManager] Failed to decrypt/re-encrypt for conflict labeling:',
+            encryptError
+          );
           // Fall through to return unmodified data
           return dataJson;
         }
       }
-      
+
       // Handle unencrypted data
       const data = parsedData;
-      
+
       // Add conflict metadata
       data._conflictMetadata = {
         isConflictCopy: true,
         forkedFrom: originalId,
         originalTitle: originalTitle,
         conflictTimestamp: new Date().toISOString(),
-        forkedByUser: forkedByLabel
+        forkedByUser: forkedByLabel,
       };
-      
+
       // Append "[username's copy]" to title fields
       if (data.conversationTitle) {
         data.conversationTitle = `${data.conversationTitle} ${copyLabel}`;
@@ -1234,7 +1355,7 @@ export class BrowserSQLiteManager {
       if (data.name) {
         data.name = `${data.name} ${copyLabel}`;
       }
-      
+
       return JSON.stringify(data);
     } catch {
       return dataJson;
@@ -1249,7 +1370,7 @@ export class BrowserSQLiteManager {
    * @param copyNumber - For personal workspaces, the number to use in the suffix
    */
   private async forkLocalDataPacket(
-    targetDb: any, 
+    targetDb: any,
     localRow: any[],
     localTagsStmt: any,
     userName?: string,
@@ -1260,27 +1381,33 @@ export class BrowserSQLiteManager {
     const userId = localRow[2]; // user_id needed for encryption
     const originalData = localRow[5];
     const originalTags = localRow[6];
-    
+
     // Generate new ID for the forked copy
     const newId = this.generateUUID();
     const originalTitle = this.extractTitleFromDataPacket(originalData);
-    
+
     // Create new data with conflict metadata
     // Pass userId for decryption/re-encryption of encrypted data
     const newData = await this.addConflictMetadata(
-      originalData, originalId, originalTitle, userName, userId, isSharedWorkspace, copyNumber
+      originalData,
+      originalId,
+      originalTitle,
+      userName,
+      userId,
+      isSharedWorkspace,
+      copyNumber
     );
-    
+
     // Create new request ID
     const newRequestId = `fork-${newId}`;
-    
+
     // Insert the forked copy
     const insertStmt = targetDb.prepare(`
       INSERT INTO data_packets (
         id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     insertStmt.run([
       newId,
       newRequestId,
@@ -1290,10 +1417,10 @@ export class BrowserSQLiteManager {
       new Date().toISOString(), // new update_timestamp for the fork
       newData,
       originalTags,
-      'pending' // Mark as pending so it gets synced
+      'pending', // Mark as pending so it gets synced
     ]);
     insertStmt.free();
-    
+
     // Copy tags to the forked record
     localTagsStmt.bind([originalId]);
     while (localTagsStmt.step()) {
@@ -1306,19 +1433,23 @@ export class BrowserSQLiteManager {
       insertTagStmt.free();
     }
     localTagsStmt.reset();
-    
+
     return newId;
   }
 
   // Helper method to migrate data packets from source DB to target DB with fork-on-conflict resolution
   private async migrateDataPackets(
-    sourceDb: any, 
-    targetDb: any, 
+    sourceDb: any,
+    targetDb: any,
     lastSyncTimestamp?: string,
     currentUserName?: string,
     isSharedWorkspace: boolean = true
-  ): Promise<{ inserted: number; updated: number; forked: number; deleted: number }> {
-    
+  ): Promise<{
+    inserted: number;
+    updated: number;
+    forked: number;
+    deleted: number;
+  }> {
     sourceDb.exec(`
       CREATE TABLE IF NOT EXISTS tombstones (
         data_packet_id TEXT PRIMARY KEY,
@@ -1333,7 +1464,7 @@ export class BrowserSQLiteManager {
       FROM data_packets 
       ORDER BY create_timestamp
     `);
-    
+
     const sourceTagsStmt = sourceDb.prepare(`
       SELECT data_packet_id, tag 
       FROM data_packet_tags 
@@ -1353,24 +1484,26 @@ export class BrowserSQLiteManager {
       FROM tombstones
       WHERE data_packet_id = ?
     `);
-    
+
     let sourceRow;
     let inserted = 0;
     let updated = 0;
     let forked = 0;
     let deleted = 0;
-    
+
     // Parse lastSyncTimestamp - if null/undefined, we can't detect conflicts properly
     // In that case, just use timestamp comparison without conflict detection
     const hasValidLastSync = !!(lastSyncTimestamp && lastSyncTimestamp !== '');
-    const lastSyncTime = hasValidLastSync ? new Date(lastSyncTimestamp).getTime() : 0;
-    
+    const lastSyncTime = hasValidLastSync
+      ? new Date(lastSyncTimestamp).getTime()
+      : 0;
+
     while (sourceStmt.step()) {
       sourceRow = sourceStmt.get();
       const packetId = sourceRow[0];
       const remoteUpdateTimestamp = sourceRow[5]; // index shifted due to create_request_id
       const remoteUpdateTime = new Date(remoteUpdateTimestamp).getTime();
-      
+
       // Check if this packet already exists in target database (local)
       const existsStmt = targetDb.prepare(`
         SELECT profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
@@ -1379,32 +1512,55 @@ export class BrowserSQLiteManager {
       existsStmt.bind([packetId]);
       const existsResult = existsStmt.step() ? existsStmt.get() : null;
       existsStmt.free();
-      
+
       if (existsResult) {
         const localUpdateTimestamp = existsResult[3];
         const localUpdateTime = new Date(localUpdateTimestamp).getTime();
         const localSyncStatus = existsResult[6];
-        
+
         // Check for true conflict: both sides modified since last sync
         // IMPORTANT: Only detect conflicts if we have a valid lastSyncTime
         // Without it, we can't know if changes are truly conflicting
-        const remoteModifiedSinceSync = hasValidLastSync && remoteUpdateTime > lastSyncTime;
-        const localModifiedSinceSync = hasValidLastSync && (localUpdateTime > lastSyncTime || localSyncStatus === 'pending');
-        
-        if (hasValidLastSync && remoteModifiedSinceSync && localModifiedSinceSync && remoteUpdateTime !== localUpdateTime) {
+        const remoteModifiedSinceSync =
+          hasValidLastSync && remoteUpdateTime > lastSyncTime;
+        const localModifiedSinceSync =
+          hasValidLastSync
+          && (localUpdateTime > lastSyncTime || localSyncStatus === 'pending');
+
+        if (
+          hasValidLastSync
+          && remoteModifiedSinceSync
+          && localModifiedSinceSync
+          && remoteUpdateTime !== localUpdateTime
+        ) {
           // TRUE CONFLICT: Both sides have changes
           // Fork the local version (create a copy), then update with remote
           const localRow = [packetId, ...existsResult.slice(0, 6)];
           // For personal workspaces, use the current fork count + 1 as the copy number
-          await this.forkLocalDataPacket(targetDb, localRow, localTagsStmt, currentUserName, isSharedWorkspace, forked + 1);
+          await this.forkLocalDataPacket(
+            targetDb,
+            localRow,
+            localTagsStmt,
+            currentUserName,
+            isSharedWorkspace,
+            forked + 1
+          );
           forked++;
-          
+
           // Now update with remote version
-          await this.updateDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+          await this.updateDataPacketFromSource(
+            targetDb,
+            sourceRow,
+            sourceTagsStmt
+          );
           updated++;
         } else if (remoteUpdateTime > localUpdateTime) {
           // Remote is newer - update local (no conflict, just normal update)
-          await this.updateDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+          await this.updateDataPacketFromSource(
+            targetDb,
+            sourceRow,
+            sourceTagsStmt
+          );
           updated++;
         } else if (remoteUpdateTime < localUpdateTime) {
           // Local is newer - skip remote version (will be uploaded later)
@@ -1416,13 +1572,19 @@ export class BrowserSQLiteManager {
       } else {
         // Packet doesn't exist locally - check if there's a tombstone
         localTombstoneStmt.bind([packetId]);
-        const tombstoneResult = localTombstoneStmt.step() ? localTombstoneStmt.get() : null;
+        const tombstoneResult = localTombstoneStmt.step()
+          ? localTombstoneStmt.get()
+          : null;
         localTombstoneStmt.reset();
 
         if (tombstoneResult) {
           // Tombstone exists - check if we should restore based on timestamps
           if (!hasValidLastSync || remoteUpdateTime > lastSyncTime) {
-            await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+            await this.insertDataPacketFromSource(
+              targetDb,
+              sourceRow,
+              sourceTagsStmt
+            );
             const deleteTombstoneStmt = targetDb.prepare(`
               DELETE FROM tombstones WHERE data_packet_id = ?
             `);
@@ -1435,17 +1597,21 @@ export class BrowserSQLiteManager {
           }
         } else {
           // No tombstone - this is a new resource, insert it
-          await this.insertDataPacketFromSource(targetDb, sourceRow, sourceTagsStmt);
+          await this.insertDataPacketFromSource(
+            targetDb,
+            sourceRow,
+            sourceTagsStmt
+          );
           inserted++;
         }
       }
     }
-    
+
     sourceStmt.free();
     sourceTagsStmt.free();
     localTagsStmt.free();
     localTombstoneStmt.free();
-    
+
     // Step 2: Process remote tombstones AFTER processing all remote data packets
     const remoteTombstonesStmt = sourceDb.prepare(`
       SELECT data_packet_id, deleted_at
@@ -1457,7 +1623,7 @@ export class BrowserSQLiteManager {
     const checkLocalTombstoneStmt = targetDb.prepare(`
       SELECT data_packet_id FROM tombstones WHERE data_packet_id = ?
     `);
-    
+
     const checkLocalPacketStmt = targetDb.prepare(`
       SELECT update_timestamp FROM data_packets WHERE id = ?
     `);
@@ -1468,7 +1634,9 @@ export class BrowserSQLiteManager {
 
       // Check if local tombstone exists
       checkLocalTombstoneStmt.bind([tombstoneId]);
-      const localTombstoneExists = checkLocalTombstoneStmt.step() ? true : false;
+      const localTombstoneExists = checkLocalTombstoneStmt.step()
+        ? true
+        : false;
       checkLocalTombstoneStmt.reset();
 
       if (localTombstoneExists) {
@@ -1478,7 +1646,9 @@ export class BrowserSQLiteManager {
 
       // Check if local data packet exists
       checkLocalPacketStmt.bind([tombstoneId]);
-      const localPacketResult = checkLocalPacketStmt.step() ? checkLocalPacketStmt.get() : null;
+      const localPacketResult = checkLocalPacketStmt.step()
+        ? checkLocalPacketStmt.get()
+        : null;
       checkLocalPacketStmt.reset();
 
       if (!localPacketResult) {
@@ -1534,42 +1704,49 @@ export class BrowserSQLiteManager {
     remoteTombstonesStmt.free();
     checkLocalTombstoneStmt.free();
     checkLocalPacketStmt.free();
-    
+
     return { inserted, updated, forked, deleted };
   }
 
   // Helper method to insert a data packet from source database
-  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id, 
+  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id,
   //                    [4]=create_timestamp, [5]=update_timestamp, [6]=data, [7]=tags
-  private async insertDataPacketFromSource(targetDb: any, sourceRow: any, sourceTagsStmt: any): Promise<void> {
+  private async insertDataPacketFromSource(
+    targetDb: any,
+    sourceRow: any,
+    sourceTagsStmt: any
+  ): Promise<void> {
     const packetId = sourceRow[0];
-    
+
     // Validate that the packet ID is valid before inserting
     if (!packetId || typeof packetId !== 'string' || packetId.trim() === '') {
-      console.warn('⚠️ [BrowserSQLiteManager] Skipping data packet with invalid ID during migration:', packetId);
+      console.warn(
+        '⚠️ [BrowserSQLiteManager] Skipping data packet with invalid ID during migration:',
+        packetId
+      );
       return;
     }
-    
+
     // Insert data packet (including create_request_id which is required)
     const insertStmt = targetDb.prepare(`
       INSERT INTO data_packets (
         id, create_request_id, profile_id, user_id, create_timestamp, update_timestamp, data, tags, sync_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     insertStmt.run([
       sourceRow[0], // id
       sourceRow[1], // create_request_id
-      sourceRow[2], // profile_id  
+      sourceRow[2], // profile_id
       sourceRow[3], // user_id
       sourceRow[4], // create_timestamp
       sourceRow[5], // update_timestamp
       sourceRow[6], // data
       sourceRow[7], // tags
-      'synced' // Mark as synced since it came from cloud
+      'synced', // Mark as synced since it came from cloud
     ]);
     insertStmt.free();
-    
+
     // Migrate tags
     sourceTagsStmt.bind([packetId]);
     while (sourceTagsStmt.step()) {
@@ -1585,11 +1762,15 @@ export class BrowserSQLiteManager {
   }
 
   // Helper method to update a data packet from source database
-  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id, 
+  // sourceRow indices: [0]=id, [1]=create_request_id, [2]=profile_id, [3]=user_id,
   //                    [4]=create_timestamp, [5]=update_timestamp, [6]=data, [7]=tags
-  private async updateDataPacketFromSource(targetDb: any, sourceRow: any, sourceTagsStmt: any): Promise<void> {
+  private async updateDataPacketFromSource(
+    targetDb: any,
+    sourceRow: any,
+    sourceTagsStmt: any
+  ): Promise<void> {
     const packetId = sourceRow[0];
-    
+
     // Update data packet
     const updateStmt = targetDb.prepare(`
       UPDATE data_packets SET 
@@ -1597,26 +1778,26 @@ export class BrowserSQLiteManager {
         update_timestamp = ?, data = ?, tags = ?, sync_status = ?
       WHERE id = ?
     `);
-    
+
     updateStmt.run([
-      sourceRow[2], // profile_id  
+      sourceRow[2], // profile_id
       sourceRow[3], // user_id
       sourceRow[4], // create_timestamp
       sourceRow[5], // update_timestamp
       sourceRow[6], // data
       sourceRow[7], // tags
       'synced', // Mark as synced since it came from cloud
-      packetId
+      packetId,
     ]);
     updateStmt.free();
-    
+
     // Update tags - first remove existing tags
     const deleteTagsStmt = targetDb.prepare(`
       DELETE FROM data_packet_tags WHERE data_packet_id = ?
     `);
     deleteTagsStmt.run([packetId]);
     deleteTagsStmt.free();
-    
+
     // Then add new tags
     sourceTagsStmt.bind([packetId]);
     while (sourceTagsStmt.step()) {
@@ -1633,46 +1814,49 @@ export class BrowserSQLiteManager {
 
   // Helper method to migrate API keys from source DB to target DB with timestamp-based conflict resolution
   private async migrateAPIKeys(sourceDb: any, targetDb: any): Promise<void> {
-    
     // Get all API keys from source database
     const sourceStmt = sourceDb.prepare(`
       SELECT id, provider, api_key, user_id, create_timestamp, update_timestamp
       FROM api_keys 
       ORDER BY create_timestamp
     `);
-    
+
     let sourceRow;
     let count = 0;
     let conflictsResolved = 0;
-    
+
     while (sourceStmt.step()) {
       sourceRow = sourceStmt.get();
       const apiKeyId = sourceRow[0];
       const sourceUpdateTimestamp = sourceRow[5];
-      
+
       // Check if this API key already exists in target database (by provider + user_id)
-      const existsStmt = targetDb.prepare('SELECT id, update_timestamp FROM api_keys WHERE provider = ? AND user_id = ? LIMIT 1');
+      const existsStmt = targetDb.prepare(
+        'SELECT id, update_timestamp FROM api_keys WHERE provider = ? AND user_id = ? LIMIT 1'
+      );
       existsStmt.bind([sourceRow[1], sourceRow[3]]);
       const existsResult = existsStmt.step() ? existsStmt.get() : null;
       existsStmt.free();
-      
+
       if (existsResult) {
         const localUpdateTimestamp = existsResult[1];
-        
+
         // Compare timestamps to resolve conflicts
         const sourceTime = new Date(sourceUpdateTimestamp).getTime();
         const localTime = new Date(localUpdateTimestamp).getTime();
-        
+
         if (sourceTime > localTime) {
           // Source (cloud) version is newer - update local
-          console.log(`Updating local API key ${apiKeyId} with newer cloud version`);
+          console.log(
+            `Updating local API key ${apiKeyId} with newer cloud version`
+          );
           const updateStmt = targetDb.prepare(`
             UPDATE api_keys SET 
               id = ?, api_key = ?, create_timestamp = ?, 
               update_timestamp = ?, sync_status = ?
             WHERE provider = ? AND user_id = ?
           `);
-          
+
           updateStmt.run([
             sourceRow[0], // id
             sourceRow[2], // api_key
@@ -1680,17 +1864,21 @@ export class BrowserSQLiteManager {
             sourceRow[5], // update_timestamp
             'synced', // Mark as synced since it came from cloud
             sourceRow[1], // provider
-            sourceRow[3]  // user_id
+            sourceRow[3], // user_id
           ]);
           updateStmt.free();
           conflictsResolved++;
         } else if (sourceTime < localTime) {
           // Local version is newer - skip cloud version
-          console.log(`Keeping local API key ${apiKeyId} (newer than cloud version)`);
+          console.log(
+            `Keeping local API key ${apiKeyId} (newer than cloud version)`
+          );
           continue;
         } else {
           // Same timestamp - could be same content or true conflict
-          console.log(`Same timestamp for API key ${apiKeyId}, keeping local version`);
+          console.log(
+            `Same timestamp for API key ${apiKeyId}, keeping local version`
+          );
           continue;
         }
       } else {
@@ -1700,7 +1888,7 @@ export class BrowserSQLiteManager {
             id, provider, api_key, user_id, create_timestamp, update_timestamp, sync_status
           ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
-        
+
         insertStmt.run([
           sourceRow[0], // id
           sourceRow[1], // provider
@@ -1708,16 +1896,18 @@ export class BrowserSQLiteManager {
           sourceRow[3], // user_id
           sourceRow[4], // create_timestamp
           sourceRow[5], // update_timestamp
-          'synced' // Mark as synced since it came from cloud
+          'synced', // Mark as synced since it came from cloud
         ]);
         insertStmt.free();
         count++;
       }
     }
-    
+
     sourceStmt.free();
-    
-    console.log(`API Keys migration complete: ${count} new keys inserted, ${conflictsResolved} conflicts resolved`);
+
+    console.log(
+      `API Keys migration complete: ${count} new keys inserted, ${conflictsResolved} conflicts resolved`
+    );
   }
 
   /**
@@ -1729,7 +1919,7 @@ export class BrowserSQLiteManager {
    * @returns Merge stats including number of conflicts forked
    */
   async importConversationsDB(
-    data: Uint8Array, 
+    data: Uint8Array,
     lastSyncTimestamp?: string,
     currentUserName?: string,
     isSharedWorkspace: boolean = true
@@ -1737,31 +1927,43 @@ export class BrowserSQLiteManager {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
-    
+
     if (!data || data.length === 0) {
       return;
     }
-    
+
     const tempDb = new this.SQL.Database(data);
     try {
-      const countStmt = tempDb.prepare('SELECT COUNT(*) as count FROM data_packets');
+      const countStmt = tempDb.prepare(
+        'SELECT COUNT(*) as count FROM data_packets'
+      );
       const countResult = countStmt.step() ? countStmt.get() : null;
       const hasData = countResult && countResult[0] > 0;
       countStmt.free();
-      
+
       if (!hasData) {
         tempDb.close();
         return;
       }
-      
-      const localCountStmt = this.conversationsDb.prepare('SELECT COUNT(*) as count FROM data_packets');
-      const localCountResult = localCountStmt.step() ? localCountStmt.get() : null;
+
+      const localCountStmt = this.conversationsDb.prepare(
+        'SELECT COUNT(*) as count FROM data_packets'
+      );
+      const localCountResult = localCountStmt.step()
+        ? localCountStmt.get()
+        : null;
       const localHasData = localCountResult && localCountResult[0] > 0;
       localCountStmt.free();
-      
+
       if (localHasData) {
         // Merge remote into local with fork-on-conflict
-        const mergeResult = await this.migrateDataPackets(tempDb, this.conversationsDb, lastSyncTimestamp, currentUserName, isSharedWorkspace);
+        const mergeResult = await this.migrateDataPackets(
+          tempDb,
+          this.conversationsDb,
+          lastSyncTimestamp,
+          currentUserName,
+          isSharedWorkspace
+        );
         tempDb.close();
         return mergeResult;
       } else {
@@ -1770,13 +1972,12 @@ export class BrowserSQLiteManager {
         // Don't reinitialize schema on imported database - it already has the correct schema
         // Only ensure the schema exists (CREATE TABLE IF NOT EXISTS is safe)
         await this.ensureConversationsSchema();
-        
+
         // Fix sync status: imported data packets should be marked as 'synced' since they came from cloud
         await this.markImportedDataPacketsAsSynced();
         tempDb.close();
         return { inserted: 0, updated: 0, forked: 0 };
       }
-      
     } catch (error) {
       console.error('Error processing Drive conversation database:', error);
       tempDb.close();
@@ -1788,28 +1989,34 @@ export class BrowserSQLiteManager {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
-    
+
     if (!data || data.length === 0) {
       return;
     }
-    
+
     const tempDb = new this.SQL.Database(data);
     try {
-      const countStmt = tempDb.prepare('SELECT COUNT(*) as count FROM api_keys');
+      const countStmt = tempDb.prepare(
+        'SELECT COUNT(*) as count FROM api_keys'
+      );
       const countResult = countStmt.step() ? countStmt.get() : null;
       const hasData = countResult && countResult[0] > 0;
       countStmt.free();
-      
+
       if (!hasData) {
         tempDb.close();
         return;
       }
-      
-      const localCountStmt = this.apiKeysDb.prepare('SELECT COUNT(*) as count FROM api_keys');
-      const localCountResult = localCountStmt.step() ? localCountStmt.get() : null;
+
+      const localCountStmt = this.apiKeysDb.prepare(
+        'SELECT COUNT(*) as count FROM api_keys'
+      );
+      const localCountResult = localCountStmt.step()
+        ? localCountStmt.get()
+        : null;
       const localHasData = localCountResult && localCountResult[0] > 0;
       localCountStmt.free();
-      
+
       if (localHasData) {
         await this.migrateAPIKeys(tempDb, this.apiKeysDb);
       } else {
@@ -1817,9 +2024,8 @@ export class BrowserSQLiteManager {
         this.apiKeysDb = new this.SQL.Database(data);
         await this.initializeAPIKeysSchema();
       }
-      
+
       tempDb.close();
-      
     } catch (error) {
       console.error('Error processing Drive API keys database:', error);
       tempDb.close();
@@ -1828,7 +2034,7 @@ export class BrowserSQLiteManager {
   }
 
   // Granular change tracking methods
-  
+
   /**
    * Get all data packets that need to be synced (have pending changes)
    */
@@ -1889,11 +2095,16 @@ export class BrowserSQLiteManager {
     }
 
     if (packetIds.length === 0) {
-      console.log('📝 [BrowserSQLiteManager] No data packets to mark as synced');
+      console.log(
+        '📝 [BrowserSQLiteManager] No data packets to mark as synced'
+      );
       return;
     }
 
-    console.log(`📝 [BrowserSQLiteManager] Marking ${packetIds.length} data packets as synced:`, packetIds);
+    console.log(
+      `📝 [BrowserSQLiteManager] Marking ${packetIds.length} data packets as synced:`,
+      packetIds
+    );
 
     const placeholders = packetIds.map(() => '?').join(',');
     const stmt = this.conversationsDb.prepare(`
@@ -1902,7 +2113,9 @@ export class BrowserSQLiteManager {
     `);
 
     const result = stmt.run(packetIds);
-    console.log(`📝 [BrowserSQLiteManager] Updated ${result.changes} data packet records to synced status`);
+    console.log(
+      `📝 [BrowserSQLiteManager] Updated ${result.changes} data packet records to synced status`
+    );
     stmt.free();
   }
 
@@ -1919,7 +2132,10 @@ export class BrowserSQLiteManager {
       return;
     }
 
-    console.log(`📝 [BrowserSQLiteManager] Marking ${keyIds.length} API keys as synced:`, keyIds);
+    console.log(
+      `📝 [BrowserSQLiteManager] Marking ${keyIds.length} API keys as synced:`,
+      keyIds
+    );
 
     const placeholders = keyIds.map(() => '?').join(',');
     const stmt = this.apiKeysDb.prepare(`
@@ -1928,7 +2144,9 @@ export class BrowserSQLiteManager {
     `);
 
     const result = stmt.run(keyIds);
-    console.log(`📝 [BrowserSQLiteManager] Updated ${result.changes} API key records to synced status`);
+    console.log(
+      `📝 [BrowserSQLiteManager] Updated ${result.changes} API key records to synced status`
+    );
     stmt.free();
   }
 
@@ -1937,29 +2155,36 @@ export class BrowserSQLiteManager {
    */
   async hasUnsyncedChanges(): Promise<boolean> {
     if (!this.initialized) {
-      console.log('🔍 [BrowserSQLiteManager] Database not initialized - no unsynced changes');
+      console.log(
+        '🔍 [BrowserSQLiteManager] Database not initialized - no unsynced changes'
+      );
       return false;
     }
 
     const pendingCounts = await this.getPendingChangesCount();
-    const hasUnsynced = pendingCounts.dataPackets > 0 || pendingCounts.apiKeys > 0;
-    
+    const hasUnsynced =
+      pendingCounts.dataPackets > 0 || pendingCounts.apiKeys > 0;
+
     return hasUnsynced;
   }
 
   /**
    * Get count of pending changes for sync optimization
    */
-  async getPendingChangesCount(): Promise<{ dataPackets: number; apiKeys: number }> {
+  async getPendingChangesCount(): Promise<{
+    dataPackets: number;
+    apiKeys: number;
+  }> {
     if (!this.initialized) {
       throw new Error('Database not initialized');
     }
 
-
     const dataPacketsStmt = this.conversationsDb.prepare(`
       SELECT COUNT(*) as count FROM data_packets WHERE sync_status = 'pending'
     `);
-    const dataPacketsCount = dataPacketsStmt.step() ? dataPacketsStmt.get()[0] : 0;
+    const dataPacketsCount = dataPacketsStmt.step()
+      ? dataPacketsStmt.get()[0]
+      : 0;
     dataPacketsStmt.free();
 
     const apiKeysStmt = this.apiKeysDb.prepare(`
@@ -1970,7 +2195,7 @@ export class BrowserSQLiteManager {
 
     return {
       dataPackets: dataPacketsCount,
-      apiKeys: apiKeysCount
+      apiKeys: apiKeysCount,
     };
   }
 

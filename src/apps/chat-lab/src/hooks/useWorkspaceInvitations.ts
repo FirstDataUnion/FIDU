@@ -33,11 +33,14 @@ export const useWorkspaceInvitations = (): UseWorkspaceInvitationsReturn => {
       setIsLoading(true);
       setError(null);
       const response = await identityServiceAPIClient.getPendingInvitations();
-      
+
       // Debug: Log the raw API response to see what we're getting
       console.log('📬 [useWorkspaceInvitations] Raw API response:', response);
-      console.log('📬 [useWorkspaceInvitations] Invitations:', response.invitations);
-      
+      console.log(
+        '📬 [useWorkspaceInvitations] Invitations:',
+        response.invitations
+      );
+
       // Validate and log each invitation
       if (response.invitations) {
         response.invitations.forEach((inv, index) => {
@@ -50,7 +53,7 @@ export const useWorkspaceInvitations = (): UseWorkspaceInvitationsReturn => {
           });
         });
       }
-      
+
       setInvitations(response.invitations || []);
     } catch (err: any) {
       console.error('Failed to fetch invitations:', err);
@@ -80,4 +83,3 @@ export const useWorkspaceInvitations = (): UseWorkspaceInvitationsReturn => {
     refresh: fetchInvitations,
   };
 };
-

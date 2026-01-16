@@ -123,9 +123,9 @@ const originalError = console.error;
 beforeAll(() => {
   console.warn = (...args: any[]) => {
     if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-       args[0].includes('urllib3 v2 only supports OpenSSL'))
+      typeof args[0] === 'string'
+      && (args[0].includes('Warning: ReactDOM.render is no longer supported')
+        || args[0].includes('urllib3 v2 only supports OpenSSL'))
     ) {
       return;
     }
@@ -134,9 +134,9 @@ beforeAll(() => {
 
   console.error = (...args: any[]) => {
     if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-       args[0].includes('urllib3 v2 only supports OpenSSL'))
+      typeof args[0] === 'string'
+      && (args[0].includes('Warning: ReactDOM.render is no longer supported')
+        || args[0].includes('urllib3 v2 only supports OpenSSL'))
     ) {
       return;
     }

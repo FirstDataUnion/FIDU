@@ -13,7 +13,8 @@ interface AuthWrapperProps {
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const location = useLocation();
-  const { isAuthenticated, currentProfile, isInitialized, isLoading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, currentProfile, isInitialized, isLoading } =
+    useAppSelector(state => state.auth);
 
   // Check if current route is a public route
   const pathname = location.pathname;
@@ -41,11 +42,14 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 3
+          gap: 3,
         }}
       >
         <CircularProgress size={64} thickness={4} />
-        <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 600 }}>
+        <Typography
+          variant="h5"
+          sx={{ color: 'primary.main', fontWeight: 600 }}
+        >
           Logging You In
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -74,4 +78,4 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   return <>{children}</>;
 };
 
-export default AuthWrapper; 
+export default AuthWrapper;

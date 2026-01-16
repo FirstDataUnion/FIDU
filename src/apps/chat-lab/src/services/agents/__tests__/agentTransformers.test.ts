@@ -62,9 +62,15 @@ describe('agentTransformers', () => {
 
   describe('getContextStrategyDisplayName', () => {
     it('should return correct display name for each strategy', () => {
-      expect(getContextStrategyDisplayName('lastNMessages')).toBe('Last N Messages');
-      expect(getContextStrategyDisplayName('summarizeThenEvaluate')).toBe('Summarize Then Evaluate');
-      expect(getContextStrategyDisplayName('fullThreadIfSmall')).toBe('Full Thread (if small)');
+      expect(getContextStrategyDisplayName('lastNMessages')).toBe(
+        'Last N Messages'
+      );
+      expect(getContextStrategyDisplayName('summarizeThenEvaluate')).toBe(
+        'Summarize Then Evaluate'
+      );
+      expect(getContextStrategyDisplayName('fullThreadIfSmall')).toBe(
+        'Full Thread (if small)'
+      );
     });
 
     it('should return strategy string for unknown strategy', () => {
@@ -74,7 +80,9 @@ describe('agentTransformers', () => {
 
   describe('getContextStrategyDescription', () => {
     it('should return description for lastNMessages with params', () => {
-      const desc = getContextStrategyDescription('lastNMessages', { lastN: 12 });
+      const desc = getContextStrategyDescription('lastNMessages', {
+        lastN: 12,
+      });
       expect(desc).toBe('Analyzes the last 12 messages');
     });
 
@@ -89,7 +97,9 @@ describe('agentTransformers', () => {
     });
 
     it('should return description for fullThreadIfSmall with params', () => {
-      const desc = getContextStrategyDescription('fullThreadIfSmall', { tokenLimit: 2000 });
+      const desc = getContextStrategyDescription('fullThreadIfSmall', {
+        tokenLimit: 2000,
+      });
       expect(desc).toBe('Uses full thread if under 2000 tokens');
     });
 
@@ -108,7 +118,7 @@ describe('agentTransformers', () => {
     it('should transform agents without preferences', () => {
       const prefs: AllAgentPreferences = {};
       const agents = transformBuiltInAgentsWithPreferences(prefs);
-      
+
       expect(agents).toHaveLength(1);
       expect(agents[0].name).toBe('Ethics Monitor');
       expect(agents[0].runEveryNTurns).toBe(6); // Template default
@@ -124,7 +134,7 @@ describe('agentTransformers', () => {
           verbosityThreshold: 40,
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       expect(agents[0].runEveryNTurns).toBe(10);
       expect(agents[0].verbosityThreshold).toBe(40); // Not overridden
@@ -138,7 +148,7 @@ describe('agentTransformers', () => {
           verbosityThreshold: 60,
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       expect(agents[0].verbosityThreshold).toBe(60);
     });
@@ -152,7 +162,7 @@ describe('agentTransformers', () => {
           contextLastN: 12,
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       expect(agents[0].contextParams?.lastN).toBe(12);
     });
@@ -167,7 +177,7 @@ describe('agentTransformers', () => {
           contextLastN: 20, // Should be ignored
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       // Since the template uses 'lastNMessages', it should be merged
       expect(agents[0].contextParams?.lastN).toBe(20);
@@ -182,7 +192,7 @@ describe('agentTransformers', () => {
           // contextLastN not provided
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       expect(agents[0].contextParams?.lastN).toBe(6); // Template default
     });
@@ -195,7 +205,7 @@ describe('agentTransformers', () => {
           // verbosityThreshold not provided, should use template default
         },
       };
-      
+
       const agents = transformBuiltInAgentsWithPreferences(prefs);
       expect(agents[0].runEveryNTurns).toBe(8);
       expect(agents[0].verbosityThreshold).toBe(40); // Template default
@@ -204,7 +214,7 @@ describe('agentTransformers', () => {
     it('should generate valid agent IDs', () => {
       const prefs: AllAgentPreferences = {};
       const agents = transformBuiltInAgentsWithPreferences(prefs);
-      
+
       expect(agents[0].id).toBe('built-in-ethics-monitor');
       expect(agents[0].id).toMatch(/^built-in-/);
     });
@@ -212,7 +222,7 @@ describe('agentTransformers', () => {
     it('should set timestamps', () => {
       const prefs: AllAgentPreferences = {};
       const agents = transformBuiltInAgentsWithPreferences(prefs);
-      
+
       expect(agents[0].createdAt).toBeDefined();
       expect(agents[0].updatedAt).toBeDefined();
       expect(new Date(agents[0].createdAt).getTime()).not.toBeNaN();
@@ -220,4 +230,3 @@ describe('agentTransformers', () => {
     });
   });
 });
-

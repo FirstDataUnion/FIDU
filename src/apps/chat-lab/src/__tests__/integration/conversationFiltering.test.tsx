@@ -68,9 +68,7 @@ const renderWithProviders = (component: React.ReactElement) => {
 
   return render(
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        {component}
-      </ThemeProvider>
+      <ThemeProvider theme={theme}>{component}</ThemeProvider>
     </Provider>
   );
 };
@@ -78,7 +76,7 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe('Conversation Integration', () => {
   it('should render conversation card with real utility functions', () => {
     renderWithProviders(<ConversationIntegrationTestComponent />);
-    
+
     // Test that the component renders without errors
     expect(screen.getByText('Test Conversation')).toBeInTheDocument();
     expect(screen.getByText('ChatGPT')).toBeInTheDocument();

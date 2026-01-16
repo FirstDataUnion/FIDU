@@ -86,7 +86,7 @@ describe('unifiedStorageSlice', () => {
     it('should handle updateStorageMode', () => {
       const action = updateStorageMode('cloud');
       const state = unifiedStorageSlice(initialState, action);
-      
+
       expect(state.mode).toBe('cloud');
       expect(state.userSelectedMode).toBe(true);
       expect(state.status).toBe('unconfigured'); // Should reset when changing modes
@@ -95,7 +95,7 @@ describe('unifiedStorageSlice', () => {
     it('should handle markStorageConfigured', () => {
       const action = markStorageConfigured();
       const state = unifiedStorageSlice(initialState, action);
-      
+
       expect(state.status).toBe('configured');
     });
 
@@ -104,17 +104,17 @@ describe('unifiedStorageSlice', () => {
         ...initialState,
         status: 'configured' as const,
       };
-      
+
       const action = resetStorageConfiguration();
       const state = unifiedStorageSlice(stateWithConfigured, action);
-      
+
       expect(state.status).toBe('unconfigured');
     });
 
     it('should handle setShowAuthModal', () => {
       const action = setShowAuthModal(true);
       const state = unifiedStorageSlice(initialState, action);
-      
+
       expect(state.googleDrive.showAuthModal).toBe(true);
     });
 
@@ -126,17 +126,17 @@ describe('unifiedStorageSlice', () => {
           error: 'Test error',
         },
       };
-      
+
       const action = clearGoogleDriveError();
       const state = unifiedStorageSlice(stateWithError, action);
-      
+
       expect(state.googleDrive.error).toBeNull();
     });
 
     it('should handle setGoogleDriveLoading', () => {
       const action = setGoogleDriveLoading(true);
       const state = unifiedStorageSlice(initialState, action);
-      
+
       expect(state.googleDrive.isLoading).toBe(true);
     });
 
@@ -145,10 +145,10 @@ describe('unifiedStorageSlice', () => {
         ...initialState,
         error: 'Test error',
       };
-      
+
       const action = clearError();
       const state = unifiedStorageSlice(stateWithError, action);
-      
+
       expect(state.error).toBeNull();
     });
 
@@ -164,10 +164,10 @@ describe('unifiedStorageSlice', () => {
           user: { id: 'test', name: 'Test User', email: 'test@example.com' },
         },
       };
-      
+
       const action = resetToDefaults();
       const state = unifiedStorageSlice(stateWithData, action);
-      
+
       expect(state.mode).toBe('cloud'); // Should reset to environment default
       expect(state.status).toBe('unconfigured');
       expect(state.userSelectedMode).toBe(false);
@@ -181,7 +181,7 @@ describe('unifiedStorageSlice', () => {
       it('should handle initializeGoogleDriveAuth.pending', () => {
         const action = initializeGoogleDriveAuth.pending('', undefined);
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(true);
         expect(state.googleDrive.error).toBeNull();
       });
@@ -192,10 +192,14 @@ describe('unifiedStorageSlice', () => {
           user: { id: 'test', name: 'Test User', email: 'test@example.com' },
           expiresAt: 1234567890,
         };
-        
-        const action = initializeGoogleDriveAuth.fulfilled(mockPayload, '', undefined);
+
+        const action = initializeGoogleDriveAuth.fulfilled(
+          mockPayload,
+          '',
+          undefined
+        );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
         expect(state.googleDrive.isAuthenticated).toBe(true);
         expect(state.googleDrive.user).toEqual(mockPayload.user);
@@ -211,7 +215,7 @@ describe('unifiedStorageSlice', () => {
           undefined
         );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
         expect(state.googleDrive.isAuthenticated).toBe(false);
         expect(state.googleDrive.user).toBeNull();
@@ -224,15 +228,19 @@ describe('unifiedStorageSlice', () => {
       it('should handle authenticateGoogleDrive.pending', () => {
         const action = authenticateGoogleDrive.pending('', undefined);
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(true);
         expect(state.googleDrive.error).toBeNull();
       });
 
       it('should handle authenticateGoogleDrive.fulfilled', () => {
-        const action = authenticateGoogleDrive.fulfilled({ isAuthenticated: true }, '', undefined);
+        const action = authenticateGoogleDrive.fulfilled(
+          { isAuthenticated: true },
+          '',
+          undefined
+        );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
         expect(state.googleDrive.isAuthenticated).toBe(true);
         expect(state.googleDrive.showAuthModal).toBe(false);
@@ -246,7 +254,7 @@ describe('unifiedStorageSlice', () => {
           undefined
         );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
         expect(state.googleDrive.showAuthModal).toBe(false);
       });
@@ -256,7 +264,7 @@ describe('unifiedStorageSlice', () => {
       it('should handle checkGoogleDriveAuthStatus.pending', () => {
         const action = checkGoogleDriveAuthStatus.pending('', undefined);
         const state = unifiedStorageSlice(initialState, action);
-        
+
         // Should not set isLoading for background checks
         expect(state.googleDrive.isLoading).toBe(false);
       });
@@ -267,10 +275,14 @@ describe('unifiedStorageSlice', () => {
           user: { id: 'test', name: 'Test User', email: 'test@example.com' },
           expiresAt: 1234567890,
         };
-        
-        const action = checkGoogleDriveAuthStatus.fulfilled(mockPayload, '', undefined);
+
+        const action = checkGoogleDriveAuthStatus.fulfilled(
+          mockPayload,
+          '',
+          undefined
+        );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isAuthenticated).toBe(true);
         expect(state.googleDrive.user).toEqual(mockPayload.user);
         expect(state.googleDrive.expiresAt).toBe(1234567890);
@@ -285,7 +297,7 @@ describe('unifiedStorageSlice', () => {
           undefined
         );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isAuthenticated).toBe(false);
         expect(state.googleDrive.user).toBeNull();
         expect(state.googleDrive.expiresAt).toBeNull();
@@ -297,7 +309,7 @@ describe('unifiedStorageSlice', () => {
       it('should handle revokeGoogleDriveAccess.pending', () => {
         const action = revokeGoogleDriveAccess.pending('', undefined);
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(true);
         expect(state.googleDrive.error).toBeNull();
       });
@@ -308,10 +320,14 @@ describe('unifiedStorageSlice', () => {
           user: null,
           expiresAt: null,
         };
-        
-        const action = revokeGoogleDriveAccess.fulfilled(mockPayload, '', undefined);
+
+        const action = revokeGoogleDriveAccess.fulfilled(
+          mockPayload,
+          '',
+          undefined
+        );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
         expect(state.googleDrive.isAuthenticated).toBe(false);
         expect(state.googleDrive.user).toBeNull();
@@ -327,7 +343,7 @@ describe('unifiedStorageSlice', () => {
           undefined
         );
         const state = unifiedStorageSlice(initialState, action);
-        
+
         expect(state.googleDrive.isLoading).toBe(false);
       });
     });
@@ -337,7 +353,7 @@ describe('unifiedStorageSlice', () => {
     it('should save state to localStorage when updating storage mode', () => {
       const action = updateStorageMode('cloud');
       unifiedStorageSlice(initialState, action);
-      
+
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'fidu-chat-lab-settings',
         expect.stringContaining('"storageMode":"cloud"')
@@ -347,7 +363,7 @@ describe('unifiedStorageSlice', () => {
     it('should save state to localStorage when marking storage configured', () => {
       const action = markStorageConfigured();
       unifiedStorageSlice(initialState, action);
-      
+
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'fidu-chat-lab-settings',
         expect.stringContaining('"storageConfigured":true')

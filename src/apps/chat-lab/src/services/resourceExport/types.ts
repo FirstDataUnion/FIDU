@@ -20,7 +20,12 @@ export interface ExportableResource {
 /**
  * Supported resource types
  */
-export type ResourceType = 'systemPrompt' | 'context' | 'backgroundAgent' | 'conversation' | 'document';
+export type ResourceType =
+  | 'systemPrompt'
+  | 'context'
+  | 'backgroundAgent'
+  | 'conversation'
+  | 'document';
 
 /**
  * Main export format structure
@@ -100,7 +105,10 @@ export interface BackgroundAgentExport {
     id: string;
     title: string;
   };
-  contextWindowStrategy: 'lastNMessages' | 'summarizeThenEvaluate' | 'fullThreadIfSmall';
+  contextWindowStrategy:
+    | 'lastNMessages'
+    | 'summarizeThenEvaluate'
+    | 'fullThreadIfSmall';
   contextParams?: {
     lastN?: number;
     tokenLimit?: number;
@@ -167,7 +175,7 @@ export interface ResourceHandler<T> {
    * Export a resource, removing ownership IDs and sanitizing data
    */
   exportResource(resource: T, profileId: string): Promise<ExportableResource>;
-  
+
   /**
    * Import a resource, re-hydrating ownership IDs and generating new IDs
    */
@@ -177,17 +185,17 @@ export interface ResourceHandler<T> {
     userId: string,
     idMapping?: IdMapping
   ): Promise<T>;
-  
+
   /**
    * Validate that the import data is valid for this resource type
    */
   validateImport(data: any): boolean;
-  
+
   /**
    * Get the resource type name
    */
   getResourceType(): ResourceType;
-  
+
   /**
    * Get all resources of this type from storage
    */
@@ -228,4 +236,3 @@ export interface ExportSelection {
   conversationIds?: string[];
   documentIds?: string[];
 }
-

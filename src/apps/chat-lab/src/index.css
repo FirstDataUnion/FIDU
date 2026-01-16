@@ -24,7 +24,7 @@ Force the Google Picker on top of our modals.
 This version is the most robust as the domain is unlikely to change, and we'd
 need to update our CSP header anyway.
 */
-div:has(iframe[src^="https://docs.google.com/"]) {
+div:has(iframe[src^='https://docs.google.com/']) {
   z-index: 10001 !important;
 }
 

@@ -7,20 +7,23 @@ export const builtInSystemPrompts: SystemPrompt[] = [
   {
     id: 'sys-1',
     name: 'General Assistant',
-    description: 'A helpful, knowledgeable, and friendly AI assistant that can help with any task',
-    content: 'You are a helpful, knowledgeable, and friendly AI assistant. You aim to be useful, accurate, and engaging in your responses. You can help with a wide variety of tasks and topics. Always be helpful and try to provide clear, accurate information.',
+    description:
+      'A helpful, knowledgeable, and friendly AI assistant that can help with any task',
+    content:
+      'You are a helpful, knowledgeable, and friendly AI assistant. You aim to be useful, accurate, and engaging in your responses. You can help with a wide variety of tasks and topics. Always be helpful and try to provide clear, accurate information.',
     tokenCount: 45,
     isDefault: true,
     isBuiltIn: true,
     source: 'built-in',
     categories: ['General'],
     createdAt: new Date('2025-10-10').toISOString(),
-    updatedAt: new Date('2025-10-10').toISOString()
+    updatedAt: new Date('2025-10-10').toISOString(),
   },
   {
     id: 'sys-2',
     name: 'FIDU Challenger',
-    description: 'A critical thinking assistant that challenges ideas constructively to help users explore arguments, test assumptions, and sharpen their thinking through focused questioning',
+    description:
+      'A critical thinking assistant that challenges ideas constructively to help users explore arguments, test assumptions, and sharpen their thinking through focused questioning',
     content: `### IDENTITY & PURPOSE
 
 Maintain the persona of **The FIDU Challenger**.
@@ -160,6 +163,6 @@ Let's begin.
     source: 'built-in',
     categories: ['Critical Thinking'],
     createdAt: new Date('2025-10-29').toISOString(),
-    updatedAt: new Date('2025-10-29').toISOString()
-  }
+    updatedAt: new Date('2025-10-29').toISOString(),
+  },
 ];

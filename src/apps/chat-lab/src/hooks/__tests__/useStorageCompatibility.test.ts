@@ -95,7 +95,9 @@ describe('useStorageCompatibility', () => {
       const store = createMockStore();
       const wrapper = createWrapper(store);
 
-      const { result } = renderHook(() => useSettingsCompatibility(), { wrapper });
+      const { result } = renderHook(() => useSettingsCompatibility(), {
+        wrapper,
+      });
 
       expect(result.current.settings).toEqual(
         expect.objectContaining({
@@ -113,7 +115,9 @@ describe('useStorageCompatibility', () => {
       const store = createMockStore();
       const wrapper = createWrapper(store);
 
-      const { result } = renderHook(() => useSettingsCompatibility(), { wrapper });
+      const { result } = renderHook(() => useSettingsCompatibility(), {
+        wrapper,
+      });
 
       expect(result.current.settings.theme).toBe('dark');
       expect(result.current.settings.language).toBe('en');
@@ -131,7 +135,9 @@ describe('useStorageCompatibility', () => {
       });
       const wrapper = createWrapper(store);
 
-      const { result } = renderHook(() => useSettingsCompatibility(), { wrapper });
+      const { result } = renderHook(() => useSettingsCompatibility(), {
+        wrapper,
+      });
 
       expect(result.current.loading).toBe(true);
       expect(result.current.error).toBe('Test error');
@@ -143,7 +149,9 @@ describe('useStorageCompatibility', () => {
       const store = createMockStore();
       const wrapper = createWrapper(store);
 
-      const { result } = renderHook(() => useGoogleDriveAuthCompatibility(), { wrapper });
+      const { result } = renderHook(() => useGoogleDriveAuthCompatibility(), {
+        wrapper,
+      });
 
       expect(result.current).toEqual({
         isAuthenticated: true,
@@ -181,7 +189,9 @@ describe('useStorageCompatibility', () => {
       });
       const wrapper = createWrapper(store);
 
-      const { result } = renderHook(() => useGoogleDriveAuthCompatibility(), { wrapper });
+      const { result } = renderHook(() => useGoogleDriveAuthCompatibility(), {
+        wrapper,
+      });
 
       expect(result.current).toEqual({
         isAuthenticated: false,
@@ -275,7 +285,7 @@ describe('useStorageCompatibility', () => {
       expect(result.current).toHaveProperty('googleDrive');
       expect(result.current).toHaveProperty('isLoading');
       expect(result.current).toHaveProperty('error');
-      
+
       // Plus new environment-related properties
       expect(result.current).toHaveProperty('availableModes');
       expect(result.current).toHaveProperty('isModeAvailable');

@@ -150,9 +150,12 @@ describe('ContextHandler', () => {
     });
 
     it('should reject invalid types', () => {
-      expect(handler.validateImport({ id: 'ctx-123', title: 123, body: 'Body' })).toBe(false);
-      expect(handler.validateImport({ id: 'ctx-123', title: 'Test', body: 123 })).toBe(false);
+      expect(
+        handler.validateImport({ id: 'ctx-123', title: 123, body: 'Body' })
+      ).toBe(false);
+      expect(
+        handler.validateImport({ id: 'ctx-123', title: 'Test', body: 123 })
+      ).toBe(false);
     });
   });
 });
-

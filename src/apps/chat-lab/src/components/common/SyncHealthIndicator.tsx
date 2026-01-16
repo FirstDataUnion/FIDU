@@ -1,7 +1,7 @@
 /**
  * Sync Health Indicator
  * Shows the last successful sync time and visual health status in the header.
- * 
+ *
  * Visual states:
  * - Green: "Synced Xm ago" (healthy - no failures)
  * - Yellow: "Synced Xm ago - retrying..." (degraded - 1-2 failures)
@@ -10,10 +10,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
-import { 
-  CloudDone as CloudDoneIcon, 
+import {
+  CloudDone as CloudDoneIcon,
   CloudSync as CloudSyncIcon,
-  CloudOff as CloudOffIcon
+  CloudOff as CloudOffIcon,
 } from '@mui/icons-material';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import type { SyncHealth } from '../../services/storage/sync/SmartAutoSyncService';
@@ -30,7 +30,9 @@ interface SyncHealthStatus {
   hasUnsyncedData: boolean;
 }
 
-export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ variant = 'compact' }) => {
+export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({
+  variant = 'compact',
+}) => {
   const [status, setStatus] = useState<SyncHealthStatus | null>(null);
 
   useEffect(() => {
@@ -38,20 +40,20 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
       try {
         const storageService = getUnifiedStorageService();
         const adapter = storageService.getAdapter();
-        
+
         if ('getSyncStatus' in adapter) {
           const syncStatus = await (adapter as any).getSyncStatus();
           const smartStatus = syncStatus.smartAutoSync;
-          
+
           if (smartStatus) {
             setStatus({
               syncHealth: smartStatus.syncHealth || 'healthy',
-              lastSuccessfulSync: smartStatus.lastSuccessfulSync 
-                ? new Date(smartStatus.lastSuccessfulSync) 
+              lastSuccessfulSync: smartStatus.lastSuccessfulSync
+                ? new Date(smartStatus.lastSuccessfulSync)
                 : null,
               consecutiveFailures: smartStatus.consecutiveFailures || 0,
               lastError: smartStatus.lastError || null,
-              hasUnsyncedData: smartStatus.hasUnsyncedData || false
+              hasUnsyncedData: smartStatus.hasUnsyncedData || false,
             });
           }
         }
@@ -75,7 +77,7 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
 
   const formatTimeSince = (date: Date | null): string => {
     if (!date) return 'Never synced';
-    
+
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -130,18 +132,18 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
 
   const getTooltipContent = (): string => {
     const timeSince = formatTimeSince(status.lastSuccessfulSync);
-    
+
     if (status.syncHealth === 'healthy') {
       if (status.hasUnsyncedData) {
         return `${timeSince}. Local changes pending sync.`;
       }
       return `${timeSince}. All data synced to Google Drive.`;
     }
-    
+
     if (status.syncHealth === 'degraded') {
       return `${timeSince}. Sync is retrying after ${status.consecutiveFailures} failure(s). Will recover automatically.`;
     }
-    
+
     // Failing
     let tooltip = `${timeSince}. Sync has failed ${status.consecutiveFailures} times and is still retrying.`;
     if (status.lastError) {
@@ -167,9 +169,12 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
             backgroundColor: 'background.paper',
             borderRadius: 1,
             border: '1px solid',
-            borderColor: status.syncHealth === 'healthy' ? 'divider' : getHealthColor(status.syncHealth),
+            borderColor:
+              status.syncHealth === 'healthy'
+                ? 'divider'
+                : getHealthColor(status.syncHealth),
             minWidth: 'fit-content',
-            cursor: 'default'
+            cursor: 'default',
           }}
         >
           {getHealthIcon(status.syncHealth)}
@@ -178,7 +183,7 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
             sx={{
               color: getHealthColor(status.syncHealth),
               fontWeight: status.syncHealth !== 'healthy' ? 600 : 400,
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
             }}
           >
             {status.lastSuccessfulSync ? timeText : 'Never synced'}
@@ -200,7 +205,10 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
         backgroundColor: 'background.paper',
         borderRadius: 1,
         border: '1px solid',
-        borderColor: status.syncHealth === 'healthy' ? 'divider' : getHealthColor(status.syncHealth)
+        borderColor:
+          status.syncHealth === 'healthy'
+            ? 'divider'
+            : getHealthColor(status.syncHealth),
       }}
     >
       {getHealthIcon(status.syncHealth)}
@@ -212,14 +220,18 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
           variant="body2"
           sx={{
             color: getHealthColor(status.syncHealth),
-            fontWeight: status.syncHealth !== 'healthy' ? 600 : 400
+            fontWeight: status.syncHealth !== 'healthy' ? 600 : 400,
           }}
         >
           {timeText}
           {suffix}
         </Typography>
         {status.lastError && status.syncHealth === 'failing' && (
-          <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="error.main"
+            sx={{ display: 'block', mt: 0.5 }}
+          >
             Error: {status.lastError.substring(0, 50)}
             {status.lastError.length > 50 ? '...' : ''}
           </Typography>
@@ -228,4 +240,3 @@ export const SyncHealthIndicator: React.FC<SyncHealthIndicatorProps> = ({ varian
     </Box>
   );
 };
-

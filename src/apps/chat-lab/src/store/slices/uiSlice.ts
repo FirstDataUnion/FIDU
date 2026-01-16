@@ -18,7 +18,7 @@ const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    toggleSidebar: (state) => {
+    toggleSidebar: state => {
       state.sidebarOpen = !state.sidebarOpen;
     },
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
@@ -27,7 +27,10 @@ const uiSlice = createSlice({
     setCurrentPage: (state, action: PayloadAction<string>) => {
       state.currentPage = action.payload;
     },
-    addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'timestamp' | 'read'>>) => {
+    addNotification: (
+      state,
+      action: PayloadAction<Omit<Notification, 'id' | 'timestamp' | 'read'>>
+    ) => {
       const notification: Notification = {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
@@ -35,26 +38,30 @@ const uiSlice = createSlice({
         ...action.payload,
       };
       state.notifications.unshift(notification);
-      
+
       // Keep only the last 50 notifications
       if (state.notifications.length > 50) {
         state.notifications = state.notifications.slice(0, 50);
       }
     },
     markNotificationRead: (state, action: PayloadAction<string>) => {
-      const notification = state.notifications.find(n => n.id === action.payload);
+      const notification = state.notifications.find(
+        n => n.id === action.payload
+      );
       if (notification) {
         notification.read = true;
       }
     },
     removeNotification: (state, action: PayloadAction<string>) => {
-      state.notifications = state.notifications.filter(n => n.id !== action.payload);
+      state.notifications = state.notifications.filter(
+        n => n.id !== action.payload
+      );
     },
-    clearAllNotifications: (state) => {
+    clearAllNotifications: state => {
       state.notifications = [];
     },
-    markAllNotificationsRead: (state) => {
-      state.notifications.forEach(n => n.read = true);
+    markAllNotificationsRead: state => {
+      state.notifications.forEach(n => (n.read = true));
     },
     openModal: (state, action: PayloadAction<keyof UIState['modals']>) => {
       const modalName = action.payload;
@@ -68,7 +75,7 @@ const uiSlice = createSlice({
         state.modals[modalName] = false;
       }
     },
-    closeAllModals: (state) => {
+    closeAllModals: state => {
       Object.keys(state.modals).forEach(key => {
         state.modals[key as keyof typeof state.modals] = false;
       });
@@ -76,7 +83,7 @@ const uiSlice = createSlice({
     setDraggedItem: (state, action: PayloadAction<UIState['draggedItem']>) => {
       state.draggedItem = action.payload;
     },
-    clearDraggedItem: (state) => {
+    clearDraggedItem: state => {
       state.draggedItem = null;
     },
   },
@@ -98,4 +105,4 @@ export const {
   clearDraggedItem,
 } = uiSlice.actions;
 
-export default uiSlice.reducer; 
+export default uiSlice.reducer;

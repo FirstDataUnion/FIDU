@@ -3,7 +3,12 @@
  * Focuses on validation logic and error handling
  */
 
-import { WorkspaceCreationService, CreateWorkspaceOptions, WorkspaceCreationProgress } from '../WorkspaceCreationService';
+import { ApiError } from '../../api/apiClients';
+import {
+  WorkspaceCreationService,
+  CreateWorkspaceOptions,
+  WorkspaceCreationProgress,
+} from '../WorkspaceCreationService';
 
 // Mock all external dependencies
 jest.mock('../../auth/GoogleDriveAuth');
@@ -27,7 +32,7 @@ describe('WorkspaceCreationService', () => {
     jest.clearAllMocks();
     service = new WorkspaceCreationService();
     progressUpdates = [];
-    service.setProgressCallback((progress) => {
+    service.setProgressCallback(progress => {
       progressUpdates.push({ ...progress });
     });
   });
@@ -42,7 +47,9 @@ describe('WorkspaceCreationService', () => {
           folderName: 'Test Folder',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Workspace name is required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Workspace name is required'
+        );
       });
 
       it('should reject whitespace-only workspace name', async () => {
@@ -53,7 +60,9 @@ describe('WorkspaceCreationService', () => {
           folderName: 'Test Folder',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Workspace name is required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Workspace name is required'
+        );
       });
 
       it('should reject workspace name exceeding 255 characters', async () => {
@@ -64,7 +73,9 @@ describe('WorkspaceCreationService', () => {
           folderName: 'Test Folder',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Workspace name must be 255 characters or less');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Workspace name must be 255 characters or less'
+        );
       });
 
       it('should accept workspace name at exactly 255 characters', async () => {
@@ -76,13 +87,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // This will fail at the scope check step (not validation), meaning validation passed
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
     });
 
@@ -95,7 +109,9 @@ describe('WorkspaceCreationService', () => {
           // selectedFolderId is missing
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('No folder selected');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'No folder selected'
+        );
       });
 
       it('should accept select method with selectedFolderId', async () => {
@@ -107,13 +123,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // Should proceed to scope check
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
 
       it('should accept create method without folderName (uses workspace name)', async () => {
@@ -125,13 +144,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // Should proceed to scope check
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
     });
 
@@ -143,7 +165,9 @@ describe('WorkspaceCreationService', () => {
           folderCreationMethod: 'create',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Invalid email addresses: invalid-email');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Invalid email addresses: invalid-email'
+        );
       });
 
       it('should reject multiple invalid emails', async () => {
@@ -153,7 +177,9 @@ describe('WorkspaceCreationService', () => {
           folderCreationMethod: 'create',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Invalid email addresses: bad, also-bad');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Invalid email addresses: bad, also-bad'
+        );
       });
 
       it('should accept valid email addresses', async () => {
@@ -164,13 +190,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // Should proceed to scope check
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
 
       it('should reject duplicate emails (case-insensitive)', async () => {
@@ -180,7 +209,9 @@ describe('WorkspaceCreationService', () => {
           folderCreationMethod: 'create',
         };
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('Duplicate email addresses');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'Duplicate email addresses'
+        );
       });
 
       it('should allow empty member list', async () => {
@@ -191,13 +222,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // Should proceed to scope check (validation passed)
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
 
       it('should ignore empty strings in member emails', async () => {
@@ -208,13 +242,16 @@ describe('WorkspaceCreationService', () => {
         };
 
         // Should proceed to scope check (empty strings are filtered)
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+        const { getGoogleDriveAuthService } = jest.requireMock(
+          '../../auth/GoogleDriveAuth'
+        );
         getGoogleDriveAuthService.mockResolvedValue({
           hasDriveFileScope: jest.fn().mockResolvedValue(false),
         });
 
-        await expect(service.createWorkspace(options)).rejects.toThrow('drive.file scope required');
+        await expect(service.createWorkspace(options)).rejects.toThrow(
+          'drive.file scope required'
+        );
       });
     });
   });
@@ -227,8 +264,9 @@ describe('WorkspaceCreationService', () => {
         folderCreationMethod: 'create',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(false),
       });
@@ -251,17 +289,19 @@ describe('WorkspaceCreationService', () => {
         folderCreationMethod: 'create',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
       });
 
       DrivePicker.mockImplementation(() => ({
-        createFolder: jest.fn().mockRejectedValue(new Error('Mock folder creation failed')),
+        createFolder: jest
+          .fn()
+          .mockRejectedValue(new Error('Mock folder creation failed')),
       }));
 
       try {
@@ -284,8 +324,9 @@ describe('WorkspaceCreationService', () => {
         folderCreationMethod: 'create',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(false),
       });
@@ -302,10 +343,10 @@ describe('WorkspaceCreationService', () => {
         folderCreationMethod: 'create',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -313,25 +354,29 @@ describe('WorkspaceCreationService', () => {
 
       // Fail at folder creation to verify we got past scope check
       DrivePicker.mockImplementation(() => ({
-        createFolder: jest.fn().mockRejectedValue(new Error('Folder creation error')),
+        createFolder: jest
+          .fn()
+          .mockRejectedValue(new Error('Folder creation error')),
       }));
 
-      await expect(service.createWorkspace(options)).rejects.toThrow('Folder creation error');
+      await expect(service.createWorkspace(options)).rejects.toThrow(
+        'Folder creation error'
+      );
     });
   });
 
   describe('Folder Selection', () => {
     beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
       });
     });
 
     it('should create folder when folderCreationMethod is "create"', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       const createFolderMock = jest.fn().mockResolvedValue('new-folder-id');
 
       DrivePicker.mockImplementation(() => ({
@@ -339,9 +384,12 @@ describe('WorkspaceCreationService', () => {
       }));
 
       // Fail at next step to isolate folder creation test
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { identityServiceAPIClient } = require('../../api/apiClientIdentityService');
-      identityServiceAPIClient.createWorkspace = jest.fn().mockRejectedValue(new Error('Mock API error'));
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      identityServiceAPIClient.createWorkspace = jest
+        .fn()
+        .mockRejectedValue(new Error('Mock API error'));
 
       const options: CreateWorkspaceOptions = {
         name: 'Test Workspace',
@@ -360,17 +408,19 @@ describe('WorkspaceCreationService', () => {
     });
 
     it('should use workspace name as folder name if folderName not provided', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       const createFolderMock = jest.fn().mockResolvedValue('new-folder-id');
 
       DrivePicker.mockImplementation(() => ({
         createFolder: createFolderMock,
       }));
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { identityServiceAPIClient } = require('../../api/apiClientIdentityService');
-      identityServiceAPIClient.createWorkspace = jest.fn().mockRejectedValue(new Error('Mock API error'));
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      identityServiceAPIClient.createWorkspace = jest
+        .fn()
+        .mockRejectedValue(new Error('Mock API error'));
 
       const options: CreateWorkspaceOptions = {
         name: 'My Workspace Name',
@@ -389,8 +439,7 @@ describe('WorkspaceCreationService', () => {
     });
 
     it('should verify folder access when folderCreationMethod is "select"', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
       const verifyFolderAccessMock = jest.fn().mockResolvedValue(false);
 
       DrivePicker.mockImplementation(() => ({
@@ -412,16 +461,18 @@ describe('WorkspaceCreationService', () => {
     });
 
     it('should proceed with selected folder when access is verified', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
 
       DrivePicker.mockImplementation(() => ({
         verifyFolderAccess: jest.fn().mockResolvedValue(true),
       }));
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { identityServiceAPIClient } = require('../../api/apiClientIdentityService');
-      identityServiceAPIClient.createWorkspace = jest.fn().mockRejectedValue(new Error('Mock API error'));
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      identityServiceAPIClient.createWorkspace = jest
+        .fn()
+        .mockRejectedValue(new Error('Mock API error'));
 
       const options: CreateWorkspaceOptions = {
         name: 'Test Workspace',
@@ -431,16 +482,18 @@ describe('WorkspaceCreationService', () => {
       };
 
       // Should fail at API step, not folder verification
-      await expect(service.createWorkspace(options)).rejects.toThrow('Mock API error');
+      await expect(service.createWorkspace(options)).rejects.toThrow(
+        'Mock API error'
+      );
     });
   });
 
   describe('Error Handling for Member Validation', () => {
     beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getGoogleDriveAuthService } = require('../../auth/GoogleDriveAuth');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DrivePicker } = require('../../drive/DrivePicker');
+      const { getGoogleDriveAuthService } = jest.requireMock(
+        '../../auth/GoogleDriveAuth'
+      );
+      const { DrivePicker } = jest.requireMock('../../drive/DrivePicker');
 
       getGoogleDriveAuthService.mockResolvedValue({
         hasDriveFileScope: jest.fn().mockResolvedValue(true),
@@ -452,17 +505,17 @@ describe('WorkspaceCreationService', () => {
     });
 
     it('should handle error when members have not connected Google Drive', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { identityServiceAPIClient } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { ApiError } = require('../../api/apiClients');
-
-      const apiError = new ApiError(
-        400,
-        'Bad Request',
-        { error: 'The following users must connect their Google Drive account: user@example.com' }
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
       );
-      identityServiceAPIClient.createWorkspace = jest.fn().mockRejectedValue(apiError);
+
+      const apiError = new ApiError(400, 'Bad Request', {
+        error:
+          'The following users must connect their Google Drive account: user@example.com',
+      });
+      identityServiceAPIClient.createWorkspace = jest
+        .fn()
+        .mockRejectedValue(apiError);
 
       const options: CreateWorkspaceOptions = {
         name: 'Test Workspace',
@@ -476,17 +529,16 @@ describe('WorkspaceCreationService', () => {
     });
 
     it('should handle member not found error', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { identityServiceAPIClient } = require('../../api/apiClientIdentityService');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { ApiError } = require('../../api/apiClients');
-
-      const apiError = new ApiError(
-        400,
-        'Bad Request',
-        { error: 'User not found: unknown@example.com' }
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
       );
-      identityServiceAPIClient.createWorkspace = jest.fn().mockRejectedValue(apiError);
+
+      const apiError = new ApiError(400, 'Bad Request', {
+        error: 'User not found: unknown@example.com',
+      });
+      identityServiceAPIClient.createWorkspace = jest
+        .fn()
+        .mockRejectedValue(apiError);
 
       const options: CreateWorkspaceOptions = {
         name: 'Test Workspace',
@@ -494,8 +546,9 @@ describe('WorkspaceCreationService', () => {
         folderCreationMethod: 'create',
       };
 
-      await expect(service.createWorkspace(options)).rejects.toThrow(/not found/);
+      await expect(service.createWorkspace(options)).rejects.toThrow(
+        /not found/
+      );
     });
   });
 });
-

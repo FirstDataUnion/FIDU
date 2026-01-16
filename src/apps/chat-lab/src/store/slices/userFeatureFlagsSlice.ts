@@ -21,22 +21,34 @@ const loadUserOverridesFromStorage = (): UserFeatureFlagOverrides => {
     if (stored) {
       const parsed = JSON.parse(stored);
       // Validate that parsed object has valid structure
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if (
+        typeof parsed === 'object'
+        && parsed !== null
+        && !Array.isArray(parsed)
+      ) {
         return parsed as UserFeatureFlagOverrides;
       }
     }
   } catch (error) {
-    console.warn('Failed to load user feature flag overrides from storage:', error);
+    console.warn(
+      'Failed to load user feature flag overrides from storage:',
+      error
+    );
   }
   return {};
 };
 
 // Save user overrides to localStorage
-const saveUserOverridesToStorage = (overrides: UserFeatureFlagOverrides): void => {
+const saveUserOverridesToStorage = (
+  overrides: UserFeatureFlagOverrides
+): void => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
   } catch (error) {
-    console.warn('Failed to save user feature flag overrides to storage:', error);
+    console.warn(
+      'Failed to save user feature flag overrides to storage:',
+      error
+    );
   }
 };
 
@@ -66,15 +78,18 @@ const userFeatureFlagsSlice = createSlice({
       // Persist to localStorage
       saveUserOverridesToStorage(state.userOverrides);
     },
-    clearAllUserOverrides: (state) => {
+    clearAllUserOverrides: state => {
       state.userOverrides = {};
       saveUserOverridesToStorage({});
     },
-    loadUserOverrides: (state, action: PayloadAction<UserFeatureFlagOverrides>) => {
+    loadUserOverrides: (
+      state,
+      action: PayloadAction<UserFeatureFlagOverrides>
+    ) => {
       state.userOverrides = action.payload;
       saveUserOverridesToStorage(action.payload);
     },
-    clearUserFeatureFlagError: (state) => {
+    clearUserFeatureFlagError: state => {
       state.error = null;
     },
   },
@@ -88,4 +103,3 @@ export const {
 } = userFeatureFlagsSlice.actions;
 
 export default userFeatureFlagsSlice.reducer;
-

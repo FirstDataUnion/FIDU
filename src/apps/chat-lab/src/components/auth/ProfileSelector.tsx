@@ -17,13 +17,17 @@ import {
   TextField,
 } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { setCurrentProfile, createProfile, clearError } from '../../store/slices/authSlice';
+import {
+  setCurrentProfile,
+  createProfile,
+  clearError,
+} from '../../store/slices/authSlice';
 import type { Profile } from '../../types';
 
 const ProfileSelector: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { profiles, isLoading, error } = useAppSelector((state) => state.auth);
-  
+  const { profiles, isLoading, error } = useAppSelector(state => state.auth);
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
 
@@ -42,9 +46,9 @@ const ProfileSelector: React.FC = () => {
     }
 
     dispatch(clearError());
-    
+
     const result = await dispatch(createProfile(trimmedName));
-    
+
     if (createProfile.fulfilled.match(result)) {
       setShowCreateDialog(false);
       setNewProfileName('');
@@ -74,7 +78,12 @@ const ProfileSelector: React.FC = () => {
         <Typography variant="h4" component="h1" gutterBottom align="center">
           Select Profile
         </Typography>
-        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          align="center"
+          sx={{ mb: 3 }}
+        >
           Choose a profile to continue or create a new one
         </Typography>
 
@@ -86,7 +95,7 @@ const ProfileSelector: React.FC = () => {
 
         {profiles.length > 0 && (
           <List sx={{ mb: 3 }}>
-            {profiles.map((profile) => (
+            {profiles.map(profile => (
               <ListItem key={profile.id} disablePadding>
                 <ListItemButton onClick={() => handleProfileSelect(profile)}>
                   <ListItemText
@@ -110,7 +119,10 @@ const ProfileSelector: React.FC = () => {
         </Box>
 
         {/* Create Profile Dialog */}
-        <Dialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)}>
+        <Dialog
+          open={showCreateDialog}
+          onClose={() => setShowCreateDialog(false)}
+        >
           <DialogTitle>Create New Profile</DialogTitle>
           <DialogContent>
             {error && (
@@ -125,22 +137,22 @@ const ProfileSelector: React.FC = () => {
               fullWidth
               variant="outlined"
               value={newProfileName}
-              onChange={(e) => setNewProfileName(e.target.value)}
-              onKeyPress={(e) => {
+              onChange={e => setNewProfileName(e.target.value)}
+              onKeyPress={e => {
                 if (e.key === 'Enter') {
                   handleCreateProfile();
                 }
               }}
               inputProps={{
-                maxLength: 100
+                maxLength: 100,
               }}
               helperText={`${newProfileName.length}/100 characters`}
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
-            <Button 
-              onClick={handleCreateProfile} 
+            <Button
+              onClick={handleCreateProfile}
               variant="contained"
               disabled={!newProfileName.trim() || isLoading}
             >
@@ -153,4 +165,4 @@ const ProfileSelector: React.FC = () => {
   );
 };
 
-export default ProfileSelector; 
+export default ProfileSelector;

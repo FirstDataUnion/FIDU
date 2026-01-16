@@ -11,7 +11,10 @@ import { getWorkspaceRegistry } from './WorkspaceRegistry';
 import { getStorageService } from '../storage/StorageService';
 import { store } from '../../store';
 import { switchWorkspace } from '../../store/slices/unifiedStorageSlice';
-import { CONVERSATIONS_DB_FILENAME, METADATA_JSON_FILENAME } from '../../constants/workspaceFiles';
+import {
+  CONVERSATIONS_DB_FILENAME,
+  METADATA_JSON_FILENAME,
+} from '../../constants/workspaceFiles';
 import type { WorkspaceMetadata } from '../../types';
 
 export interface AcceptInvitationOptions {
@@ -22,7 +25,15 @@ export interface AcceptInvitationOptions {
 }
 
 export interface AcceptInvitationProgress {
-  step: 'checking-scope' | 'accepting-invitation' | 'granting-access' | 'verifying-access' | 'fetching-files' | 'creating-workspace' | 'switching-workspace' | 'complete';
+  step:
+    | 'checking-scope'
+    | 'accepting-invitation'
+    | 'granting-access'
+    | 'verifying-access'
+    | 'fetching-files'
+    | 'creating-workspace'
+    | 'switching-workspace'
+    | 'complete';
   message: string;
   progress: number; // 0-100
 }
@@ -39,11 +50,17 @@ export class WorkspaceInvitationService {
   /**
    * Set progress callback
    */
-  setProgressCallback(callback: (progress: AcceptInvitationProgress) => void): void {
+  setProgressCallback(
+    callback: (progress: AcceptInvitationProgress) => void
+  ): void {
     this.onProgress = callback;
   }
 
-  private reportProgress(step: AcceptInvitationProgress['step'], message: string, progress: number): void {
+  private reportProgress(
+    step: AcceptInvitationProgress['step'],
+    message: string,
+    progress: number
+  ): void {
     if (this.onProgress) {
       this.onProgress({ step, message, progress });
     }
@@ -58,23 +75,27 @@ export class WorkspaceInvitationService {
   async acceptInvitation(options: AcceptInvitationOptions): Promise<string> {
     const { workspaceId, workspaceName, driveFolderId, googleEmail } = options;
     const authService = await getGoogleDriveAuthService();
-    
+
     // Step 1: Check for drive.file scope
     this.reportProgress('checking-scope', 'Checking permissions...', 10);
     const hasDriveFileScope = await authService.hasDriveFileScope();
     if (!hasDriveFileScope) {
-      throw new Error('drive.file scope required. Please re-authenticate with additional permissions.');
+      throw new Error(
+        'drive.file scope required. Please re-authenticate with additional permissions.'
+      );
     }
 
     // Step 2: Grant app access to shared folder
     // Validate driveFolderId is present
     if (!driveFolderId) {
-      throw new Error('Workspace folder ID is missing. Cannot accept invitation without folder ID.');
+      throw new Error(
+        'Workspace folder ID is missing. Cannot accept invitation without folder ID.'
+      );
     }
-    
+
     this.reportProgress('granting-access', 'Requesting folder access...', 50);
     const drivePicker = new DrivePicker({ authService });
-    
+
     // Skip direct access check (CORS issues from browser) and go straight to Picker
     // Picker is required to grant app permission for drive.file scope anyway
     this.reportProgress(
@@ -82,14 +103,14 @@ export class WorkspaceInvitationService {
       'Please select the shared folder to grant app access...',
       50
     );
-    
+
     // Use Picker to grant app access to the shared folder
     // User selects the folder, which grants app permission AND verifies Drive share acceptance
     const pickerResult = await drivePicker.grantAccessToSharedFolder(
       driveFolderId,
       workspaceName
     );
-    
+
     if (!pickerResult.success) {
       if (pickerResult.reason === 'cancelled') {
         throw new Error(
@@ -103,7 +124,7 @@ export class WorkspaceInvitationService {
         throw new Error('Failed to grant access to shared folder.');
       }
     }
-    
+
     // Step 3: Grant access to workspace files inside the folder
     // This is critical because drive.file scope only grants access to:
     // 1. Files the app created, OR
@@ -114,12 +135,12 @@ export class WorkspaceInvitationService {
       'Please select the workspace files to grant app access...',
       55
     );
-    
+
     const filesPickerResult = await drivePicker.grantAccessToWorkspaceFiles(
       driveFolderId,
       workspaceName
     );
-    
+
     if (!filesPickerResult.success) {
       if (filesPickerResult.reason === 'cancelled') {
         throw new Error(
@@ -131,23 +152,23 @@ export class WorkspaceInvitationService {
         );
       }
     }
-    
+
     // Validate that at least 2 files were selected (conversations DB and metadata)
     if (!filesPickerResult.fileIds || filesPickerResult.fileIds.length < 2) {
       throw new Error(
-        `Please select ALL workspace files. You selected ${filesPickerResult.fileIds?.length || 0} file(s), but 2 are required. ` +
-        `Look for files named "${CONVERSATIONS_DB_FILENAME}" and "${METADATA_JSON_FILENAME}".`
+        `Please select ALL workspace files. You selected ${filesPickerResult.fileIds?.length || 0} file(s), but 2 are required. `
+          + `Look for files named "${CONVERSATIONS_DB_FILENAME}" and "${METADATA_JSON_FILENAME}".`
       );
     }
-    
+
     // Step 4: Verify folder access (double-check)
     this.reportProgress('verifying-access', 'Verifying folder access...', 65);
     const hasAccess = await drivePicker.verifyFolderAccess(driveFolderId);
     if (!hasAccess) {
       // This shouldn't happen, but handle gracefully
       throw new Error(
-        'Cannot access the workspace folder. Please ensure you have accepted the ' +
-        'Google Drive folder share invitation, then try again.'
+        'Cannot access the workspace folder. Please ensure you have accepted the '
+          + 'Google Drive folder share invitation, then try again.'
       );
     }
 
@@ -161,12 +182,17 @@ export class WorkspaceInvitationService {
       // Handle specific error cases
       if (error instanceof ApiError) {
         if (error.status === 404) {
-          const err = new Error('Invitation not found. It may have been cancelled or expired.');
+          const err = new Error(
+            'Invitation not found. It may have been cancelled or expired.'
+          );
           console.error('Original error:', error);
           throw err;
         }
         if (error.status === 400) {
-          const err = new Error(error.data?.error || 'Invalid invitation. Please check with the workspace owner.');
+          const err = new Error(
+            error.data?.error
+              || 'Invalid invitation. Please check with the workspace owner.'
+          );
           console.error('Original error:', error);
           throw err;
         }
@@ -178,17 +204,26 @@ export class WorkspaceInvitationService {
     this.reportProgress('fetching-files', 'Fetching workspace files...', 80);
     let files;
     try {
-      const filesResponse = await identityServiceAPIClient.getWorkspaceFiles(workspaceId);
+      const filesResponse =
+        await identityServiceAPIClient.getWorkspaceFiles(workspaceId);
       // Response format: { files: { drive_folder_id, conversations_db_id, metadata_json_id } }
-      if (!filesResponse.files || !filesResponse.files.conversations_db_id || !filesResponse.files.metadata_json_id) {
-        throw new Error('No workspace files found. The workspace may not be properly initialized.');
+      if (
+        !filesResponse.files
+        || !filesResponse.files.conversations_db_id
+        || !filesResponse.files.metadata_json_id
+      ) {
+        throw new Error(
+          'No workspace files found. The workspace may not be properly initialized.'
+        );
       }
       files = filesResponse.files; // Response is already in the correct format
     } catch (error: any) {
       if (error.message?.includes('No workspace files found')) {
         throw error; // Re-throw our specific error
       }
-      const err = new Error('Failed to fetch workspace files. Please try again.');
+      const err = new Error(
+        'Failed to fetch workspace files. Please try again.'
+      );
       console.error('Original error:', error);
       throw err;
     }
@@ -227,7 +262,7 @@ export class WorkspaceInvitationService {
     }
 
     const workspaceRegistry = getWorkspaceRegistry();
-    
+
     const localWorkspace: WorkspaceMetadata = {
       id: workspaceId,
       name: workspaceName,
@@ -242,7 +277,7 @@ export class WorkspaceInvitationService {
       createdAt: new Date().toISOString(),
       lastAccessed: new Date().toISOString(),
     };
-    
+
     workspaceRegistry.upsertWorkspace(localWorkspace);
   }
 
@@ -252,14 +287,15 @@ export class WorkspaceInvitationService {
   private async switchToWorkspace(workspaceId: string): Promise<void> {
     const storageService = getStorageService();
     await storageService.switchWorkspace(workspaceId);
-    
+
     // Update Redux state
     store.dispatch(switchWorkspace(workspaceId));
   }
 }
 
 // Export singleton instance
-let workspaceInvitationServiceInstance: WorkspaceInvitationService | null = null;
+let workspaceInvitationServiceInstance: WorkspaceInvitationService | null =
+  null;
 
 export function getWorkspaceInvitationService(): WorkspaceInvitationService {
   if (!workspaceInvitationServiceInstance) {
@@ -267,4 +303,3 @@ export function getWorkspaceInvitationService(): WorkspaceInvitationService {
   }
   return workspaceInvitationServiceInstance;
 }
-

@@ -33,7 +33,7 @@ describe('APIKeyManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup default mock implementation with all required methods
     (getUnifiedStorageService as jest.Mock).mockReturnValue({
       // API Key methods
@@ -42,29 +42,35 @@ describe('APIKeyManager', () => {
       deleteAPIKey: mockDeleteAPIKey,
       getAPIKey: jest.fn().mockResolvedValue(null),
       isAPIKeyAvailable: jest.fn().mockResolvedValue(false),
-      
+
       // Conversation methods (required by useStorage hook)
       createConversation: jest.fn().mockResolvedValue({}),
       updateConversation: jest.fn().mockResolvedValue({}),
-      getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+      getConversations: jest
+        .fn()
+        .mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
       getConversationById: jest.fn().mockResolvedValue({}),
       getMessages: jest.fn().mockResolvedValue([]),
-      
+
       // Context methods
-      getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+      getContexts: jest
+        .fn()
+        .mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
       createContext: jest.fn().mockResolvedValue({}),
       updateContext: jest.fn().mockResolvedValue({}),
       deleteContext: jest.fn().mockResolvedValue(''),
-      
+
       // System Prompt methods
-      getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+      getSystemPrompts: jest
+        .fn()
+        .mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
       createSystemPrompt: jest.fn().mockResolvedValue({}),
       updateSystemPrompt: jest.fn().mockResolvedValue({}),
       deleteSystemPrompt: jest.fn().mockResolvedValue(''),
-      
+
       // Sync method
       sync: jest.fn().mockResolvedValue(undefined),
-      
+
       // Service state methods
       initialize: jest.fn().mockResolvedValue(undefined),
       isInitialized: jest.fn().mockReturnValue(true),
@@ -94,8 +100,10 @@ describe('APIKeyManager', () => {
 
     it('should not render in local deployment mode', () => {
       // Store the original mock implementation
-      const originalMock = (getEnvironmentInfo as jest.Mock).getMockImplementation();
-      
+      const originalMock = (
+        getEnvironmentInfo as jest.Mock
+      ).getMockImplementation();
+
       (getEnvironmentInfo as jest.Mock).mockReturnValue({
         mode: 'local',
         isDevelopment: true,
@@ -118,18 +126,30 @@ describe('APIKeyManager', () => {
         // Conversation methods (required by useStorage hook)
         createConversation: jest.fn().mockResolvedValue({}),
         updateConversation: jest.fn().mockResolvedValue({}),
-        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversations: jest.fn().mockResolvedValue({
+          conversations: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         getConversationById: jest.fn().mockResolvedValue({}),
         getMessages: jest.fn().mockResolvedValue([]),
 
         // Context methods
-        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        getContexts: jest
+          .fn()
+          .mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
         createContext: jest.fn().mockResolvedValue({}),
         updateContext: jest.fn().mockResolvedValue({}),
         deleteContext: jest.fn().mockResolvedValue(''),
 
         // System Prompt methods
-        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        getSystemPrompts: jest.fn().mockResolvedValue({
+          systemPrompts: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         createSystemPrompt: jest.fn().mockResolvedValue({}),
         updateSystemPrompt: jest.fn().mockResolvedValue({}),
         deleteSystemPrompt: jest.fn().mockResolvedValue(''),
@@ -146,7 +166,7 @@ describe('APIKeyManager', () => {
 
       const { container } = renderComponent();
       expect(container.firstChild).toBeNull();
-      
+
       // Restore the original mocks
       (getEnvironmentInfo as jest.Mock).mockImplementation(originalMock);
       (getUnifiedStorageService as jest.Mock).mockReturnValue({
@@ -160,18 +180,30 @@ describe('APIKeyManager', () => {
         // Conversation methods (required by useStorage hook)
         createConversation: jest.fn().mockResolvedValue({}),
         updateConversation: jest.fn().mockResolvedValue({}),
-        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversations: jest.fn().mockResolvedValue({
+          conversations: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         getConversationById: jest.fn().mockResolvedValue({}),
         getMessages: jest.fn().mockResolvedValue([]),
 
         // Context methods
-        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        getContexts: jest
+          .fn()
+          .mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
         createContext: jest.fn().mockResolvedValue({}),
         updateContext: jest.fn().mockResolvedValue({}),
         deleteContext: jest.fn().mockResolvedValue(''),
 
         // System Prompt methods
-        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        getSystemPrompts: jest.fn().mockResolvedValue({
+          systemPrompts: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         createSystemPrompt: jest.fn().mockResolvedValue({}),
         updateSystemPrompt: jest.fn().mockResolvedValue({}),
         deleteSystemPrompt: jest.fn().mockResolvedValue(''),
@@ -202,18 +234,30 @@ describe('APIKeyManager', () => {
         // Conversation methods (required by useStorage hook)
         createConversation: jest.fn().mockResolvedValue({}),
         updateConversation: jest.fn().mockResolvedValue({}),
-        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversations: jest.fn().mockResolvedValue({
+          conversations: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         getConversationById: jest.fn().mockResolvedValue({}),
         getMessages: jest.fn().mockResolvedValue([]),
 
         // Context methods
-        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        getContexts: jest
+          .fn()
+          .mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
         createContext: jest.fn().mockResolvedValue({}),
         updateContext: jest.fn().mockResolvedValue({}),
         deleteContext: jest.fn().mockResolvedValue(''),
 
         // System Prompt methods
-        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        getSystemPrompts: jest.fn().mockResolvedValue({
+          systemPrompts: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         createSystemPrompt: jest.fn().mockResolvedValue({}),
         updateSystemPrompt: jest.fn().mockResolvedValue({}),
         deleteSystemPrompt: jest.fn().mockResolvedValue(''),
@@ -234,7 +278,7 @@ describe('APIKeyManager', () => {
       await waitFor(() => {
         expect(screen.getByRole('progressbar')).toBeInTheDocument();
       });
-      
+
       // Restore the original mock
       (getUnifiedStorageService as jest.Mock).mockReturnValue({
         // API Key methods
@@ -247,18 +291,30 @@ describe('APIKeyManager', () => {
         // Conversation methods (required by useStorage hook)
         createConversation: jest.fn().mockResolvedValue({}),
         updateConversation: jest.fn().mockResolvedValue({}),
-        getConversations: jest.fn().mockResolvedValue({ conversations: [], total: 0, page: 1, limit: 20 }),
+        getConversations: jest.fn().mockResolvedValue({
+          conversations: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         getConversationById: jest.fn().mockResolvedValue({}),
         getMessages: jest.fn().mockResolvedValue([]),
 
         // Context methods
-        getContexts: jest.fn().mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
+        getContexts: jest
+          .fn()
+          .mockResolvedValue({ contexts: [], total: 0, page: 1, limit: 20 }),
         createContext: jest.fn().mockResolvedValue({}),
         updateContext: jest.fn().mockResolvedValue({}),
         deleteContext: jest.fn().mockResolvedValue(''),
 
         // System Prompt methods
-        getSystemPrompts: jest.fn().mockResolvedValue({ systemPrompts: [], total: 0, page: 1, limit: 20 }),
+        getSystemPrompts: jest.fn().mockResolvedValue({
+          systemPrompts: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        }),
         createSystemPrompt: jest.fn().mockResolvedValue({}),
         updateSystemPrompt: jest.fn().mockResolvedValue({}),
         deleteSystemPrompt: jest.fn().mockResolvedValue(''),
@@ -308,7 +364,9 @@ describe('APIKeyManager', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText(/No API keys configured yet/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/No API keys configured yet/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -403,7 +461,9 @@ describe('APIKeyManager', () => {
 
       // Select provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
+      const openaiOption = await screen.findByRole('option', {
+        name: 'OpenAI',
+      });
       fireEvent.click(openaiOption);
 
       // Enter API key
@@ -439,11 +499,15 @@ describe('APIKeyManager', () => {
 
       // Select existing provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
+      const openaiOption = await screen.findByRole('option', {
+        name: 'OpenAI',
+      });
       fireEvent.click(openaiOption);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Update API Key/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /Update API Key/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -460,14 +524,18 @@ describe('APIKeyManager', () => {
 
       // Select existing provider
       fireEvent.mouseDown(providerSelect);
-      const openaiOption = await screen.findByRole('option', { name: 'OpenAI' });
+      const openaiOption = await screen.findByRole('option', {
+        name: 'OpenAI',
+      });
       fireEvent.click(openaiOption);
 
       // Enter new API key
       fireEvent.change(apiKeyInput, { target: { value: 'sk-newkey456' } });
 
       // Click update
-      const updateButton = await screen.findByRole('button', { name: /Update API Key/i });
+      const updateButton = await screen.findByRole('button', {
+        name: /Update API Key/i,
+      });
       fireEvent.click(updateButton);
 
       await waitFor(() => {
@@ -493,11 +561,14 @@ describe('APIKeyManager', () => {
         },
       ]);
       renderComponent();
-      await waitFor(() => {
-        // Look for the chip or row that displays the provider
-        const elements = screen.queryAllByText('OpenAI');
-        expect(elements.length).toBeGreaterThan(0);
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          // Look for the chip or row that displays the provider
+          const elements = screen.queryAllByText('OpenAI');
+          expect(elements.length).toBeGreaterThan(0);
+        },
+        { timeout: 3000 }
+      );
     });
 
     it('should show delete confirmation dialog', async () => {
@@ -505,26 +576,32 @@ describe('APIKeyManager', () => {
       fireEvent.click(deleteButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Are you sure you want to delete/i)
+        ).toBeInTheDocument();
       });
     });
 
     it('should delete API key when confirmed', async () => {
       mockDeleteAPIKey.mockResolvedValue(undefined);
-      mockGetAllAPIKeys.mockResolvedValueOnce([
-        {
-          id: '1',
-          provider: 'openai',
-          create_timestamp: '2024-01-01T00:00:00Z',
-          update_timestamp: '2024-01-01T00:00:00Z',
-        },
-      ]).mockResolvedValueOnce([]);
+      mockGetAllAPIKeys
+        .mockResolvedValueOnce([
+          {
+            id: '1',
+            provider: 'openai',
+            create_timestamp: '2024-01-01T00:00:00Z',
+            update_timestamp: '2024-01-01T00:00:00Z',
+          },
+        ])
+        .mockResolvedValueOnce([]);
 
       const deleteButton = screen.getByTitle('Delete API Key');
       fireEvent.click(deleteButton);
 
       // Confirm deletion
-      const confirmButton = await screen.findByRole('button', { name: 'Delete' });
+      const confirmButton = await screen.findByRole('button', {
+        name: 'Delete',
+      });
       fireEvent.click(confirmButton);
 
       await waitFor(() => {
@@ -541,7 +618,9 @@ describe('APIKeyManager', () => {
       fireEvent.click(deleteButton);
 
       // Cancel deletion
-      const cancelButton = await screen.findByRole('button', { name: 'Cancel' });
+      const cancelButton = await screen.findByRole('button', {
+        name: 'Cancel',
+      });
       fireEvent.click(cancelButton);
 
       await waitFor(() => {
@@ -556,7 +635,9 @@ describe('APIKeyManager', () => {
       fireEvent.click(deleteButton);
 
       // Confirm deletion
-      const confirmButton = await screen.findByRole('button', { name: 'Delete' });
+      const confirmButton = await screen.findByRole('button', {
+        name: 'Delete',
+      });
       fireEvent.click(confirmButton);
 
       await waitFor(() => {

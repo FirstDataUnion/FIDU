@@ -32,4 +32,3 @@ export function getApiKeysDbFilename(version: string = '1'): string {
 export function getMetadataJsonFilename(version: string = '1'): string {
   return `fidu_metadata_v${version}.json`;
 }
-

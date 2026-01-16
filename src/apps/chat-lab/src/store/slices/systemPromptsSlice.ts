@@ -42,18 +42,31 @@ export const fetchSystemPrompts = createAsyncThunk(
     try {
       if (profileId) {
         const storageService = getUnifiedStorageService();
-        const response = await storageService.getSystemPrompts(undefined, 1, 100, profileId);
+        const response = await storageService.getSystemPrompts(
+          undefined,
+          1,
+          100,
+          profileId
+        );
         return response;
       }
       return { systemPrompts: [], total: 0, page: 1, limit: 100 };
     } catch (error: any) {
       // Check if this is a storage init error and handle gracefully
-      if (error.message?.includes('Cloud storage adapter not initialized') ||
-          error.message?.includes('Cloud storage not fully initialized')) {
-        console.warn('Storage adapter not ready yet for system prompts, will retry later:', error.message);
+      if (
+        error.message?.includes('Cloud storage adapter not initialized')
+        || error.message?.includes('Cloud storage not fully initialized')
+      ) {
+        console.warn(
+          'Storage adapter not ready yet for system prompts, will retry later:',
+          error.message
+        );
         return rejectWithValue('Storage not ready, retrying...');
       }
-      console.error('Failed to fetch system prompts using unified storage:', error);
+      console.error(
+        'Failed to fetch system prompts using unified storage:',
+        error
+      );
       throw error;
     }
   }
@@ -61,13 +74,25 @@ export const fetchSystemPrompts = createAsyncThunk(
 
 export const createSystemPrompt = createAsyncThunk(
   'systemPrompts/createSystemPrompt',
-  async ({ systemPromptData, profileId }: { systemPromptData: Partial<SystemPrompt>; profileId: string }) => {
+  async ({
+    systemPromptData,
+    profileId,
+  }: {
+    systemPromptData: Partial<SystemPrompt>;
+    profileId: string;
+  }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const newSystemPrompt = await storageService.createSystemPrompt(systemPromptData, profileId);
+      const newSystemPrompt = await storageService.createSystemPrompt(
+        systemPromptData,
+        profileId
+      );
       return newSystemPrompt;
     } catch (error: any) {
-      console.error('Failed to create system prompt using unified storage:', error);
+      console.error(
+        'Failed to create system prompt using unified storage:',
+        error
+      );
       throw error;
     }
   }
@@ -75,13 +100,25 @@ export const createSystemPrompt = createAsyncThunk(
 
 export const updateSystemPrompt = createAsyncThunk(
   'systemPrompts/updateSystemPrompt',
-  async ({ systemPrompt, profileId }: { systemPrompt: Partial<SystemPrompt>; profileId: string }) => {
+  async ({
+    systemPrompt,
+    profileId,
+  }: {
+    systemPrompt: Partial<SystemPrompt>;
+    profileId: string;
+  }) => {
     try {
       const storageService = getUnifiedStorageService();
-      const updatedSystemPrompt = await storageService.updateSystemPrompt(systemPrompt, profileId);
+      const updatedSystemPrompt = await storageService.updateSystemPrompt(
+        systemPrompt,
+        profileId
+      );
       return updatedSystemPrompt;
     } catch (error: any) {
-      console.error('Failed to update system prompt using unified storage:', error);
+      console.error(
+        'Failed to update system prompt using unified storage:',
+        error
+      );
       throw error;
     }
   }
@@ -95,7 +132,10 @@ export const deleteSystemPrompt = createAsyncThunk(
       await storageService.deleteSystemPrompt(systemPromptId);
       return systemPromptId;
     } catch (error: any) {
-      console.error('Failed to delete system prompt using unified storage:', error);
+      console.error(
+        'Failed to delete system prompt using unified storage:',
+        error
+      );
       throw error;
     }
   }
@@ -105,35 +145,49 @@ const systemPromptsSlice = createSlice({
   name: 'systemPrompts',
   initialState,
   reducers: {
-    setSelectedSystemPrompt: (state, action: PayloadAction<SystemPrompt | null>) => {
+    setSelectedSystemPrompt: (
+      state,
+      action: PayloadAction<SystemPrompt | null>
+    ) => {
       state.selectedSystemPrompt = action.payload;
     },
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchSystemPrompts.pending, (state) => {
+      .addCase(fetchSystemPrompts.pending, state => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchSystemPrompts.fulfilled, (state, action) => {
         state.loading = false;
         // Combine built-in system prompts, Fabric patterns, Wharton Gen AI Labs prompts, and user-created ones
-        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts, ...whartonGenAILabsPrompts, ...action.payload.systemPrompts] as SystemPrompt[];
+        state.items = [
+          ...builtInSystemPrompts,
+          ...fabricSystemPrompts,
+          ...whartonGenAILabsPrompts,
+          ...action.payload.systemPrompts,
+        ] as SystemPrompt[];
       })
       .addCase(fetchSystemPrompts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch system prompts';
         // Even if API fails, we still have built-in prompts, Fabric patterns, and Wharton Gen AI Labs prompts
-        state.items = [...builtInSystemPrompts, ...fabricSystemPrompts, ...whartonGenAILabsPrompts] as SystemPrompt[];
+        state.items = [
+          ...builtInSystemPrompts,
+          ...fabricSystemPrompts,
+          ...whartonGenAILabsPrompts,
+        ] as SystemPrompt[];
       })
       .addCase(createSystemPrompt.fulfilled, (state, action) => {
         state.items.push(action.payload);
       })
       .addCase(updateSystemPrompt.fulfilled, (state, action) => {
-        const index = state.items.findIndex(item => item.id === action.payload.id);
+        const index = state.items.findIndex(
+          item => item.id === action.payload.id
+        );
         if (index !== -1) {
           state.items[index] = action.payload;
         }
@@ -145,24 +199,24 @@ const systemPromptsSlice = createSlice({
 });
 
 // Helper functions for filtering system prompts
-export const getFabricSystemPrompts = (state: SystemPromptsState) => 
+export const getFabricSystemPrompts = (state: SystemPromptsState) =>
   state.items.filter(prompt => prompt.source === 'fabric');
 
-export const getBuiltInSystemPrompts = (state: SystemPromptsState) => 
+export const getBuiltInSystemPrompts = (state: SystemPromptsState) =>
   state.items.filter(prompt => prompt.source === 'built-in');
 
-export const getUserSystemPrompts = (state: SystemPromptsState) => 
+export const getUserSystemPrompts = (state: SystemPromptsState) =>
   state.items.filter(prompt => prompt.source === 'user' || !prompt.source);
 
-export const getSystemPromptsByCategory = (state: SystemPromptsState, category: string) => 
-  state.items.filter(prompt => prompt.categories.includes(category));
+export const getSystemPromptsByCategory = (
+  state: SystemPromptsState,
+  category: string
+) => state.items.filter(prompt => prompt.categories.includes(category));
 
-export const getAllCategories = (state: SystemPromptsState) => 
+export const getAllCategories = (state: SystemPromptsState) =>
   [...new Set(state.items.flatMap(prompt => prompt.categories))].sort();
 
-export const { 
-  setSelectedSystemPrompt, 
-  clearError
-} = systemPromptsSlice.actions;
+export const { setSelectedSystemPrompt, clearError } =
+  systemPromptsSlice.actions;
 
 export default systemPromptsSlice.reducer;
