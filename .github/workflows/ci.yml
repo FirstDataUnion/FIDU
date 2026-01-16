@@ -87,6 +87,11 @@ jobs:
       run: |
         npm ci --legacy-peer-deps
         
+    - name: Run Prettier format check
+      working-directory: src/apps/chat-lab
+      run: |
+        npm run format:check
+        
     - name: Run frontend linting
       working-directory: src/apps/chat-lab
       run: |
