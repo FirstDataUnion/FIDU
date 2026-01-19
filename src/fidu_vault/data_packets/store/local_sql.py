@@ -71,10 +71,8 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
             cursor.execute(self.create_tags_table_query)
             cursor.execute(self.create_updates_table_query)
             # Create indexes for efficient querying
-            cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packets_profile_id
-                ON data_packets(profile_id)"""
-            )
+            cursor.execute("""CREATE INDEX IF NOT EXISTS idx_data_packets_profile_id
+                ON data_packets(profile_id)""")
             cursor.execute(
                 """CREATE INDEX IF NOT EXISTS idx_data_packets_create_timestamp
                 ON data_packets(create_timestamp)"""
@@ -84,14 +82,10 @@ class LocalSqlDataPacketStore(DataPacketStoreInterface):
                 ON data_packets(update_timestamp)"""
             )
             # Create indexes for tag queries
-            cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packet_tags_tag
-                ON data_packet_tags(tag)"""
-            )
-            cursor.execute(
-                """CREATE INDEX IF NOT EXISTS idx_data_packet_tags_packet_id
-                ON data_packet_tags(data_packet_id)"""
-            )
+            cursor.execute("""CREATE INDEX IF NOT EXISTS idx_data_packet_tags_tag
+                ON data_packet_tags(tag)""")
+            cursor.execute("""CREATE INDEX IF NOT EXISTS idx_data_packet_tags_packet_id
+                ON data_packet_tags(data_packet_id)""")
             # Create indexes for update queries
             cursor.execute(
                 """CREATE INDEX IF NOT EXISTS idx_data_packet_updates_request_id
