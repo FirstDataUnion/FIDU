@@ -396,5 +396,5 @@ CO7 9DP, United Kingdom
 **Effective Date:** 21 January 2026
 **Version:** 1.2
 
-For the full FIDU organizational privacy policy, visit: [https://firstdataunion.org/privacy-policy](https://firstdataunion.org/privacy-policy)
+For the full FIDU organizational privacy policy, visit: [https://firstdataunion.org/privacy-policy.html](https://firstdataunion.org/privacy-policy.html)
 
