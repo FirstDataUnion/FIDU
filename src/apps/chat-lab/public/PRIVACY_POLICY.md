@@ -74,7 +74,7 @@ FIDU Chat Lab uses cookies and browser storage mechanisms that are essential for
 - **Purpose:** Maintain your logged-in session
 - **Type:** Session and persistent cookies
 - **Names:** `fidu_refresh_token`, `fidu_access_token` (environment-specific)
-- **Duration:** Access tokens expire in less than a day or less; refresh tokens remain valid for 30-90 days
+- **Duration:** Access tokens expire in a day or less; refresh tokens remain valid for 30-90 days
 - **Storage:** HTTP-only cookies (managed by backend server), in memory
 - **Security:** 
   - Refresh tokens stored in HTTP-only cookies (not accessible to JavaScript)
@@ -102,7 +102,7 @@ FIDU Chat Lab uses cookies and browser storage mechanisms that are essential for
 
 #### Google Drive Tokens (Google Drive Mode Only)
 - **Purpose:** Authenticate with Google Drive for cloud storage
-- **Storage:** HTTP-only encrypted cookies (primary)
+- **Storage:** HTTP-only encrypted cookies, localStorage
 - **Data:** `google_refresh_token`, expiration times
 - **Duration:** Persists until you disconnect Google Drive or log out
 - **Security:** Refresh tokens are encrypted using user-specific keys before storage
@@ -241,7 +241,7 @@ Note: Opting out of metrics does not affect your ability to use Chat Lab.
 - Data brokers
 - Analytics platforms (e.g., Google Analytics)
 - Social media networks
-- AI model providers (your API keys directly connect to them from your browser)
+- AI model providers (other than your prompts, context, etc. as required for them to generate a response)
 
 ### 7.2. Third-Party Services We Use
 
