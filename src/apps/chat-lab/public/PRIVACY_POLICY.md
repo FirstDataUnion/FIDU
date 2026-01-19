@@ -21,6 +21,7 @@ When you create an account or log in to FIDU Chat Lab, we collect:
 - **Email address** (for account identification and login)
 - **Name** (as provided during registration)
 - **Profile information** (display names you create within the app)
+- **Google email address** (when you connect your drive, for the Workspace feature)
 
 **How we store this:**
 - Account information is stored securely in our Identity Service database
