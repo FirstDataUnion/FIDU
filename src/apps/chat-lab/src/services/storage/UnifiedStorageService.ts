@@ -371,12 +371,13 @@ export class UnifiedStorageService {
       'clearAllCloudDatabaseFiles' in adapter
       && typeof adapter.clearAllCloudDatabaseFiles === 'function'
     ) {
-      return await (adapter as any).clearAllCloudDatabaseFiles();
+      await (adapter as any).clearAllCloudDatabaseFiles();
     } else {
       throw new Error(
         'Clear cloud database files not supported by current storage adapter'
       );
     }
+    await this.storageService.reinitialize();
   }
 
   isOnline(): boolean {
