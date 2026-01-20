@@ -530,9 +530,23 @@ const ConversationsPage: React.FC = React.memo(() => {
                 : 'No Conversations Available'}
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.5 }}>
-              {isStorageNotConfigured
-                ? 'No Conversations Available. Please configure storage to use this feature'
-                : 'Select a directory in Settings to load your conversations'}
+              {isStorageNotConfigured ? (
+                'No Conversations Available. Please configure storage to use this feature'
+              ) : (
+                <>
+                  There was an error connecting to Google Drive. Please&nbsp;
+                  <a
+                    href="https://github.com/FirstDataUnion/FIDU/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#1976d2', textDecoration: 'underline' }}
+                  >
+                    report this
+                  </a>
+                  . In the meantime, disconnecting and reconnecting Google Drive
+                  (click cloud icon above) may fix the issue.
+                </>
+              )}
             </Typography>
           </Box>
         </Box>
