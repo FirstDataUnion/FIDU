@@ -45,13 +45,42 @@ Your conversations and application data include:
   - **Personal Workspace**: Your encrypted conversation data is stored in your personal Google Drive within the hidden AppData folder. The ChatLab app has access only to the FIDU folder in your AppData folder, and cannot read or write data anywhere else in your Google Drive. This access can be revoked at any time. Your personal encryption key is stored separately on our Identity server, and is always encrypted in transport via HTTPS and secured at rest via file system level encryption.
   - **Shared Workspace**: Your encrypted conversation data is stored in the person Google Drive of the workspace owner. The ChatLab app has access only to the files/folders the workspace owner granted access to, and cannot read or write to any other file in that Google Drive and has no access at all to the Google Drive of users invited to a Workspace (unless they have separate Workspaces themselves). This access can be revoked at any time. The workspace encryption key is stored separately on our Identity server, and is always encrypted in transport via HTTPS and secured at rest via file system level encryption.
 
-### 2.3. Technical & Usage Data
+### 2.3. Model Usage Data
+
+When you make requests to AI models through FIDU Chat Lab, we store usage records linked to your account.
+This data is used to for billing, service management and compliance.
+
+**What We Store:**
+- **User identification** (linked to your account)
+- **Request timestamps** (when requests were initiated and completed)
+- **Token usage** (input and output token counts for each request)
+- **Model information** (which model you selected and which model was actually used)
+- **Service provider** (e.g., OpenAI, Anthropic, Google)
+- **Cost information** (calculated costs for each request)
+
+**What We DON'T Store as Model Usage Data:**
+- We do not store the content of your prompts or messages
+- We do not store AI model responses
+- We do not store any conversation context or documents
+
+**How We Store This:**
+- Prompt usage records are stored securely in our Identity Service database
+- Data is encrypted in transit using HTTPS/TLS
+- Data is encrypted at rest on our servers
+- Access is restricted to FIDU technical staff for operational and billing purposes
+
+**Why We Collect This:**
+- **Billing:** To calculate and track costs associated with your AI model usage, including monthly quotas or PAYG features
+- **Service Management:** To detect and prevent abuse, troubleshoot issues, and ensure service quality
+- **Compliance:** To maintain records required for financial and operational accountability
+
+### 2.4. Technical & Usage Data
 
 We collect anonymous usage metrics to monitor system health and improve the service. These metrics do not include the content of your conversations or any personally identifiable information. 
 
 For detailed information about what metrics we collect, how they are used, and how to opt out, see **Section 4: Anonymous Metrics Collection**. 
 
-### 2.4. Google Drive Integration
+### 2.5. Google Drive Integration
 
 If you enable Google Drive cloud storage, we use the Google Drive API to:
 
