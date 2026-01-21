@@ -250,10 +250,21 @@ Note: Opting out of metrics does not affect your ability to use Chat Lab.
 - **Data Access:** Anonymised chat bot conversation data. Never stored beyond short lived encrypted caching. 
 - **Privacy Policy:** [NLP Ltd. Policy](https://nlp-processing.com/privacy-policy)
 
+**OpenRouter, Inc.**
+- **Purpose:** Passthrough AI Provider gateway used to provide access to many models with one API
+- **Data Access:** Anonymised chat bot conversation data. Only minimal metadata stored once processing is done.
+- **Privacy Policy:** [OpenRouter Privacy Policy](https://openrouter.ai/privacy)
+
 **Google Drive API** 
 - **Purpose:** Store your encrypted conversation data in your Google Drive
 - **Data Access:** Only files created by FIDU Chat Lab
 - **Privacy Policy:** [Google Privacy Policy](https://policies.google.com/privacy)
+
+**Stripe**
+- **Purpose:** Payment processing
+- **Data Access:** Name, contact details, payment details
+- **Privacy Policy:** [Stripe Privacy Policy](https://stripe.com/gb/privacy)
+
 
 ### 7.3. Legal Disclosure
 
