@@ -5,14 +5,21 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.10] - UNRELEASED
+## [0.2.0] - 2026-01-21
 
 ### Added
+- **Shared Workspaces**: Experimental team collaboration feature (behind feature flag) allowing multiple users to share conversations, contexts, system prompts, and background agents through a shared Google Drive folder
+- **Feature Flags System**: User-configurable feature flags allowing users to enable/disable experimental features and customize their experience
 - **Last Sync UI**: Extra UI to show last successful sync to google drive, and current sync health status
 
-### Changes
-- **Drive Sync Resilience**: Added extra mechanisms to try to automatically recover from sync failures from long lived sessions. 
-- **Allow Multiple Context Selection**: Multiple contexts can now be added to a prompt at once. 
+### Changed
+- **Token Handling**: Improved auth and refresh token logic to reduce authentication issues
+- **Drive Sync Resilience**: Added extra mechanisms to try to automatically recover from sync failures from long lived sessions
+- **Allow Multiple Context Selection**: Multiple contexts can now be added to a prompt at once
+
+### Fixed
+- **Prompt Persistence**: Current prompt persists across page navigations (such as adding system prompt)
+- **UI Data Refresh**: UI data (contexts, documents, etc.) now automatically refreshes after sync operations to ensure consistency
 
 ## [0.1.9] - 2025-12-04
 
@@ -151,4 +158,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed**: Removed features
 - **Fixed**: Bug fixes
 - **Security**: Security improvements and vulnerability fixes
-
