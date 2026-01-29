@@ -3045,10 +3045,10 @@ export default function PromptLabPage() {
   const [longRequestAnalysis, setLongRequestAnalysis] =
     useState<LongRequestAnalysis | null>(null);
   const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
-  const [isRequestCancelled, setIsRequestCancelled] = useState(false);
   const [_requestStartTime, setRequestStartTime] = useState<number | null>(
     null
   );
+  const promptAbortController = useRef<AbortController | null>(null);
 
   // Show toast message
   const showToast = useCallback((message: string) => {
@@ -3555,7 +3555,7 @@ export default function PromptLabPage() {
     dispatch(clearCurrentPrompt());
     setIsLoading(true);
     setError(null);
-    setIsRequestCancelled(false);
+    promptAbortController.current = new AbortController();
 
     // Analyze request for potential long duration
     const contextLength = selectedContexts.reduce(
@@ -3590,13 +3590,9 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
-        []
+        [],
+        promptAbortController.current.signal
       );
-
-      // Check if request was cancelled
-      if (isRequestCancelled) {
-        return;
-      }
 
       // Track successful message sent to model (safely handle if MetricsService unavailable)
       safeRecordMessageSent(selectedModel, 'success');
@@ -3779,6 +3775,11 @@ export default function PromptLabPage() {
         );
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log('Request cancelled by user');
+        return;
+      }
+
       console.error('Error getting AI response:', error);
 
       // Track error message sent to model (safely handle if MetricsService unavailable)
@@ -3819,12 +3820,13 @@ export default function PromptLabPage() {
       setShowLongRequestWarning(false);
       setLongRequestAnalysis(null);
       setRequestStartTime(null);
+      promptAbortController.current = null;
     }
   };
 
   // Handle cancelling a long request
   const handleCancelRequest = useCallback(() => {
-    setIsRequestCancelled(true);
+    promptAbortController.current?.abort('Request cancelled by user');
     setIsLoading(false);
     setShowLongRequestWarning(false);
     setLongRequestAnalysis(null);
@@ -4314,6 +4316,8 @@ export default function PromptLabPage() {
             `Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point and load the message into the input box.`
           )
         ) {
+          // Cancel any outstanding requests
+          handleCancelRequest();
           // Load the message content into the chat text box
           dispatch(setCurrentPrompt(targetMessage.content));
           // Remove all messages after this point (including the target message)
@@ -4327,7 +4331,7 @@ export default function PromptLabPage() {
         }
       }
     },
-    [messages, scrollToBottom, showToast, dispatch]
+    [messages, scrollToBottom, showToast, dispatch, handleCancelRequest]
   );
 
   // Handle retry for failed messages
@@ -4354,6 +4358,8 @@ export default function PromptLabPage() {
       // Show loading state
       setIsLoading(true);
 
+      promptAbortController.current = new AbortController();
+
       try {
         // Call the API to get AI response
         const response = await promptsApi.executePrompt(
@@ -4363,7 +4369,8 @@ export default function PromptLabPage() {
           selectedModel,
           currentProfile!.id,
           selectedSystemPrompts,
-          []
+          [],
+          promptAbortController.current.signal
         );
 
         if (response.status === 'completed' && response.responses?.content) {
