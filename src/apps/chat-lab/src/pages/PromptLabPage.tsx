@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  type JSX,
+} from 'react';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
 import {
   Box,
@@ -2249,6 +2256,9 @@ export default function PromptLabPage() {
   >(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ghostMessages, setGhostMessages] = useState<Record<string, Message[]>>(
+    {}
+  );
 
   // Mobile-specific state
   const [showMobileControls, setShowMobileControls] = useState(false);
@@ -4313,11 +4323,23 @@ export default function PromptLabPage() {
         // Show confirmation dialog
         if (
           window.confirm(
-            `Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point and load the message into the input box.`
+            `Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point from the conversation (while retaining a ghost while the page is open) and load the message into the input box.`
           )
         ) {
           // Cancel any outstanding requests
           handleCancelRequest();
+          const deletedMessages = messages.slice(messageIndex);
+          const rootMessage =
+            messageIndex > 0 ? messages[messageIndex - 1] : null;
+          const rootMessageKey = rootMessage?.id ?? 'conversation_start';
+          setGhostMessages(prev => ({
+            ...prev,
+            [rootMessageKey]: [
+              ...(prev[rootMessageKey] ?? []),
+              ...deletedMessages,
+            ],
+          }));
+
           // Load the message content into the chat text box
           dispatch(setCurrentPrompt(targetMessage.content));
           // Remove all messages after this point (including the target message)
@@ -4493,6 +4515,434 @@ export default function PromptLabPage() {
     );
   }, [selectedSystemPrompts, selectedContexts, messages, currentPrompt]);
 
+  const renderMessage = useCallback(
+    (
+      message: Message,
+      messageIndex: number,
+      isGhost: boolean = false
+    ): JSX.Element => {
+      const opacity = isGhost ? 0.5 : 1;
+      const metadata = message.metadata as Record<string, any> | undefined;
+      const actualModelRaw =
+        typeof metadata?.actualModel === 'string'
+          ? metadata.actualModel
+          : undefined;
+      let actualModelInfo: ActualModelInfo | null =
+        parseActualModelInfo(actualModelRaw);
+
+      if (actualModelInfo) {
+        const providerDisplay =
+          typeof metadata?.actualModelProviderDisplay === 'string'
+            ? metadata.actualModelProviderDisplay.trim()
+            : '';
+        const modelDisplay =
+          typeof metadata?.actualModelNameDisplay === 'string'
+            ? metadata.actualModelNameDisplay.trim()
+            : '';
+
+        if (providerDisplay) {
+          actualModelInfo = {
+            ...actualModelInfo,
+            providerDisplay,
+          };
+        }
+
+        if (modelDisplay) {
+          actualModelInfo = {
+            ...actualModelInfo,
+            modelDisplay,
+          };
+        }
+      } else if (
+        typeof metadata?.actualModelProviderDisplay === 'string'
+        || typeof metadata?.actualModelNameDisplay === 'string'
+      ) {
+        actualModelInfo = {
+          raw: actualModelRaw ?? '',
+          providerRaw:
+            typeof metadata?.actualModelProvider === 'string'
+              ? metadata.actualModelProvider
+              : '',
+          modelRaw:
+            typeof metadata?.actualModelName === 'string'
+              ? metadata.actualModelName
+              : '',
+          providerDisplay:
+            typeof metadata?.actualModelProviderDisplay === 'string'
+              ? metadata.actualModelProviderDisplay
+              : '',
+          modelDisplay:
+            typeof metadata?.actualModelNameDisplay === 'string'
+              ? metadata.actualModelNameDisplay
+              : '',
+        };
+      }
+
+      const modelInfo = getModelInfo(message.platform, actualModelInfo);
+      return (
+        <>
+          <Box
+            key={message.id}
+            id={`message-${message.id}`}
+            data-message-id={message.id}
+            sx={{
+              display: 'flex',
+              justifyContent:
+                message.role === 'user' ? 'flex-end' : 'flex-start',
+              mb: isMobile ? 1.5 : 2,
+              mr: message.role === 'user' ? (isMobile ? '5%' : '15%') : 0,
+              ml: message.role === 'assistant' ? (isMobile ? '5%' : 0) : 0,
+              scrollMarginTop: '80px', // Add offset for sticky headers
+              opacity: opacity,
+            }}
+          >
+            <Paper
+              sx={{
+                p: isMobile ? 1.5 : 2,
+                maxWidth: isMobile ? '90%' : '70%',
+                minWidth: isMobile ? '60%' : 'auto',
+                backgroundColor:
+                  message.role === 'user'
+                    ? 'primary.light'
+                    : message.role === 'assistant'
+                        && message.content.startsWith('Error:')
+                      ? 'error.light'
+                      : modelInfo.color, // Use model-specific color for AI messages
+                color:
+                  message.role === 'user' ? 'primary.contrastText' : 'white',
+                borderRadius: isMobile ? 3 : 2,
+                position: 'relative',
+                // Add subtle shadow for better visual separation
+                boxShadow: message.role === 'assistant' ? 2 : 1,
+                // Add hover effect for user messages to indicate rewind functionality
+                ...(message.role === 'user'
+                  && !isMobile && {
+                    '&:hover': {
+                      boxShadow: 3,
+                      transform: 'translateY(-1px)',
+                      transition: 'all 0.2s ease',
+                    },
+                  }),
+                // Add subtle border to indicate interactive elements
+                border:
+                  message.role === 'user'
+                    ? '1px solid rgba(0,0,0,0.1)'
+                    : '1px solid rgba(255,255,255,0.1)',
+                // Mobile-specific touch feedback
+                ...(isMobile
+                  && message.role === 'user' && {
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                      transition: 'transform 0.1s ease',
+                    },
+                  }),
+              }}
+            >
+              {message.role === 'assistant' && (
+                <Avatar
+                  sx={{
+                    width: isMobile ? 20 : 24,
+                    height: isMobile ? 20 : 24,
+                    position: 'absolute',
+                    top: isMobile ? -10 : -12,
+                    left: isMobile ? -10 : -12,
+                    bgcolor: message.content.startsWith('Error:')
+                      ? 'error.dark'
+                      : modelInfo.color,
+                  }}
+                >
+                  <ModelIcon fontSize={isMobile ? 'small' : 'small'} />
+                </Avatar>
+              )}
+
+              {/* Model information for AI messages */}
+              {message.role === 'assistant' && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: isMobile ? 0.5 : 1,
+                    mb: isMobile ? 0.5 : 1,
+                    flexWrap: isMobile ? 'wrap' : 'nowrap',
+                  }}
+                >
+                  <Chip
+                    label={modelInfo.name}
+                    size="small"
+                    sx={{
+                      height: isMobile ? 18 : 20,
+                      fontSize: isMobile ? '0.6rem' : '0.7rem',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      '& .MuiChip-label': {
+                        px: isMobile ? 0.5 : 1,
+                      },
+                    }}
+                  />
+                  {!isMobile && (
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.7, color: 'white' }}
+                    >
+                      {modelInfo.provider}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              <Box
+                sx={{
+                  // Let EnhancedMarkdown handle paragraph styling
+                  // Remove conflicting paragraph styles that override markdown rendering
+                  '& pre': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    padding: isMobile ? 0.75 : 1,
+                    borderRadius: isMobile ? 0.75 : 1,
+                    overflow: 'auto',
+                    margin: isMobile ? '6px 0' : '8px 0',
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
+                  },
+                  '& code': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    padding: isMobile ? '1px 3px' : '2px 4px',
+                    borderRadius: isMobile ? 0.5 : 1,
+                    fontFamily: 'monospace',
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
+                  },
+                  '& ul, & ol': {
+                    margin: isMobile ? '6px 0' : '8px 0',
+                    paddingLeft: isMobile ? 1.5 : 2,
+                  },
+                  '& li': { margin: isMobile ? '2px 0' : '4px 0' },
+                  '& blockquote': {
+                    borderLeft: '3px solid rgba(255,255,255,0.3)',
+                    paddingLeft: isMobile ? 0.75 : 1,
+                    margin: isMobile ? '6px 0' : '8px 0',
+                    fontStyle: 'italic',
+                  },
+                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                    margin: isMobile ? '8px 0 4px 0' : '12px 0 8px 0',
+                    fontWeight: 600,
+                    lineHeight: 1.2,
+                  },
+                  '& h1': { fontSize: isMobile ? '1.3em' : '1.5em' },
+                  '& h2': { fontSize: isMobile ? '1.2em' : '1.3em' },
+                  '& h3': { fontSize: isMobile ? '1.1em' : '1.1em' },
+                  '& strong': { fontWeight: 600 },
+                  '& em': { fontStyle: 'italic' },
+                  '& hr': {
+                    border: 'none',
+                    borderTop: '1px solid rgba(255,255,255,0.2)',
+                    margin: isMobile ? '12px 0' : '16px 0',
+                  },
+                  '& table': {
+                    borderCollapse: 'collapse',
+                    width: '100%',
+                    margin: isMobile ? '6px 0' : '8px 0',
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
+                  },
+                  '& th, & td': {
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    padding: isMobile ? '2px 4px' : '4px 8px',
+                    textAlign: 'left',
+                  },
+                  '& th': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    fontWeight: 600,
+                  },
+                  // Add padding to prevent button overlap
+                  paddingRight:
+                    message.role === 'user'
+                      ? isMobile
+                        ? '36px'
+                        : '44px'
+                      : isMobile
+                        ? '36px'
+                        : '44px', // Space for rewind/copy buttons
+                  paddingBottom:
+                    message.role === 'assistant'
+                      ? isMobile
+                        ? '36px'
+                        : '44px'
+                      : isMobile
+                        ? '6px'
+                        : '8px', // Extra bottom padding for copy button
+                  // Mobile-specific typography
+                  fontSize: isMobile ? '0.9rem' : '1rem',
+                  lineHeight: isMobile ? 1.4 : 1.5,
+                }}
+              >
+                <EnhancedMarkdown
+                  content={message.content}
+                  enableSyntaxHighlighting={true}
+                  showCopyButtons={true}
+                  preprocess={true}
+                />
+              </Box>
+
+              {/* Rewind Button for User Messages */}
+              {!isGhost && message.role === 'user' && (
+                <IconButton
+                  onClick={() => handleRewindToMessage(messageIndex)}
+                  sx={{
+                    position: 'absolute',
+                    top: isMobile ? 6 : 8,
+                    right: isMobile ? 6 : 8,
+                    width: isMobile ? 32 : 28,
+                    height: isMobile ? 32 : 28,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(0,0,0,0.15)',
+                    color: 'primary.contrastText',
+                    opacity: 0.8,
+                    zIndex: 10,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.25)',
+                      opacity: 1,
+                      transform: 'scale(1.1)',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                    },
+                    '&:active': isMobile
+                      ? {
+                          transform: 'scale(0.95)',
+                          backgroundColor: 'rgba(0,0,0,0.3)',
+                        }
+                      : {},
+                    transition: 'all 0.2s ease',
+                  }}
+                  title="Rewind conversation to this point (removes all messages after this message)"
+                >
+                  <RestartAltIcon sx={{ fontSize: isMobile ? 16 : 14 }} />
+                </IconButton>
+              )}
+
+              {/* Small indicator for user messages to hint at rewind functionality */}
+              {message.role === 'user' && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    opacity: 0.6,
+                    zIndex: 5,
+                  }}
+                />
+              )}
+
+              {/* Copy Button for Assistant Messages */}
+              {message.role === 'assistant'
+                && !message.content.startsWith('Error:') && (
+                  <IconButton
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(message.content);
+                        showToast('Message copied to clipboard!');
+                      } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        // Fallback for older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = message.content;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                      }
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      bottom: isMobile ? 6 : 8,
+                      right: isMobile ? 6 : 8,
+                      width: isMobile ? 32 : 28,
+                      height: isMobile ? 32 : 28,
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      opacity: 0.8,
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        opacity: 1,
+                        transform: 'scale(1.1)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                      },
+                      '&:active': isMobile
+                        ? {
+                            transform: 'scale(0.95)',
+                            backgroundColor: 'rgba(255,255,255,0.4)',
+                          }
+                        : {},
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: isMobile ? 16 : 14 }} />
+                  </IconButton>
+                )}
+
+              {/* Retry Button for Error Messages */}
+              {message.role === 'assistant'
+                && message.content.startsWith('Error:') && (
+                  <Tooltip
+                    title="Retry the last user message"
+                    placement="top"
+                    arrow
+                  >
+                    <IconButton
+                      onClick={() => handleRetryMessage(messageIndex)}
+                      disabled={isLoading}
+                      sx={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        color: 'white',
+                        opacity: 0.8,
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.3)',
+                          opacity: 1,
+                          transform: 'scale(1.1)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                        },
+                        '&:disabled': {
+                          backgroundColor: 'rgba(255,255,255,0.1)',
+                          opacity: 0.5,
+                          transform: 'none',
+                        },
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <ReplayIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+            </Paper>
+          </Box>
+          {ghostMessages[message.id]
+            && ghostMessages[message.id].map(message =>
+              renderMessage(message, 1e6, true)
+            )}
+        </>
+      );
+    },
+    [
+      ghostMessages,
+      handleRetryMessage,
+      handleRewindToMessage,
+      isLoading,
+      isMobile,
+      showToast,
+    ]
+  );
+
   return (
     <Box
       sx={{
@@ -4655,7 +5105,8 @@ export default function PromptLabPage() {
             </Box>
           )}
 
-          {messages.length === 0 ? (
+          {messages.length === 0
+          && ghostMessages['conversation_start']?.length === 0 ? (
             <Box
               sx={{
                 display: 'flex',
@@ -4676,431 +5127,13 @@ export default function PromptLabPage() {
             </Box>
           ) : (
             <>
-              {messages.map((message, messageIndex) => {
-                const metadata = message.metadata as
-                  | Record<string, any>
-                  | undefined;
-                const actualModelRaw =
-                  typeof metadata?.actualModel === 'string'
-                    ? metadata.actualModel
-                    : undefined;
-                let actualModelInfo: ActualModelInfo | null =
-                  parseActualModelInfo(actualModelRaw);
-
-                if (actualModelInfo) {
-                  const providerDisplay =
-                    typeof metadata?.actualModelProviderDisplay === 'string'
-                      ? metadata.actualModelProviderDisplay.trim()
-                      : '';
-                  const modelDisplay =
-                    typeof metadata?.actualModelNameDisplay === 'string'
-                      ? metadata.actualModelNameDisplay.trim()
-                      : '';
-
-                  if (providerDisplay) {
-                    actualModelInfo = {
-                      ...actualModelInfo,
-                      providerDisplay,
-                    };
-                  }
-
-                  if (modelDisplay) {
-                    actualModelInfo = {
-                      ...actualModelInfo,
-                      modelDisplay,
-                    };
-                  }
-                } else if (
-                  typeof metadata?.actualModelProviderDisplay === 'string'
-                  || typeof metadata?.actualModelNameDisplay === 'string'
-                ) {
-                  actualModelInfo = {
-                    raw: actualModelRaw ?? '',
-                    providerRaw:
-                      typeof metadata?.actualModelProvider === 'string'
-                        ? metadata.actualModelProvider
-                        : '',
-                    modelRaw:
-                      typeof metadata?.actualModelName === 'string'
-                        ? metadata.actualModelName
-                        : '',
-                    providerDisplay:
-                      typeof metadata?.actualModelProviderDisplay === 'string'
-                        ? metadata.actualModelProviderDisplay
-                        : '',
-                    modelDisplay:
-                      typeof metadata?.actualModelNameDisplay === 'string'
-                        ? metadata.actualModelNameDisplay
-                        : '',
-                  };
-                }
-
-                const modelInfo = getModelInfo(
-                  message.platform,
-                  actualModelInfo
-                );
-                return (
-                  <Box
-                    key={message.id}
-                    id={`message-${message.id}`}
-                    data-message-id={message.id}
-                    sx={{
-                      display: 'flex',
-                      justifyContent:
-                        message.role === 'user' ? 'flex-end' : 'flex-start',
-                      mb: isMobile ? 1.5 : 2,
-                      mr:
-                        message.role === 'user' ? (isMobile ? '5%' : '15%') : 0,
-                      ml:
-                        message.role === 'assistant'
-                          ? isMobile
-                            ? '5%'
-                            : 0
-                          : 0,
-                      scrollMarginTop: '80px', // Add offset for sticky headers
-                    }}
-                  >
-                    <Paper
-                      sx={{
-                        p: isMobile ? 1.5 : 2,
-                        maxWidth: isMobile ? '90%' : '70%',
-                        minWidth: isMobile ? '60%' : 'auto',
-                        backgroundColor:
-                          message.role === 'user'
-                            ? 'primary.light'
-                            : message.role === 'assistant'
-                                && message.content.startsWith('Error:')
-                              ? 'error.light'
-                              : modelInfo.color, // Use model-specific color for AI messages
-                        color:
-                          message.role === 'user'
-                            ? 'primary.contrastText'
-                            : 'white',
-                        borderRadius: isMobile ? 3 : 2,
-                        position: 'relative',
-                        // Add subtle shadow for better visual separation
-                        boxShadow: message.role === 'assistant' ? 2 : 1,
-                        // Add hover effect for user messages to indicate rewind functionality
-                        ...(message.role === 'user'
-                          && !isMobile && {
-                            '&:hover': {
-                              boxShadow: 3,
-                              transform: 'translateY(-1px)',
-                              transition: 'all 0.2s ease',
-                            },
-                          }),
-                        // Add subtle border to indicate interactive elements
-                        border:
-                          message.role === 'user'
-                            ? '1px solid rgba(0,0,0,0.1)'
-                            : '1px solid rgba(255,255,255,0.1)',
-                        // Mobile-specific touch feedback
-                        ...(isMobile
-                          && message.role === 'user' && {
-                            '&:active': {
-                              transform: 'scale(0.98)',
-                              transition: 'transform 0.1s ease',
-                            },
-                          }),
-                      }}
-                    >
-                      {message.role === 'assistant' && (
-                        <Avatar
-                          sx={{
-                            width: isMobile ? 20 : 24,
-                            height: isMobile ? 20 : 24,
-                            position: 'absolute',
-                            top: isMobile ? -10 : -12,
-                            left: isMobile ? -10 : -12,
-                            bgcolor: message.content.startsWith('Error:')
-                              ? 'error.dark'
-                              : modelInfo.color,
-                          }}
-                        >
-                          <ModelIcon fontSize={isMobile ? 'small' : 'small'} />
-                        </Avatar>
-                      )}
-
-                      {/* Model information for AI messages */}
-                      {message.role === 'assistant' && (
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: isMobile ? 0.5 : 1,
-                            mb: isMobile ? 0.5 : 1,
-                            flexWrap: isMobile ? 'wrap' : 'nowrap',
-                          }}
-                        >
-                          <Chip
-                            label={modelInfo.name}
-                            size="small"
-                            sx={{
-                              height: isMobile ? 18 : 20,
-                              fontSize: isMobile ? '0.6rem' : '0.7rem',
-                              backgroundColor: 'rgba(255,255,255,0.2)',
-                              color: 'white',
-                              '& .MuiChip-label': {
-                                px: isMobile ? 0.5 : 1,
-                              },
-                            }}
-                          />
-                          {!isMobile && (
-                            <Typography
-                              variant="caption"
-                              sx={{ opacity: 0.7, color: 'white' }}
-                            >
-                              {modelInfo.provider}
-                            </Typography>
-                          )}
-                        </Box>
-                      )}
-
-                      <Box
-                        sx={{
-                          // Let EnhancedMarkdown handle paragraph styling
-                          // Remove conflicting paragraph styles that override markdown rendering
-                          '& pre': {
-                            backgroundColor: 'rgba(0,0,0,0.1)',
-                            padding: isMobile ? 0.75 : 1,
-                            borderRadius: isMobile ? 0.75 : 1,
-                            overflow: 'auto',
-                            margin: isMobile ? '6px 0' : '8px 0',
-                            fontSize: isMobile ? '0.8rem' : '0.9rem',
-                          },
-                          '& code': {
-                            backgroundColor: 'rgba(0,0,0,0.1)',
-                            padding: isMobile ? '1px 3px' : '2px 4px',
-                            borderRadius: isMobile ? 0.5 : 1,
-                            fontFamily: 'monospace',
-                            fontSize: isMobile ? '0.8rem' : '0.9rem',
-                          },
-                          '& ul, & ol': {
-                            margin: isMobile ? '6px 0' : '8px 0',
-                            paddingLeft: isMobile ? 1.5 : 2,
-                          },
-                          '& li': { margin: isMobile ? '2px 0' : '4px 0' },
-                          '& blockquote': {
-                            borderLeft: '3px solid rgba(255,255,255,0.3)',
-                            paddingLeft: isMobile ? 0.75 : 1,
-                            margin: isMobile ? '6px 0' : '8px 0',
-                            fontStyle: 'italic',
-                          },
-                          '& h1, & h2, & h3, & h4, & h5, & h6': {
-                            margin: isMobile ? '8px 0 4px 0' : '12px 0 8px 0',
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                          },
-                          '& h1': { fontSize: isMobile ? '1.3em' : '1.5em' },
-                          '& h2': { fontSize: isMobile ? '1.2em' : '1.3em' },
-                          '& h3': { fontSize: isMobile ? '1.1em' : '1.1em' },
-                          '& strong': { fontWeight: 600 },
-                          '& em': { fontStyle: 'italic' },
-                          '& hr': {
-                            border: 'none',
-                            borderTop: '1px solid rgba(255,255,255,0.2)',
-                            margin: isMobile ? '12px 0' : '16px 0',
-                          },
-                          '& table': {
-                            borderCollapse: 'collapse',
-                            width: '100%',
-                            margin: isMobile ? '6px 0' : '8px 0',
-                            fontSize: isMobile ? '0.8rem' : '0.9rem',
-                          },
-                          '& th, & td': {
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            padding: isMobile ? '2px 4px' : '4px 8px',
-                            textAlign: 'left',
-                          },
-                          '& th': {
-                            backgroundColor: 'rgba(0,0,0,0.1)',
-                            fontWeight: 600,
-                          },
-                          // Add padding to prevent button overlap
-                          paddingRight:
-                            message.role === 'user'
-                              ? isMobile
-                                ? '36px'
-                                : '44px'
-                              : isMobile
-                                ? '36px'
-                                : '44px', // Space for rewind/copy buttons
-                          paddingBottom:
-                            message.role === 'assistant'
-                              ? isMobile
-                                ? '36px'
-                                : '44px'
-                              : isMobile
-                                ? '6px'
-                                : '8px', // Extra bottom padding for copy button
-                          // Mobile-specific typography
-                          fontSize: isMobile ? '0.9rem' : '1rem',
-                          lineHeight: isMobile ? 1.4 : 1.5,
-                        }}
-                      >
-                        <EnhancedMarkdown
-                          content={message.content}
-                          enableSyntaxHighlighting={true}
-                          showCopyButtons={true}
-                          preprocess={true}
-                        />
-                      </Box>
-
-                      {/* Rewind Button for User Messages */}
-                      {message.role === 'user' && (
-                        <IconButton
-                          onClick={() => handleRewindToMessage(messageIndex)}
-                          sx={{
-                            position: 'absolute',
-                            top: isMobile ? 6 : 8,
-                            right: isMobile ? 6 : 8,
-                            width: isMobile ? 32 : 28,
-                            height: isMobile ? 32 : 28,
-                            borderRadius: '50%',
-                            backgroundColor: 'rgba(0,0,0,0.15)',
-                            color: 'primary.contrastText',
-                            opacity: 0.8,
-                            zIndex: 10,
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                            '&:hover': {
-                              backgroundColor: 'rgba(0,0,0,0.25)',
-                              opacity: 1,
-                              transform: 'scale(1.1)',
-                              boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                            },
-                            '&:active': isMobile
-                              ? {
-                                  transform: 'scale(0.95)',
-                                  backgroundColor: 'rgba(0,0,0,0.3)',
-                                }
-                              : {},
-                            transition: 'all 0.2s ease',
-                          }}
-                          title="Rewind conversation to this point (removes all messages after this message)"
-                        >
-                          <RestartAltIcon
-                            sx={{ fontSize: isMobile ? 16 : 14 }}
-                          />
-                        </IconButton>
-                      )}
-
-                      {/* Small indicator for user messages to hint at rewind functionality */}
-                      {message.role === 'user' && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            backgroundColor: 'rgba(0,0,0,0.2)',
-                            opacity: 0.6,
-                            zIndex: 5,
-                          }}
-                        />
-                      )}
-
-                      {/* Copy Button for Assistant Messages */}
-                      {message.role === 'assistant'
-                        && !message.content.startsWith('Error:') && (
-                          <IconButton
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(
-                                  message.content
-                                );
-                                showToast('Message copied to clipboard!');
-                              } catch (err) {
-                                console.error('Failed to copy text: ', err);
-                                // Fallback for older browsers
-                                const textArea =
-                                  document.createElement('textarea');
-                                textArea.value = message.content;
-                                document.body.appendChild(textArea);
-                                textArea.select();
-                                document.execCommand('copy');
-                                document.body.removeChild(textArea);
-                              }
-                            }}
-                            sx={{
-                              position: 'absolute',
-                              bottom: isMobile ? 6 : 8,
-                              right: isMobile ? 6 : 8,
-                              width: isMobile ? 32 : 28,
-                              height: isMobile ? 32 : 28,
-                              borderRadius: '50%',
-                              backgroundColor: 'rgba(255,255,255,0.2)',
-                              color: 'white',
-                              opacity: 0.8,
-                              zIndex: 10,
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                              '&:hover': {
-                                backgroundColor: 'rgba(255,255,255,0.3)',
-                                opacity: 1,
-                                transform: 'scale(1.1)',
-                                boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                              },
-                              '&:active': isMobile
-                                ? {
-                                    transform: 'scale(0.95)',
-                                    backgroundColor: 'rgba(255,255,255,0.4)',
-                                  }
-                                : {},
-                              transition: 'all 0.2s ease',
-                            }}
-                          >
-                            <ContentCopyIcon
-                              sx={{ fontSize: isMobile ? 16 : 14 }}
-                            />
-                          </IconButton>
-                        )}
-
-                      {/* Retry Button for Error Messages */}
-                      {message.role === 'assistant'
-                        && message.content.startsWith('Error:') && (
-                          <Tooltip
-                            title="Retry the last user message"
-                            placement="top"
-                            arrow
-                          >
-                            <IconButton
-                              onClick={() => handleRetryMessage(messageIndex)}
-                              disabled={isLoading}
-                              sx={{
-                                position: 'absolute',
-                                bottom: 8,
-                                right: 8,
-                                width: 28,
-                                height: 28,
-                                borderRadius: '50%',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                color: 'white',
-                                opacity: 0.8,
-                                zIndex: 10,
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(255,255,255,0.3)',
-                                  opacity: 1,
-                                  transform: 'scale(1.1)',
-                                  boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                                },
-                                '&:disabled': {
-                                  backgroundColor: 'rgba(255,255,255,0.1)',
-                                  opacity: 0.5,
-                                  transform: 'none',
-                                },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <ReplayIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                    </Paper>
-                  </Box>
-                );
-              })}
+              {ghostMessages['conversation_start']?.map(
+                (message, messageIndex) =>
+                  renderMessage(message, messageIndex, true)
+              )}
+              {messages.map((message, messageIndex) =>
+                renderMessage(message, messageIndex)
+              )}
 
               {/* Long request warning */}
               {longRequestAnalysis && (
