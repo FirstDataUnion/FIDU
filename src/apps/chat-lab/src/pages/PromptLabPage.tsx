@@ -4358,6 +4358,8 @@ export default function PromptLabPage() {
       // Show loading state
       setIsLoading(true);
 
+      promptAbortController.current = new AbortController();
+
       try {
         // Call the API to get AI response
         const response = await promptsApi.executePrompt(
@@ -4367,7 +4369,8 @@ export default function PromptLabPage() {
           selectedModel,
           currentProfile!.id,
           selectedSystemPrompts,
-          []
+          [],
+          promptAbortController.current.signal
         );
 
         if (response.status === 'completed' && response.responses?.content) {
