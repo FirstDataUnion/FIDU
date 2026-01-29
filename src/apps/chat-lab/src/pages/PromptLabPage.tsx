@@ -3045,10 +3045,10 @@ export default function PromptLabPage() {
   const [longRequestAnalysis, setLongRequestAnalysis] =
     useState<LongRequestAnalysis | null>(null);
   const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
-  const [isRequestCancelled, setIsRequestCancelled] = useState(false);
   const [_requestStartTime, setRequestStartTime] = useState<number | null>(
     null
   );
+  const promptAbortController = useRef<AbortController | null>(null);
 
   // Show toast message
   const showToast = useCallback((message: string) => {
@@ -3555,7 +3555,7 @@ export default function PromptLabPage() {
     dispatch(clearCurrentPrompt());
     setIsLoading(true);
     setError(null);
-    setIsRequestCancelled(false);
+    promptAbortController.current = new AbortController();
 
     // Analyze request for potential long duration
     const contextLength = selectedContexts.reduce(
@@ -3590,13 +3590,9 @@ export default function PromptLabPage() {
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
-        []
+        [],
+        promptAbortController.current.signal
       );
-
-      // Check if request was cancelled
-      if (isRequestCancelled) {
-        return;
-      }
 
       // Track successful message sent to model (safely handle if MetricsService unavailable)
       safeRecordMessageSent(selectedModel, 'success');
@@ -3779,6 +3775,11 @@ export default function PromptLabPage() {
         );
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log('Request cancelled by user');
+        return;
+      }
+
       console.error('Error getting AI response:', error);
 
       // Track error message sent to model (safely handle if MetricsService unavailable)
@@ -3819,12 +3820,13 @@ export default function PromptLabPage() {
       setShowLongRequestWarning(false);
       setLongRequestAnalysis(null);
       setRequestStartTime(null);
+      promptAbortController.current = null;
     }
   };
 
   // Handle cancelling a long request
   const handleCancelRequest = useCallback(() => {
-    setIsRequestCancelled(true);
+    promptAbortController.current?.abort('Request cancelled by user');
     setIsLoading(false);
     setShowLongRequestWarning(false);
     setLongRequestAnalysis(null);

@@ -139,7 +139,8 @@ export const createPromptsApi = () => {
       selectedModel: string,
       profileId?: string,
       systemPrompts?: any[], // Changed to array to support multiple system prompts
-      embellishments?: any[]
+      embellishments?: any[],
+      abortSignal?: AbortSignal
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
@@ -166,7 +167,8 @@ export const createPromptsApi = () => {
         DEFAULT_WAIT_TIME_MS,
         DEFAULT_POLL_INTERVAL_MS,
         MAX_POLL_INTERVAL_MS,
-        BACKOFF_THRESHOLD_MS
+        BACKOFF_THRESHOLD_MS,
+        abortSignal
       );
 
       const resultBlock = response.outputs?.results?.[0];

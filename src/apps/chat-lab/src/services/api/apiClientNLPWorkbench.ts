@@ -335,7 +335,8 @@ export class NLPWorkbenchAPIClient {
     maxWaitTime: number = 660000, // 11 minutes default
     initialPollInterval: number = 2000, // 2 seconds initial polling interval
     maxPollInterval: number = 3000, // 3 seconds maximum polling interval
-    backoffThreshold: number = 240000 // 4 minutes - when to reach max backoff
+    backoffThreshold: number = 240000, // 4 minutes - when to reach max backoff
+    abortSignal?: AbortSignal
   ): Promise<NLPWorkbenchExecutionStatus> {
     // Start the execution
     const executeResponse = await agentCallback(input);
@@ -355,7 +356,7 @@ export class NLPWorkbenchAPIClient {
       startTime: new Date(startTime).toISOString(),
     });
 
-    while (Date.now() - startTime < maxWaitTime) {
+    while (Date.now() - startTime < maxWaitTime && !abortSignal?.aborted) {
       try {
         const executionStatus = await this.getExecutionStatus(executionId);
         pollCount++;
@@ -445,6 +446,14 @@ export class NLPWorkbenchAPIClient {
         // Continue polling even if there's an error
         await new Promise(resolve => setTimeout(resolve, currentPollInterval));
       }
+    }
+
+    if (abortSignal?.aborted) {
+      console.log('NLP Workbench execution aborted:', {
+        executionId,
+        abortSignal,
+      });
+      throw new DOMException('NLP Workbench execution aborted', 'AbortError');
     }
 
     // Timeout occurred - gather comprehensive debug info
