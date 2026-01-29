@@ -4316,6 +4316,8 @@ export default function PromptLabPage() {
             `Rewind to "${targetMessage.content.substring(0, 50)}${targetMessage.content.length > 50 ? '...' : ''}"?\n\nThis will remove all messages after this point and load the message into the input box.`
           )
         ) {
+          // Cancel any outstanding requests
+          handleCancelRequest();
           // Load the message content into the chat text box
           dispatch(setCurrentPrompt(targetMessage.content));
           // Remove all messages after this point (including the target message)
@@ -4329,7 +4331,7 @@ export default function PromptLabPage() {
         }
       }
     },
-    [messages, scrollToBottom, showToast, dispatch]
+    [messages, scrollToBottom, showToast, dispatch, handleCancelRequest]
   );
 
   // Handle retry for failed messages
