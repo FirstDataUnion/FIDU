@@ -25,7 +25,7 @@ export interface MarkdownPreprocessingRules {
 export const DEFAULT_RULES: MarkdownPreprocessingRules = {
   enableSmartLists: true,
   preserveIntentionalFormatting: true,
-  fixSpacingIssues: true,
+  fixSpacingIssues: false, // strips indentation in code blocks, and nested bullet points
   normalizeLineBreaks: true,
 };
 

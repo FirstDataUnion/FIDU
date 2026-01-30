@@ -5,7 +5,6 @@ import {
   getTagColor,
   formatDate,
   formatTimestamp,
-  formatMessageContent,
   getModelDisplayName,
   extractUniqueModels,
   calculatePrimaryModelsDisplay,
@@ -182,60 +181,6 @@ describe('conversationUtils', () => {
       const invalidDate = 'invalid-date';
       const result = formatTimestamp(invalidDate);
       expect(result).toBe('Invalid Date');
-    });
-  });
-
-  describe('formatMessageContent', () => {
-    it('should return empty string for empty content', () => {
-      expect(formatMessageContent('')).toBe('');
-      expect(formatMessageContent(null as any)).toBe('');
-      expect(formatMessageContent(undefined as any)).toBe('');
-    });
-
-    it('should replace multiple consecutive newlines with double newlines (paragraph breaks)', () => {
-      const content = 'Line 1\n\n\n\nLine 2';
-      const result = formatMessageContent(content);
-      expect(result).toBe('Line 1\n\nLine 2');
-    });
-
-    it('should preserve markdown formatting', () => {
-      const content = '**bold** *italic* `code`';
-      const result = formatMessageContent(content);
-      expect(result).toBe('**bold** *italic* `code`');
-    });
-
-    it('should handle code blocks correctly', () => {
-      const content = '```javascript\nconst x = 1;\n```';
-      const result = formatMessageContent(content);
-      expect(result).toBe('```javascript\nconst x = 1;\n```');
-    });
-
-    it('should not add leading newlines for numbered lists', () => {
-      const content = '1. First item\n2. Second item';
-      const result = formatMessageContent(content);
-      expect(result).toBe('1. First item\n2. Second item');
-    });
-
-    it('should add proper spacing for bullet points', () => {
-      const content = '- First item\n- Second item';
-      const result = formatMessageContent(content);
-      expect(result).toBe('- First item\n- Second item');
-    });
-
-    it('should preserve headers without extra spacing', () => {
-      const content = '# Header\nSome text';
-      const result = formatMessageContent(content);
-      expect(result).toBe('# Header\nSome text');
-    });
-
-    it('should handle complex content with multiple formatting', () => {
-      const content =
-        '# Header\n\n**Bold text**\n\n1. First item\n- Bullet point\n\n```code```';
-      const result = formatMessageContent(content);
-      expect(result).toContain('# Header');
-      expect(result).toContain('**Bold text**');
-      expect(result).toContain('1. First item');
-      expect(result).toContain('- Bullet point');
     });
   });
 

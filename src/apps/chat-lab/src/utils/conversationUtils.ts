@@ -1,5 +1,3 @@
-import { preprocessMarkdown } from './markdownPreprocessor';
-
 /**
  * Get the color associated with a platform
  */
@@ -118,15 +116,6 @@ export const formatTimestamp = (timestamp: Date | string): string => {
     minute: '2-digit',
     second: '2-digit',
   });
-};
-
-/**
- * Format message content using intelligent preprocessing
- * This function handles common formatting issues in AI responses
- * @deprecated Use preprocessMarkdown from markdownPreprocessor instead
- */
-export const formatMessageContent = (content: string): string => {
-  return preprocessMarkdown(content);
 };
 
 /**

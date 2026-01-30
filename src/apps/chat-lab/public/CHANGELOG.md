@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Cancel Request**: Pressing the Cancel Request button now stops polling for message completion and the response will not be added to the conversation.
+- **Preserve Indentation**: No longer strip out indentation in code blocks or nested bullet points
+- **Recognise Inline Codeblocks**: No longer put `single-backticked` strings on their own line
 
 ## [0.2.0] - 2026-01-21
 

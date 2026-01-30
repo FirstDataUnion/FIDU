@@ -1,3 +1,5 @@
+import type { Root } from 'mdast';
+import { visit } from 'unist-util-visit';
 import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -331,6 +333,13 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
     ? preprocessMarkdown(decodedContent)
     : decodedContent;
 
+  // Make sure all code blocks have a lang attribute to tell them apart from inline
+  const annotatePlaintextBlocks = () => (tree: Root) => {
+    visit(tree, 'code', node => {
+      node.lang = node.lang ?? 'plaintext';
+    });
+  };
+
   return (
     <Box
       className={className}
@@ -397,27 +406,24 @@ export const EnhancedMarkdown: React.FC<EnhancedMarkdownProps> = ({
           // Use default ReactMarkdown rendering for all content
           return (
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
+              remarkPlugins={[remarkGfm, remarkMath, annotatePlaintextBlocks]}
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
                 // Code blocks with syntax highlighting
-                code: ({
-                  node,
-                  inline,
-                  className,
-                  children,
-                  ...props
-                }: any) => (
-                  <CodeBlock
-                    node={node}
-                    inline={inline}
-                    className={className}
-                    showCopyButton={showCopyButtons && !inline}
-                    {...props}
-                  >
-                    {children}
-                  </CodeBlock>
-                ),
+                code: ({ node, className, children, ...props }: any) => {
+                  const isInline = !className;
+                  return (
+                    <CodeBlock
+                      node={node}
+                      inline={isInline}
+                      className={className}
+                      showCopyButton={showCopyButtons && !isInline}
+                      {...props}
+                    >
+                      {children}
+                    </CodeBlock>
+                  );
+                },
 
                 // Enhanced tables
                 table: ({ children, ...props }) => (
