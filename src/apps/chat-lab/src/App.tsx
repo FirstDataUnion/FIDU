@@ -904,29 +904,10 @@ const AppContent: React.FC<AppContentProps> = () => {
   const theme = createTheme({
     palette: {
       mode: currentMode,
-      primary: {
-        main: themeColors.primary.main,
-        light: themeColors.primary.light,
-        dark: themeColors.primary.dark,
-        contrastText: themeColors.primary.contrastText,
-      },
-      secondary: {
-        main: themeColors.secondary.main,
-        light: themeColors.secondary.light,
-        dark: themeColors.secondary.dark,
-        contrastText: themeColors.secondary.contrastText,
-      },
-      background: {
-        default: themeColors.background.default,
-        paper: themeColors.background.paper,
-      },
-      text: {
-        primary: themeColors.text.primary,
-        secondary: themeColors.text.secondary,
-      },
+      ...themeColors,
     },
     typography: {
-      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+      fontFamily: '"Special Elite", cursive',
     },
     components: {
       MuiCssBaseline: {

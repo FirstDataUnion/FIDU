@@ -415,7 +415,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             },
           }}
         >
-          Get help/report a problem
+          Get help/report a bug
         </Button>
         <Button
           fullWidth
