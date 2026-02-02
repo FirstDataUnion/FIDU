@@ -1772,7 +1772,6 @@ const SystemPromptsPage = React.memo(() => {
               }
               disabled={selectedSystemPrompt?.isBuiltIn}
               sx={{
-                fontFamily: 'monospace',
                 '& .MuiInputBase-root': {
                   fontSize: { xs: '0.8rem', sm: '0.875rem' },
                   minHeight: { xs: '300px', sm: '250px' },

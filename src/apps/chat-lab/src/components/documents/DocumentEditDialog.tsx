@@ -159,7 +159,6 @@ export default function DocumentEditDialog({
               rows={12}
               value={content}
               onChange={e => setContent(e.target.value)}
-              sx={{ fontFamily: 'monospace' }}
             />
           </Box>
         </DialogContent>

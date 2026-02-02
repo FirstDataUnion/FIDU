@@ -180,11 +180,58 @@ const ConditionalModals: React.FC<{
   );
 };
 
+const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { settings } = useAppSelector(state => state.settings);
+  const currentMode =
+    settings.theme === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : settings.theme;
+
+  const themeColors = getThemeColors(currentMode);
+  const theme = createTheme({
+    palette: {
+      mode: currentMode,
+      ...themeColors,
+    },
+    typography: {
+      fontFamily: '"Special Elite", cursive',
+    },
+    components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            scrollbarWidth: 'thin',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: (theme: any) =>
+                theme.palette.mode === 'dark' ? '#424242' : '#f1f1f1',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              background: '#555',
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
+};
+
 interface AppContentProps {} // eslint-disable-line @typescript-eslint/no-empty-object-type
 
 const AppContent: React.FC<AppContentProps> = () => {
   const dispatch = useAppDispatch();
-  const { settings } = useAppSelector(state => state.settings);
   const {
     isInitialized: authInitialized,
     isLoading: authLoading,
@@ -892,48 +939,6 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
   }, [dispatch, unifiedStorage.googleDrive.isAuthenticated]);
 
-  const currentMode =
-    settings.theme === 'auto'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'
-      : settings.theme;
-
-  const themeColors = getThemeColors(currentMode);
-
-  const theme = createTheme({
-    palette: {
-      mode: currentMode,
-      ...themeColors,
-    },
-    typography: {
-      fontFamily: '"Special Elite", cursive',
-    },
-    components: {
-      MuiCssBaseline: {
-        styleOverrides: {
-          body: {
-            scrollbarWidth: 'thin',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: (theme: any) =>
-                theme.palette.mode === 'dark' ? '#424242' : '#f1f1f1',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#888',
-              borderRadius: '4px',
-            },
-            '&::-webkit-scrollbar-thumb:hover': {
-              background: '#555',
-            },
-          },
-        },
-      },
-    },
-  });
-
   // In cloud mode, wait for Google Drive authentication AND CloudStorageAdapter initialization before rendering pages
   // BUT: if auth failed (has error) or storage is not configured, let the app render to show login
   const isCloudMode = unifiedStorage.mode === 'cloud';
@@ -1017,106 +1022,97 @@ const AppContent: React.FC<AppContentProps> = () => {
     && !showStorageSelectionModal;
 
   const mainAppContent = (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router basename="/fidu-chat-lab">
-        <RouteTracker />
-        <ErrorBoundary>
-          <AuthErrorBoundary>
-            <AuthWrapper>
-              <AlertClickProvider>
-                <ConditionalLayout
-                  banner={
-                    shouldShowStorageBanner ? (
-                      <StorageConfigurationBanner />
-                    ) : undefined
-                  }
-                >
-                  <Suspense fallback={<PageLoadingFallback />}>
-                    <Routes>
-                      <Route path="/" element={<PromptLabPage />} />
-                      <Route path="/prompt-lab" element={<PromptLabPage />} />
-                      <Route
-                        path="/conversations"
-                        element={<ConversationsPage />}
-                      />
-                      <Route path="/contexts" element={<ContextsPage />} />
-                      <Route
-                        path="/system-prompts"
-                        element={<SystemPromptsPage />}
-                      />
-                      <Route
-                        path="/background-agents"
-                        element={
-                          <StorageFeatureGuard
-                            featureName="Background Agents"
-                            checkFeature={supportsBackgroundAgents}
-                          >
-                            <BackgroundAgentsPage />
-                          </StorageFeatureGuard>
-                        }
-                      />
-                      <Route
-                        path="/documents"
-                        element={
-                          <StorageFeatureGuard
-                            featureName="Documents"
-                            checkFeature={supportsDocuments}
-                          >
-                            <DocumentsPage />
-                          </StorageFeatureGuard>
-                        }
-                      />
-                      <Route
-                        path="/feature-flags"
-                        element={<FeatureFlagPage />}
-                      />
-                      <Route
-                        path="/import-export"
-                        element={<ImportExportPage />}
-                      />
-                      {isSharedWorkspacesEnabled && (
-                        <Route
-                          path="/workspaces"
-                          element={<WorkspacesPage />}
-                        />
-                      )}
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route
-                        path="/privacy-policy"
-                        element={<PrivacyPolicyPage />}
-                      />
-                      <Route
-                        path="/terms-of-use"
-                        element={<TermsOfUsePage />}
-                      />
-                      <Route
-                        path="/delete-account"
-                        element={<DeleteAccountPage />}
-                      />
-                      <Route path="/whats-new" element={<WhatsNewPage />} />
-                      <Route path="/cloud-test" element={<CloudModeTest />} />
-                      <Route
-                        path="/oauth-callback"
-                        element={<OAuthCallbackPage />}
-                      />
-                    </Routes>
-                  </Suspense>
-                </ConditionalLayout>
-              </AlertClickProvider>
-            </AuthWrapper>
-          </AuthErrorBoundary>
-        </ErrorBoundary>
-        {/* Modals and banners - must be inside Router for useLocation() */}
-        <ConditionalModals
-          showStorageModal={showStorageSelectionModal}
-          onDismissStorageModal={handleDismissStorageModal}
-          onStorageConfigured={handleStorageConfigured}
-          envInfo={envInfo}
-          unifiedStorage={unifiedStorage}
-        />
-      </Router>
-    </ThemeProvider>
+    <Router basename="/fidu-chat-lab">
+      <RouteTracker />
+      <ErrorBoundary>
+        <AuthErrorBoundary>
+          <AuthWrapper>
+            <AlertClickProvider>
+              <ConditionalLayout
+                banner={
+                  shouldShowStorageBanner ? (
+                    <StorageConfigurationBanner />
+                  ) : undefined
+                }
+              >
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <Routes>
+                    <Route path="/" element={<PromptLabPage />} />
+                    <Route path="/prompt-lab" element={<PromptLabPage />} />
+                    <Route
+                      path="/conversations"
+                      element={<ConversationsPage />}
+                    />
+                    <Route path="/contexts" element={<ContextsPage />} />
+                    <Route
+                      path="/system-prompts"
+                      element={<SystemPromptsPage />}
+                    />
+                    <Route
+                      path="/background-agents"
+                      element={
+                        <StorageFeatureGuard
+                          featureName="Background Agents"
+                          checkFeature={supportsBackgroundAgents}
+                        >
+                          <BackgroundAgentsPage />
+                        </StorageFeatureGuard>
+                      }
+                    />
+                    <Route
+                      path="/documents"
+                      element={
+                        <StorageFeatureGuard
+                          featureName="Documents"
+                          checkFeature={supportsDocuments}
+                        >
+                          <DocumentsPage />
+                        </StorageFeatureGuard>
+                      }
+                    />
+                    <Route
+                      path="/feature-flags"
+                      element={<FeatureFlagPage />}
+                    />
+                    <Route
+                      path="/import-export"
+                      element={<ImportExportPage />}
+                    />
+                    {isSharedWorkspacesEnabled && (
+                      <Route path="/workspaces" element={<WorkspacesPage />} />
+                    )}
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route
+                      path="/privacy-policy"
+                      element={<PrivacyPolicyPage />}
+                    />
+                    <Route path="/terms-of-use" element={<TermsOfUsePage />} />
+                    <Route
+                      path="/delete-account"
+                      element={<DeleteAccountPage />}
+                    />
+                    <Route path="/whats-new" element={<WhatsNewPage />} />
+                    <Route path="/cloud-test" element={<CloudModeTest />} />
+                    <Route
+                      path="/oauth-callback"
+                      element={<OAuthCallbackPage />}
+                    />
+                  </Routes>
+                </Suspense>
+              </ConditionalLayout>
+            </AlertClickProvider>
+          </AuthWrapper>
+        </AuthErrorBoundary>
+      </ErrorBoundary>
+      {/* Modals and banners - must be inside Router for useLocation() */}
+      <ConditionalModals
+        showStorageModal={showStorageSelectionModal}
+        onDismissStorageModal={handleDismissStorageModal}
+        onStorageConfigured={handleStorageConfigured}
+        envInfo={envInfo}
+        unifiedStorage={unifiedStorage}
+      />
+    </Router>
   );
 
   return <>{mainAppContent}</>;
@@ -1125,7 +1121,10 @@ const AppContent: React.FC<AppContentProps> = () => {
 const App: React.FC = () => {
   return (
     <Provider store={store}>
-      <AppContent />
+      <ThemeWrapper>
+        <CssBaseline />
+        <AppContent />
+      </ThemeWrapper>
     </Provider>
   );
 };

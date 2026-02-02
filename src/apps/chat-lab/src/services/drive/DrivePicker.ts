@@ -251,7 +251,6 @@ export class DrivePicker {
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       `;
 
       // Create modal content

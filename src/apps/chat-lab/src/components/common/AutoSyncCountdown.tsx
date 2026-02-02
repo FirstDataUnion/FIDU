@@ -134,7 +134,6 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({
             sx={{
               color: getColor(countdown),
               fontWeight: 500,
-              fontFamily: 'monospace',
             }}
           >
             auto-sync in {formatTime(countdown)}
@@ -167,7 +166,6 @@ export const AutoSyncCountdown: React.FC<AutoSyncCountdownProps> = ({
           sx={{
             color: getColor(countdown),
             fontWeight: 600,
-            fontFamily: 'monospace',
           }}
         >
           {formatTime(countdown)}

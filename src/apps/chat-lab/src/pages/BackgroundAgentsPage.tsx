@@ -2268,7 +2268,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 multiline
                 rows={12}
                 sx={{
-                  fontFamily: 'monospace',
                   '& .MuiInputBase-root': {
                     fontSize: { xs: '0.8rem', sm: '0.875rem' },
                     minHeight: { xs: '300px', sm: '250px' },
@@ -2737,7 +2736,6 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                 rows={12}
                 placeholder="Enter the prompt template for your background agent..."
                 sx={{
-                  fontFamily: 'monospace',
                   '& .MuiInputBase-root': {
                     fontSize: { xs: '0.8rem', sm: '0.875rem' },
                     minHeight: { xs: '300px', sm: '250px' },
