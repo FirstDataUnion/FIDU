@@ -38,7 +38,7 @@ const defaultSettings: UserSettings = {
     groupByDate: true,
   },
   syncSettings: {
-    autoSyncDelayMinutes: 5, // Default 5 minutes delay
+    autoSyncDelayMinutes: 1, // Default 1 minute delay
   },
 };
 

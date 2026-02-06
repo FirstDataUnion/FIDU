@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Post-rewind Ghost Messages**: When rewinding, the previous messages hang around (as ghosts) while the chat page is open so the responses can be compared.
+- **Default sync timer**: Now syncs after 1 minute unless overridden by user in settings.
 
 ### Fixed
 - **Cancel Request**: Pressing the Cancel Request button now stops polling for message completion and the response will not be added to the conversation.

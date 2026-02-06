@@ -118,7 +118,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
     // Initialize smart auto-sync service with settings from localStorage
     const settings = this.loadSettingsFromStorage();
-    const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 5;
+    const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 1;
 
     this.smartAutoSyncService = new SmartAutoSyncService(
       this.syncService,
