@@ -99,8 +99,9 @@ const ConversationsPage: React.FC = React.memo(() => {
 
   // Tag Management State
   const [showTagDialog, setShowTagDialog] = useState(false);
-  const [selectedConversation, setSelectedConversation] =
-    useState<Conversation | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
   const [editedTags, setEditedTags] = useState<string[]>([]);
 
   // Mobile View State
@@ -131,6 +132,17 @@ const ConversationsPage: React.FC = React.memo(() => {
   const sortedConversations = useAppSelector(state =>
     selectSortedConversations(state)
   );
+  const [selectedConversation, setSelectedConversation] =
+    useState<Conversation | null>(null);
+  useEffect(() => {
+    if (selectedConversationId) {
+      setSelectedConversation(
+        sortedConversations.find(c => c.id === selectedConversationId) || null
+      );
+    } else {
+      setSelectedConversation(null);
+    }
+  }, [selectedConversationId, sortedConversations]);
 
   // Use lazy loading for better performance with large lists
   const { paginatedItems: _visibleConversations, loadingRef: _loadingRef } =
@@ -232,7 +244,7 @@ const ConversationsPage: React.FC = React.memo(() => {
     (conversation: Conversation) => {
       try {
         dispatch(fetchConversationMessages(conversation.id));
-        setSelectedConversation(conversation);
+        setSelectedConversationId(conversation.id);
         if (isMobile) {
           setMobileView('detail');
         }
@@ -247,7 +259,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   // Handle back navigation on mobile
   const handleMobileBack = useCallback(() => {
     setMobileView('list');
-    setSelectedConversation(null);
+    setSelectedConversationId(null);
   }, []);
 
   const buildContextPreview = useCallback(() => {
@@ -404,7 +416,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   const handleTagManagement = useCallback(
     (conversation: Conversation, event: React.MouseEvent) => {
       event.stopPropagation();
-      setSelectedConversation(conversation);
+      setSelectedConversationId(conversation.id);
       setEditedTags([...conversation.tags]);
       setShowTagDialog(true);
 
@@ -452,12 +464,12 @@ const ConversationsPage: React.FC = React.memo(() => {
 
   // Save tag changes
   const handleSaveTags = useCallback(() => {
-    if (selectedConversation) {
+    if (selectedConversationId) {
       try {
         // Dispatch action to update conversation tags
         dispatch(
           updateConversationTags({
-            id: selectedConversation.id,
+            id: selectedConversationId,
             tags: editedTags,
           })
         );
@@ -471,9 +483,9 @@ const ConversationsPage: React.FC = React.memo(() => {
       }
     }
     setShowTagDialog(false);
-    setSelectedConversation(null);
+    setSelectedConversationId(null);
     setEditedTags([]);
-  }, [selectedConversation, editedTags, dispatch]);
+  }, [selectedConversationId, editedTags, dispatch]);
 
   if (loading) {
     return (
@@ -697,7 +709,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                         conversation.id
                       )}
                       isCurrentlyViewing={
-                        selectedConversation?.id === conversation.id
+                        selectedConversationId === conversation.id
                       }
                       onSelect={handleConversationSelect}
                       onTagManagement={handleTagManagement}
@@ -792,7 +804,7 @@ const ConversationsPage: React.FC = React.memo(() => {
           open={showTagDialog}
           onClose={() => {
             setShowTagDialog(false);
-            setSelectedConversation(null);
+            setSelectedConversationId(null);
             setEditedTags([]);
           }}
           editedTags={editedTags}
@@ -1023,13 +1035,13 @@ const ConversationsPage: React.FC = React.memo(() => {
         {/* Left Panel - Conversations List */}
         <Paper
           sx={{
-            flex: selectedConversation ? '0 0 min(400px, 40%)' : '1 1 auto',
+            flex: selectedConversationId ? '0 0 min(400px, 40%)' : '1 1 auto',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            minWidth: selectedConversation ? '300px' : 'auto',
-            maxWidth: selectedConversation ? '500px' : '600px',
-            height: { xs: selectedConversation ? '40%' : '100%', md: 'auto' },
+            minWidth: selectedConversationId ? '300px' : 'auto',
+            maxWidth: selectedConversationId ? '500px' : '600px',
+            height: { xs: selectedConversationId ? '40%' : '100%', md: 'auto' },
             minHeight: 0,
             maxHeight: '100%',
           }}
@@ -1124,7 +1136,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                           conversation.id
                         )}
                         isCurrentlyViewing={
-                          selectedConversation?.id === conversation.id
+                          selectedConversationId === conversation.id
                         }
                         onSelect={handleConversationSelect}
                         onTagManagement={handleTagManagement}
@@ -1141,7 +1153,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                         conversation.id
                       )}
                       isCurrentlyViewing={
-                        selectedConversation?.id === conversation.id
+                        selectedConversationId === conversation.id
                       }
                       onSelect={handleConversationSelect}
                       onTagManagement={handleTagManagement}
@@ -1208,7 +1220,7 @@ const ConversationsPage: React.FC = React.memo(() => {
                 )}
                 <IconButton
                   onClick={() => {
-                    setSelectedConversation(null);
+                    setSelectedConversationId(null);
                   }}
                   title="Close conversation view"
                   aria-label="Close conversation view"
@@ -1292,7 +1304,7 @@ const ConversationsPage: React.FC = React.memo(() => {
         open={showTagDialog}
         onClose={() => {
           setShowTagDialog(false);
-          setSelectedConversation(null);
+          setSelectedConversationId(null);
           setEditedTags([]);
         }}
         editedTags={editedTags}

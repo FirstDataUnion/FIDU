@@ -13,6 +13,7 @@ import {
   Button,
   Collapse,
   Stack,
+  TextField,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -24,7 +25,8 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../../hooks/redux';
+import { useAppSelector, useAppDispatch } from '../../hooks/redux';
+import { updateConversationWithMessages } from '../../store/slices/conversationsSlice';
 import type { Conversation, BackgroundAgentAlertMetadata } from '../../types';
 import {
   getPlatformColor,
@@ -42,12 +44,21 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
   conversation,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { currentMessages, messagesLoading, error } = useAppSelector(
     state => state.conversations
   );
   const [expandedAlertDetails, setExpandedAlertDetails] = React.useState<
     Set<string>
   >(new Set());
+  const [isTitleFocused, setIsTitleFocused] = React.useState(false);
+  const [isTitleHovered, setIsTitleHovered] = React.useState(false);
+  const [titleValue, setTitleValue] = React.useState(conversation.title);
+
+  // Update title value when conversation prop changes
+  React.useEffect(() => {
+    setTitleValue(conversation.title);
+  }, [conversation.title]);
 
   // Debug: Log messages with alerts when they're loaded
   React.useEffect(() => {
@@ -213,6 +224,42 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
     navigator.clipboard.writeText(content);
   };
 
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTitleValue(event.target.value);
+  };
+
+  const handleTitleBlur = async () => {
+    setIsTitleFocused(false);
+    const trimmedTitle = titleValue.trim();
+    if (trimmedTitle && trimmedTitle !== conversation.title) {
+      try {
+        await dispatch(
+          updateConversationWithMessages({
+            conversation: { ...conversation, title: trimmedTitle },
+            messages: currentMessages,
+            originalPrompt: conversation.originalPrompt,
+          })
+        ).unwrap();
+      } catch (error) {
+        console.error('Failed to update conversation title:', error);
+        // Revert to original title on error
+        setTitleValue(conversation.title);
+      }
+    } else if (!trimmedTitle) {
+      // Revert to original title if empty
+      setTitleValue(conversation.title);
+    }
+  };
+
+  const handleTitleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      handleTitleBlur();
+    } else if (event.key === 'Escape') {
+      setTitleValue(conversation.title);
+      event.currentTarget.blur();
+    }
+  };
+
   if (messagesLoading) {
     return (
       <Box
@@ -290,9 +337,52 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
               mb: 1,
             }}
           >
-            <Typography variant="h5" component="h2">
-              {conversation.title}
-            </Typography>
+            <TextField
+              value={titleValue}
+              onChange={handleTitleChange}
+              onBlur={handleTitleBlur}
+              onFocus={() => setIsTitleFocused(true)}
+              onMouseEnter={() => setIsTitleHovered(true)}
+              onMouseLeave={() => setIsTitleHovered(false)}
+              onKeyDown={handleTitleKeyDown}
+              variant="outlined"
+              fullWidth={false}
+              sx={{
+                flex: 1,
+                maxWidth: 'calc(100% - 200px)',
+                '& .MuiOutlinedInput-root': {
+                  fontSize: '1.5rem',
+                  fontWeight: 500,
+                  lineHeight: 1.334,
+                  fontFamily: 'inherit',
+                  border: '1px solid',
+                  borderColor: isTitleFocused
+                    ? 'primary.main'
+                    : isTitleHovered
+                      ? 'action.active'
+                      : 'transparent',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  '& fieldset': {
+                    border: 'none',
+                  },
+                  '&:hover fieldset': {
+                    border: 'none',
+                  },
+                  '&.Mui-focused fieldset': {
+                    border: 'none',
+                  },
+                },
+                '& .MuiOutlinedInput-input': {
+                  padding: 0,
+                  fontSize: '1.5rem',
+                  fontWeight: 500,
+                  lineHeight: 1.334,
+                  fontFamily: 'inherit',
+                  color: 'inherit',
+                },
+              }}
+            />
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip
                 label={modelDisplay}
