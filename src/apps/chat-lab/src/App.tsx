@@ -198,7 +198,26 @@ const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({
       ...themeColors,
     },
     typography: {
-      fontFamily: '"Special Elite", cursive',
+      fontFamily: '"Poppins", sans-serif',
+      fontWeightRegular: 400,
+      h1: {
+        fontWeight: 500,
+      },
+      h2: {
+        fontWeight: 500,
+      },
+      h3: {
+        fontWeight: 500,
+      },
+      h4: {
+        fontWeight: 500,
+      },
+      h5: {
+        fontWeight: 500,
+      },
+      h6: {
+        fontWeight: 500,
+      },
     },
     components: {
       MuiCssBaseline: {
