@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   FormControl,
   InputLabel,
   Select,
@@ -222,16 +220,15 @@ export const APIKeyManager: React.FC = () => {
   }
 
   return (
-    <Card sx={{ mt: 3 }}>
-      <CardContent>
-        <Typography
-          variant="h6"
-          gutterBottom
-          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-        >
-          <KeyIcon />
-          API Key Management
-        </Typography>
+    <>
+      <Typography
+        variant="h6"
+        gutterBottom
+        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+      >
+        <KeyIcon />
+        API Key Management
+      </Typography>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Manage your AI model provider API keys. These keys are encrypted and
@@ -448,7 +445,6 @@ export const APIKeyManager: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
-      </CardContent>
-    </Card>
+    </>
   );
 };

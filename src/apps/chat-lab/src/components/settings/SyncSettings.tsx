@@ -7,8 +7,6 @@ import React from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   FormControl,
   InputLabel,
   Select,
@@ -73,57 +71,57 @@ export const SyncSettings: React.FC = () => {
   }
 
   return (
-    <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Schedule sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h6" component="h3">
-            Auto-Sync Settings
-          </Typography>
-        </Box>
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <Schedule sx={{ mr: 1, color: 'primary.main' }} />
+        <Typography variant="h6" component="h3">
+          Auto-Sync Settings
+        </Typography>
+      </Box>
 
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Auto-sync automatically uploads your data to Google Drive after
-          changes are made. The delay determines how long to wait before syncing
-          to avoid interrupting your workflow.
-        </Alert>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Auto-sync automatically uploads your data to Google Drive after changes
+        are made. The delay determines how long to wait before syncing to avoid
+        interrupting your workflow.
+      </Alert>
 
-        <FormControl fullWidth>
-          <InputLabel id="sync-delay-label">Auto-Sync Delay</InputLabel>
-          <Select
-            labelId="sync-delay-label"
-            value={settings.syncSettings.autoSyncDelayMinutes}
-            label="Auto-Sync Delay"
-            onChange={handleSyncDelayChange}
-          >
-            {delayOptions.map(option => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>
-            How long to wait before automatically syncing changes to Google
-            Drive
-          </FormHelperText>
-        </FormControl>
-
-        <Box
-          sx={{
-            mt: 2,
-            p: 2,
-            backgroundColor: 'background.default',
-            borderRadius: 1,
-          }}
+      <FormControl fullWidth>
+        <InputLabel id="sync-delay-label">Auto-Sync Delay</InputLabel>
+        <Select
+          labelId="sync-delay-label"
+          value={settings.syncSettings.autoSyncDelayMinutes}
+          label="Auto-Sync Delay"
+          onChange={handleSyncDelayChange}
         >
-          <Typography variant="body2" color="text.secondary">
-            <strong>Current setting:</strong> Auto-sync will trigger after
-            {settings.syncSettings.autoSyncDelayMinutes}
-            minute{settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'}
-            when data changes are detected.
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
+          {delayOptions.map(option => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        <FormHelperText>
+          How long to wait before automatically syncing changes to Google Drive
+        </FormHelperText>
+      </FormControl>
+
+      <Box
+        sx={{
+          mt: 2,
+          p: 2,
+          backgroundColor: 'background.default',
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          <strong>Current setting:</strong> Auto-sync will trigger after 
+          {' '}
+          {settings.syncSettings.autoSyncDelayMinutes}
+          {' '}
+          minute{settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'} 
+          {' '}
+          when data changes are detected.
+        </Typography>
+      </Box>
+    </>
   );
 };
