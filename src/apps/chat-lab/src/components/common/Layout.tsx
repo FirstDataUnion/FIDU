@@ -40,14 +40,10 @@ import {
   Home as HomeIcon,
   Sync as SyncIcon,
   PrivacyTip as PrivacyIcon,
-  NewReleases as WhatsNewIcon,
   SmartToy as SmartToyIcon,
-  ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
-  DeleteForever as DeleteAccountIcon,
   FolderSpecial as WorkspacesIcon,
-  PrecisionManufacturing as FeatureFlagIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -273,22 +269,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       enabled: useFeatureFlag('shared_workspaces'),
     },
     {
-      text: 'Import & Export',
-      icon: <ImportExportIcon />,
-      path: '/import-export',
-      enabled: true,
-    },
-    {
       text: 'Settings',
       icon: <SettingsIcon />,
       path: '/settings',
       enabled: true,
-    },
-    {
-      text: 'Feature Flags',
-      icon: <FeatureFlagIcon />,
-      path: '/feature-flags',
-      enabled: useFeatureFlag('feature_flag_page'),
     },
   ];
 
@@ -307,68 +291,47 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     }
   };
 
-  const renderMenuSection = (title: string, items: any[]) =>
-    items.some(item => item.enabled) && (
-      <>
-        <Divider sx={{ my: 1 }} />
-        {title && (
-          <Typography
-            variant="overline"
-            sx={{
-              px: 2,
-              py: 1,
-              color: 'text.secondary',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
-          >
-            {title}
-          </Typography>
-        )}
-        <List dense>
-          {items.map(
-            item =>
-              item.enabled && (
-                <ListItem key={item.text} disablePadding>
-                  <ListItemButton
-                    selected={location.pathname.startsWith(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                    sx={{
-                      mx: 1,
-                      mb: 0.5,
-                      borderRadius: 1,
-                      '&.Mui-selected': {
-                        backgroundColor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '& .MuiListItemIcon-root': {
-                          color: 'inherit',
-                        },
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.text}
-                      primaryTypographyProps={{
-                        fontSize: '0.875rem',
-                        fontWeight: location.pathname.startsWith(item.path)
-                          ? 600
-                          : 400,
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              )
-          )}
-        </List>
-      </>
+  const renderMenuItems = (items: any[]) => {
+    return items.map(
+      item =>
+        item.enabled && (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              selected={location.pathname.startsWith(item.path)}
+              onClick={() => handleNavigation(item.path)}
+              sx={{
+                mx: 1,
+                mb: 0.5,
+                borderRadius: 1,
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '& .MuiListItemIcon-root': {
+                    color: 'inherit',
+                  },
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: '0.875rem',
+                  fontWeight: location.pathname.startsWith(item.path)
+                    ? 600
+                    : 400,
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        )
     );
+  };
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -384,11 +347,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           </Typography>
         </Toolbar>
 
-        {renderMenuSection('', mainMenuItems)}
-
-        {renderMenuSection('Advanced', advancedMenuItems)}
-
-        {renderMenuSection('System', systemMenuItems)}
+        <List dense>
+          {renderMenuItems(mainMenuItems)}
+          {renderMenuItems(advancedMenuItems)}
+          {renderMenuItems(systemMenuItems)}
+        </List>
       </Box>
 
       {/* Footer with Policy Links */}
@@ -417,78 +380,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         >
           Get help/report a bug
         </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<WhatsNewIcon fontSize="small" />}
-          onClick={() => handleNavigation('/whats-new')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          What's New
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<PrivacyIcon fontSize="small" />}
-          onClick={() => handleNavigation('/privacy-policy')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Privacy Policy
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<PrivacyIcon fontSize="small" />}
-          onClick={() => handleNavigation('/terms-of-use')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Terms of Use
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<DeleteAccountIcon fontSize="small" />}
-          onClick={() => handleNavigation('/delete-account')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Delete Account
-        </Button>
         <Typography
           variant="caption"
           sx={{
@@ -500,6 +391,63 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         >
           {getVersionDisplay()} • FIDU
         </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 1,
+            mt: 0.5,
+          }}
+        >
+          <Typography
+            component="button"
+            variant="caption"
+            onClick={() => handleNavigation('/privacy-policy')}
+            sx={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+              opacity: 0.5,
+              textDecoration: 'none',
+              '&:hover': {
+                opacity: 0.8,
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            Privacy Policy
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              opacity: 0.5,
+            }}
+          >
+            •
+          </Typography>
+          <Typography
+            component="button"
+            variant="caption"
+            onClick={() => handleNavigation('/terms-of-use')}
+            sx={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+              opacity: 0.5,
+              textDecoration: 'none',
+              '&:hover': {
+                opacity: 0.8,
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            Terms of Use
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );

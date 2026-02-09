@@ -13,5 +13,6 @@ export { DataStorageInfo } from './DataStorageInfo';
 export { DeleteAccountSettings } from './DeleteAccountSettings';
 export { GoogleDriveDataSettings } from './GoogleDriveDataSettings';
 export { WhatsNewSettings } from './WhatsNewSettings';
+export { CustomiseFeaturesSettings } from './CustomiseFeaturesSettings';
 
 export type { PermissionState } from './PermissionStatusIndicator';

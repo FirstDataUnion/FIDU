@@ -64,15 +64,11 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const BackgroundAgentsPage = React.lazy(
   () => import('./pages/BackgroundAgentsPage')
 );
-const ImportExportPage = React.lazy(() => import('./pages/ImportExportPage'));
 const WorkspacesPage = React.lazy(() => import('./pages/WorkspacesPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
-const WhatsNewPage = React.lazy(() => import('./pages/WhatsNewPage'));
 const DocumentsPage = React.lazy(() => import('./pages/DocumentsPage'));
-const DeleteAccountPage = React.lazy(() => import('./pages/DeleteAccountPage'));
-const FeatureFlagPage = React.lazy(() => import('./pages/FeatureFlagPage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -1089,14 +1085,6 @@ const AppContent: React.FC<AppContentProps> = () => {
                         </StorageFeatureGuard>
                       }
                     />
-                    <Route
-                      path="/feature-flags"
-                      element={<FeatureFlagPage />}
-                    />
-                    <Route
-                      path="/import-export"
-                      element={<ImportExportPage />}
-                    />
                     {isSharedWorkspacesEnabled && (
                       <Route path="/workspaces" element={<WorkspacesPage />} />
                     )}
@@ -1106,11 +1094,6 @@ const AppContent: React.FC<AppContentProps> = () => {
                       element={<PrivacyPolicyPage />}
                     />
                     <Route path="/terms-of-use" element={<TermsOfUsePage />} />
-                    <Route
-                      path="/delete-account"
-                      element={<DeleteAccountPage />}
-                    />
-                    <Route path="/whats-new" element={<WhatsNewPage />} />
                     <Route path="/cloud-test" element={<CloudModeTest />} />
                     <Route
                       path="/oauth-callback"

@@ -17,6 +17,7 @@ import {
   DeleteAccountSettings,
   GoogleDriveDataSettings,
   WhatsNewSettings,
+  CustomiseFeaturesSettings,
 } from '../components/settings';
 
 interface Section {
@@ -29,6 +30,7 @@ interface Section {
 const sections: Section[] = [
   { id: 'appearance', label: 'Appearance', visible: true },
   { id: 'whats-new', label: "What's New", visible: true },
+  { id: 'customise-features', label: 'Customise Features', visible: true },
   { id: 'sync-settings', label: 'Google Drive Data', visible: true },
   { id: 'import-export', label: 'Import & Export', visible: true },
   { id: 'privacy', label: 'Privacy & Data Collection', visible: true },
@@ -46,6 +48,7 @@ const SettingsPage: React.FC = () => {
   const privacyRef = useRef<HTMLDivElement>(null);
   const apiKeysRef = useRef<HTMLDivElement>(null);
   const whatsNewRef = useRef<HTMLDivElement>(null);
+  const customiseFeaturesRef = useRef<HTMLDivElement>(null);
   const deleteAccountRef = useRef<HTMLDivElement>(null);
   
   
@@ -64,6 +67,7 @@ const SettingsPage: React.FC = () => {
       const refs = [
         { id: 'appearance', ref: appearanceRef },
         { id: 'whats-new', ref: whatsNewRef },
+        { id: 'customise-features', ref: customiseFeaturesRef },
         { id: 'sync-settings', ref: syncSettingsRef },
         { id: 'import-export', ref: importExportRef },
         { id: 'privacy', ref: privacyRef },
@@ -138,6 +142,7 @@ const SettingsPage: React.FC = () => {
       'privacy': privacyRef,
       'api-keys': apiKeysRef,
       'whats-new': whatsNewRef,
+      'customise-features': customiseFeaturesRef,
       'delete-account': deleteAccountRef,
     };
 
@@ -274,6 +279,11 @@ const SettingsPage: React.FC = () => {
         {/* What's New */}
         <SettingsSectionCard ref={whatsNewRef}>
           <WhatsNewSettings />
+        </SettingsSectionCard>
+
+        {/* Customise Features */}
+        <SettingsSectionCard ref={customiseFeaturesRef}>
+          <CustomiseFeaturesSettings />
         </SettingsSectionCard>
 
         {/* Google Drive Data Settings */}
