@@ -4279,6 +4279,7 @@ export default function PromptLabPage() {
   const startNewConversation = useCallback(() => {
     setMessages([]);
     setCurrentConversation(null);
+    setGhostMessages({});
     setError(null);
     // Clear selected contexts
     setSelectedContexts([]);
