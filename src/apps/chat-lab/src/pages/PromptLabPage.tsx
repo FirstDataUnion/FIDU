@@ -2746,6 +2746,11 @@ export default function PromptLabPage() {
         color: '#C46902',
         provider: 'Anthropic',
       },
+      'claude-haiku-4.5': {
+        name: 'Claude Haiku 4.5',
+        color: '#C46902',
+        provider: 'Anthropic',
+      },
       'claude-opus-4': {
         name: 'Claude Opus 4',
         color: '#C46902',
@@ -2753,6 +2758,11 @@ export default function PromptLabPage() {
       },
       'claude-opus-4.1': {
         name: 'Claude Opus 4.1',
+        color: '#C46902',
+        provider: 'Anthropic',
+      },
+      'claude-opus-4.6': {
+        name: 'Claude Opus 4.6',
         color: '#C46902',
         provider: 'Anthropic',
       },
