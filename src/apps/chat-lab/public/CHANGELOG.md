@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Conversation renaming**: Add ability to rename conversations in Conversations page.
 - **Conversation deletion**: Add ability to delete conversations in Conversations page.
+- **Most-used models**: Calculate most-frequently used models (locally) and display at the top of the list.
 
 ### Changed
 - **Post-rewind Ghost Messages**: When rewinding, the previous messages hang around (as ghosts) while the chat page is open so the responses can be compared.

@@ -58,6 +58,7 @@ export default function FeatureFlagPage(): React.JSX.Element {
       prompt_wizard: 'Prompt Wizard',
       view_copy_full_prompt: 'View/Copy Full Prompt',
       recent_conversations_in_chat_page: 'Recent Conversations in Chat Page',
+      most_used_models: 'Most Used Models',
     };
   }, []);
 

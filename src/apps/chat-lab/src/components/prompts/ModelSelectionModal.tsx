@@ -36,6 +36,7 @@ import {
   AutoAwesome as AutoIcon,
   Sort as SortIcon,
   FilterList as FilterIcon,
+  Star as FavoriteModelIcon,
 } from '@mui/icons-material';
 import {
   getAllModels,
@@ -44,6 +45,10 @@ import {
   type ProviderKey,
 } from '../../data/models';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { selectConversations } from '../../store/selectors/conversationsSelectors';
+import { fetchConversations } from '../../store/slices/conversationsSlice';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 interface ModelSelectionModalProps {
   open: boolean;
@@ -63,6 +68,7 @@ export default function ModelSelectionModal({
   onSelectModel,
   onAutoModeToggle,
 }: ModelSelectionModalProps) {
+  const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
@@ -78,6 +84,11 @@ export default function ModelSelectionModal({
   const [userProviders, setUserProviders] = useState<ProviderKey[] | null>(
     null
   );
+  const isMostUsedModelsEnabled = useFeatureFlag('most_used_models');
+  const [usedModels, setUsedModels] = useState<
+    { modelId: string; count: number }[]
+  >([]);
+  const conversations = useAppSelector(selectConversations);
 
   // Get all available models from the centralized configuration
   const availableModels = getAllModels();
@@ -87,6 +98,24 @@ export default function ModelSelectionModal({
   const otherModels = availableModels.filter(
     model => model.id !== 'auto-router'
   );
+
+  React.useEffect(() => {
+    try {
+      dispatch(
+        fetchConversations({
+          filters: {
+            sortBy: 'updatedAt',
+            sortOrder: 'desc',
+          },
+          page: 1,
+          limit: 20,
+        })
+      );
+    } catch (error) {
+      console.error('Error refreshing conversations:', error);
+      // Add user-friendly error handling here
+    }
+  }, [dispatch]);
 
   // Persist BYOK toggle to localStorage
   React.useEffect(() => {
@@ -126,6 +155,24 @@ export default function ModelSelectionModal({
     };
   }, [useBYOK]);
 
+  React.useEffect(() => {
+    const usedModels = conversations
+      .map(conversation => conversation.modelsUsed)
+      .flat()
+      .filter(model => model !== undefined)
+      .reduce(
+        (acc, model) => {
+          acc[model] = (acc[model] || 0) + 1;
+          return acc;
+        },
+        {} as { [modelId: string]: number }
+      );
+    const sortedUsedModels = Object.entries(usedModels)
+      .sort(([_, aCount], [__, bCount]) => bCount - aCount)
+      .map(([modelId, count]) => ({ modelId, count }));
+    setUsedModels(sortedUsedModels);
+  }, [conversations]);
+
   // Filter models based on BYOK mode, search and filters
   const filteredModels = useMemo(() => {
     const baseList = useBYOK
@@ -135,7 +182,20 @@ export default function ModelSelectionModal({
         })
       : otherModels.filter(m => m.executionPath === 'openrouter');
 
-    const filtered = baseList.filter(model => {
+    const mostUsedModels =
+      isMostUsedModelsEnabled && usedModels
+        ? usedModels
+            .filter(({ modelId }) => baseList.some(m => m.id === modelId))
+            .map(({ modelId }) => baseList.find(m => m.id === modelId)!)
+            .map(model => ({ ...model, isMostUsed: true }))
+            .splice(0, 3)
+        : [];
+
+    const remainingModels = baseList
+      .filter(model => !mostUsedModels.some(m => m.id === model.id))
+      .map(model => ({ ...model, isMostUsed: false }));
+
+    const filtered = [...mostUsedModels, ...remainingModels].filter(model => {
       // Search filter
       const matchesSearch =
         model.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -172,6 +232,8 @@ export default function ModelSelectionModal({
 
     // Sort models
     filtered.sort((a, b) => {
+      if (a.isMostUsed && !b.isMostUsed) return -1;
+      if (!a.isMostUsed && b.isMostUsed) return 1;
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
@@ -197,6 +259,8 @@ export default function ModelSelectionModal({
     sortBy,
     filterBy,
     providerFilter,
+    usedModels,
+    isMostUsedModelsEnabled,
   ]);
 
   const handleModelSelect = (modelId: string) => {
@@ -514,9 +578,25 @@ export default function ModelSelectionModal({
                       },
                     }}
                   >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        <SmartToyIcon />
+                    <ListItemAvatar
+                      title={
+                        model.isMostUsed
+                          ? 'Your most used models (calculated locally)'
+                          : undefined
+                      }
+                    >
+                      <Avatar
+                        sx={{
+                          bgcolor: model.isMostUsed
+                            ? 'secondary.main'
+                            : 'primary.main',
+                        }}
+                      >
+                        {model.isMostUsed ? (
+                          <FavoriteModelIcon />
+                        ) : (
+                          <SmartToyIcon />
+                        )}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText

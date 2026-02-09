@@ -57,6 +57,11 @@
     "new_chat_button_in_chat_page": {
         "enabled": true
     },
+    "most_used_models": {
+        "enabled": true,
+        "user_configurable": true,
+        "default_enabled": true
+    },
     "shared_workspaces": {
         "enabled": true,
         "user_configurable": true,
