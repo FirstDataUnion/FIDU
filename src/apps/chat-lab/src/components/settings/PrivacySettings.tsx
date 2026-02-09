@@ -48,11 +48,7 @@ export const PrivacySettings: React.FC = () => {
             <Typography variant="body1">
               Share Anonymous Usage Metrics
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 0.5 }}
-            >
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Help us improve FIDU Chat Lab by sharing anonymous usage metrics,
               error reports, and performance data. No personal data,
               conversations, or sensitive information is ever collected.

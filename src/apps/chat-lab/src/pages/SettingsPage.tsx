@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  List,
-  ListItem,
-  ListItemButton,
-} from '@mui/material';
+import { Box, Typography, List, ListItem, ListItemButton } from '@mui/material';
 // Icons are now imported in their respective components
 // State management is now handled in individual components
 import {
@@ -40,7 +34,7 @@ const sections: Section[] = [
 
 const SettingsPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('appearance');
-  
+
   // Refs for each section
   const appearanceRef = useRef<HTMLDivElement>(null);
   const syncSettingsRef = useRef<HTMLDivElement>(null);
@@ -50,8 +44,7 @@ const SettingsPage: React.FC = () => {
   const whatsNewRef = useRef<HTMLDivElement>(null);
   const customiseFeaturesRef = useRef<HTMLDivElement>(null);
   const deleteAccountRef = useRef<HTMLDivElement>(null);
-  
-  
+
   // Ref for the main content container (the scrollable box)
   const mainContentRef = useRef<HTMLDivElement>(null);
 
@@ -59,11 +52,12 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     const handleScroll = () => {
       const scrollOffset = 150; // Offset from top of viewport
-      
+
       // Get the scrollable container
-      const scrollContainer = mainContentRef.current?.parentElement?.parentElement;
+      const scrollContainer =
+        mainContentRef.current?.parentElement?.parentElement;
       if (!scrollContainer) return;
-      
+
       const refs = [
         { id: 'appearance', ref: appearanceRef },
         { id: 'whats-new', ref: whatsNewRef },
@@ -76,9 +70,9 @@ const SettingsPage: React.FC = () => {
       ].filter(({ id }) => sections.some(s => s.id === id));
 
       // Check if scrolled to the bottom (within 5px threshold for rounding)
-      const isAtBottom = 
-        scrollContainer.scrollTop + scrollContainer.clientHeight >= 
-        scrollContainer.scrollHeight - 5;
+      const isAtBottom =
+        scrollContainer.scrollTop + scrollContainer.clientHeight
+        >= scrollContainer.scrollHeight - 5;
 
       let activeId: string | null = null;
 
@@ -110,16 +104,19 @@ const SettingsPage: React.FC = () => {
     // The Layout component creates a Box with overflow: 'auto' that wraps our content
     // DOM structure: Layout's scrollable Box (grandparent) -> SettingsPage root Box (parent) -> mainContentRef Box
     // The scrollable container is the grandparent (parent of parent) of mainContentRef
-    const scrollContainer = mainContentRef.current?.parentElement?.parentElement;
-    
+    const scrollContainer =
+      mainContentRef.current?.parentElement?.parentElement;
+
     if (scrollContainer) {
       // Attach listener to the scrollable container
-      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      scrollContainer.addEventListener('scroll', handleScroll, {
+        passive: true,
+      });
     } else {
       // Fallback to window if scrollable container not found
       window.addEventListener('scroll', handleScroll, { passive: true });
     }
-    
+
     window.addEventListener('resize', handleScroll, { passive: true });
     handleScroll(); // Check initial position
 
@@ -136,10 +133,10 @@ const SettingsPage: React.FC = () => {
   // Scroll to section handler
   const scrollToSection = (sectionId: string) => {
     const refs: { [key: string]: React.RefObject<HTMLDivElement | null> } = {
-      'appearance': appearanceRef,
+      appearance: appearanceRef,
       'sync-settings': syncSettingsRef,
       'import-export': importExportRef,
-      'privacy': privacyRef,
+      privacy: privacyRef,
       'api-keys': apiKeysRef,
       'whats-new': whatsNewRef,
       'customise-features': customiseFeaturesRef,
@@ -153,7 +150,8 @@ const SettingsPage: React.FC = () => {
     }
 
     // Get the scrollable container (same reference as scroll spy)
-    const scrollContainer = mainContentRef.current?.parentElement?.parentElement;
+    const scrollContainer =
+      mainContentRef.current?.parentElement?.parentElement;
     if (!scrollContainer) {
       console.warn('Scroll container not found');
       return;
@@ -161,15 +159,16 @@ const SettingsPage: React.FC = () => {
 
     const element = ref.current;
     const offset = 50; // Offset from top of viewport for better visibility
-    
+
     // getBoundingClientRect() returns position relative to viewport
     // scrollContainer.scrollTop is current scroll position of the container
     // We need to calculate position relative to the scrollable container
     const rect = element.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
-    
+
     // Calculate position relative to the scrollable container
-    const elementTopRelativeToContainer = rect.top - containerRect.top + scrollContainer.scrollTop;
+    const elementTopRelativeToContainer =
+      rect.top - containerRect.top + scrollContainer.scrollTop;
     const targetPosition = elementTopRelativeToContainer - offset;
 
     // Immediately update active section when clicking (visual feedback)
@@ -208,7 +207,7 @@ const SettingsPage: React.FC = () => {
         }}
       >
         <List sx={{ p: 0 }}>
-          {sections.map((section) => (
+          {sections.map(section => (
             <ListItem key={section.id} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 onClick={() => scrollToSection(section.id)}
@@ -218,7 +217,7 @@ const SettingsPage: React.FC = () => {
                   px: 2,
                   backgroundColor:
                     activeSection === section.id
-                      ? (theme) =>
+                      ? theme =>
                           theme.palette.mode === 'dark'
                             ? 'rgba(255, 255, 255, 0.1)'
                             : 'rgba(0, 0, 0, 0.08)'
@@ -228,7 +227,7 @@ const SettingsPage: React.FC = () => {
                       ? 'text.primary'
                       : 'text.secondary',
                   '&:hover': {
-                    backgroundColor: (theme) =>
+                    backgroundColor: theme =>
                       theme.palette.mode === 'dark'
                         ? 'rgba(255, 255, 255, 0.05)'
                         : 'rgba(0, 0, 0, 0.04)',
@@ -240,8 +239,7 @@ const SettingsPage: React.FC = () => {
                   variant="body2"
                   sx={{
                     fontSize: '0.875rem',
-                    fontWeight:
-                      activeSection === section.id ? 500 : 400,
+                    fontWeight: activeSection === section.id ? 500 : 400,
                   }}
                 >
                   {section.label}

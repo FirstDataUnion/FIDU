@@ -315,9 +315,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{

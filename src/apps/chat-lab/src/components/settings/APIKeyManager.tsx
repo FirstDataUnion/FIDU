@@ -230,221 +230,221 @@ export const APIKeyManager: React.FC = () => {
         API Key Management
       </Typography>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Manage your AI model provider API keys. These keys are encrypted and
-          stored securely using the same encryption as your conversations and
-          other data.
-        </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your AI model provider API keys. These keys are encrypted and
+        stored securely using the same encryption as your conversations and
+        other data.
+      </Typography>
 
-        {/* Error/Success Messages */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {/* Error/Success Messages */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        {success && (
-          <Alert
-            severity="success"
-            sx={{ mb: 2 }}
-            onClose={() => setSuccess(null)}
-          >
-            {success}
-          </Alert>
-        )}
-
-        {/* Storage Setup Warning */}
-        {!isInitialized && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              <strong>Storage not configured:</strong> You need to set up your
-              storage options before you can manage API keys. Please go to the
-              Storage Settings section above to configure your preferred storage
-              method (Cloud Storage or File System).
-            </Typography>
-          </Alert>
-        )}
-
-        {/* Add/Update API Key Form */}
-        <Box
-          component="form"
-          onSubmit={e => {
-            e.preventDefault();
-            handleSaveAPIKey();
-          }}
-          sx={{
-            mb: 4,
-            p: 2,
-            backgroundColor: 'background.paper',
-            borderRadius: 1,
-            border: 1,
-            borderColor: 'divider',
-            opacity: !isInitialized ? 0.6 : 1,
-            pointerEvents: !isInitialized ? 'none' : 'auto',
-          }}
+      {success && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
         >
-          <Typography variant="subtitle1" gutterBottom>
-            {isEditing ? 'Update API Key' : 'Add New API Key'}
+          {success}
+        </Alert>
+      )}
+
+      {/* Storage Setup Warning */}
+      {!isInitialized && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>Storage not configured:</strong> You need to set up your
+            storage options before you can manage API keys. Please go to the
+            Storage Settings section above to configure your preferred storage
+            method (Cloud Storage or File System).
           </Typography>
+        </Alert>
+      )}
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel id="provider-select-label">Provider</InputLabel>
-              <Select
-                labelId="provider-select-label"
-                id="provider-select"
-                value={selectedProvider}
-                label="Provider"
-                onChange={handleProviderChange}
-                disabled={saving}
-              >
-                <MenuItem value="">
-                  <em>Select a provider</em>
-                </MenuItem>
-                {SUPPORTED_PROVIDERS.map(provider => (
-                  <MenuItem key={provider.value} value={provider.value}>
-                    {provider.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth>
-              <TextField
-                label="API Key"
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKeyValue}
-                onChange={e => setApiKeyValue(e.target.value)}
-                disabled={saving || !selectedProvider}
-                placeholder="Enter your API key"
-                autoComplete="off"
-                InputProps={{
-                  endAdornment: (
-                    <IconButton
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      edge="end"
-                      disabled={!apiKeyValue}
-                      type="button"
-                    >
-                      {showApiKey ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  ),
-                }}
-              />
-            </FormControl>
-
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={
-                saving ? (
-                  <CircularProgress size={20} />
-                ) : isEditing ? (
-                  <EditIcon />
-                ) : (
-                  <AddIcon />
-                )
-              }
-              disabled={saving || !selectedProvider || !apiKeyValue.trim()}
-              color={isEditing ? 'warning' : 'primary'}
-            >
-              {saving
-                ? 'Saving...'
-                : isEditing
-                  ? 'Update API Key'
-                  : 'Add API Key'}
-            </Button>
-          </Box>
-        </Box>
-
-        {/* API Keys List */}
+      {/* Add/Update API Key Form */}
+      <Box
+        component="form"
+        onSubmit={e => {
+          e.preventDefault();
+          handleSaveAPIKey();
+        }}
+        sx={{
+          mb: 4,
+          p: 2,
+          backgroundColor: 'background.paper',
+          borderRadius: 1,
+          border: 1,
+          borderColor: 'divider',
+          opacity: !isInitialized ? 0.6 : 1,
+          pointerEvents: !isInitialized ? 'none' : 'auto',
+        }}
+      >
         <Typography variant="subtitle1" gutterBottom>
-          Your API Keys
+          {isEditing ? 'Update API Key' : 'Add New API Key'}
         </Typography>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        ) : apiKeys.length === 0 ? (
-          <Alert severity="info">
-            No API keys configured yet. Add your first API key above to get
-            started.
-          </Alert>
-        ) : (
-          <TableContainer component={Paper} sx={{ mt: 2 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Provider</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Last Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {apiKeys.map(key => (
-                  <TableRow key={key.id}>
-                    <TableCell>
-                      <Chip
-                        label={getProviderLabel(key.provider)}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>{formatDate(key.create_timestamp)}</TableCell>
-                    <TableCell>{formatDate(key.update_timestamp)}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        onClick={() => handleDeleteClick(key)}
-                        color="error"
-                        size="small"
-                        title="Delete API Key"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog
-          open={deleteDialogOpen}
-          onClose={handleDeleteCancel}
-          aria-labelledby="delete-dialog-title"
-          aria-describedby="delete-dialog-description"
-        >
-          <DialogTitle id="delete-dialog-title">Delete API Key</DialogTitle>
-          <DialogContent>
-            <DialogContentText id="delete-dialog-description">
-              Are you sure you want to delete the API key for{' '}
-              <strong>
-                {keyToDelete ? getProviderLabel(keyToDelete.provider) : ''}
-              </strong>
-              ?
-              <br />
-              <br />
-              This action cannot be undone. You will need to re-enter the API
-              key if you want to use this provider again.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleDeleteCancel}>Cancel</Button>
-            <Button
-              onClick={handleDeleteConfirm}
-              color="error"
-              variant="contained"
-              autoFocus
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <FormControl fullWidth>
+            <InputLabel id="provider-select-label">Provider</InputLabel>
+            <Select
+              labelId="provider-select-label"
+              id="provider-select"
+              value={selectedProvider}
+              label="Provider"
+              onChange={handleProviderChange}
+              disabled={saving}
             >
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+              <MenuItem value="">
+                <em>Select a provider</em>
+              </MenuItem>
+              {SUPPORTED_PROVIDERS.map(provider => (
+                <MenuItem key={provider.value} value={provider.value}>
+                  {provider.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth>
+            <TextField
+              label="API Key"
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKeyValue}
+              onChange={e => setApiKeyValue(e.target.value)}
+              disabled={saving || !selectedProvider}
+              placeholder="Enter your API key"
+              autoComplete="off"
+              InputProps={{
+                endAdornment: (
+                  <IconButton
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    edge="end"
+                    disabled={!apiKeyValue}
+                    type="button"
+                  >
+                    {showApiKey ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  </IconButton>
+                ),
+              }}
+            />
+          </FormControl>
+
+          <Button
+            type="submit"
+            variant="contained"
+            startIcon={
+              saving ? (
+                <CircularProgress size={20} />
+              ) : isEditing ? (
+                <EditIcon />
+              ) : (
+                <AddIcon />
+              )
+            }
+            disabled={saving || !selectedProvider || !apiKeyValue.trim()}
+            color={isEditing ? 'warning' : 'primary'}
+          >
+            {saving
+              ? 'Saving...'
+              : isEditing
+                ? 'Update API Key'
+                : 'Add API Key'}
+          </Button>
+        </Box>
+      </Box>
+
+      {/* API Keys List */}
+      <Typography variant="subtitle1" gutterBottom>
+        Your API Keys
+      </Typography>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : apiKeys.length === 0 ? (
+        <Alert severity="info">
+          No API keys configured yet. Add your first API key above to get
+          started.
+        </Alert>
+      ) : (
+        <TableContainer component={Paper} sx={{ mt: 2 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Provider</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Last Updated</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {apiKeys.map(key => (
+                <TableRow key={key.id}>
+                  <TableCell>
+                    <Chip
+                      label={getProviderLabel(key.provider)}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{formatDate(key.create_timestamp)}</TableCell>
+                  <TableCell>{formatDate(key.update_timestamp)}</TableCell>
+                  <TableCell align="right">
+                    <IconButton
+                      onClick={() => handleDeleteClick(key)}
+                      color="error"
+                      size="small"
+                      title="Delete API Key"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">Delete API Key</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete the API key for{' '}
+            <strong>
+              {keyToDelete ? getProviderLabel(keyToDelete.provider) : ''}
+            </strong>
+            ?
+            <br />
+            <br />
+            This action cannot be undone. You will need to re-enter the API key
+            if you want to use this provider again.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>Cancel</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            autoFocus
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

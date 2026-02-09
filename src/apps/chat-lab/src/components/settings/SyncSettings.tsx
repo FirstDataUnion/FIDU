@@ -113,13 +113,10 @@ export const SyncSettings: React.FC = () => {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          <strong>Current setting:</strong> Auto-sync will trigger after 
-          {' '}
-          {settings.syncSettings.autoSyncDelayMinutes}
-          {' '}
-          minute{settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'} 
-          {' '}
-          when data changes are detected.
+          <strong>Current setting:</strong> Auto-sync will trigger after{' '}
+          {settings.syncSettings.autoSyncDelayMinutes} minute
+          {settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'} when
+          data changes are detected.
         </Typography>
       </Box>
     </>

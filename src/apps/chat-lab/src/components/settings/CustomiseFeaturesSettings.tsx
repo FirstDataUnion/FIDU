@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
-import {
-  Typography,
-  Button,
-  Alert,
-} from '@mui/material';
-import {
-  Tune as TuneIcon,
-} from '@mui/icons-material';
+import { Typography, Button, Alert } from '@mui/material';
+import { Tune as TuneIcon } from '@mui/icons-material';
 import { FeatureFlagsModal } from './FeatureFlagsModal';
 
 export const CustomiseFeaturesSettings: React.FC = () => {
@@ -40,8 +34,8 @@ export const CustomiseFeaturesSettings: React.FC = () => {
       <Alert severity="warning" sx={{ mb: 3 }}>
         <Typography variant="body2">
           <strong>Note:</strong> These changes only affect the UI visibility of
-          features, not their underlying functionality. Disabled features will be
-          hidden from the interface but may still operate in the background.
+          features, not their underlying functionality. Disabled features will
+          be hidden from the interface but may still operate in the background.
         </Typography>
       </Alert>
 

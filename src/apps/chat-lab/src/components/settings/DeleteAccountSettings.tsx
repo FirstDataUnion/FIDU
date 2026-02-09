@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Stack,
-  Alert,
-} from '@mui/material';
+import { Box, Typography, Button, Stack, Alert } from '@mui/material';
 import {
   DeleteForever as DeleteAccountIcon,
   FileUpload as ExportIcon,
@@ -43,15 +37,15 @@ export const DeleteAccountSettings: React.FC<DeleteAccountSettingsProps> = ({
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         To delete your account, please contact us at support@firstdataunion.org
-        from the email address associated with your account. We will process your
-        request within 30 days.
+        from the email address associated with your account. We will process
+        your request within 30 days.
       </Typography>
 
       <Alert severity="warning" sx={{ mb: 3 }}>
         <Typography variant="body2">
-          <strong>Warning:</strong> Once your account is deleted, you will not be
-          able to recover your account or data. Please consider using the Export
-          feature to save your data before deleting your account.
+          <strong>Warning:</strong> Once your account is deleted, you will not
+          be able to recover your account or data. Please consider using the
+          Export feature to save your data before deleting your account.
         </Typography>
       </Alert>
 

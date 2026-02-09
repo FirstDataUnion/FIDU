@@ -157,7 +157,14 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
             })}
           </>
         )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+          }}
+        >
           <Typography
             variant="body2"
             color="text.secondary"
@@ -232,18 +239,14 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
       </DialogTitle>
       <DialogContent dividers>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
-            This dialog lets you change which features are enabled throughout the
-            rest of the ChatLab. However, the changes only affect the UI (the way
-            you see the app), not the actual functionality. For example, if you
-            enable a Background Agent to write to a Document and then turn off the
-            Background Agent and Document features, the agent will still run on
-            each prompt and write to the document, but you won't be able to see
-            either of them!
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            This dialog lets you change which features are enabled throughout
+            the rest of the ChatLab. However, the changes only affect the UI
+            (the way you see the app), not the actual functionality. For
+            example, if you enable a Background Agent to write to a Document and
+            then turn off the Background Agent and Document features, the agent
+            will still run on each prompt and write to the document, but you
+            won't be able to see either of them!
           </Typography>
 
           <Typography
@@ -255,34 +258,39 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
           >
             Optional features:
           </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 1 }}
-          >
-            Enable or disable optional features to customize your experience. The
-            "default" value is what we recommend for new users. Leaving your choice
-            in the middle state will track our recommended default value. Set the
-            toggle to:
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Enable or disable optional features to customize your experience.
+            The "default" value is what we recommend for new users. Leaving your
+            choice in the middle state will track our recommended default value.
+            Set the toggle to:
           </Typography>
           <Box component="ul" sx={{ listStyleType: 'none', pl: 0, mb: 2 }}>
-            <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Box
+              component="li"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+            >
               <DisabledIcon sx={{ fontSize: '1.2rem' }} />
               <Typography variant="body2">to disable the feature</Typography>
             </Box>
-            <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Box
+              component="li"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+            >
               <DefaultIcon sx={{ fontSize: '1.2rem' }} />
               <Typography variant="body2">to use the default value</Typography>
             </Box>
-            <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="li"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
               <EnabledIcon sx={{ fontSize: '1.2rem' }} />
               <Typography variant="body2">to enable the feature</Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {configurableFlags &&
-              flagsToDisplay
+            {configurableFlags
+              && flagsToDisplay
                 .filter(([_, value]) => value.default_enabled)
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)
@@ -296,7 +304,10 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
               mt: 2,
             }}
           >
-            <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="span"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
               <ExperimentalIcon
                 sx={{
                   fontSize: '1.5rem',
@@ -306,18 +317,14 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
               Experimental features:
             </Box>
           </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             This section is doubly experimental in that changing features is
             experimental and these features themselves are also experimental.
           </Typography>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {configurableFlags &&
-              flagsToDisplay
+            {configurableFlags
+              && flagsToDisplay
                 .filter(([_, value]) => !value.default_enabled)
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)

@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-} from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
 import {
   NewReleases as WhatsNewIcon,
   OpenInNew as OpenInNewIcon,

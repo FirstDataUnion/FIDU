@@ -104,8 +104,8 @@ export const CloudDataManagement: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="clear-dialog-description">
-            Are you sure you want to delete all database files from Google Drive?
-            This action cannot be undone and will remove:
+            Are you sure you want to delete all database files from Google
+            Drive? This action cannot be undone and will remove:
             <br />
             • Conversation database files
             <br />
@@ -114,8 +114,8 @@ export const CloudDataManagement: React.FC = () => {
             • Metadata files
             <br />
             <br />
-            This is useful for testing with a fresh slate but should be used with
-            caution.
+            This is useful for testing with a fresh slate but should be used
+            with caution.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
