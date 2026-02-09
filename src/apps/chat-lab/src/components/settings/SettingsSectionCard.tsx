@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Box } from '@mui/material';
+import { Card, CardContent } from '@mui/material';
 
 interface SettingsSectionCardProps {
   children: React.ReactNode;

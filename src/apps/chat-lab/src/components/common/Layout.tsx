@@ -39,7 +39,6 @@ import {
   Check as CheckIcon,
   Home as HomeIcon,
   Sync as SyncIcon,
-  PrivacyTip as PrivacyIcon,
   SmartToy as SmartToyIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
