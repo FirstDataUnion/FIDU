@@ -68,7 +68,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
 import { updateLastUsedModel } from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
-import { updateConversationWithMessages } from '../store/slices/conversationsSlice';
+import {
+  deleteConversation,
+  updateConversationWithMessages,
+} from '../store/slices/conversationsSlice';
 import {
   setCurrentPrompt,
   clearCurrentPrompt,
@@ -4329,9 +4332,14 @@ export default function PromptLabPage() {
           // Cancel any outstanding requests
           handleCancelRequest();
           const deletedMessages = messages.slice(messageIndex);
-          const rootMessage =
-            messageIndex > 0 ? messages[messageIndex - 1] : null;
-          const rootMessageKey = rootMessage?.id ?? 'conversation_start';
+          let rootMessageKey;
+          if (messageIndex > 0) {
+            rootMessageKey = messages[messageIndex - 1].id;
+          } else {
+            rootMessageKey = 'conversation_start';
+            dispatch(deleteConversation(currentConversation!.id));
+            setCurrentConversation(null);
+          }
           setGhostMessages(prev => ({
             ...prev,
             [rootMessageKey]: [
@@ -4353,7 +4361,14 @@ export default function PromptLabPage() {
         }
       }
     },
-    [messages, scrollToBottom, showToast, dispatch, handleCancelRequest]
+    [
+      messages,
+      scrollToBottom,
+      showToast,
+      dispatch,
+      handleCancelRequest,
+      currentConversation,
+    ]
   );
 
   // Handle retry for failed messages
