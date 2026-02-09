@@ -100,6 +100,11 @@ export class UnifiedStorageService {
     return await adapter.getMessages(conversationId);
   }
 
+  async deleteConversation(conversationId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteConversation(conversationId);
+  }
+
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
     this.ensureStorageInitialized();

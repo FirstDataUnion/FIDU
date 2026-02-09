@@ -142,10 +142,8 @@ export const conversationsService = {
   /**
    * Delete a conversation
    */
-  async delete(_id: string): Promise<void> {
-    // Note: This would need to be implemented in the storage adapters
-    throw new Error(
-      'Delete conversation not yet implemented in storage adapters'
-    );
+  async delete(id: string): Promise<void> {
+    const storage = getUnifiedStorageService();
+    return await storage.deleteConversation(id);
   },
 };

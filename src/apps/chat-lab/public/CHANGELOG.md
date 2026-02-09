@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - UNRELEASED
 
 ### Added
-- **Chat renaming**: Add ability to rename chats in Conversations page.
+- **Conversation renaming**: Add ability to rename conversations in Conversations page.
+- **Conversation deletion**: Add ability to delete conversations in Conversations page.
 
 ### Changed
 - **Post-rewind Ghost Messages**: When rewinding, the previous messages hang around (as ghosts) while the chat page is open so the responses can be compared.

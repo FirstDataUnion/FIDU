@@ -81,6 +81,10 @@ export class LocalStorageAdapter implements StorageAdapter {
     return await conversationsApi.getMessages(conversationId);
   }
 
+  async deleteConversation(conversationId: string): Promise<void> {
+    await conversationsApi.deleteConversation(conversationId);
+  }
+
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
     return await apiKeyService.getAPIKeyForProvider(

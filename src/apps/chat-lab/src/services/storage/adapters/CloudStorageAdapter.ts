@@ -518,6 +518,18 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
+  async deleteConversation(conversationId: string): Promise<void> {
+    await this.ensureAuthenticated();
+
+    try {
+      await this.dbManager!.deleteDataPacket(conversationId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      throw error;
+    }
+  }
+
   // API Key operations
   async getAPIKey(provider: string): Promise<string | null> {
     this.ensureInitialized();

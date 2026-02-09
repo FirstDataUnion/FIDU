@@ -13,6 +13,10 @@ import {
   Badge,
   useMediaQuery,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Chat as ChatIcon,
@@ -23,6 +27,7 @@ import {
   Close as CloseIcon,
   ArrowBack as ArrowBackIcon,
   FileDownload as ImportIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -32,6 +37,7 @@ import {
   setFilters,
   clearFilters,
   updateConversationTags,
+  deleteConversation,
 } from '../store/slices/conversationsSlice';
 import {
   fetchContexts,
@@ -111,6 +117,11 @@ const ConversationsPage: React.FC = React.memo(() => {
   const multiSelect = useMultiSelect();
   const [isExporting, setIsExporting] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] =
+    useState<Conversation | null>(null);
 
   // Memoized search handler to prevent infinite loops
   const handleSearch = useCallback(
@@ -486,6 +497,39 @@ const ConversationsPage: React.FC = React.memo(() => {
     setSelectedConversationId(null);
     setEditedTags([]);
   }, [selectedConversationId, editedTags, dispatch]);
+
+  // Delete handlers
+  const handleDeleteClick = useCallback((conversation: Conversation) => {
+    setConversationToDelete(conversation);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!conversationToDelete) return;
+
+    try {
+      await dispatch(deleteConversation(conversationToDelete.id)).unwrap();
+
+      // Close the conversation view if the deleted conversation was selected
+      if (selectedConversationId === conversationToDelete.id) {
+        setSelectedConversationId(null);
+        if (isMobile) {
+          setMobileView('list');
+        }
+      }
+
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      // Error is handled by Redux slice
+    }
+  }, [conversationToDelete, dispatch, selectedConversationId, isMobile]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setConversationToDelete(null);
+  }, []);
 
   if (loading) {
     return (
@@ -1219,6 +1263,19 @@ const ConversationsPage: React.FC = React.memo(() => {
                   </Button>
                 )}
                 <IconButton
+                  onClick={() => handleDeleteClick(selectedConversation)}
+                  color="error"
+                  aria-label="Delete conversation"
+                  title="Delete conversation"
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'error.light',
+                    },
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
+                <IconButton
                   onClick={() => {
                     setSelectedConversationId(null);
                   }}
@@ -1334,6 +1391,34 @@ const ConversationsPage: React.FC = React.memo(() => {
           }
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirm Deletion</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the conversation "
+            {conversationToDelete?.title}"? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} sx={{ color: 'primary.dark' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 });

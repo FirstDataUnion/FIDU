@@ -55,6 +55,7 @@ export interface StorageAdapter {
 
   getConversationById(id: string): Promise<Conversation>;
   getMessages(conversationId: string): Promise<Message[]>;
+  deleteConversation(conversationId: string): Promise<void>;
 
   // API Key operations
   getAPIKey(provider: string): Promise<string | null>;

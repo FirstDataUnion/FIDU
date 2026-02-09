@@ -720,6 +720,18 @@ export const conversationsApi = {
   },
 
   /**
+   * Delete a conversation
+   */
+  deleteConversation: async (conversationId: string) => {
+    try {
+      await fiduVaultAPIClient.delete(`/data-packets/${conversationId}`);
+    } catch (error: any) {
+      console.error('Error deleting conversation:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Add tags to a conversation
    */
   addTags: async (_id: string, _tags: string[]) => {
