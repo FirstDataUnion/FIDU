@@ -27,6 +27,10 @@ import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { PROTECTED_TAGS } from '../../../constants/protectedTags';
 import { extractUniqueModels } from '../../../utils/conversationUtils';
 import { encryptionService } from '../../encryption/EncryptionService';
+import {
+  migrateSyncSettings,
+  getEffectiveSyncDelayMinutes,
+} from '../../../utils/syncSettingsMigration';
 
 export class CloudStorageAdapter implements StorageAdapter {
   private initialized = false;
@@ -117,13 +121,14 @@ export class CloudStorageAdapter implements StorageAdapter {
     await this.syncService.initialize();
 
     // Initialize smart auto-sync service with settings from localStorage
-    const settings = this.loadSettingsFromStorage();
-    const delayMinutes = settings?.syncSettings?.autoSyncDelayMinutes || 1;
+    const rawSettings = this.loadSettingsFromStorage();
+    const migratedSync = migrateSyncSettings(rawSettings?.syncSettings ?? {});
+    const delayMinutes = getEffectiveSyncDelayMinutes(migratedSync);
 
     this.smartAutoSyncService = new SmartAutoSyncService(
       this.syncService,
       {
-        delayMinutes, // Use setting from localStorage or default to 5 minutes
+        delayMinutes, // Use migrated setting or app default
         retryDelayMinutes: 10, // Base delay between retries (exponential backoff)
         maxRetryDelayMinutes: 60, // Cap retry delay at 60 minutes
       },

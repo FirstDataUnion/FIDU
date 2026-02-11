@@ -2,6 +2,10 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { UserSettings, SettingsState } from '../../types';
 import { getEnvironmentInfo } from '../../utils/environment';
 import { getCookieSettingsService } from '../../services/settings/CookieSettingsService';
+import {
+  migrateSyncSettings,
+  CURRENT_SYNC_DEFAULT_VERSION,
+} from '../../utils/syncSettingsMigration';
 
 // Get default storage mode based on environment
 const getDefaultStorageMode = (): 'local' | 'cloud' => {
@@ -38,7 +42,7 @@ const defaultSettings: UserSettings = {
     groupByDate: true,
   },
   syncSettings: {
-    autoSyncDelayMinutes: 1, // Default 1 minute delay
+    syncDefaultVersion: CURRENT_SYNC_DEFAULT_VERSION,
   },
 };
 
@@ -69,6 +73,12 @@ const loadSettingsFromStorage = async (): Promise<UserSettings> => {
     const stored = localStorage.getItem('fidu-chat-lab-settings');
     if (stored) {
       const parsed = JSON.parse(stored);
+      if ('syncSettings' in parsed) {
+        const migratedLocalStorageSyncSettings = migrateSyncSettings(
+          parsed.syncSettings
+        );
+        parsed.syncSettings = migratedLocalStorageSyncSettings;
+      }
       const mergedSettings = { ...defaultSettings, ...parsed };
 
       // Always respect environment storage mode if it's set to 'local'
@@ -255,9 +265,23 @@ const settingsSlice = createSlice({
     },
     updateSyncDelay: (state, action) => {
       state.settings.syncSettings.autoSyncDelayMinutes = action.payload;
+      state.settings.syncSettings.syncDefaultVersion =
+        CURRENT_SYNC_DEFAULT_VERSION;
       const plainSettings = createPlainSettingsCopy(state.settings);
       saveSettingsToStorage(plainSettings).catch(error =>
         console.warn('Failed to save settings after sync delay update:', error)
+      );
+    },
+    setSyncDelayToDefault: state => {
+      state.settings.syncSettings.autoSyncDelayMinutes = undefined;
+      state.settings.syncSettings.syncDefaultVersion =
+        CURRENT_SYNC_DEFAULT_VERSION;
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error =>
+        console.warn(
+          'Failed to save settings after sync delay reset to default:',
+          error
+        )
       );
     },
     updateShareAnalytics: (state, action) => {
@@ -317,6 +341,7 @@ export const {
   markStorageConfigured,
   resetStorageConfiguration,
   updateSyncDelay,
+  setSyncDelayToDefault,
   updateShareAnalytics,
   clearError,
   resetToDefaults,

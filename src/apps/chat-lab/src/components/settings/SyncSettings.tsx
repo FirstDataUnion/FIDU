@@ -10,9 +10,11 @@ import {
   Card,
   CardContent,
   FormControl,
+  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
   FormHelperText,
   Alert,
 } from '@mui/material';
@@ -20,8 +22,15 @@ import { Schedule } from '@mui/icons-material';
 import type { SelectChangeEvent } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
-import { updateSyncDelay } from '../../store/slices/settingsSlice';
+import {
+  updateSyncDelay,
+  setSyncDelayToDefault,
+} from '../../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import {
+  getEffectiveSyncDelayMinutes,
+  DEFAULT_SYNC_DELAY_MINUTES,
+} from '../../utils/syncSettingsMigration';
 
 export const SyncSettings: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -30,14 +39,12 @@ export const SyncSettings: React.FC = () => {
 
   // Only show sync settings for Google Drive (cloud) mode
   const isCloudStorageMode = unifiedStorage.mode === 'cloud';
+  const effectiveDelayMinutes = getEffectiveSyncDelayMinutes(
+    settings.syncSettings
+  );
+  const useDefault = settings.syncSettings.autoSyncDelayMinutes === undefined;
 
-  const handleSyncDelayChange = (event: SelectChangeEvent<number>) => {
-    const newDelay = event.target.value as number;
-    console.log('🔍 [SyncSettings] Changing delay to:', newDelay);
-
-    dispatch(updateSyncDelay(newDelay));
-
-    // Update the smart auto-sync service with new delay
+  const updateAdapterDelay = (delayMinutes: number) => {
     try {
       const storageService = getUnifiedStorageService();
       const adapter = storageService.getAdapter();
@@ -46,9 +53,9 @@ export const SyncSettings: React.FC = () => {
 
       if ('updateAutoSyncConfig' in adapter) {
         console.log('🔍 [SyncSettings] Calling updateAutoSyncConfig with:', {
-          delayMinutes: newDelay,
+          delayMinutes,
         });
-        (adapter as any).updateAutoSyncConfig({ delayMinutes: newDelay });
+        (adapter as any).updateAutoSyncConfig({ delayMinutes });
       } else {
         console.warn(
           '🔍 [SyncSettings] Adapter does not have updateAutoSyncConfig method'
@@ -59,8 +66,34 @@ export const SyncSettings: React.FC = () => {
     }
   };
 
+  const handleUseDefaultChange = (
+    _event: React.ChangeEvent<HTMLInputElement>,
+    checked: boolean
+  ) => {
+    if (checked) {
+      dispatch(setSyncDelayToDefault());
+      updateAdapterDelay(DEFAULT_SYNC_DELAY_MINUTES);
+    } else {
+      dispatch(updateSyncDelay(effectiveDelayMinutes));
+      updateAdapterDelay(effectiveDelayMinutes);
+    }
+  };
+
+  const handleSyncDelayChange = (event: SelectChangeEvent<number>) => {
+    const newDelay = event.target.value as number;
+    console.log('🔍 [SyncSettings] Changing delay to:', newDelay);
+
+    dispatch(updateSyncDelay(newDelay));
+    updateAdapterDelay(newDelay);
+  };
+
+  const defaultLabel =
+    DEFAULT_SYNC_DELAY_MINUTES === 1
+      ? 'Use default (1 minute)'
+      : `Use default (${DEFAULT_SYNC_DELAY_MINUTES} minutes)`;
+
   const delayOptions = [
-    { value: 1, label: '1 minute (recommended)' },
+    { value: 1, label: '1 minute' },
     { value: 2, label: '2 minutes' },
     { value: 5, label: '5 minutes' },
     { value: 10, label: '10 minutes' },
@@ -88,25 +121,39 @@ export const SyncSettings: React.FC = () => {
           to avoid interrupting your workflow.
         </Alert>
 
-        <FormControl fullWidth>
-          <InputLabel id="sync-delay-label">Auto-Sync Delay</InputLabel>
-          <Select
-            labelId="sync-delay-label"
-            value={settings.syncSettings.autoSyncDelayMinutes}
-            label="Auto-Sync Delay"
-            onChange={handleSyncDelayChange}
-          >
-            {delayOptions.map(option => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>
-            How long to wait before automatically syncing changes to Google
-            Drive
-          </FormHelperText>
-        </FormControl>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={useDefault}
+              onChange={handleUseDefaultChange}
+              name="sync-use-default"
+            />
+          }
+          label={defaultLabel}
+          sx={{ mb: useDefault ? 0 : 2, display: 'block' }}
+        />
+
+        {!useDefault && (
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel id="sync-delay-label">Auto-Sync Delay</InputLabel>
+            <Select
+              labelId="sync-delay-label"
+              value={effectiveDelayMinutes}
+              label="Auto-Sync Delay"
+              onChange={handleSyncDelayChange}
+            >
+              {delayOptions.map(option => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              How long to wait before automatically syncing changes to Google
+              Drive
+            </FormHelperText>
+          </FormControl>
+        )}
 
         <Box
           sx={{
@@ -117,10 +164,10 @@ export const SyncSettings: React.FC = () => {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            <strong>Current setting:</strong> Auto-sync will trigger after
-            {settings.syncSettings.autoSyncDelayMinutes}
-            minute{settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'}
-            when data changes are detected.
+            <strong>Current setting:</strong> Auto-sync will trigger after{' '}
+            {effectiveDelayMinutes} minute
+            {effectiveDelayMinutes === 1 ? '' : 's'} when data changes are
+            detected.
           </Typography>
         </Box>
       </CardContent>

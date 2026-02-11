@@ -48,6 +48,7 @@ describe('Mobile App Restoration Flow Integration Tests', () => {
     },
     syncSettings: {
       autoSyncDelayMinutes: 5,
+      syncDefaultVersion: 2,
     },
   };
 

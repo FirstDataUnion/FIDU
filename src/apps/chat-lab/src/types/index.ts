@@ -1,5 +1,9 @@
 import type { UserFeatureFlagsState } from '../store/slices/userFeatureFlagsSlice';
 import type { SystemFeatureFlagsState } from '../store/slices/systemFeatureFlagsSlice';
+import type {
+  HistoricalSyncSettings,
+  SyncSettings,
+} from '../utils/syncSettingsMigration';
 
 // Core Chat Lab Types
 export interface Conversation {
@@ -271,10 +275,12 @@ export interface UserSettings {
     compactView: boolean;
     groupByDate: boolean;
   };
-  syncSettings: {
-    autoSyncDelayMinutes: number; // Delay before auto-sync (default: 5 minutes)
-  };
+  syncSettings: SyncSettings;
 }
+
+export type HistoricalUserSettings = Omit<UserSettings, 'syncSettings'> & {
+  syncSettings: HistoricalSyncSettings;
+};
 
 export interface ExportData {
   conversations: Conversation[];

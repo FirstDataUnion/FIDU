@@ -53,6 +53,7 @@ describe('CookieSettingsService', () => {
     },
     syncSettings: {
       autoSyncDelayMinutes: 5,
+      syncDefaultVersion: 2,
     },
   };
 

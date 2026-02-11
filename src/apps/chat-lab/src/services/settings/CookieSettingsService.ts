@@ -5,16 +5,17 @@
 
 import axios from 'axios';
 import { type AxiosInstance, AxiosError } from 'axios';
-import type { UserSettings } from '../../types';
+import type { HistoricalUserSettings, UserSettings } from '../../types';
 import {
   getFiduAuthService,
   AuthenticationRequiredError,
   TokenAcquisitionTimeoutError,
 } from '../auth/FiduAuthService';
 import { detectRuntimeEnvironment } from '../../utils/environment';
+import { migrateSyncSettings } from '../../utils/syncSettingsMigration';
 
-export interface CookieSettingsResponse {
-  settings?: UserSettings;
+interface CookieSettingsResponse {
+  settings?: HistoricalUserSettings;
 }
 
 export type CookieSettingsMutationResult =
@@ -171,7 +172,10 @@ export class CookieSettingsService {
           console.log(
             `✅ User settings retrieved from HTTP-only cookie for ${this.environment} environment`
           );
-          return data.settings;
+          return {
+            ...data.settings,
+            syncSettings: migrateSyncSettings(data.settings.syncSettings),
+          };
         } else {
           console.log(
             `ℹ️ No settings found in HTTP-only cookie for ${this.environment} environment`
