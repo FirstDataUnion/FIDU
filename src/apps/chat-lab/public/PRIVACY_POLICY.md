@@ -1,6 +1,6 @@
 # Privacy Policy for FIDU Chat Lab
 
-**Effective Date:** 9 October 2025
+**Effective Date:** 11 February 2026
 
 ## 1. Introduction
 
@@ -432,8 +432,8 @@ CO7 9DP, United Kingdom
 
 ---
 
-**Last Updated:** 21 January 2026
-**Effective Date:** 21 January 2026
+**Last Updated:** 11 February 2026
+**Effective Date:** 11 February 2026
 **Version:** 1.2
 
 For the full FIDU organizational privacy policy, visit: [https://firstdataunion.org/privacy-policy.html](https://firstdataunion.org/privacy-policy.html)
