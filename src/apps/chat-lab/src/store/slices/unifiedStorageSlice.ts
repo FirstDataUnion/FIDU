@@ -265,9 +265,8 @@ export const loadWorkspaces = createAsyncThunk(
 
       // Check if shared workspaces feature is enabled
       const state = getState() as any;
-      const { selectIsFeatureFlagEnabled } = await import(
-        '../selectors/featureFlagsSelectors'
-      );
+      const { selectIsFeatureFlagEnabled } =
+        await import('../selectors/featureFlagsSelectors');
       const isSharedWorkspacesEnabled = selectIsFeatureFlagEnabled(
         state,
         'shared_workspaces'

@@ -293,7 +293,8 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
               && flagsToDisplay
                 .filter(
                   ([_, value]) =>
-                    value.default_enabled || (!value.default_enabled && !value.experimental)
+                    value.default_enabled
+                    || (!value.default_enabled && !value.experimental)
                 )
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)

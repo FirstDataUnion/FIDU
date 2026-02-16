@@ -44,10 +44,7 @@ export const FeatureFlagGuard: React.FC<FeatureFlagGuardProps> = ({
             {defaultMessage}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={() => navigate('/settings')}
-            >
+            <Button variant="contained" onClick={() => navigate('/settings')}>
               Go to Settings
             </Button>
             <Button variant="outlined" onClick={() => navigate(-1)}>

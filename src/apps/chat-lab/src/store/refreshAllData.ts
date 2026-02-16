@@ -18,7 +18,7 @@ import { fetchSettings } from './slices/settingsSlice';
  */
 export async function refreshAllDataFromStorage(): Promise<void> {
   const state = store.getState();
-  
+
   // Get effective profile ID using the same logic as fetchConversations
   // Try to get effective profile ID from workspace first, fallback to legacy profile
   let currentProfileId: string | undefined;
@@ -39,7 +39,7 @@ export async function refreshAllDataFromStorage(): Promise<void> {
     return;
   }
 
-  const results = await Promise.allSettled([
+  await Promise.allSettled([
     currentProfileId
       ? store.dispatch(fetchContexts(currentProfileId))
       : Promise.resolve(),

@@ -172,12 +172,11 @@ export const initializeAuth = createAsyncThunk(
 
       // Load shared workspaces from registry (only if feature is enabled)
       const workspaceRegistry = getWorkspaceRegistry();
-      
+
       // Check if shared workspaces feature is enabled
       const state = getState() as any;
-      const { selectIsFeatureFlagEnabled } = await import(
-        '../selectors/featureFlagsSelectors'
-      );
+      const { selectIsFeatureFlagEnabled } =
+        await import('../selectors/featureFlagsSelectors');
       const isSharedWorkspacesEnabled = selectIsFeatureFlagEnabled(
         state,
         'shared_workspaces'
@@ -190,7 +189,7 @@ export const initializeAuth = createAsyncThunk(
           // Continue with local registry if sync fails (e.g., offline, API error)
         }
       }
-      
+
       const allWorkspaces = workspaceRegistry.getWorkspaces();
       // Filter out shared workspaces if feature is disabled
       const sharedWorkspaces = isSharedWorkspacesEnabled
@@ -203,7 +202,9 @@ export const initializeAuth = createAsyncThunk(
 
       if (savedWorkspace) {
         try {
-          const parsedWorkspace = JSON.parse(savedWorkspace) as UnifiedWorkspace;
+          const parsedWorkspace = JSON.parse(
+            savedWorkspace
+          ) as UnifiedWorkspace;
           // Verify the saved workspace still exists
           if (parsedWorkspace.type === 'personal') {
             const profileExists = profiles.find(
@@ -218,9 +219,8 @@ export const initializeAuth = createAsyncThunk(
               w => w.id === parsedWorkspace.id
             );
             if (workspaceExists) {
-              currentWorkspace = workspaceMetadataToUnifiedWorkspace(
-                workspaceExists
-              );
+              currentWorkspace =
+                workspaceMetadataToUnifiedWorkspace(workspaceExists);
             }
           }
         } catch (error) {
@@ -312,10 +312,7 @@ const authSlice = createSlice({
 
     setCurrentWorkspace: (state, action: PayloadAction<UnifiedWorkspace>) => {
       state.currentWorkspace = action.payload;
-      localStorage.setItem(
-        'current_workspace',
-        JSON.stringify(action.payload)
-      );
+      localStorage.setItem('current_workspace', JSON.stringify(action.payload));
       // Also update legacy profile state if it's a personal workspace
       if (action.payload.type === 'personal' && action.payload.profileId) {
         const profile = state.personalWorkspaces.find(
@@ -446,7 +443,8 @@ const authSlice = createSlice({
           state.profiles = action.payload.profiles;
           state.currentProfile = action.payload.currentProfile;
           // Update unified workspace state
-          state.personalWorkspaces = action.payload.personalWorkspaces || action.payload.profiles;
+          state.personalWorkspaces =
+            action.payload.personalWorkspaces || action.payload.profiles;
           state.currentWorkspace = action.payload.currentWorkspace;
           state.isAuthenticated = true;
         } else {

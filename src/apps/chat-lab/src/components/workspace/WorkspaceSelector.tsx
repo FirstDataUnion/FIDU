@@ -64,7 +64,9 @@ const WorkspaceSelector: React.FC = () => {
   const [showCreatePersonalDialog, setShowCreatePersonalDialog] =
     useState(false);
   const [showCreateSharedDialog, setShowCreateSharedDialog] = useState(false);
-  const [loadingWorkspaceId, setLoadingWorkspaceId] = useState<string | null>(null);
+  const [loadingWorkspaceId, setLoadingWorkspaceId] = useState<string | null>(
+    null
+  );
 
   // Load shared workspaces from registry (only if feature is enabled)
   const workspaceRegistry = getWorkspaceRegistry();
@@ -110,7 +112,7 @@ const WorkspaceSelector: React.FC = () => {
           if (profile) {
             // Check if we're switching from shared to personal, or personal to personal
             const isCurrentlyPersonal = currentWorkspace?.type === 'personal';
-            
+
             if (isCurrentlyPersonal) {
               // Switching between personal workspaces: just update profile, no storage switch needed
               // Personal workspaces share the same storage (AppData), isolated by profile_id
@@ -252,7 +254,9 @@ const WorkspaceSelector: React.FC = () => {
               </ListItemIcon>
               <ListItemText
                 primary={workspace.name}
-                secondary={isLoading ? 'Loading...' : isActive ? 'Active' : undefined}
+                secondary={
+                  isLoading ? 'Loading...' : isActive ? 'Active' : undefined
+                }
               />
             </MenuItem>
           );
@@ -326,8 +330,8 @@ const WorkspaceSelector: React.FC = () => {
         ]}
 
         {/* Pending Invitations - only show if feature is enabled */}
-        {isSharedWorkspacesEnabled &&
-          hasInvitations && [
+        {isSharedWorkspacesEnabled
+          && hasInvitations && [
             <Divider key="invitations-divider-1" sx={{ my: 1 }} />,
             <MenuItem key="invitations-header" disabled>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -431,7 +435,11 @@ const CreatePersonalWorkspaceDialog: React.FC<
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Create Personal Workspace</DialogTitle>
       <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
         <TextField
           autoFocus
           margin="dense"

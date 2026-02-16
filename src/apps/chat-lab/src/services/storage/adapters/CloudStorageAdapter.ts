@@ -376,7 +376,10 @@ export class CloudStorageAdapter implements StorageAdapter {
         limit,
       };
     } catch (error) {
-      console.error('❌ [CloudStorageAdapter.getConversations] Error fetching conversations:', error);
+      console.error(
+        '❌ [CloudStorageAdapter.getConversations] Error fetching conversations:',
+        error
+      );
       throw error;
     }
   }

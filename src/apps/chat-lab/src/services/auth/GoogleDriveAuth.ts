@@ -519,7 +519,9 @@ export class GoogleDriveAuthService {
    * and does not trigger any logout flows that might affect FIDU authentication.
    */
   async disconnectGoogleDrive(): Promise<void> {
-    console.log('🔄 Disconnecting Google Drive (preserving FIDU authentication)...');
+    console.log(
+      '🔄 Disconnecting Google Drive (preserving FIDU authentication)...'
+    );
 
     // Set flag to prevent restoration attempts
     this.explicitlyDisconnected = true;
@@ -534,7 +536,10 @@ export class GoogleDriveAuthService {
         await this.revokeToken(this.tokens.accessToken);
         console.log('✅ Google OAuth token revoked');
       } catch (error) {
-        console.warn('⚠️ Failed to revoke Google token (continuing anyway):', error);
+        console.warn(
+          '⚠️ Failed to revoke Google token (continuing anyway):',
+          error
+        );
         // Continue even if revocation fails - we'll still clear local state
       }
     }
@@ -559,7 +564,10 @@ export class GoogleDriveAuthService {
       });
       console.log('✅ Google Drive HTTP-only cookies cleared');
     } catch (error) {
-      console.warn('⚠️ Failed to clear Google Drive HTTP-only cookies (continuing anyway):', error);
+      console.warn(
+        '⚠️ Failed to clear Google Drive HTTP-only cookies (continuing anyway):',
+        error
+      );
       // Continue even if cookie clearing fails
     }
 
@@ -589,7 +597,9 @@ export class GoogleDriveAuthService {
   async ensureAuthenticated(): Promise<boolean> {
     // If explicitly disconnected, don't attempt restoration
     if (this.explicitlyDisconnected) {
-      console.log('ℹ️ Google Drive was explicitly disconnected, skipping restoration');
+      console.log(
+        'ℹ️ Google Drive was explicitly disconnected, skipping restoration'
+      );
       return false;
     }
 
@@ -1234,7 +1244,9 @@ export class GoogleDriveAuthService {
   async restoreFromCookies(): Promise<boolean> {
     // If explicitly disconnected, don't attempt restoration
     if (this.explicitlyDisconnected) {
-      console.log('ℹ️ Google Drive was explicitly disconnected, skipping cookie restoration');
+      console.log(
+        'ℹ️ Google Drive was explicitly disconnected, skipping cookie restoration'
+      );
       return false;
     }
 

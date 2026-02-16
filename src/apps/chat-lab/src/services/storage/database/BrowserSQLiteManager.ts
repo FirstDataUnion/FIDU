@@ -693,7 +693,7 @@ export class BrowserSQLiteManager {
         };
         rows.push(rowObject);
       }
-      
+
       return await Promise.all(
         rows.map((row: any) => this.rowToDataPacket(row))
       );
@@ -1976,7 +1976,7 @@ export class BrowserSQLiteManager {
 
         // Fix sync status: imported data packets should be marked as 'synced' since they came from cloud
         await this.markImportedDataPacketsAsSynced();
-        
+
         tempDb.close();
         return { inserted: 0, updated: 0, forked: 0 };
       }

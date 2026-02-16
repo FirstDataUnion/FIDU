@@ -13,18 +13,10 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
-  Divider,
   Avatar,
   Menu,
   MenuItem,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Button,
-  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -35,9 +27,6 @@ import {
   Psychology as PersonaIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
-  Add as AddIcon,
-  Check as CheckIcon,
-  Home as HomeIcon,
   SmartToy as SmartToyIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
@@ -51,13 +40,8 @@ import { logout } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
 import { UnifiedSyncStatus } from './UnifiedSyncStatus';
 import { useCallback } from 'react';
-import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
-import { InsufficientPermissionsError } from '../../services/storage/drive/GoogleDriveService';
-import {
-  setInsufficientPermissions,
-  revokeGoogleDriveAccess,
-} from '../../store/slices/googleDriveAuthSlice';
+import { revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
@@ -115,7 +99,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     window.open(identityServiceUrl, '_blank');
     handleProfileMenuClose();
   };
-
 
   const handleReconnect = useCallback(async () => {
     try {

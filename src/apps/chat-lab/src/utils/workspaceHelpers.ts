@@ -60,9 +60,7 @@ export function getEffectiveProfileId(workspace: UnifiedWorkspace): string {
 /**
  * Check if a workspace is a personal workspace
  */
-export function isPersonalWorkspace(
-  workspace: UnifiedWorkspace
-): boolean {
+export function isPersonalWorkspace(workspace: UnifiedWorkspace): boolean {
   return workspace.type === 'personal';
 }
 

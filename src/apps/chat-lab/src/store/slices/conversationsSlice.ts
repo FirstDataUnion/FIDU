@@ -21,7 +21,11 @@ export const fetchConversations = createAsyncThunk(
     const state = getState() as {
       auth: {
         currentProfile: { id: string } | null;
-        currentWorkspace: { id: string; type: 'personal' | 'shared'; profileId?: string } | null;
+        currentWorkspace: {
+          id: string;
+          type: 'personal' | 'shared';
+          profileId?: string;
+        } | null;
       };
     };
     // Try to get effective profile ID from workspace first, fallback to legacy profile
@@ -43,8 +47,13 @@ export const fetchConversations = createAsyncThunk(
         'No workspace selected. Please select a workspace to continue.'
       );
     }
-    
-    const result = await conversationsService.getAll(filters, page, limit, profileId);
+
+    const result = await conversationsService.getAll(
+      filters,
+      page,
+      limit,
+      profileId
+    );
     return result;
   }
 );

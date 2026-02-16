@@ -72,9 +72,8 @@ const ConversationsPage: React.FC = React.memo(() => {
   const loading = useAppSelector(state => selectConversationsLoading(state));
   const error = useAppSelector(state => selectConversationsError(state));
   const { items: contexts } = useAppSelector(state => state.contexts);
-  const { isAuthenticated, currentProfile, currentWorkspace, user } = useAppSelector(
-    state => state.auth
-  );
+  const { isAuthenticated, currentProfile, currentWorkspace, user } =
+    useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();
 
   // Search and Filter State

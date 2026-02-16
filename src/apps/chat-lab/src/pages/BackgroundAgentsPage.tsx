@@ -1343,7 +1343,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to create agent');
     }
-  }, [createForm, currentProfile?.id]);
+  }, [createForm, currentProfile?.id, isDocumentsEnabled]);
 
   const handleToggleEnabled = async (agent: BackgroundAgent) => {
     // For built-in agents, save enabled state to localStorage
@@ -1603,7 +1603,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to update agent');
     }
-  }, [selectedAgent, viewEditForm, currentProfile?.id]);
+  }, [selectedAgent, viewEditForm, currentProfile?.id, isDocumentsEnabled]);
 
   const handleDeleteAgent = useCallback(async () => {
     if (!selectedAgent || selectedAgent.isSystem) return;

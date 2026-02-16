@@ -12,8 +12,9 @@ interface AuthWrapperProps {
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const location = useLocation();
-  const { isAuthenticated, currentWorkspace, isInitialized, isLoading } =
-    useAppSelector(state => state.auth);
+  const { isAuthenticated, isInitialized, isLoading } = useAppSelector(
+    state => state.auth
+  );
 
   // Check if current route is a public route
   const pathname = location.pathname;

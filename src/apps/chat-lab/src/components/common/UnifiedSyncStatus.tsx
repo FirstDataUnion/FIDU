@@ -24,7 +24,6 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  Person as PersonIcon,
   CloudUpload as CloudUploadIcon,
   Settings as SettingsIcon,
   Sync as SyncIcon,
@@ -48,14 +47,14 @@ interface SyncStatusData {
   lastSuccessfulSync: Date | null;
   consecutiveFailures: number;
   lastError: string | null;
-  
+
   // Unsynced Data
   hasUnsyncedData: boolean;
-  
+
   // Auto-sync Countdown
   countdownSeconds: number;
   autoSyncEnabled: boolean;
-  
+
   // Google Drive Status
   isAuthenticated: boolean;
   user: { name?: string; email?: string } | null;
@@ -95,7 +94,10 @@ export const UnifiedSyncStatus: React.FC = () => {
       let autoSyncEnabled = false;
 
       // Type guard: check if adapter has getSyncStatus method
-      if ('getSyncStatus' in adapter && typeof (adapter as any).getSyncStatus === 'function') {
+      if (
+        'getSyncStatus' in adapter
+        && typeof (adapter as any).getSyncStatus === 'function'
+      ) {
         const syncStatus = await (adapter as any).getSyncStatus();
         const smartStatus = syncStatus?.smartAutoSync;
 
@@ -116,8 +118,12 @@ export const UnifiedSyncStatus: React.FC = () => {
       const hasUnsynced = unsyncedDataManager.hasUnsynced();
 
       // Get Google Drive status
-      const { isAuthenticated, user, error, isLoading: driveLoading } =
-        unifiedStorage.googleDrive;
+      const {
+        isAuthenticated,
+        user,
+        error,
+        isLoading: driveLoading,
+      } = unifiedStorage.googleDrive;
 
       setStatus({
         syncHealth,
@@ -135,7 +141,9 @@ export const UnifiedSyncStatus: React.FC = () => {
     } catch (error) {
       console.error('Failed to get unified sync status:', error);
       // Set error state so component can still render
-      setStatus(prev => prev ? { ...prev, driveError: 'Failed to load sync status' } : null);
+      setStatus(prev =>
+        prev ? { ...prev, driveError: 'Failed to load sync status' } : null
+      );
     } finally {
       setIsLoading(false);
     }
@@ -150,13 +158,13 @@ export const UnifiedSyncStatus: React.FC = () => {
   useEffect(() => {
     // Initial check
     dispatch(checkGoogleDriveAuthStatus());
-    
+
     // Update immediately
     updateStatus();
 
     // Update every 10 seconds
     const interval = setInterval(updateStatus, 10000);
-    
+
     // Subscribe to unsynced data changes
     const unsubscribe = unsyncedDataManager.addListener(() => {
       updateStatus();
@@ -282,19 +290,24 @@ export const UnifiedSyncStatus: React.FC = () => {
   }, []);
 
   // Get health icon (memoized)
-  const getHealthIcon = useCallback((health: SyncHealth) => {
-    const color = getHealthColor(health);
-    switch (health) {
-      case 'healthy':
-        return <CloudDoneIcon sx={{ fontSize: 16, color }} />;
-      case 'degraded':
-        return <CloudSyncIcon sx={{ fontSize: 16, color }} />;
-      case 'failing':
-        return <CloudOffIcon sx={{ fontSize: 16, color }} />;
-      default:
-        return <CloudDoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />;
-    }
-  }, [getHealthColor]);
+  const getHealthIcon = useCallback(
+    (health: SyncHealth) => {
+      const color = getHealthColor(health);
+      switch (health) {
+        case 'healthy':
+          return <CloudDoneIcon sx={{ fontSize: 16, color }} />;
+        case 'degraded':
+          return <CloudSyncIcon sx={{ fontSize: 16, color }} />;
+        case 'failing':
+          return <CloudOffIcon sx={{ fontSize: 16, color }} />;
+        default:
+          return (
+            <CloudDoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+          );
+      }
+    },
+    [getHealthColor]
+  );
 
   // Get display text for the main box (memoized)
   const displayText = useMemo((): string => {
@@ -302,20 +315,25 @@ export const UnifiedSyncStatus: React.FC = () => {
     if (isSyncInProgress) {
       return 'Syncing...';
     }
-    
+
     // If not connected, show "Not Connected"
     if (!status?.isAuthenticated) {
       return 'Not Connected';
     }
-    
+
     // If connected but no last sync time, show "Synced"
     if (!status.lastSuccessfulSync) {
       return 'Synced';
     }
-    
+
     // If connected with last sync time, show "Last sync xxx hours ago"
     return `Last sync ${formatTimeSince(status.lastSuccessfulSync)}`;
-  }, [isSyncInProgress, status?.isAuthenticated, status?.lastSuccessfulSync, formatTimeSince]);
+  }, [
+    isSyncInProgress,
+    status?.isAuthenticated,
+    status?.lastSuccessfulSync,
+    formatTimeSince,
+  ]);
 
   // Get border color based on status (memoized)
   const borderColor = useMemo((): string => {
@@ -327,7 +345,12 @@ export const UnifiedSyncStatus: React.FC = () => {
     if (status.syncHealth === 'failing') return 'error.main';
     if (status.syncHealth === 'degraded') return 'warning.main';
     return 'divider';
-  }, [isSyncInProgress, status?.isAuthenticated, status?.hasUnsyncedData, status?.syncHealth]);
+  }, [
+    isSyncInProgress,
+    status?.isAuthenticated,
+    status?.hasUnsyncedData,
+    status?.syncHealth,
+  ]);
 
   // Get icon for the main box (memoized)
   const mainIcon = useMemo(() => {
@@ -347,19 +370,29 @@ export const UnifiedSyncStatus: React.FC = () => {
         />
       );
     }
-    
+
     if (!status?.isAuthenticated) {
       return <CloudOffIcon sx={{ fontSize: 16, color: 'error.main' }} />;
     }
     return getHealthIcon(status.syncHealth);
-  }, [isSyncInProgress, status?.isAuthenticated, status?.syncHealth, getHealthIcon]);
+  }, [
+    isSyncInProgress,
+    status?.isAuthenticated,
+    status?.syncHealth,
+    getHealthIcon,
+  ]);
 
   // Get text color for the main box (memoized)
   const textColor = useMemo((): string => {
     if (isSyncInProgress) return 'primary.main';
     if (!status?.isAuthenticated) return 'error.main';
     return getHealthColor(status?.syncHealth || 'healthy');
-  }, [isSyncInProgress, status?.isAuthenticated, status?.syncHealth, getHealthColor]);
+  }, [
+    isSyncInProgress,
+    status?.isAuthenticated,
+    status?.syncHealth,
+    getHealthColor,
+  ]);
 
   const menuOpen = Boolean(anchorEl);
 
@@ -414,7 +447,7 @@ export const UnifiedSyncStatus: React.FC = () => {
           }
           aria-haspopup="true"
           aria-expanded={menuOpen}
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               handleClick(e as any);
@@ -454,9 +487,9 @@ export const UnifiedSyncStatus: React.FC = () => {
             sx={{
               color: textColor,
               fontWeight:
-                isSyncInProgress ||
-                !safeStatus.isAuthenticated ||
-                safeStatus.syncHealth !== 'healthy'
+                isSyncInProgress
+                || !safeStatus.isAuthenticated
+                || safeStatus.syncHealth !== 'healthy'
                   ? 600
                   : 400,
               whiteSpace: 'nowrap',
@@ -506,221 +539,218 @@ export const UnifiedSyncStatus: React.FC = () => {
           },
         }}
       >
-        {!safeStatus.isAuthenticated ? (
-          /* Not Connected - Show only Connect button */
-          [
-            <MenuItem key="drive-status" disabled>
-              <ListItemIcon>
-                {safeStatus.driveLoading ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <ErrorIcon color="error" fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText
-                primary="Google Drive"
-                secondary={
-                  safeStatus.driveLoading
-                    ? 'Checking connection...'
-                    : safeStatus.driveError || 'Not connected'
-                }
-              />
-            </MenuItem>,
-            <Divider key="divider-1" />,
-            <MenuItem
-              key="connect"
-              onClick={handleConnect}
-              disabled={safeStatus.driveLoading}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              <ListItemIcon>
-                <CloudUploadIcon color="primary" fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Connect Now"
-                slotProps={{
-                  primary: {
-                    sx: {
-                      fontWeight: 600,
-                      color: 'primary.main',
-                    },
+        {!safeStatus.isAuthenticated
+          ? /* Not Connected - Show only Connect button */
+            [
+              <MenuItem key="drive-status" disabled>
+                <ListItemIcon>
+                  {safeStatus.driveLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <ErrorIcon color="error" fontSize="small" />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary="Google Drive"
+                  secondary={
+                    safeStatus.driveLoading
+                      ? 'Checking connection...'
+                      : safeStatus.driveError || 'Not connected'
+                  }
+                />
+              </MenuItem>,
+              <Divider key="divider-1" />,
+              <MenuItem
+                key="connect"
+                onClick={handleConnect}
+                disabled={safeStatus.driveLoading}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
                   },
                 }}
-              />
-            </MenuItem>,
-          ]
-        ) : (
-          /* Connected - Show normal content */
-          [
-            /* Google Drive Connection Status */
-            <MenuItem key="drive-status" disabled>
-              <ListItemIcon>
-                <CheckCircleIcon color="success" fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Connected Account"
-                secondary={
-                  safeStatus.user
-                    ? `${safeStatus.user.name || safeStatus.user.email}`
-                    : 'Connected'
-                }
-              />
-            </MenuItem>,
-
-            <Divider key="divider-1" />,
-
-            /* Sync Health Status */
-            <MenuItem key="sync-status" disabled>
-              <ListItemIcon>{getHealthIcon(safeStatus.syncHealth)}</ListItemIcon>
-              <ListItemText
-                primary="Sync Status"
-                secondary={
-                  safeStatus.lastSuccessfulSync
-                    ? `Last sync: ${formatTimeSince(safeStatus.lastSuccessfulSync)}`
-                    : 'Synced'
-                }
-              />
-            </MenuItem>,
-
-            safeStatus.consecutiveFailures > 0 && (
-              <MenuItem key="failures" disabled>
+              >
                 <ListItemIcon>
-                  <ErrorIcon color="error" fontSize="small" />
+                  <CloudUploadIcon color="primary" fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Failures"
-                  secondary={`${safeStatus.consecutiveFailures} consecutive failure(s)`}
-                />
-              </MenuItem>
-            ),
-
-            safeStatus.lastError && (
-              <MenuItem key="last-error" disabled>
-                <ListItemIcon>
-                  <ErrorIcon color="error" fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Last Error"
-                  secondary={safeStatus.lastError.substring(0, 60)}
-                  secondaryTypographyProps={{
-                    sx: {
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
+                  primary="Connect Now"
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: 600,
+                        color: 'primary.main',
+                      },
                     },
                   }}
                 />
-              </MenuItem>
-            ),
-
-            <Divider key="divider-2" />,
-
-            /* Sync Now Button */
-            <MenuItem
-              key="sync-now"
-              onClick={handleManualSync}
-              disabled={isSyncInProgress}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              <ListItemIcon>
-                {isSyncInProgress ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <SyncIcon color="primary" fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText
-                primary={isSyncInProgress ? 'Syncing...' : 'Sync Now'}
-                slotProps={{
-                  primary: {
-                    sx: {
-                      fontWeight: 500,
-                      color: 'primary.main',
-                    },
-                  },
-                }}
-              />
-            </MenuItem>,
-
-            <Divider key="divider-3" />,
-
-            /* Unsynced Data Indicator */
-            safeStatus.hasUnsyncedData && (
-              <MenuItem key="unsynced-data" disabled>
+              </MenuItem>,
+            ]
+          : /* Connected - Show normal content */
+            [
+              /* Google Drive Connection Status */
+              <MenuItem key="drive-status" disabled>
                 <ListItemIcon>
-                  <WarningIcon color="warning" fontSize="small" />
+                  <CheckCircleIcon color="success" fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Unsaved Changes"
-                  secondary="Local changes pending sync"
-                />
-              </MenuItem>
-            ),
-
-            /* Auto-sync Countdown */
-            safeStatus.autoSyncEnabled && safeStatus.hasUnsyncedData && (
-              <MenuItem key="auto-sync-countdown" disabled>
-                <ListItemIcon>
-                  <ScheduleIcon color="info" fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Auto-sync"
+                  primary="Connected Account"
                   secondary={
-                    safeStatus.countdownSeconds > 0
-                      ? `Next sync in ${formatCountdown(safeStatus.countdownSeconds)}`
-                      : 'Sync pending...'
+                    safeStatus.user
+                      ? `${safeStatus.user.name || safeStatus.user.email}`
+                      : 'Connected'
                   }
                 />
-              </MenuItem>
-            ),
+              </MenuItem>,
 
-            !safeStatus.autoSyncEnabled && (
-              <MenuItem key="auto-sync-disabled" disabled>
+              <Divider key="divider-1" />,
+
+              /* Sync Health Status */
+              <MenuItem key="sync-status" disabled>
                 <ListItemIcon>
-                  <ScheduleIcon fontSize="small" />
+                  {getHealthIcon(safeStatus.syncHealth)}
                 </ListItemIcon>
                 <ListItemText
-                  primary="Auto-sync"
-                  secondary="Disabled"
+                  primary="Sync Status"
+                  secondary={
+                    safeStatus.lastSuccessfulSync
+                      ? `Last sync: ${formatTimeSince(safeStatus.lastSuccessfulSync)}`
+                      : 'Synced'
+                  }
                 />
-              </MenuItem>
-            ),
+              </MenuItem>,
 
-            /* Google Drive Settings Button */
-            <MenuItem
-              key="settings"
-              onClick={handleGoToSettings}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              <ListItemIcon>
-                <SettingsIcon color="primary" fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Google Drive Settings"
-                slotProps={{
-                  primary: {
-                    sx: {
-                      fontWeight: 500,
-                      color: 'primary.main',
-                    },
+              safeStatus.consecutiveFailures > 0 && (
+                <MenuItem key="failures" disabled>
+                  <ListItemIcon>
+                    <ErrorIcon color="error" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Failures"
+                    secondary={`${safeStatus.consecutiveFailures} consecutive failure(s)`}
+                  />
+                </MenuItem>
+              ),
+
+              safeStatus.lastError && (
+                <MenuItem key="last-error" disabled>
+                  <ListItemIcon>
+                    <ErrorIcon color="error" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Last Error"
+                    secondary={safeStatus.lastError.substring(0, 60)}
+                    secondaryTypographyProps={{
+                      sx: {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      },
+                    }}
+                  />
+                </MenuItem>
+              ),
+
+              <Divider key="divider-2" />,
+
+              /* Sync Now Button */
+              <MenuItem
+                key="sync-now"
+                onClick={handleManualSync}
+                disabled={isSyncInProgress}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
                   },
                 }}
-              />
-            </MenuItem>,
-          ].filter(Boolean)
-        )}
+              >
+                <ListItemIcon>
+                  {isSyncInProgress ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <SyncIcon color="primary" fontSize="small" />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={isSyncInProgress ? 'Syncing...' : 'Sync Now'}
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: 500,
+                        color: 'primary.main',
+                      },
+                    },
+                  }}
+                />
+              </MenuItem>,
+
+              <Divider key="divider-3" />,
+
+              /* Unsynced Data Indicator */
+              safeStatus.hasUnsyncedData && (
+                <MenuItem key="unsynced-data" disabled>
+                  <ListItemIcon>
+                    <WarningIcon color="warning" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Unsaved Changes"
+                    secondary="Local changes pending sync"
+                  />
+                </MenuItem>
+              ),
+
+              /* Auto-sync Countdown */
+              safeStatus.autoSyncEnabled && safeStatus.hasUnsyncedData && (
+                <MenuItem key="auto-sync-countdown" disabled>
+                  <ListItemIcon>
+                    <ScheduleIcon color="info" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Auto-sync"
+                    secondary={
+                      safeStatus.countdownSeconds > 0
+                        ? `Next sync in ${formatCountdown(safeStatus.countdownSeconds)}`
+                        : 'Sync pending...'
+                    }
+                  />
+                </MenuItem>
+              ),
+
+              !safeStatus.autoSyncEnabled && (
+                <MenuItem key="auto-sync-disabled" disabled>
+                  <ListItemIcon>
+                    <ScheduleIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary="Auto-sync" secondary="Disabled" />
+                </MenuItem>
+              ),
+
+              /* Google Drive Settings Button */
+              <MenuItem
+                key="settings"
+                onClick={handleGoToSettings}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                }}
+              >
+                <ListItemIcon>
+                  <SettingsIcon color="primary" fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Google Drive Settings"
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: 500,
+                        color: 'primary.main',
+                      },
+                    },
+                  }}
+                />
+              </MenuItem>,
+            ].filter(Boolean)}
       </Menu>
     </>
   );
