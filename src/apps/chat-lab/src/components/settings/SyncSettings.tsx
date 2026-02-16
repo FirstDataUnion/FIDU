@@ -8,11 +8,9 @@ import {
   Box,
   Typography,
   FormControl,
-  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
-  Checkbox,
   FormHelperText,
   Alert,
 } from '@mui/material';
@@ -20,15 +18,9 @@ import { Schedule } from '@mui/icons-material';
 import type { SelectChangeEvent } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
-import {
-  updateSyncDelay,
-  setSyncDelayToDefault,
-} from '../../store/slices/settingsSlice';
+import { updateSyncDelay } from '../../store/slices/settingsSlice';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
-import {
-  getEffectiveSyncDelayMinutes,
-  DEFAULT_SYNC_DELAY_MINUTES,
-} from '../../utils/syncSettingsMigration';
+import { getEffectiveSyncDelayMinutes } from '../../utils/syncSettingsMigration';
 
 export const SyncSettings: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -40,7 +32,6 @@ export const SyncSettings: React.FC = () => {
   const effectiveDelayMinutes = getEffectiveSyncDelayMinutes(
     settings.syncSettings
   );
-  const useDefault = settings.syncSettings.autoSyncDelayMinutes === undefined;
 
   const updateAdapterDelay = (delayMinutes: number) => {
     try {
@@ -64,19 +55,6 @@ export const SyncSettings: React.FC = () => {
     }
   };
 
-  const handleUseDefaultChange = (
-    _event: React.ChangeEvent<HTMLInputElement>,
-    checked: boolean
-  ) => {
-    if (checked) {
-      dispatch(setSyncDelayToDefault());
-      updateAdapterDelay(DEFAULT_SYNC_DELAY_MINUTES);
-    } else {
-      dispatch(updateSyncDelay(effectiveDelayMinutes));
-      updateAdapterDelay(effectiveDelayMinutes);
-    }
-  };
-
   const handleSyncDelayChange = (event: SelectChangeEvent<number>) => {
     const newDelay = event.target.value as number;
     console.log('🔍 [SyncSettings] Changing delay to:', newDelay);
@@ -84,11 +62,6 @@ export const SyncSettings: React.FC = () => {
     dispatch(updateSyncDelay(newDelay));
     updateAdapterDelay(newDelay);
   };
-
-  const defaultLabel =
-    DEFAULT_SYNC_DELAY_MINUTES === 1
-      ? 'Use default (1 minute)'
-      : `Use default (${DEFAULT_SYNC_DELAY_MINUTES} minutes)`;
 
   const delayOptions = [
     { value: 1, label: '1 minute' },
@@ -122,7 +95,7 @@ export const SyncSettings: React.FC = () => {
         <InputLabel id="sync-delay-label">Auto-Sync Delay</InputLabel>
         <Select
           labelId="sync-delay-label"
-          value={settings.syncSettings.autoSyncDelayMinutes}
+          value={effectiveDelayMinutes}
           label="Auto-Sync Delay"
           onChange={handleSyncDelayChange}
         >
@@ -147,9 +120,9 @@ export const SyncSettings: React.FC = () => {
       >
         <Typography variant="body2" color="text.secondary">
           <strong>Current setting:</strong> Auto-sync will trigger after{' '}
-          {settings.syncSettings.autoSyncDelayMinutes} minute
-          {settings.syncSettings.autoSyncDelayMinutes === 1 ? '' : 's'} when
-          data changes are detected.
+          {effectiveDelayMinutes} minute
+          {effectiveDelayMinutes === 1 ? '' : 's'} when data changes are
+          detected.
         </Typography>
       </Box>
     </>
