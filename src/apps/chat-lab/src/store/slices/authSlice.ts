@@ -8,7 +8,12 @@ import {
   currentLogoutSource,
   markAuthenticated,
 } from '../../services/auth/logoutCoordinator';
-import type { AuthState, Profile } from '../../types';
+import { getWorkspaceRegistry } from '../../services/workspace/WorkspaceRegistry';
+import type { AuthState, Profile, UnifiedWorkspace } from '../../types';
+import {
+  profileToUnifiedWorkspace,
+  workspaceMetadataToUnifiedWorkspace,
+} from '../../utils/workspaceHelpers';
 
 // Async thunks
 export const getCurrentUser = createAsyncThunk(
@@ -162,29 +167,77 @@ export const initializeAuth = createAsyncThunk(
       // Get current user info
       const currentUser = await dispatch(getCurrentUser()).unwrap();
 
-      // Fetch profiles
+      // Fetch profiles (personal workspaces)
       const profiles = currentUser.profiles;
 
-      // Check for existing saved profile first, then default to first profile
-      let currentProfile = null;
-      const savedProfile = localStorage.getItem('current_profile');
+      // Load shared workspaces from registry
+      const workspaceRegistry = getWorkspaceRegistry();
+      await workspaceRegistry.syncFromAPI();
+      const sharedWorkspaces = workspaceRegistry.getWorkspaces();
 
-      if (savedProfile) {
+      // Check for existing saved workspace first (new format)
+      let currentWorkspace: UnifiedWorkspace | null = null;
+      const savedWorkspace = localStorage.getItem('current_workspace');
+
+      if (savedWorkspace) {
         try {
-          const parsedProfile = JSON.parse(savedProfile);
-          // Verify the saved profile still exists in the fetched profiles
-          const profileExists = profiles.find(p => p.id === parsedProfile.id);
-          if (profileExists) {
-            currentProfile = profileExists;
+          const parsedWorkspace = JSON.parse(savedWorkspace) as UnifiedWorkspace;
+          // Verify the saved workspace still exists
+          if (parsedWorkspace.type === 'personal') {
+            const profileExists = profiles.find(
+              p => p.id === parsedWorkspace.profileId
+            );
+            if (profileExists) {
+              currentWorkspace = profileToUnifiedWorkspace(profileExists);
+            }
+          } else {
+            // Shared workspace
+            const workspaceExists = sharedWorkspaces.find(
+              w => w.id === parsedWorkspace.id
+            );
+            if (workspaceExists) {
+              currentWorkspace = workspaceMetadataToUnifiedWorkspace(
+                workspaceExists
+              );
+            }
           }
         } catch (error) {
-          console.warn('Failed to parse saved profile:', error);
+          console.warn('Failed to parse saved workspace:', error);
         }
       }
 
-      // If no saved profile or saved profile doesn't exist anymore, use first profile
-      if (!currentProfile && profiles.length > 0) {
-        currentProfile = profiles[0];
+      // Fallback: Check for legacy saved profile
+      if (!currentWorkspace) {
+        const savedProfile = localStorage.getItem('current_profile');
+        if (savedProfile) {
+          try {
+            const parsedProfile = JSON.parse(savedProfile);
+            const profileExists = profiles.find(p => p.id === parsedProfile.id);
+            if (profileExists) {
+              currentWorkspace = profileToUnifiedWorkspace(profileExists);
+            }
+          } catch (error) {
+            console.warn('Failed to parse saved profile:', error);
+          }
+        }
+      }
+
+      // If no saved workspace/profile, default to first profile (default profile)
+      if (!currentWorkspace && profiles.length > 0) {
+        currentWorkspace = profileToUnifiedWorkspace(profiles[0]);
+        localStorage.setItem(
+          'current_workspace',
+          JSON.stringify(currentWorkspace)
+        );
+      }
+
+      // Set legacy currentProfile for backward compatibility
+      const currentProfile =
+        currentWorkspace?.type === 'personal' && currentWorkspace.profileId
+          ? profiles.find(p => p.id === currentWorkspace.profileId) || null
+          : null;
+
+      if (currentProfile) {
         localStorage.setItem('current_profile', JSON.stringify(currentProfile));
       }
 
@@ -192,6 +245,8 @@ export const initializeAuth = createAsyncThunk(
         user: currentUser,
         profiles,
         currentProfile,
+        personalWorkspaces: profiles,
+        currentWorkspace,
       };
     } catch (error: any) {
       console.error('❌ Failed to initialize auth:', error);
@@ -206,8 +261,12 @@ export const initializeAuth = createAsyncThunk(
 
 const initialState: AuthState = {
   user: null,
+  // Legacy: Keep for backward compatibility during migration
   currentProfile: null,
   profiles: [],
+  // New: Unified workspace state
+  currentWorkspace: null,
+  personalWorkspaces: [],
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -221,6 +280,30 @@ const authSlice = createSlice({
     setCurrentProfile: (state, action: PayloadAction<Profile>) => {
       state.currentProfile = action.payload;
       localStorage.setItem('current_profile', JSON.stringify(action.payload));
+      // Also update unified workspace state
+      state.currentWorkspace = profileToUnifiedWorkspace(action.payload);
+      localStorage.setItem(
+        'current_workspace',
+        JSON.stringify(state.currentWorkspace)
+      );
+    },
+
+    setCurrentWorkspace: (state, action: PayloadAction<UnifiedWorkspace>) => {
+      state.currentWorkspace = action.payload;
+      localStorage.setItem(
+        'current_workspace',
+        JSON.stringify(action.payload)
+      );
+      // Also update legacy profile state if it's a personal workspace
+      if (action.payload.type === 'personal' && action.payload.profileId) {
+        const profile = state.personalWorkspaces.find(
+          p => p.id === action.payload.profileId
+        );
+        if (profile) {
+          state.currentProfile = profile;
+          localStorage.setItem('current_profile', JSON.stringify(profile));
+        }
+      }
     },
 
     clearError: state => {
@@ -257,6 +340,8 @@ const authSlice = createSlice({
       .addCase(createProfile.fulfilled, (state, action) => {
         state.isLoading = false;
         state.profiles.push(action.payload);
+        // Also update personalWorkspaces
+        state.personalWorkspaces.push(action.payload);
         state.error = null;
       })
       .addCase(createProfile.rejected, (state, action) => {
@@ -292,7 +377,11 @@ const authSlice = createSlice({
         state.profiles = state.profiles.filter(
           p => p.id !== action.payload.profile_id
         );
-        // If the deleted profile was the current profile, select the first available profile
+        // Also update personalWorkspaces
+        state.personalWorkspaces = state.personalWorkspaces.filter(
+          p => p.id !== action.payload.profile_id
+        );
+        // If the deleted profile was the current profile/workspace, select the first available profile
         if (state.currentProfile?.id === action.payload.profile_id) {
           state.currentProfile =
             state.profiles.length > 0 ? state.profiles[0] : null;
@@ -301,8 +390,18 @@ const authSlice = createSlice({
               'current_profile',
               JSON.stringify(state.currentProfile)
             );
+            // Also update workspace state
+            state.currentWorkspace = profileToUnifiedWorkspace(
+              state.currentProfile
+            );
+            localStorage.setItem(
+              'current_workspace',
+              JSON.stringify(state.currentWorkspace)
+            );
           } else {
             localStorage.removeItem('current_profile');
+            localStorage.removeItem('current_workspace');
+            state.currentWorkspace = null;
           }
         }
         state.error = null;
@@ -324,6 +423,9 @@ const authSlice = createSlice({
           state.user = action.payload.user;
           state.profiles = action.payload.profiles;
           state.currentProfile = action.payload.currentProfile;
+          // Update unified workspace state
+          state.personalWorkspaces = action.payload.personalWorkspaces || action.payload.profiles;
+          state.currentWorkspace = action.payload.currentWorkspace;
           state.isAuthenticated = true;
         } else {
           // No valid auth found - user needs to log in
@@ -347,6 +449,9 @@ const authSlice = createSlice({
         state.user = null;
         state.currentProfile = null;
         state.profiles = [];
+        // Clear unified workspace state
+        state.currentWorkspace = null;
+        state.personalWorkspaces = [];
         state.isAuthenticated = false;
         state.error = null;
       })
@@ -356,11 +461,19 @@ const authSlice = createSlice({
         state.user = null;
         state.currentProfile = null;
         state.profiles = [];
+        // Clear unified workspace state
+        state.currentWorkspace = null;
+        state.personalWorkspaces = [];
         state.isAuthenticated = false;
         state.error = action.payload as string;
       });
   },
 });
 
-export const { setCurrentProfile, clearError, setLoading } = authSlice.actions;
+export const {
+  setCurrentProfile,
+  setCurrentWorkspace,
+  clearError,
+  setLoading,
+} = authSlice.actions;
 export default authSlice.reducer;

@@ -6,6 +6,7 @@ import type {
   Message,
 } from '../../types';
 import { conversationsService } from '../../services/conversationsService';
+import { switchWorkspace } from './unifiedStorageSlice';
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetchConversations',
@@ -18,15 +19,33 @@ export const fetchConversations = createAsyncThunk(
     { getState }
   ) => {
     const state = getState() as {
-      auth: { currentProfile: { id: string } | null };
+      auth: {
+        currentProfile: { id: string } | null;
+        currentWorkspace: { id: string; type: 'personal' | 'shared'; profileId?: string } | null;
+      };
     };
-    const profileId = state.auth.currentProfile?.id;
+    // Try to get effective profile ID from workspace first, fallback to legacy profile
+    let profileId: string | undefined;
+    if (state.auth.currentWorkspace) {
+      // Use workspace to get effective profile ID
+      if (state.auth.currentWorkspace.type === 'personal') {
+        profileId = state.auth.currentWorkspace.profileId;
+      } else {
+        // Shared workspace: use virtual profile ID format
+        profileId = `workspace-${state.auth.currentWorkspace.id}-default`;
+      }
+    } else if (state.auth.currentProfile) {
+      // Fallback to legacy profile
+      profileId = state.auth.currentProfile.id;
+    }
     if (!profileId) {
       throw new Error(
-        'No profile selected. Please select a profile to continue.'
+        'No workspace selected. Please select a workspace to continue.'
       );
     }
-    return await conversationsService.getAll(filters, page, limit, profileId);
+    
+    const result = await conversationsService.getAll(filters, page, limit, profileId);
+    return result;
   }
 );
 
@@ -171,6 +190,15 @@ const conversationsSlice = createSlice({
   },
   extraReducers: builder => {
     builder
+      // Clear conversations when workspace switches
+      .addCase(switchWorkspace.pending, state => {
+        // Clear conversations when switching workspaces to prevent stale data
+        state.items = [];
+        state.currentConversation = null;
+        state.currentMessages = [];
+        state.loading = false;
+        state.error = null;
+      })
       // Fetch conversations
       .addCase(fetchConversations.pending, state => {
         state.loading = true;

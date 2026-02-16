@@ -18,9 +18,28 @@ import { fetchSettings } from './slices/settingsSlice';
  */
 export async function refreshAllDataFromStorage(): Promise<void> {
   const state = store.getState();
-  const currentProfileId = state.auth.currentProfile?.id;
+  
+  // Get effective profile ID using the same logic as fetchConversations
+  // Try to get effective profile ID from workspace first, fallback to legacy profile
+  let currentProfileId: string | undefined;
+  if (state.auth.currentWorkspace) {
+    // Use workspace to get effective profile ID
+    if (state.auth.currentWorkspace.type === 'personal') {
+      currentProfileId = state.auth.currentWorkspace.profileId;
+    } else {
+      // Shared workspace: use virtual profile ID format
+      currentProfileId = `workspace-${state.auth.currentWorkspace.id}-default`;
+    }
+  } else if (state.auth.currentProfile) {
+    // Fallback to legacy profile
+    currentProfileId = state.auth.currentProfile.id;
+  }
 
-  await Promise.allSettled([
+  if (!currentProfileId) {
+    return;
+  }
+
+  const results = await Promise.allSettled([
     currentProfileId
       ? store.dispatch(fetchContexts(currentProfileId))
       : Promise.resolve(),

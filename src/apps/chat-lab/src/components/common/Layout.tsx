@@ -48,13 +48,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { toggleSidebar } from '../../store/slices/uiSlice';
-import {
-  logout,
-  setCurrentProfile,
-  createProfile,
-} from '../../store/slices/authSlice';
+import { logout } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
-import type { Profile } from '../../types';
 import { UnifiedSyncStatus } from './UnifiedSyncStatus';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
@@ -69,6 +64,7 @@ import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import WorkspaceSelector from '../workspace/WorkspaceSelector';
 
 const drawerWidth = 240;
 
@@ -83,13 +79,8 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { user, currentProfile, profiles } = useAppSelector(
-    state => state.auth
-  );
+  const { user, currentWorkspace } = useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();
-
-  // Check if we're in a shared workspace (profiles should be disabled)
-  const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
 
   // Mobile sidebar state management
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -98,10 +89,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const sidebarOpen = isMobile ? mobileSidebarOpen : true;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [profileMenuAnchorEl, setProfileMenuAnchorEl] =
-    useState<null | HTMLElement>(null);
-  const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
-  const [newProfileName, setNewProfileName] = useState('');
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   // Check if we're in cloud storage mode (Google Drive)
@@ -119,14 +106,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     setAnchorEl(null);
   };
 
-  const handleProfileSwitcherOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setProfileMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileSwitcherClose = () => {
-    setProfileMenuAnchorEl(null);
-  };
-
   const handleLogout = async () => {
     handleProfileMenuClose();
     await dispatch(logout());
@@ -136,24 +115,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     const identityServiceUrl = envInfo.identityServiceUrl;
     window.open(identityServiceUrl, '_blank');
     handleProfileMenuClose();
-  };
-
-  const handleProfileSwitch = (profile: Profile) => {
-    dispatch(setCurrentProfile(profile));
-    handleProfileSwitcherClose();
-  };
-
-  const handleCreateProfile = async () => {
-    if (!newProfileName.trim()) return;
-
-    const result = await dispatch(createProfile(newProfileName.trim()));
-
-    if (createProfile.fulfilled.match(result)) {
-      setShowCreateProfileDialog(false);
-      setNewProfileName('');
-      // Switch to the newly created profile
-      dispatch(setCurrentProfile(result.payload));
-    }
   };
 
 
@@ -476,21 +437,9 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             </Box>
           )}
 
-          {/* Profile and Logout */}
+          {/* Workspace Selector and User Menu */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {currentProfile && !isSharedWorkspace && (
-              <Chip
-                label={currentProfile.name}
-                size="small"
-                color="secondary"
-                variant="outlined"
-                onClick={handleProfileSwitcherOpen}
-                sx={{
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'action.hover' },
-                }}
-              />
-            )}
+            {currentWorkspace && <WorkspaceSelector />}
             <IconButton
               color="inherit"
               onClick={handleProfileMenuOpen}
@@ -500,58 +449,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 {user?.name?.[0] || user?.email?.[0] || <AccountIcon />}
               </Avatar>
             </IconButton>
-
-            {/* Profile Switcher Menu - Hidden in shared workspaces */}
-            {!isSharedWorkspace && (
-              <Menu
-                anchorEl={profileMenuAnchorEl}
-                open={Boolean(profileMenuAnchorEl)}
-                onClose={handleProfileSwitcherClose}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-              >
-                <MenuItem disabled>
-                  <Typography variant="body2" color="text.secondary">
-                    Switch Profile
-                  </Typography>
-                </MenuItem>
-                <Divider />
-                {profiles.map(profile => (
-                  <MenuItem
-                    key={profile.id}
-                    onClick={() => handleProfileSwitch(profile)}
-                    selected={currentProfile?.id === profile.id}
-                  >
-                    <ListItemIcon>
-                      {currentProfile?.id === profile.id ? (
-                        <CheckIcon fontSize="small" color="primary" />
-                      ) : (
-                        <AccountIcon fontSize="small" />
-                      )}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={profile.name}
-                      secondary={
-                        currentProfile?.id === profile.id ? 'Active' : undefined
-                      }
-                    />
-                  </MenuItem>
-                ))}
-                <Divider />
-                <MenuItem onClick={() => setShowCreateProfileDialog(true)}>
-                  <ListItemIcon>
-                    <AddIcon fontSize="small" />
-                  </ListItemIcon>
-                  Create New Profile
-                </MenuItem>
-              </Menu>
-            )}
 
             {/* User Menu */}
             <Menu
@@ -588,42 +485,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           </Box>
         </Toolbar>
       </AppBar>
-
-      {/* Create Profile Dialog */}
-      <Dialog
-        open={showCreateProfileDialog}
-        onClose={() => setShowCreateProfileDialog(false)}
-      >
-        <DialogTitle>Create New Profile</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Profile Name"
-            fullWidth
-            variant="outlined"
-            value={newProfileName}
-            onChange={e => setNewProfileName(e.target.value)}
-            onKeyPress={e => {
-              if (e.key === 'Enter') {
-                handleCreateProfile();
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowCreateProfileDialog(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreateProfile}
-            variant="contained"
-            disabled={!newProfileName.trim()}
-          >
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Box
         component="nav"

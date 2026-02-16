@@ -1,6 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 import type { RootState, Conversation } from '../../types';
 import { getModelDisplayName } from '../../utils/conversationUtils';
+import { getEffectiveProfileId } from '../../utils/workspaceHelpers';
 
 // Base selectors
 const selectConversationsState = (state: RootState) => state.conversations;
@@ -185,6 +186,30 @@ export const selectPaginatedConversations = createSelector(
 export const selectCurrentProfile = createSelector(
   [selectAuthState],
   authState => authState.currentProfile
+);
+
+export const selectCurrentWorkspace = createSelector(
+  [selectAuthState],
+  authState => authState.currentWorkspace
+);
+
+/**
+ * Get the effective profile ID from the current workspace
+ * - Personal workspaces: returns the actual profile ID
+ * - Shared workspaces: returns the virtual profile ID format (workspace-${id}-default)
+ * - Returns null if no workspace is selected
+ */
+export const selectEffectiveProfileId = createSelector(
+  [selectCurrentWorkspace],
+  workspace => {
+    if (!workspace) return null;
+    try {
+      return getEffectiveProfileId(workspace);
+    } catch (error) {
+      console.error('Failed to get effective profile ID:', error);
+      return null;
+    }
+  }
 );
 
 export const selectIsAuthenticated = createSelector(
