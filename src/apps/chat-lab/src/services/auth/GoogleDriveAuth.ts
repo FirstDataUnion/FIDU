@@ -79,6 +79,7 @@ export class GoogleDriveAuthService {
   private isAuthenticating: boolean = false;
   private refreshTimer: NodeJS.Timeout | null = null;
   private validationInterval: NodeJS.Timeout | null = null;
+  private explicitlyDisconnected: boolean = false; // Flag to prevent restoration after explicit disconnect
 
   constructor(config: GoogleDriveAuthConfig) {
     let baseURL;
@@ -513,6 +514,59 @@ export class GoogleDriveAuthService {
   }
 
   /**
+   * Disconnect Google Drive (revoke only Google Drive tokens, leave FIDU auth intact)
+   * This is a safer alternative to revokeAccess() that explicitly only handles Google Drive tokens
+   * and does not trigger any logout flows that might affect FIDU authentication.
+   */
+  async disconnectGoogleDrive(): Promise<void> {
+    console.log('🔄 Disconnecting Google Drive (preserving FIDU authentication)...');
+
+    // Set flag to prevent restoration attempts
+    this.explicitlyDisconnected = true;
+
+    // Stop proactive refresh and periodic validation
+    this.stopProactiveRefresh();
+    this.stopPeriodicValidation();
+
+    // Revoke Google OAuth token if we have one
+    if (this.tokens?.accessToken) {
+      try {
+        await this.revokeToken(this.tokens.accessToken);
+        console.log('✅ Google OAuth token revoked');
+      } catch (error) {
+        console.warn('⚠️ Failed to revoke Google token (continuing anyway):', error);
+        // Continue even if revocation fails - we'll still clear local state
+      }
+    }
+
+    // Clear Google Drive tokens from memory
+    this.tokens = null;
+    this.user = null;
+
+    // Clear Google Drive tokens from localStorage (only Google Drive tokens)
+    this.clearStoredTokens();
+
+    // Clear HTTP-only Google Drive cookies via backend (this only clears Google Drive cookies, not FIDU)
+    const basePath = window.location.pathname.includes('/fidu-chat-lab')
+      ? '/fidu-chat-lab'
+      : '';
+    const environment = detectRuntimeEnvironment();
+
+    try {
+      await fetch(`${basePath}/api/oauth/logout?env=${environment}`, {
+        method: 'POST',
+        credentials: 'include', // Include HTTP-only cookies
+      });
+      console.log('✅ Google Drive HTTP-only cookies cleared');
+    } catch (error) {
+      console.warn('⚠️ Failed to clear Google Drive HTTP-only cookies (continuing anyway):', error);
+      // Continue even if cookie clearing fails
+    }
+
+    console.log('✅ Google Drive disconnected (FIDU authentication preserved)');
+  }
+
+  /**
    * Get authentication status for UI
    */
   getAuthStatus(): {
@@ -533,6 +587,12 @@ export class GoogleDriveAuthService {
    * Use this when you need to guarantee authentication state
    */
   async ensureAuthenticated(): Promise<boolean> {
+    // If explicitly disconnected, don't attempt restoration
+    if (this.explicitlyDisconnected) {
+      console.log('ℹ️ Google Drive was explicitly disconnected, skipping restoration');
+      return false;
+    }
+
     // Fast path: if tokens exist and valid, return immediately
     if (this.tokens && this.tokens.expiresAt > Date.now() + 5 * 60 * 1000) {
       return true;
@@ -698,6 +758,9 @@ export class GoogleDriveAuthService {
 
       this.tokens = tokens;
       this.storeTokens(tokens);
+
+      // Reset explicitly disconnected flag since user has successfully reconnected
+      this.explicitlyDisconnected = false;
 
       // Fetch user info (will update Google email if FIDU auth is ready)
       console.log('🔄 Fetching user info...');
@@ -1169,6 +1232,12 @@ export class GoogleDriveAuthService {
    * This is called when the app becomes visible or during initialization
    */
   async restoreFromCookies(): Promise<boolean> {
+    // If explicitly disconnected, don't attempt restoration
+    if (this.explicitlyDisconnected) {
+      console.log('ℹ️ Google Drive was explicitly disconnected, skipping cookie restoration');
+      return false;
+    }
+
     try {
       console.log(
         '🔄 Attempting to restore authentication from HTTP-only cookies...'
@@ -1189,6 +1258,9 @@ export class GoogleDriveAuthService {
       const newAccessToken = await this.refreshAccessToken();
 
       if (newAccessToken) {
+        // Reset explicitly disconnected flag since we successfully restored
+        this.explicitlyDisconnected = false;
+
         // Load user info if we don't have it (will update Google email if FIDU auth is ready)
         if (!this.user) {
           await this.fetchUserInfo();

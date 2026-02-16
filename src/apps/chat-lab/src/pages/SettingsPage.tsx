@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Typography, List, ListItem, ListItemButton } from '@mui/material';
 // Icons are now imported in their respective components
 // State management is now handled in individual components
@@ -47,6 +47,57 @@ const SettingsPage: React.FC = () => {
 
   // Ref for the main content container (the scrollable box)
   const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to section handler
+  const scrollToSection = useCallback((sectionId: string) => {
+    const refs: { [key: string]: React.RefObject<HTMLDivElement | null> } = {
+      appearance: appearanceRef,
+      'sync-settings': syncSettingsRef,
+      'import-export': importExportRef,
+      privacy: privacyRef,
+      'api-keys': apiKeysRef,
+      'whats-new': whatsNewRef,
+      'customise-features': customiseFeaturesRef,
+      'delete-account': deleteAccountRef,
+    };
+
+    const ref = refs[sectionId];
+    if (!ref?.current) {
+      console.warn(`Section ref not found for: ${sectionId}`);
+      return;
+    }
+
+    // Get the scrollable container (same reference as scroll spy)
+    const scrollContainer =
+      mainContentRef.current?.parentElement?.parentElement;
+    if (!scrollContainer) {
+      console.warn('Scroll container not found');
+      return;
+    }
+
+    const element = ref.current;
+    const offset = 50; // Offset from top of viewport for better visibility
+
+    // getBoundingClientRect() returns position relative to viewport
+    // scrollContainer.scrollTop is current scroll position of the container
+    // We need to calculate position relative to the scrollable container
+    const rect = element.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+
+    // Calculate position relative to the scrollable container
+    const elementTopRelativeToContainer =
+      rect.top - containerRect.top + scrollContainer.scrollTop;
+    const targetPosition = elementTopRelativeToContainer - offset;
+
+    // Immediately update active section when clicking (visual feedback)
+    setActiveSection(sectionId);
+
+    // Smoothly scroll the container to the calculated position
+    scrollContainer.scrollTo({
+      top: Math.max(0, targetPosition), // Ensure we don't scroll to negative position
+      behavior: 'smooth',
+    });
+  }, []);
 
   // Scroll spy functionality
   useEffect(() => {
@@ -130,56 +181,16 @@ const SettingsPage: React.FC = () => {
     };
   }, []);
 
-  // Scroll to section handler
-  const scrollToSection = (sectionId: string) => {
-    const refs: { [key: string]: React.RefObject<HTMLDivElement | null> } = {
-      appearance: appearanceRef,
-      'sync-settings': syncSettingsRef,
-      'import-export': importExportRef,
-      privacy: privacyRef,
-      'api-keys': apiKeysRef,
-      'whats-new': whatsNewRef,
-      'customise-features': customiseFeaturesRef,
-      'delete-account': deleteAccountRef,
-    };
-
-    const ref = refs[sectionId];
-    if (!ref?.current) {
-      console.warn(`Section ref not found for: ${sectionId}`);
-      return;
+  // Handle hash navigation on mount/route change
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the #
+    if (hash && hash === 'sync-settings') {
+      // Small delay to ensure refs are mounted
+      setTimeout(() => {
+        scrollToSection('sync-settings');
+      }, 100);
     }
-
-    // Get the scrollable container (same reference as scroll spy)
-    const scrollContainer =
-      mainContentRef.current?.parentElement?.parentElement;
-    if (!scrollContainer) {
-      console.warn('Scroll container not found');
-      return;
-    }
-
-    const element = ref.current;
-    const offset = 50; // Offset from top of viewport for better visibility
-
-    // getBoundingClientRect() returns position relative to viewport
-    // scrollContainer.scrollTop is current scroll position of the container
-    // We need to calculate position relative to the scrollable container
-    const rect = element.getBoundingClientRect();
-    const containerRect = scrollContainer.getBoundingClientRect();
-
-    // Calculate position relative to the scrollable container
-    const elementTopRelativeToContainer =
-      rect.top - containerRect.top + scrollContainer.scrollTop;
-    const targetPosition = elementTopRelativeToContainer - offset;
-
-    // Immediately update active section when clicking (visual feedback)
-    setActiveSection(sectionId);
-
-    // Smoothly scroll the container to the calculated position
-    scrollContainer.scrollTo({
-      top: Math.max(0, targetPosition), // Ensure we don't scroll to negative position
-      behavior: 'smooth',
-    });
-  };
+  }, [scrollToSection]);
 
   return (
     <Box

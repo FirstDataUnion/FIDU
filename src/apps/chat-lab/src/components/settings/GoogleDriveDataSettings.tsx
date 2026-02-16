@@ -14,14 +14,20 @@ import {
 import {
   CloudQueue as CloudIcon,
   DeleteForever as DeleteForeverIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { DataStorageInfo } from './DataStorageInfo';
 import { SyncSettings } from './SyncSettings';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { useAppDispatch } from '../../hooks/redux';
+import { revokeGoogleDriveAccess } from '../../store/slices/unifiedStorageSlice';
 
 export const GoogleDriveDataSettings: React.FC = () => {
+  const dispatch = useAppDispatch();
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const [clearStatus, setClearStatus] = useState<{
     success: boolean | null;
     message: string | null;
@@ -85,6 +91,28 @@ export const GoogleDriveDataSettings: React.FC = () => {
       {/* Sync Settings */}
       <Box sx={{ mb: 3 }}>
         <SyncSettings />
+      </Box>
+
+      {/* Disconnect Google Drive */}
+      <Divider sx={{ my: 3 }} />
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          Disconnect Google Drive
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Disconnect your Google Drive account from the Chat Lab.
+        </Typography>
+
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<LogoutIcon />}
+          onClick={() => setShowDisconnectDialog(true)}
+          disabled={isDisconnecting}
+          sx={{ mb: 2 }}
+        >
+          Disconnect Google Drive
+        </Button>
       </Box>
 
       {/* Clear Cloud Data */}
@@ -159,6 +187,61 @@ export const GoogleDriveDataSettings: React.FC = () => {
             variant="contained"
           >
             {isClearing ? 'Clearing...' : 'Yes, Clear All Data'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Disconnect Google Drive Confirmation Dialog */}
+      <Dialog
+        open={showDisconnectDialog}
+        onClose={() => !isDisconnecting && setShowDisconnectDialog(false)}
+        aria-labelledby="disconnect-dialog-title"
+        aria-describedby="disconnect-dialog-description"
+      >
+        <DialogTitle id="disconnect-dialog-title">
+          Disconnect Google Drive
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="disconnect-dialog-description">
+            Are you sure you want to disconnect your Google Drive account? This
+            will:
+            <br />
+            • Stop syncing your data to Google Drive
+            <br />
+            • Preserve your local data
+            <br />
+            • Keep you logged into your FIDU account
+            <br />
+            <br />
+            You can reconnect Google Drive at any time from the sync status
+            indicator in the top bar.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowDisconnectDialog(false)}
+            disabled={isDisconnecting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={async () => {
+              setIsDisconnecting(true);
+              try {
+                await dispatch(revokeGoogleDriveAccess()).unwrap();
+                setShowDisconnectDialog(false);
+              } catch (error) {
+                console.error('Failed to disconnect Google Drive:', error);
+              } finally {
+                setIsDisconnecting(false);
+              }
+            }}
+            color="error"
+            autoFocus
+            disabled={isDisconnecting}
+            variant="contained"
+          >
+            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
           </Button>
         </DialogActions>
       </Dialog>

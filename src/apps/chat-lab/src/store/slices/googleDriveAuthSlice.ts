@@ -97,7 +97,8 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const authService = await getGoogleDriveAuthService();
-      await authService.revokeAccess();
+      // Use disconnectGoogleDrive() instead of revokeAccess() to preserve FIDU authentication
+      await authService.disconnectGoogleDrive();
 
       return {
         isAuthenticated: false,

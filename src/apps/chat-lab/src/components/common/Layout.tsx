@@ -38,7 +38,6 @@ import {
   Add as AddIcon,
   Check as CheckIcon,
   Home as HomeIcon,
-  Sync as SyncIcon,
   SmartToy as SmartToyIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
@@ -56,10 +55,7 @@ import {
 } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
 import type { Profile } from '../../types';
-import GoogleDriveStatus from '../auth/GoogleDriveStatus';
-import UnsyncedDataIndicator from './UnsyncedDataIndicator';
-import { AutoSyncCountdown } from './AutoSyncCountdown';
-import { SyncHealthIndicator } from './SyncHealthIndicator';
+import { UnifiedSyncStatus } from './UnifiedSyncStatus';
 import { useCallback } from 'react';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
@@ -106,7 +102,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     useState<null | HTMLElement>(null);
   const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
-  const [isSyncInProgress, setIsSyncInProgress] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   // Check if we're in cloud storage mode (Google Drive)
@@ -161,31 +156,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     }
   };
 
-  const handleManualSync = useCallback(async () => {
-    if (!currentProfile) {
-      console.log('Cannot sync: no current profile');
-      return;
-    }
-
-    setIsSyncInProgress(true);
-    try {
-      console.log('Starting manual sync to Google Drive...');
-      const storageService = getUnifiedStorageService();
-      await storageService.sync();
-      console.log('Manual sync completed successfully');
-    } catch (error) {
-      console.error('Manual sync failed:', error);
-
-      // Check if this is an insufficient permissions error
-      if (error instanceof InsufficientPermissionsError) {
-        console.warn('⚠️ Insufficient permissions detected during sync');
-        dispatch(setInsufficientPermissions(true));
-        setShowPermissionsModal(true);
-      }
-    } finally {
-      setIsSyncInProgress(false);
-    }
-  }, [currentProfile, dispatch]);
 
   const handleReconnect = useCallback(async () => {
     try {
@@ -499,65 +469,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             sx={{ flexGrow: 1 }}
           ></Typography>
 
-          {/* Google Drive Status - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2 }}>
-              <GoogleDriveStatus variant="compact" />
-            </Box>
-          )}
-
-          {/* Sync Health Indicator - shows last successful sync and health status */}
+          {/* Unified Sync Status - combines all sync-related indicators */}
           {isCloudStorageMode && (
             <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <SyncHealthIndicator variant="compact" />
+              <UnifiedSyncStatus variant="compact" />
             </Box>
-          )}
-
-          {/* Unsynced Data Indicator - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <UnsyncedDataIndicator variant="compact" />
-            </Box>
-          )}
-
-          {/* Auto-Sync Countdown - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <AutoSyncCountdown variant="compact" />
-            </Box>
-          )}
-
-          {/* Manual Sync Button - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Tooltip
-              title={
-                isSyncInProgress ? 'Syncing...' : 'Sync Now to Google Drive'
-              }
-              arrow
-            >
-              <Button
-                color="inherit"
-                variant="outlined"
-                size="small"
-                startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
-                onClick={handleManualSync}
-                disabled={isSyncInProgress}
-                sx={{
-                  mr: 2,
-                  textTransform: 'none',
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderColor: 'rgba(255,255,255,0.8)',
-                  },
-                  '&:disabled': {
-                    opacity: 0.5,
-                  },
-                }}
-              >
-                {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
-              </Button>
-            </Tooltip>
           )}
 
           {/* Profile and Logout */}
