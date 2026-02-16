@@ -15,7 +15,7 @@ export const DeleteAccountSettings: React.FC<DeleteAccountSettingsProps> = ({
 }) => {
   const handleContactSupport = () => {
     const subject = encodeURIComponent('Request to Delete Account');
-    window.location.href = `mailto:support@firstdataunion.org?subject=${subject}`;
+    window.location.href = `mailto:privacy@firstdataunion.org?subject=${subject}`;
   };
 
   const handleExportClick = () => {
@@ -36,7 +36,7 @@ export const DeleteAccountSettings: React.FC<DeleteAccountSettingsProps> = ({
       </Typography>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        To delete your account, please contact us at support@firstdataunion.org
+        To delete your account, please contact us at privacy@firstdataunion.org
         from the email address associated with your account. We will process
         your request within 30 days.
       </Typography>
