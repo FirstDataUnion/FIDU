@@ -7,6 +7,7 @@ export interface FeatureFlagDefinition {
   depends_on?: FeatureFlagKey[];
   user_configurable?: boolean;
   default_enabled?: boolean;
+  experimental?: boolean;
 }
 
 export type FeatureFlagsMap = {
@@ -68,6 +69,7 @@ export const validateFeatureFlagsPayload = (
     const enabled = rawValue.enabled;
     const user_configurable = rawValue.user_configurable;
     const default_enabled = rawValue.default_enabled;
+    const experimental = rawValue.experimental;
 
     if (typeof enabled !== 'boolean') {
       validationErrors.push(['Invalid enabled flag', rawKey]);
@@ -84,6 +86,11 @@ export const validateFeatureFlagsPayload = (
 
     if (default_enabled !== undefined && typeof default_enabled !== 'boolean') {
       validationErrors.push(['Invalid default_enabled flag', rawKey]);
+      continue;
+    }
+
+    if (experimental !== undefined && typeof experimental !== 'boolean') {
+      validationErrors.push(['Invalid experimental flag', rawKey]);
       continue;
     }
 
@@ -124,6 +131,9 @@ export const validateFeatureFlagsPayload = (
     }
     if (default_enabled !== undefined) {
       flag.default_enabled = default_enabled;
+    }
+    if (experimental !== undefined) {
+      flag.experimental = experimental;
     }
     if (depends_on !== undefined) {
       flag.depends_on = depends_on;

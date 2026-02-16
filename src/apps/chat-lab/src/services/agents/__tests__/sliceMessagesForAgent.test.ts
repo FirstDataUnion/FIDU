@@ -46,6 +46,27 @@ jest.mock('../agentAlerts', () => ({
   addAgentAlert: (alert: any) => addAgentAlertSpy(alert),
 }));
 
+// Mock the store and feature flag selector
+jest.mock('../../../store', () => {
+  const mockGetState = jest.fn(() => ({
+    systemFeatureFlags: { flags: { background_agents: true } },
+  }));
+  return {
+    store: {
+      getState: mockGetState,
+    },
+  };
+});
+
+jest.mock('../../../store/selectors/featureFlagsSelectors', () => ({
+  selectIsFeatureFlagEnabled: jest.fn((state: any, flag: string) => {
+    return (
+      flag === 'background_agents'
+      && state.systemFeatureFlags?.flags?.background_agents === true
+    );
+  }),
+}));
+
 describe('Context Window Message Slicing', () => {
   beforeEach(() => {
     jest.clearAllMocks();

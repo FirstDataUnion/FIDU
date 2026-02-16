@@ -49,7 +49,6 @@ import {
   ChevronLeft as ChevronLeftIcon,
   Search as SearchIcon,
   ChatBubbleOutline as ChatBubbleIcon,
-  Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
   RestartAlt as RestartAltIcon,
   Replay as ReplayIcon,
@@ -101,6 +100,7 @@ import {
   type LongRequestAnalysis,
 } from '../utils/longRequestDetection';
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
+import HistoryIcon from '../assets/HistoryIcon.png';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
 import {
@@ -6224,7 +6224,16 @@ export default function PromptLabPage() {
               />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <ChatBubbleIcon sx={{ fontSize: 20 }} />
-                <RefreshIcon sx={{ fontSize: 16, opacity: 0.8 }} />
+                <Box
+                  component="img"
+                  src={HistoryIcon}
+                  alt="Chat history"
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    opacity: 0.8,
+                  }}
+                />
               </Box>
             </Paper>
           </Box>

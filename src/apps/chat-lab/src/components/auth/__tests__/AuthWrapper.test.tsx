@@ -127,7 +127,7 @@ describe('AuthWrapper', () => {
     expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
   });
 
-  it('should render profile selector when authenticated but no profile selected', () => {
+  it('should render children when authenticated (workspace is always selected)', () => {
     const mockStore = createMockStore({
       auth: (
         state = {
@@ -136,6 +136,8 @@ describe('AuthWrapper', () => {
           isInitialized: true,
           currentProfile: null,
           profiles: [],
+          currentWorkspace: null,
+          personalWorkspaces: [],
         },
         _action: any
       ) => state,
@@ -148,8 +150,9 @@ describe('AuthWrapper', () => {
       mockStore
     );
 
-    // Should show profile selector
-    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    // AuthWrapper now always shows children when authenticated
+    // (initializeAuth ensures workspace is always selected)
+    expect(screen.queryByTestId('protected-content')).toBeInTheDocument();
   });
 
   it('should handle multiple children correctly', () => {

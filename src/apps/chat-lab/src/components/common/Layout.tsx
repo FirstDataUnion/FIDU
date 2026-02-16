@@ -13,18 +13,10 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
-  Divider,
   Avatar,
   Menu,
   MenuItem,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Button,
-  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -35,49 +27,28 @@ import {
   Psychology as PersonaIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
-  Add as AddIcon,
-  Check as CheckIcon,
-  Home as HomeIcon,
-  Sync as SyncIcon,
-  PrivacyTip as PrivacyIcon,
-  NewReleases as WhatsNewIcon,
   SmartToy as SmartToyIcon,
-  ImportExport as ImportExportIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
-  DeleteForever as DeleteAccountIcon,
-  FolderSpecial as WorkspacesIcon,
-  PrecisionManufacturing as FeatureFlagIcon,
+  Home as HomeIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useUnifiedStorage } from '../../hooks/useStorageCompatibility';
 import { toggleSidebar } from '../../store/slices/uiSlice';
-import {
-  logout,
-  setCurrentProfile,
-  createProfile,
-} from '../../store/slices/authSlice';
+import { logout } from '../../store/slices/authSlice';
 import { getPrimaryColor } from '../../utils/themeColors';
-import type { Profile } from '../../types';
-import GoogleDriveStatus from '../auth/GoogleDriveStatus';
-import UnsyncedDataIndicator from './UnsyncedDataIndicator';
-import { AutoSyncCountdown } from './AutoSyncCountdown';
-import { SyncHealthIndicator } from './SyncHealthIndicator';
+import { UnifiedSyncStatus } from './UnifiedSyncStatus';
 import { useCallback } from 'react';
-import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
-import { InsufficientPermissionsError } from '../../services/storage/drive/GoogleDriveService';
-import {
-  setInsufficientPermissions,
-  revokeGoogleDriveAccess,
-} from '../../store/slices/googleDriveAuthSlice';
+import { revokeGoogleDriveAccess } from '../../store/slices/googleDriveAuthSlice';
 import { authenticateGoogleDrive } from '../../store/slices/unifiedStorageSlice';
 import InsufficientPermissionsModal from '../auth/InsufficientPermissionsModal';
 import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import WorkspaceSelector from '../workspace/WorkspaceSelector';
 
 const drawerWidth = 240;
 
@@ -92,13 +63,8 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { user, currentProfile, profiles } = useAppSelector(
-    state => state.auth
-  );
+  const { user, currentWorkspace } = useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();
-
-  // Check if we're in a shared workspace (profiles should be disabled)
-  const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
 
   // Mobile sidebar state management
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -107,11 +73,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const sidebarOpen = isMobile ? mobileSidebarOpen : true;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [profileMenuAnchorEl, setProfileMenuAnchorEl] =
-    useState<null | HTMLElement>(null);
-  const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
-  const [newProfileName, setNewProfileName] = useState('');
-  const [isSyncInProgress, setIsSyncInProgress] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   // Check if we're in cloud storage mode (Google Drive)
@@ -129,14 +90,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     setAnchorEl(null);
   };
 
-  const handleProfileSwitcherOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setProfileMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileSwitcherClose = () => {
-    setProfileMenuAnchorEl(null);
-  };
-
   const handleLogout = async () => {
     handleProfileMenuClose();
     await dispatch(logout());
@@ -147,50 +100,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     window.open(identityServiceUrl, '_blank');
     handleProfileMenuClose();
   };
-
-  const handleProfileSwitch = (profile: Profile) => {
-    dispatch(setCurrentProfile(profile));
-    handleProfileSwitcherClose();
-  };
-
-  const handleCreateProfile = async () => {
-    if (!newProfileName.trim()) return;
-
-    const result = await dispatch(createProfile(newProfileName.trim()));
-
-    if (createProfile.fulfilled.match(result)) {
-      setShowCreateProfileDialog(false);
-      setNewProfileName('');
-      // Switch to the newly created profile
-      dispatch(setCurrentProfile(result.payload));
-    }
-  };
-
-  const handleManualSync = useCallback(async () => {
-    if (!currentProfile) {
-      console.log('Cannot sync: no current profile');
-      return;
-    }
-
-    setIsSyncInProgress(true);
-    try {
-      console.log('Starting manual sync to Google Drive...');
-      const storageService = getUnifiedStorageService();
-      await storageService.sync();
-      console.log('Manual sync completed successfully');
-    } catch (error) {
-      console.error('Manual sync failed:', error);
-
-      // Check if this is an insufficient permissions error
-      if (error instanceof InsufficientPermissionsError) {
-        console.warn('⚠️ Insufficient permissions detected during sync');
-        dispatch(setInsufficientPermissions(true));
-        setShowPermissionsModal(true);
-      }
-    } finally {
-      setIsSyncInProgress(false);
-    }
-  }, [currentProfile, dispatch]);
 
   const handleReconnect = useCallback(async () => {
     try {
@@ -267,28 +176,10 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
     {
-      text: 'Workspaces',
-      icon: <WorkspacesIcon />,
-      path: '/workspaces',
-      enabled: useFeatureFlag('shared_workspaces'),
-    },
-    {
-      text: 'Import & Export',
-      icon: <ImportExportIcon />,
-      path: '/import-export',
-      enabled: true,
-    },
-    {
       text: 'Settings',
       icon: <SettingsIcon />,
       path: '/settings',
       enabled: true,
-    },
-    {
-      text: 'Feature Flags',
-      icon: <FeatureFlagIcon />,
-      path: '/feature-flags',
-      enabled: useFeatureFlag('feature_flag_page'),
     },
   ];
 
@@ -307,68 +198,45 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     }
   };
 
-  const renderMenuSection = (title: string, items: any[]) =>
-    items.some(item => item.enabled) && (
-      <>
-        <Divider sx={{ my: 1 }} />
-        {title && (
-          <Typography
-            variant="overline"
-            sx={{
-              px: 2,
-              py: 1,
-              color: 'text.secondary',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
-          >
-            {title}
-          </Typography>
-        )}
-        <List dense>
-          {items.map(
-            item =>
-              item.enabled && (
-                <ListItem key={item.text} disablePadding>
-                  <ListItemButton
-                    selected={location.pathname.startsWith(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                    sx={{
-                      mx: 1,
-                      mb: 0.5,
-                      borderRadius: 1,
-                      '&.Mui-selected': {
-                        backgroundColor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '& .MuiListItemIcon-root': {
-                          color: 'inherit',
-                        },
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.text}
-                      primaryTypographyProps={{
-                        fontSize: '0.875rem',
-                        fontWeight: location.pathname.startsWith(item.path)
-                          ? 600
-                          : 400,
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              )
-          )}
-        </List>
-      </>
+  const renderMenuItems = (items: any[]) => {
+    return items.map(
+      item =>
+        item.enabled && (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              selected={location.pathname.startsWith(item.path)}
+              onClick={() => handleNavigation(item.path)}
+              sx={{
+                mx: 1,
+                mb: 0.5,
+                borderRadius: 1,
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '& .MuiListItemIcon-root': {
+                    color: 'inherit',
+                  },
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: '0.875rem',
+                  fontWeight: location.pathname.startsWith(item.path)
+                    ? 600
+                    : 400,
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        )
     );
+  };
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -384,11 +252,11 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           </Typography>
         </Toolbar>
 
-        {renderMenuSection('', mainMenuItems)}
-
-        {renderMenuSection('Advanced', advancedMenuItems)}
-
-        {renderMenuSection('System', systemMenuItems)}
+        <List dense>
+          {renderMenuItems(mainMenuItems)}
+          {renderMenuItems(advancedMenuItems)}
+          {renderMenuItems(systemMenuItems)}
+        </List>
       </Box>
 
       {/* Footer with Policy Links */}
@@ -417,78 +285,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         >
           Get help/report a bug
         </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<WhatsNewIcon fontSize="small" />}
-          onClick={() => handleNavigation('/whats-new')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          What's New
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<PrivacyIcon fontSize="small" />}
-          onClick={() => handleNavigation('/privacy-policy')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Privacy Policy
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<PrivacyIcon fontSize="small" />}
-          onClick={() => handleNavigation('/terms-of-use')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Terms of Use
-        </Button>
-        <Button
-          fullWidth
-          size="small"
-          startIcon={<DeleteAccountIcon fontSize="small" />}
-          onClick={() => handleNavigation('/delete-account')}
-          sx={{
-            textTransform: 'none',
-            justifyContent: 'flex-start',
-            color: 'inherit',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          Delete Account
-        </Button>
         <Typography
           variant="caption"
           sx={{
@@ -500,6 +296,63 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         >
           {getVersionDisplay()} • FIDU
         </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 1,
+            mt: 0.5,
+          }}
+        >
+          <Typography
+            component="button"
+            variant="caption"
+            onClick={() => handleNavigation('/privacy-policy')}
+            sx={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+              opacity: 0.5,
+              textDecoration: 'none',
+              '&:hover': {
+                opacity: 0.8,
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            Privacy Policy
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              opacity: 0.5,
+            }}
+          >
+            •
+          </Typography>
+          <Typography
+            component="button"
+            variant="caption"
+            onClick={() => handleNavigation('/terms-of-use')}
+            sx={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+              opacity: 0.5,
+              textDecoration: 'none',
+              '&:hover': {
+                opacity: 0.8,
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            Terms of Use
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
@@ -554,82 +407,16 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             sx={{ flexGrow: 1 }}
           ></Typography>
 
-          {/* Google Drive Status - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2 }}>
-              <GoogleDriveStatus variant="compact" />
-            </Box>
-          )}
-
-          {/* Sync Health Indicator - shows last successful sync and health status */}
+          {/* Unified Sync Status - combines all sync-related indicators */}
           {isCloudStorageMode && (
             <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <SyncHealthIndicator variant="compact" />
+              <UnifiedSyncStatus />
             </Box>
           )}
 
-          {/* Unsynced Data Indicator - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <UnsyncedDataIndicator variant="compact" />
-            </Box>
-          )}
-
-          {/* Auto-Sync Countdown - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <AutoSyncCountdown variant="compact" />
-            </Box>
-          )}
-
-          {/* Manual Sync Button - only show in cloud storage mode */}
-          {isCloudStorageMode && (
-            <Tooltip
-              title={
-                isSyncInProgress ? 'Syncing...' : 'Sync Now to Google Drive'
-              }
-              arrow
-            >
-              <Button
-                color="inherit"
-                variant="outlined"
-                size="small"
-                startIcon={isSyncInProgress ? <SyncIcon /> : <SyncIcon />}
-                onClick={handleManualSync}
-                disabled={isSyncInProgress}
-                sx={{
-                  mr: 2,
-                  textTransform: 'none',
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderColor: 'rgba(255,255,255,0.8)',
-                  },
-                  '&:disabled': {
-                    opacity: 0.5,
-                  },
-                }}
-              >
-                {isSyncInProgress ? 'Syncing...' : 'Sync Now'}
-              </Button>
-            </Tooltip>
-          )}
-
-          {/* Profile and Logout */}
+          {/* Workspace Selector and User Menu */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {currentProfile && !isSharedWorkspace && (
-              <Chip
-                label={currentProfile.name}
-                size="small"
-                color="secondary"
-                variant="outlined"
-                onClick={handleProfileSwitcherOpen}
-                sx={{
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'action.hover' },
-                }}
-              />
-            )}
+            {currentWorkspace && <WorkspaceSelector />}
             <IconButton
               color="inherit"
               onClick={handleProfileMenuOpen}
@@ -639,58 +426,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 {user?.name?.[0] || user?.email?.[0] || <AccountIcon />}
               </Avatar>
             </IconButton>
-
-            {/* Profile Switcher Menu - Hidden in shared workspaces */}
-            {!isSharedWorkspace && (
-              <Menu
-                anchorEl={profileMenuAnchorEl}
-                open={Boolean(profileMenuAnchorEl)}
-                onClose={handleProfileSwitcherClose}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-              >
-                <MenuItem disabled>
-                  <Typography variant="body2" color="text.secondary">
-                    Switch Profile
-                  </Typography>
-                </MenuItem>
-                <Divider />
-                {profiles.map(profile => (
-                  <MenuItem
-                    key={profile.id}
-                    onClick={() => handleProfileSwitch(profile)}
-                    selected={currentProfile?.id === profile.id}
-                  >
-                    <ListItemIcon>
-                      {currentProfile?.id === profile.id ? (
-                        <CheckIcon fontSize="small" color="primary" />
-                      ) : (
-                        <AccountIcon fontSize="small" />
-                      )}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={profile.name}
-                      secondary={
-                        currentProfile?.id === profile.id ? 'Active' : undefined
-                      }
-                    />
-                  </MenuItem>
-                ))}
-                <Divider />
-                <MenuItem onClick={() => setShowCreateProfileDialog(true)}>
-                  <ListItemIcon>
-                    <AddIcon fontSize="small" />
-                  </ListItemIcon>
-                  Create New Profile
-                </MenuItem>
-              </Menu>
-            )}
 
             {/* User Menu */}
             <Menu
@@ -727,42 +462,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           </Box>
         </Toolbar>
       </AppBar>
-
-      {/* Create Profile Dialog */}
-      <Dialog
-        open={showCreateProfileDialog}
-        onClose={() => setShowCreateProfileDialog(false)}
-      >
-        <DialogTitle>Create New Profile</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Profile Name"
-            fullWidth
-            variant="outlined"
-            value={newProfileName}
-            onChange={e => setNewProfileName(e.target.value)}
-            onKeyPress={e => {
-              if (e.key === 'Enter') {
-                handleCreateProfile();
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowCreateProfileDialog(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreateProfile}
-            variant="contained"
-            disabled={!newProfileName.trim()}
-          >
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Box
         component="nav"

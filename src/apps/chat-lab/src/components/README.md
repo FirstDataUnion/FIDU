@@ -25,7 +25,6 @@ Components responsible for user authentication, profile management, and Google D
 - **`AuthWrapper.tsx`** - Main authentication wrapper that handles login flow
 - **`FiduAuthLogin.tsx`** - Login/register forms for FIDU identity service
 - **`GoogleDriveAuthPrompt.tsx`** - UI prompts for Google Drive setup
-- **`GoogleDriveStatus.tsx`** - Status indicator for Google Drive connection
 - **`ProfileSelector.tsx`** - User profile selection interface
 - **`SyncStatus.tsx`** - Data synchronization status display
 
@@ -44,7 +43,7 @@ Reusable UI components used throughout the application.
 - **`ErrorBoundary.tsx`** - Error boundary for graceful error handling
 - **`PerformanceMonitor.tsx`** - Development-only performance monitoring
 - **`UniversalSearch.tsx`** - Global search functionality
-- **`UnsyncedDataIndicator.tsx`** - Visual indicator for unsynced data
+- **`UnifiedSyncStatus.tsx`** - Unified sync status widget with Google Drive connection, sync health, and controls
 - **`VirtualList.tsx`** - Virtualized list for large datasets
 - **`CategoryFilter.tsx`** - Reusable category filtering component
 

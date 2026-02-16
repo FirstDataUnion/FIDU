@@ -78,9 +78,8 @@ const ConversationsPage: React.FC = React.memo(() => {
   const loading = useAppSelector(state => selectConversationsLoading(state));
   const error = useAppSelector(state => selectConversationsError(state));
   const { items: contexts } = useAppSelector(state => state.contexts);
-  const { isAuthenticated, currentProfile, user } = useAppSelector(
-    state => state.auth
-  );
+  const { isAuthenticated, currentProfile, currentWorkspace, user } =
+    useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();
 
   // Search and Filter State
@@ -192,6 +191,11 @@ const ConversationsPage: React.FC = React.memo(() => {
   const isContextsEnabled = useFeatureFlag('context');
 
   useEffect(() => {
+    // Don't fetch while workspace is switching - wait for it to complete
+    if (unifiedStorage.isSwitchingWorkspace) {
+      return;
+    }
+
     let isMounted = true;
 
     const fetchData = async () => {
@@ -227,8 +231,10 @@ const ConversationsPage: React.FC = React.memo(() => {
     dispatch,
     isAuthenticated,
     currentProfile,
+    currentWorkspace?.id, // Also depend on currentWorkspace from auth slice
     unifiedStorage.googleDrive.isAuthenticated,
     unifiedStorage.activeWorkspace?.id,
+    unifiedStorage.isSwitchingWorkspace, // Wait for switch to complete
   ]);
 
   // Memoized event handlers

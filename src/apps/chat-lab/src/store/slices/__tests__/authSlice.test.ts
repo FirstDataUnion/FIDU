@@ -39,6 +39,21 @@ jest.mock('../../../services/auth/GoogleDriveAuth', () => ({
   }),
 }));
 
+// Mock WorkspaceRegistry
+const mockSyncFromAPI = jest.fn().mockResolvedValue(undefined);
+const mockGetWorkspaces = jest.fn().mockReturnValue([]);
+jest.mock('../../../services/workspace/WorkspaceRegistry', () => ({
+  getWorkspaceRegistry: jest.fn(() => ({
+    syncFromAPI: mockSyncFromAPI,
+    getWorkspaces: mockGetWorkspaces,
+  })),
+}));
+
+// Mock feature flags selector
+jest.mock('../../selectors/featureFlagsSelectors', () => ({
+  selectIsFeatureFlagEnabled: jest.fn(() => false),
+}));
+
 const mockAuthApi = jest.requireMock('../../../services/api/auth').authApi;
 
 // Mock localStorage
@@ -84,6 +99,8 @@ const initialState: AuthState = {
   user: null,
   currentProfile: null,
   profiles: [],
+  currentWorkspace: null,
+  personalWorkspaces: [],
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -232,7 +249,9 @@ describe('authSlice', () => {
 
         const thunk = initializeAuth();
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          systemFeatureFlags: { flags: {} },
+        }));
 
         // Mock the getCurrentUser thunk
         mockDispatch(dispatch, mockUser);
@@ -406,14 +425,17 @@ describe('authSlice', () => {
 
       const thunk = initializeAuth();
       const dispatch = jest.fn();
-      const getState = jest.fn();
+      const getState = jest.fn(() => ({
+        systemFeatureFlags: { flags: {} },
+      }));
 
       mockDispatch(dispatch, userWithProfiles);
 
       await thunk(dispatch, getState, undefined);
 
-      // When saved profile exists and is valid, it doesn't call setItem for current_profile
-      expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+      // When saved profile exists and is valid, it still calls setItem for current_profile
+      // (this ensures localStorage is in sync with the selected profile)
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         'current_profile',
         JSON.stringify(savedProfile)
       );
@@ -447,7 +469,9 @@ describe('authSlice', () => {
 
       const thunk = initializeAuth();
       const dispatch = jest.fn();
-      const getState = jest.fn();
+      const getState = jest.fn(() => ({
+        systemFeatureFlags: { flags: {} },
+      }));
 
       mockDispatch(dispatch, mockUser);
 
@@ -471,7 +495,9 @@ describe('authSlice', () => {
 
       const thunk = initializeAuth();
       const dispatch = jest.fn();
-      const getState = jest.fn();
+      const getState = jest.fn(() => ({
+        systemFeatureFlags: { flags: {} },
+      }));
 
       mockDispatch(dispatch, mockUser);
 
@@ -499,7 +525,9 @@ describe('authSlice', () => {
 
       const thunk = initializeAuth();
       const dispatch = jest.fn();
-      const getState = jest.fn();
+      const getState = jest.fn(() => ({
+        systemFeatureFlags: { flags: {} },
+      }));
 
       await thunk(dispatch, getState, undefined);
 
@@ -551,7 +579,9 @@ describe('authSlice', () => {
 
         const thunk = initializeAuth();
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          systemFeatureFlags: { flags: {} },
+        }));
 
         await thunk(dispatch, getState, undefined);
 

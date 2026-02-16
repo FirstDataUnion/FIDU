@@ -95,6 +95,9 @@ export interface WorkspaceMetadata {
   type: 'personal' | 'shared';
   driveFolderId?: string; // null/undefined for AppData (personal), folder ID for shared
 
+  // Profile ID for personal workspaces (maps to Profile.id)
+  profileId?: string; // Only present for personal workspaces
+
   // File locations within the Drive folder
   files?: {
     conversationsDbId?: string;
@@ -114,6 +117,25 @@ export interface WorkspaceMetadata {
 export interface WorkspaceRegistry {
   workspaces: WorkspaceMetadata[];
   activeWorkspaceId: string | null;
+}
+
+// Unified Workspace Type - represents both personal and shared workspaces
+export interface UnifiedWorkspace {
+  id: string;
+  name: string;
+  type: 'personal' | 'shared';
+  // For personal workspaces: the actual profile ID from Identity Service
+  // For shared workspaces: undefined (use workspace-${id}-default format)
+  profileId?: string;
+  // For shared workspaces: the Drive folder ID
+  // For personal workspaces: undefined (uses AppData)
+  driveFolderId?: string;
+  // Membership info (only for shared workspaces)
+  role?: 'owner' | 'member';
+  members?: Array<{ email: string; role: 'owner' | 'member' }>;
+  // Timestamps
+  createdAt: string;
+  lastAccessed: string;
 }
 
 // Authentication Types
@@ -374,8 +396,13 @@ export interface RootState {
 
 export interface AuthState {
   user: User | null;
+  // Legacy: Keep for backward compatibility during migration
   currentProfile: Profile | null;
   profiles: Profile[];
+  // New: Unified workspace state
+  currentWorkspace: UnifiedWorkspace | null;
+  personalWorkspaces: Profile[]; // Personal workspaces (profiles)
+  // Computed: All workspaces (personal + shared) - populated from personalWorkspaces + WorkspaceRegistry
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;

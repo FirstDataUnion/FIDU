@@ -5,7 +5,6 @@ import { useAppSelector } from '../../hooks/redux';
 import { isPublicRoute } from '../../utils/publicRoutes';
 
 import FiduAuthLogin from './FiduAuthLogin';
-import ProfileSelector from './ProfileSelector';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -13,8 +12,9 @@ interface AuthWrapperProps {
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const location = useLocation();
-  const { isAuthenticated, currentProfile, isInitialized, isLoading } =
-    useAppSelector(state => state.auth);
+  const { isAuthenticated, isInitialized, isLoading } = useAppSelector(
+    state => state.auth
+  );
 
   // Check if current route is a public route
   const pathname = location.pathname;
@@ -69,12 +69,9 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     return <FiduAuthLogin />;
   }
 
-  // If authenticated but no profile selected, show profile selector
-  if (!currentProfile) {
-    return <ProfileSelector />;
-  }
-
-  // If authenticated and profile selected, render children (main app)
+  // If authenticated, workspace will always be selected (default profile or saved workspace)
+  // No need to check for workspace selection - initializeAuth handles it
+  // If authenticated, render children (main app)
   return <>{children}</>;
 };
 

@@ -163,17 +163,21 @@ class TestInfrastructure:
         """Test that the required database tables are created."""
         with get_cursor() as cursor:
             # Check that data_packets table exists
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT name FROM sqlite_master 
                 WHERE type='table' AND name='data_packets'
-            """)
+            """
+            )
             assert cursor.fetchone() is not None
 
             # Check that data_packet_tags table exists
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT name FROM sqlite_master 
                 WHERE type='table' AND name='data_packet_tags'
-            """)
+            """
+            )
             assert cursor.fetchone() is not None
 
 

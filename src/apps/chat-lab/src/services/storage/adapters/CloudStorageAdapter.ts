@@ -363,9 +363,8 @@ export class CloudStorageAdapter implements StorageAdapter {
       sort_order: 'desc',
     };
 
-    // Only filter by user_id and profile_id for personal workspaces
+    // Only filter by profile_id for personal workspaces (not user_id, as it may be a placeholder like 'current_user')
     if (!isSharedWorkspace) {
-      queryParams.user_id = this.ensureUserId();
       queryParams.profile_id = profileId;
     }
 
@@ -382,7 +381,10 @@ export class CloudStorageAdapter implements StorageAdapter {
         limit,
       };
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error(
+        '❌ [CloudStorageAdapter.getConversations] Error fetching conversations:',
+        error
+      );
       throw error;
     }
   }
@@ -679,9 +681,8 @@ export class CloudStorageAdapter implements StorageAdapter {
       sort_order: 'desc',
     };
 
-    // Only filter by user_id and profile_id for personal workspaces
+    // Only filter by profile_id for personal workspaces (not user_id, as it may be a placeholder like 'current_user')
     if (!isSharedWorkspace) {
-      contextQueryParams.user_id = this.ensureUserId();
       contextQueryParams.profile_id = profileId;
     }
     // For shared workspaces, show all data (no user_id/profile_id filtering)
@@ -818,9 +819,8 @@ export class CloudStorageAdapter implements StorageAdapter {
       sort_order: 'desc',
     };
 
-    // Only filter by user_id and profile_id for personal workspaces
+    // Only filter by profile_id for personal workspaces (not user_id, as it may be a placeholder like 'current_user')
     if (!isSharedWorkspace) {
-      systemPromptQueryParams.user_id = this.ensureUserId();
       systemPromptQueryParams.profile_id = profileId;
     }
     // For shared workspaces, show all data (no user_id/profile_id filtering)
@@ -958,9 +958,8 @@ export class CloudStorageAdapter implements StorageAdapter {
       sort_order: 'desc',
     };
 
-    // Only filter by user_id and profile_id for personal workspaces
+    // Only filter by profile_id for personal workspaces (not user_id, as it may be a placeholder like 'current_user')
     if (!isSharedWorkspace) {
-      queryParams.user_id = this.ensureUserId();
       queryParams.profile_id = profileId;
     }
     // For shared workspaces, show all data (no user_id/profile_id filtering)
@@ -1169,7 +1168,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     };
 
     if (!isSharedWorkspace) {
-      documentQueryParams.user_id = this.ensureUserId();
+      // Only filter by profile_id for personal workspaces (not user_id, as it may be a placeholder like 'current_user')
       if (profileId) {
         documentQueryParams.profile_id = profileId;
       }

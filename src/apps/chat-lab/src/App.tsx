@@ -47,11 +47,11 @@ import LoadingProgress from './components/common/LoadingProgress';
 import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
 import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
+import { FeatureFlagGuard } from './components/common/FeatureFlagGuard';
 import {
   supportsDocuments,
   supportsBackgroundAgents,
 } from './utils/storageFeatureChecks';
-import { useFeatureFlag } from './hooks/useFeatureFlag';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
 
@@ -64,15 +64,11 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const BackgroundAgentsPage = React.lazy(
   () => import('./pages/BackgroundAgentsPage')
 );
-const ImportExportPage = React.lazy(() => import('./pages/ImportExportPage'));
 const WorkspacesPage = React.lazy(() => import('./pages/WorkspacesPage'));
 const CloudModeTest = React.lazy(() => import('./components/CloudModeTest'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = React.lazy(() => import('./pages/TermsOfUsePage'));
-const WhatsNewPage = React.lazy(() => import('./pages/WhatsNewPage'));
 const DocumentsPage = React.lazy(() => import('./pages/DocumentsPage'));
-const DeleteAccountPage = React.lazy(() => import('./pages/DeleteAccountPage'));
-const FeatureFlagPage = React.lazy(() => import('./pages/FeatureFlagPage'));
 
 // Loading fallback component for lazy-loaded routes
 const PageLoadingFallback: React.FC = () => (
@@ -268,7 +264,6 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
   const [workspaceRestored, setWorkspaceRestored] = useState(false);
-  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -1062,55 +1057,67 @@ const AppContent: React.FC<AppContentProps> = () => {
                       path="/conversations"
                       element={<ConversationsPage />}
                     />
-                    <Route path="/contexts" element={<ContextsPage />} />
+                    <Route
+                      path="/contexts"
+                      element={
+                        <FeatureFlagGuard
+                          featureFlag="context"
+                          featureName="Contexts"
+                        >
+                          <ContextsPage />
+                        </FeatureFlagGuard>
+                      }
+                    />
                     <Route
                       path="/system-prompts"
-                      element={<SystemPromptsPage />}
+                      element={
+                        <FeatureFlagGuard
+                          featureFlag="system_prompts"
+                          featureName="System Prompts"
+                        >
+                          <SystemPromptsPage />
+                        </FeatureFlagGuard>
+                      }
                     />
                     <Route
                       path="/background-agents"
                       element={
-                        <StorageFeatureGuard
+                        <FeatureFlagGuard
+                          featureFlag="background_agents"
                           featureName="Background Agents"
-                          checkFeature={supportsBackgroundAgents}
                         >
-                          <BackgroundAgentsPage />
-                        </StorageFeatureGuard>
+                          <StorageFeatureGuard
+                            featureName="Background Agents"
+                            checkFeature={supportsBackgroundAgents}
+                          >
+                            <BackgroundAgentsPage />
+                          </StorageFeatureGuard>
+                        </FeatureFlagGuard>
                       }
                     />
                     <Route
                       path="/documents"
                       element={
-                        <StorageFeatureGuard
+                        <FeatureFlagGuard
+                          featureFlag="documents"
                           featureName="Documents"
-                          checkFeature={supportsDocuments}
                         >
-                          <DocumentsPage />
-                        </StorageFeatureGuard>
+                          <StorageFeatureGuard
+                            featureName="Documents"
+                            checkFeature={supportsDocuments}
+                          >
+                            <DocumentsPage />
+                          </StorageFeatureGuard>
+                        </FeatureFlagGuard>
                       }
                     />
-                    <Route
-                      path="/feature-flags"
-                      element={<FeatureFlagPage />}
-                    />
-                    <Route
-                      path="/import-export"
-                      element={<ImportExportPage />}
-                    />
-                    {isSharedWorkspacesEnabled && (
-                      <Route path="/workspaces" element={<WorkspacesPage />} />
-                    )}
+                    <Route path="/workspaces" element={<WorkspacesPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route
                       path="/privacy-policy"
                       element={<PrivacyPolicyPage />}
                     />
                     <Route path="/terms-of-use" element={<TermsOfUsePage />} />
-                    <Route
-                      path="/delete-account"
-                      element={<DeleteAccountPage />}
-                    />
-                    <Route path="/whats-new" element={<WhatsNewPage />} />
                     <Route path="/cloud-test" element={<CloudModeTest />} />
                     <Route
                       path="/oauth-callback"

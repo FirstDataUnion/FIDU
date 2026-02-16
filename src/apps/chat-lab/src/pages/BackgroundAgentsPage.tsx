@@ -1011,6 +1011,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const isOutputToDocumentEnabled = useFeatureFlag(
     'background_agent_to_document'
   );
+  const isDocumentsEnabled = useFeatureFlag('documents');
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1297,6 +1298,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         && !outputDocumentId
         && createForm.newOutputDocumentTitle
       ) {
+        // Check if documents feature flag is enabled
+        if (!isDocumentsEnabled) {
+          throw new Error('Documents feature is disabled');
+        }
+
         const created = await storage.createDocument(
           {
             title: createForm.newOutputDocumentTitle,
@@ -1337,7 +1343,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to create agent');
     }
-  }, [createForm, currentProfile?.id]);
+  }, [createForm, currentProfile?.id, isDocumentsEnabled]);
 
   const handleToggleEnabled = async (agent: BackgroundAgent) => {
     // For built-in agents, save enabled state to localStorage
@@ -1562,6 +1568,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         && !viewEditForm.outputDocumentId
         && viewEditForm.newOutputDocumentTitle
       ) {
+        // Check if documents feature flag is enabled
+        if (!isDocumentsEnabled) {
+          throw new Error('Documents feature is disabled');
+        }
+
         const created = await storage.createDocument(
           {
             title: viewEditForm.newOutputDocumentTitle,
@@ -1592,7 +1603,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to update agent');
     }
-  }, [selectedAgent, viewEditForm, currentProfile?.id]);
+  }, [selectedAgent, viewEditForm, currentProfile?.id, isDocumentsEnabled]);
 
   const handleDeleteAgent = useCallback(async () => {
     if (!selectedAgent || selectedAgent.isSystem) return;

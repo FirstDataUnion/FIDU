@@ -23,6 +23,7 @@ import {
   Badge,
   FormControlLabel,
   Checkbox,
+  TextField,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -30,13 +31,19 @@ import {
   CheckCircle as CheckCircleIcon,
   Folder as FolderIcon,
   People as PeopleIcon,
-  Home as HomeIcon,
   Mail as MailIcon,
   PersonAdd as PersonAddIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { switchWorkspace } from '../store/slices/unifiedStorageSlice';
+import {
+  setCurrentProfile,
+  setCurrentWorkspace,
+  updateProfile,
+  deleteProfile,
+  createProfile,
+} from '../store/slices/authSlice';
 import { getWorkspaceRegistry } from '../services/workspace/WorkspaceRegistry';
 import { identityServiceAPIClient } from '../services/api/apiClientIdentityService';
 import CreateWorkspaceDialog from '../components/workspace/CreateWorkspaceDialog';
@@ -46,13 +53,26 @@ import { useWorkspaceInvitations } from '../hooks/useWorkspaceInvitations';
 import { getWorkspaceInvitationService } from '../services/workspace/WorkspaceInvitationService';
 import { getGoogleDriveAuthService } from '../services/auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../services/storage/drive/GoogleDriveService';
-import type { WorkspaceMetadata } from '../types';
+import type { WorkspaceMetadata, Profile } from '../types';
 import type { AcceptInvitationProgress } from '../services/workspace/WorkspaceInvitationService';
+import {
+  profileToUnifiedWorkspace,
+  workspaceMetadataToUnifiedWorkspace,
+} from '../utils/workspaceHelpers';
+import { refreshAllDataFromStorage } from '../store/refreshAllData';
+import {
+  Edit as EditIcon,
+  AccountCircle as AccountIcon,
+} from '@mui/icons-material';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const WorkspacesPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const unifiedStorage = useAppSelector(state => state.unifiedStorage);
-  const { user } = useAppSelector(state => state.auth);
+  const { personalWorkspaces, currentWorkspace } = useAppSelector(
+    state => state.auth
+  );
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   const [workspaces, setWorkspaces] = useState<WorkspaceMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,20 +87,36 @@ const WorkspacesPage: React.FC = () => {
   const [showManageMembersDialog, setShowManageMembersDialog] = useState<{
     workspace: WorkspaceMetadata;
   } | null>(null);
+  const [showRenamePersonalDialog, setShowRenamePersonalDialog] = useState<{
+    profile: Profile;
+  } | null>(null);
+  const [showDeletePersonalDialog, setShowDeletePersonalDialog] = useState<{
+    profile: Profile;
+  } | null>(null);
+  const [showCreatePersonalDialog, setShowCreatePersonalDialog] =
+    useState(false);
+  const [newPersonalWorkspaceName, setNewPersonalWorkspaceName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDriveFolder, setDeleteDriveFolder] = useState(true);
   const [isSwitching, setIsSwitching] = useState<string | null>(null);
+  const [renamingProfileId, setRenamingProfileId] = useState<string | null>(
+    null
+  );
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(
+    null
+  );
   const [hasDriveFileScope, setHasDriveFileScope] = useState<boolean | null>(
     null
   );
   const [isCheckingScope, setIsCheckingScope] = useState(false);
 
-  // Invitation state
+  // Invitation state (only fetch if feature is enabled)
   const {
     invitations,
     isLoading: invitationsLoading,
     refresh: refreshInvitations,
   } = useWorkspaceInvitations();
+  const filteredInvitations = isSharedWorkspacesEnabled ? invitations : [];
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<
     string | null
   >(null);
@@ -205,14 +241,21 @@ const WorkspacesPage: React.FC = () => {
 
       // Sync workspaces from API first to ensure we have the latest data
       // This is critical for members who were added to workspaces in previous sessions
-      try {
-        await registry.syncFromAPI();
-      } catch {
-        // Continue with local registry if sync fails (e.g., offline, API error)
+      // Only sync if shared workspaces feature is enabled
+      if (isSharedWorkspacesEnabled) {
+        try {
+          await registry.syncFromAPI();
+        } catch {
+          // Continue with local registry if sync fails (e.g., offline, API error)
+        }
       }
 
       const allWorkspaces = registry.getWorkspaces();
-      setWorkspaces(allWorkspaces);
+      // Filter out shared workspaces if feature is disabled
+      const filteredWorkspaces = isSharedWorkspacesEnabled
+        ? allWorkspaces
+        : allWorkspaces.filter(w => w.type !== 'shared');
+      setWorkspaces(filteredWorkspaces);
     } catch (err: any) {
       console.error('Failed to load workspaces:', err);
       setError(err.message || 'Failed to load workspaces');
@@ -230,6 +273,23 @@ const WorkspacesPage: React.FC = () => {
     loadWorkspaces(); // Reload to show new workspace
   };
 
+  const handleCreatePersonalWorkspace = async () => {
+    if (!newPersonalWorkspaceName.trim()) return;
+
+    try {
+      const result = await dispatch(
+        createProfile(newPersonalWorkspaceName.trim())
+      );
+      if (createProfile.fulfilled.match(result)) {
+        setShowCreatePersonalDialog(false);
+        setNewPersonalWorkspaceName('');
+      }
+    } catch (err: any) {
+      console.error('Failed to create personal workspace:', err);
+      setError(err.message || 'Failed to create personal workspace');
+    }
+  };
+
   const handleSwitchWorkspace = async (workspaceId: string) => {
     if (isSwitching) return; // Prevent multiple switches
 
@@ -237,7 +297,19 @@ const WorkspacesPage: React.FC = () => {
     setError(null);
 
     try {
+      // Find the workspace metadata
+      const workspace = workspaces.find(w => w.id === workspaceId);
+      if (!workspace) {
+        throw new Error(`Workspace not found: ${workspaceId}`);
+      }
+
+      // Switch storage
       await dispatch(switchWorkspace(workspaceId)).unwrap();
+
+      // Update Redux auth state with the shared workspace
+      const unifiedWorkspace = workspaceMetadataToUnifiedWorkspace(workspace);
+      dispatch(setCurrentWorkspace(unifiedWorkspace));
+
       loadWorkspaces(); // Reload to update active status
     } catch (err: any) {
       console.error('Failed to switch workspace:', err);
@@ -362,22 +434,10 @@ const WorkspacesPage: React.FC = () => {
     setShowManageMembersDialog(null);
   };
 
-  const getActiveWorkspaceId = (): string | null => {
-    const registry = getWorkspaceRegistry();
-    return registry.getActiveWorkspaceId();
-  };
-
-  const activeWorkspaceId = getActiveWorkspaceId();
-  const activeWorkspace = activeWorkspaceId
-    ? workspaces.find(w => w.id === activeWorkspaceId)
-    : null;
-  const isInSharedWorkspace = activeWorkspace?.type === 'shared';
-
-  // Personal workspace is virtual (always available, not stored)
-  const personalWorkspaceName = user?.name || user?.email || 'My';
-
   // Handler to switch to personal workspace (virtual - no stored entry)
-  const handleSwitchToPersonal = async () => {
+  // Note: Currently unused but kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleSwitchToPersonal = async () => {
     if (isSwitching) return; // Prevent multiple switches
 
     setIsSwitching('personal');
@@ -392,6 +452,101 @@ const WorkspacesPage: React.FC = () => {
       setError(err.message || 'Failed to switch to personal workspace');
     } finally {
       setIsSwitching(null);
+    }
+  };
+
+  // Handle switching to a personal workspace (profile)
+  const handleSwitchToPersonalWorkspace = async (profile: Profile) => {
+    if (isSwitching) return;
+
+    const workspace = profileToUnifiedWorkspace(profile);
+    setIsSwitching(workspace.id);
+    setError(null);
+
+    try {
+      // Check if we're switching from shared to personal, or personal to personal
+      const isCurrentlyPersonal = currentWorkspace?.type === 'personal';
+
+      if (isCurrentlyPersonal) {
+        // Just update profile, no storage switch needed
+        dispatch(setCurrentProfile(profile));
+      } else {
+        // Switching from shared to personal: update profile FIRST
+        // Then switch storage so refreshAllDataFromStorage (called during sync) uses the correct profile
+        console.log(
+          '🔄 [WorkspacesPage] Switching from shared to personal workspace:',
+          profile.name
+        );
+        dispatch(setCurrentProfile(profile));
+        console.log(
+          '🔄 [WorkspacesPage] Profile updated, switching workspace...'
+        );
+        await dispatch(switchWorkspace(null)).unwrap();
+        console.log(
+          '🔄 [WorkspacesPage] Workspace switch completed, refreshing data...'
+        );
+        // Explicitly refresh all data after workspace switch completes
+        // This ensures data is loaded even if the sync's refreshAllDataFromStorage didn't work correctly
+        await refreshAllDataFromStorage();
+        console.log('✅ [WorkspacesPage] Data refresh completed');
+      }
+    } catch (err: any) {
+      console.error('Failed to switch to personal workspace:', err);
+      setError(err.message || 'Failed to switch to personal workspace');
+    } finally {
+      setIsSwitching(null);
+    }
+  };
+
+  // Handle renaming a personal workspace (profile)
+  const handleRenamePersonalWorkspace = (profile: Profile) => {
+    setNewPersonalWorkspaceName(profile.name); // Initialize with current name
+    setShowRenamePersonalDialog({ profile });
+  };
+
+  const handleRenamePersonalConfirm = async (newName: string) => {
+    if (!showRenamePersonalDialog) return;
+
+    setRenamingProfileId(showRenamePersonalDialog.profile.id);
+    setError(null);
+
+    try {
+      await dispatch(
+        updateProfile({
+          profile_id: showRenamePersonalDialog.profile.id,
+          display_name: newName,
+        })
+      ).unwrap();
+      setShowRenamePersonalDialog(null);
+    } catch (err: any) {
+      console.error('Failed to rename personal workspace:', err);
+      setError(err.message || 'Failed to rename personal workspace');
+    } finally {
+      setRenamingProfileId(null);
+    }
+  };
+
+  // Handle deleting a personal workspace (profile)
+  const handleDeletePersonalWorkspace = (profile: Profile) => {
+    setShowDeletePersonalDialog({ profile });
+  };
+
+  const handleDeletePersonalConfirm = async () => {
+    if (!showDeletePersonalDialog) return;
+
+    setDeletingProfileId(showDeletePersonalDialog.profile.id);
+    setError(null);
+
+    try {
+      await dispatch(
+        deleteProfile(showDeletePersonalDialog.profile.id)
+      ).unwrap();
+      setShowDeletePersonalDialog(null);
+    } catch (err: any) {
+      console.error('Failed to delete personal workspace:', err);
+      setError(err.message || 'Failed to delete personal workspace');
+    } finally {
+      setDeletingProfileId(null);
     }
   };
 
@@ -422,43 +577,11 @@ const WorkspacesPage: React.FC = () => {
           <Typography variant="h4" component="h1">
             Workspaces
           </Typography>
-          {invitations.length > 0 && (
-            <Badge badgeContent={invitations.length} color="error">
+          {isSharedWorkspacesEnabled && filteredInvitations.length > 0 && (
+            <Badge badgeContent={filteredInvitations.length} color="error">
               <MailIcon color="action" />
             </Badge>
           )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {isInSharedWorkspace && (
-            <Button
-              variant="outlined"
-              startIcon={
-                isSwitching === 'personal' ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <HomeIcon />
-                )
-              }
-              onClick={handleSwitchToPersonal}
-              disabled={
-                isSwitching !== null || unifiedStorage.isSwitchingWorkspace
-              }
-            >
-              {isSwitching === 'personal'
-                ? 'Switching...'
-                : 'Back to Personal Workspace'}
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateWorkspace}
-            disabled={
-              unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
-            }
-          >
-            Create Workspace
-          </Button>
         </Box>
       </Box>
 
@@ -502,8 +625,8 @@ const WorkspacesPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Pending Invitations Section */}
-      {invitations.length > 0 && (
+      {/* Pending Invitations Section - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && filteredInvitations.length > 0 && (
         <Card sx={{ mb: 3, border: 2, borderColor: 'warning.main' }}>
           <CardContent>
             <Box
@@ -515,7 +638,7 @@ const WorkspacesPage: React.FC = () => {
               }}
             >
               <Typography variant="h6">
-                Pending Invitations ({invitations.length})
+                Pending Invitations ({filteredInvitations.length})
               </Typography>
               <Button
                 variant="outlined"
@@ -534,7 +657,7 @@ const WorkspacesPage: React.FC = () => {
               </Button>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {invitations.map(invitation => (
+              {filteredInvitations.map(invitation => (
                 <Box
                   key={invitation.workspace_id}
                   sx={{
@@ -588,255 +711,418 @@ const WorkspacesPage: React.FC = () => {
         </Card>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Personal Workspace (Virtual - always available) */}
-        <Card
-          sx={{
-            border: activeWorkspaceId === null ? 2 : 1,
-            borderColor:
-              activeWorkspaceId === null ? 'primary.main' : 'divider',
-          }}
-        >
-          <CardContent>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Personal Workspaces Section */}
+        <Box>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 2,
+            }}
+          >
+            <Typography variant="h5" component="h2">
+              Personal Workspaces
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setShowCreatePersonalDialog(true)}
+            >
+              Create Personal Workspace
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {personalWorkspaces.length === 0 ? (
+              <Card>
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary">
+                    No personal workspaces. Create one to get started.
+                  </Typography>
+                </CardContent>
+              </Card>
+            ) : (
+              personalWorkspaces.map(profile => {
+                const workspace = profileToUnifiedWorkspace(profile);
+                const isActive =
+                  currentWorkspace?.type === 'personal'
+                  && currentWorkspace?.id === workspace.id;
+                return (
+                  <Card
+                    key={workspace.id}
+                    sx={{
+                      border: isActive ? 2 : 1,
+                      borderColor: isActive ? 'primary.main' : 'divider',
+                    }}
+                  >
+                    <CardContent>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <Box sx={{ flex: 1 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              mb: 1,
+                            }}
+                          >
+                            <AccountIcon sx={{ mr: 0.5 }} />
+                            <Typography variant="h6" component="h3">
+                              {workspace.name}
+                            </Typography>
+                            {isActive && (
+                              <Chip
+                                icon={<CheckCircleIcon />}
+                                label="Active"
+                                color="primary"
+                                size="small"
+                              />
+                            )}
+                            <Chip
+                              label="Personal"
+                              size="small"
+                              color="default"
+                            />
+                          </Box>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mb: 2 }}
+                          >
+                            Created:{' '}
+                            {new Date(
+                              profile.create_timestamp
+                            ).toLocaleDateString()}
+                          </Typography>
+                          {!isActive && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() =>
+                                handleSwitchToPersonalWorkspace(profile)
+                              }
+                              disabled={
+                                isSwitching !== null
+                                || unifiedStorage.isSwitchingWorkspace
+                              }
+                              sx={{
+                                alignSelf: 'flex-start',
+                                width: 'fit-content',
+                              }}
+                            >
+                              {isSwitching === workspace.id
+                                ? 'Switching...'
+                                : 'Switch to Workspace'}
+                            </Button>
+                          )}
+                        </Box>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            gap: 1,
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              handleRenamePersonalWorkspace(profile)
+                            }
+                            disabled={renamingProfileId !== null}
+                            title="Rename Workspace"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              handleDeletePersonalWorkspace(profile)
+                            }
+                            disabled={
+                              deletingProfileId !== null
+                              || personalWorkspaces.length === 1
+                            }
+                            color="error"
+                            title="Delete Workspace"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </Box>
+        </Box>
+
+        {/* Shared Workspaces Section - only show if feature is enabled */}
+        {isSharedWorkspacesEnabled && (
+          <Box>
             <Box
               sx={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'flex-start',
+                alignItems: 'center',
+                mb: 2,
               }}
             >
-              <Box sx={{ flex: 1 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <Typography variant="h6" component="h2">
-                    {personalWorkspaceName}'s Workspace
-                  </Typography>
-                  {activeWorkspaceId === null && (
-                    <Chip
-                      icon={<CheckCircleIcon />}
-                      label="Active"
-                      color="primary"
-                      size="small"
-                    />
-                  )}
-                  <Chip label="Personal" size="small" color="default" />
-                </Box>
-
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Your personal workspace. All your conversations, contexts, and
-                  prompts are stored here.
-                </Typography>
-
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {activeWorkspaceId !== null && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={handleSwitchToPersonal}
-                      disabled={
-                        isSwitching !== null
-                        || unifiedStorage.isSwitchingWorkspace
-                      }
-                    >
-                      {isSwitching === 'personal'
-                        ? 'Switching...'
-                        : 'Switch to Personal'}
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Shared Workspaces */}
-        {workspaces.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                align="center"
-                sx={{ py: 4 }}
-              >
-                No shared workspaces. Create a new workspace to collaborate with
-                your team.
+              <Typography variant="h5" component="h2">
+                Shared Workspaces
               </Typography>
-            </CardContent>
-          </Card>
-        ) : (
-          workspaces.map(workspace => {
-            const isActive = workspace.id === activeWorkspaceId;
-            const isSwitchingThis = isSwitching === workspace.id;
-
-            return (
-              <Card
-                key={workspace.id}
-                sx={{
-                  border: isActive ? 2 : 1,
-                  borderColor: isActive ? 'primary.main' : 'divider',
-                }}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateWorkspace}
+                disabled={
+                  unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
+                }
               >
-                <CardContent>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box sx={{ flex: 1 }}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="h6" component="h2">
-                          {workspace.name}
-                        </Typography>
-                        {isActive && (
-                          <Chip
-                            icon={<CheckCircleIcon />}
-                            label="Active"
-                            color="primary"
-                            size="small"
-                          />
-                        )}
-                        <Chip label="Shared" size="small" color="secondary" />
-                        {workspace.role && (
-                          <Chip
-                            label={
-                              workspace.role === 'owner' ? 'Owner' : 'Member'
-                            }
-                            size="small"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 2,
-                          mt: 2,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        {workspace.driveFolderId && (
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                            }}
-                          >
-                            <FolderIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary">
-                              Folder ID:{' '}
-                              {workspace.driveFolderId.substring(0, 20)}...
-                            </Typography>
-                          </Box>
-                        )}
-                        {workspace.members && workspace.members.length > 0 && (
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                            }}
-                          >
-                            <PeopleIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary">
-                              {workspace.members.length} member
-                              {workspace.members.length !== 1 ? 's' : ''}
-                            </Typography>
-                          </Box>
-                        )}
-                        <Typography variant="body2" color="text.secondary">
-                          Last accessed:{' '}
-                          {new Date(
-                            workspace.lastAccessed
-                          ).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Box
-                      sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
+                Create Shared Workspace
+              </Button>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Filter to only show valid shared workspaces (with driveFolderId) */}
+              {workspaces.filter(w => w.type === 'shared' && w.driveFolderId)
+                .length === 0 ? (
+                <Card>
+                  <CardContent>
+                    <Typography
+                      variant="body1"
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 4 }}
                     >
-                      {!isActive && (
-                        <Button
-                          variant="outlined"
-                          onClick={() => handleSwitchWorkspace(workspace.id)}
-                          disabled={
-                            isSwitching !== null
-                            || unifiedStorage.isSwitchingWorkspace
-                          }
-                        >
-                          {isSwitchingThis ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            'Switch'
-                          )}
-                        </Button>
-                      )}
-                      {/* Only show management buttons for workspace owners - members should never see these */}
-                      {workspace.type === 'shared'
-                        && workspace.role === 'owner' && (
-                          <>
-                            <IconButton
-                              color="primary"
-                              onClick={() => handleAddMembersClick(workspace)}
-                              size="small"
-                              title="Add Members"
+                      No shared workspaces. Create a new workspace to
+                      collaborate with your team.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ) : (
+                workspaces
+                  .filter(w => w.type === 'shared' && w.driveFolderId)
+                  .map(workspace => {
+                    const isActive =
+                      currentWorkspace?.type === 'shared'
+                      && currentWorkspace?.id === workspace.id;
+                    const isSwitchingThis = isSwitching === workspace.id;
+
+                    return (
+                      <Card
+                        key={workspace.id}
+                        sx={{
+                          border: isActive ? 2 : 1,
+                          borderColor: isActive ? 'primary.main' : 'divider',
+                        }}
+                      >
+                        <CardContent>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                            }}
+                          >
+                            <Box sx={{ flex: 1 }}>
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  mb: 1,
+                                }}
+                              >
+                                <Typography variant="h6" component="h2">
+                                  {workspace.name}
+                                </Typography>
+                                {isActive && (
+                                  <Chip
+                                    icon={<CheckCircleIcon />}
+                                    label="Active"
+                                    color="primary"
+                                    size="small"
+                                  />
+                                )}
+                                <Chip
+                                  label="Shared"
+                                  size="small"
+                                  color="secondary"
+                                />
+                                {workspace.role && (
+                                  <Chip
+                                    label={
+                                      workspace.role === 'owner'
+                                        ? 'Owner'
+                                        : 'Member'
+                                    }
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Box>
+
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 0.5,
+                                }}
+                              >
+                                {workspace.driveFolderId && (
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                    }}
+                                  >
+                                    <FolderIcon
+                                      fontSize="small"
+                                      color="action"
+                                    />
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                    >
+                                      Folder ID:{' '}
+                                      {workspace.driveFolderId.substring(0, 20)}
+                                      ...
+                                    </Typography>
+                                  </Box>
+                                )}
+                                {workspace.members
+                                  && workspace.members.length > 0 && (
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                      }}
+                                    >
+                                      <PeopleIcon
+                                        fontSize="small"
+                                        color="action"
+                                      />
+                                      <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                      >
+                                        {workspace.members.length} member
+                                        {workspace.members.length !== 1
+                                          ? 's'
+                                          : ''}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                  sx={{ mb: 2 }}
+                                >
+                                  Last accessed:{' '}
+                                  {new Date(
+                                    workspace.lastAccessed
+                                  ).toLocaleDateString()}
+                                </Typography>
+                                {!isActive && (
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() =>
+                                      handleSwitchWorkspace(workspace.id)
+                                    }
+                                    disabled={
+                                      isSwitching !== null
+                                      || unifiedStorage.isSwitchingWorkspace
+                                    }
+                                    sx={{
+                                      alignSelf: 'flex-start',
+                                      width: 'fit-content',
+                                    }}
+                                  >
+                                    {isSwitchingThis ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      'Switch to Workspace'
+                                    )}
+                                  </Button>
+                                )}
+                              </Box>
+                            </Box>
+
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                gap: 1,
+                                alignItems: 'flex-start',
+                              }}
                             >
-                              <PersonAddIcon />
-                            </IconButton>
-                            <IconButton
-                              color="primary"
-                              onClick={() =>
-                                handleManageMembersClick(workspace)
-                              }
-                              size="small"
-                              title="Manage Members"
-                            >
-                              <PeopleIcon />
-                            </IconButton>
-                            <IconButton
-                              color="error"
-                              onClick={() => handleDeleteClick(workspace)}
-                              disabled={isDeleting}
-                              size="small"
-                              title="Delete Workspace"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </>
-                        )}
-                      {/* Members should not see any management buttons */}
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })
+                              {/* Only show management buttons for workspace owners - members should never see these */}
+                              {workspace.type === 'shared'
+                                && workspace.role === 'owner' && (
+                                  <>
+                                    <IconButton
+                                      color="primary"
+                                      onClick={() =>
+                                        handleAddMembersClick(workspace)
+                                      }
+                                      size="small"
+                                      title="Add Members"
+                                    >
+                                      <PersonAddIcon />
+                                    </IconButton>
+                                    <IconButton
+                                      color="primary"
+                                      onClick={() =>
+                                        handleManageMembersClick(workspace)
+                                      }
+                                      size="small"
+                                      title="Manage Members"
+                                    >
+                                      <PeopleIcon />
+                                    </IconButton>
+                                    <IconButton
+                                      color="error"
+                                      onClick={() =>
+                                        handleDeleteClick(workspace)
+                                      }
+                                      disabled={isDeleting}
+                                      size="small"
+                                      title="Delete Workspace"
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </>
+                                )}
+                              {/* Members should not see any management buttons */}
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+              )}
+            </Box>
+          </Box>
         )}
       </Box>
 
-      {/* Create Workspace Dialog */}
-      <CreateWorkspaceDialog
-        open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {/* Create Workspace Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && (
+        <CreateWorkspaceDialog
+          open={showCreateDialog}
+          onClose={() => setShowCreateDialog(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -936,8 +1222,8 @@ const WorkspacesPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add Members Dialog */}
-      {showAddMembersDialog && (
+      {/* Add Members Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && showAddMembersDialog && (
         <AddMembersDialog
           open={showAddMembersDialog !== null}
           onClose={handleAddMembersCancel}
@@ -948,8 +1234,8 @@ const WorkspacesPage: React.FC = () => {
         />
       )}
 
-      {/* Manage Members Dialog */}
-      {showManageMembersDialog && (
+      {/* Manage Members Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && showManageMembersDialog && (
         <ManageMembersDialog
           open={showManageMembersDialog !== null}
           onClose={handleManageMembersCancel}
@@ -959,6 +1245,180 @@ const WorkspacesPage: React.FC = () => {
           driveFolderId={showManageMembersDialog.workspace.driveFolderId!}
         />
       )}
+
+      {/* Rename Personal Workspace Dialog */}
+      <Dialog
+        open={showRenamePersonalDialog !== null}
+        onClose={() => {
+          setShowRenamePersonalDialog(null);
+          setNewPersonalWorkspaceName('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Rename Personal Workspace</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Workspace Name"
+            fullWidth
+            variant="outlined"
+            value={
+              newPersonalWorkspaceName
+              || showRenamePersonalDialog?.profile.name
+              || ''
+            }
+            onChange={e => setNewPersonalWorkspaceName(e.target.value)}
+            onKeyPress={e => {
+              if (e.key === 'Enter' && newPersonalWorkspaceName.trim()) {
+                if (showRenamePersonalDialog) {
+                  handleRenamePersonalConfirm(newPersonalWorkspaceName.trim());
+                  setNewPersonalWorkspaceName('');
+                }
+              }
+            }}
+            inputProps={{
+              maxLength: 100,
+            }}
+            helperText={`${(newPersonalWorkspaceName || showRenamePersonalDialog?.profile.name || '').length}/100 characters`}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowRenamePersonalDialog(null);
+              setNewPersonalWorkspaceName('');
+            }}
+            disabled={renamingProfileId !== null}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (showRenamePersonalDialog && newPersonalWorkspaceName.trim()) {
+                handleRenamePersonalConfirm(newPersonalWorkspaceName.trim());
+                setNewPersonalWorkspaceName('');
+              }
+            }}
+            variant="contained"
+            disabled={
+              !newPersonalWorkspaceName.trim()
+              || renamingProfileId !== null
+              || newPersonalWorkspaceName.trim()
+                === showRenamePersonalDialog?.profile.name
+            }
+            startIcon={
+              renamingProfileId !== null ? (
+                <CircularProgress size={16} />
+              ) : (
+                <EditIcon />
+              )
+            }
+          >
+            {renamingProfileId !== null ? 'Renaming...' : 'Rename'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Personal Workspace Dialog */}
+      <Dialog
+        open={showDeletePersonalDialog !== null}
+        onClose={() => setShowDeletePersonalDialog(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Personal Workspace</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete the personal workspace "
+            {showDeletePersonalDialog?.profile.name}"? This action cannot be
+            undone and will permanently delete all conversations, contexts, and
+            other data associated with this workspace.
+          </DialogContentText>
+          {personalWorkspaces.length === 1 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              You cannot delete your last personal workspace. Please create
+              another one first.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowDeletePersonalDialog(null)}
+            disabled={deletingProfileId !== null}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeletePersonalConfirm}
+            color="error"
+            variant="contained"
+            disabled={
+              deletingProfileId !== null || personalWorkspaces.length === 1
+            }
+            startIcon={
+              deletingProfileId !== null ? (
+                <CircularProgress size={16} />
+              ) : (
+                <DeleteIcon />
+              )
+            }
+          >
+            {deletingProfileId !== null ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Personal Workspace Dialog */}
+      <Dialog
+        open={showCreatePersonalDialog}
+        onClose={() => {
+          setShowCreatePersonalDialog(false);
+          setNewPersonalWorkspaceName('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create Personal Workspace</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Workspace Name"
+            fullWidth
+            variant="outlined"
+            value={newPersonalWorkspaceName}
+            onChange={e => setNewPersonalWorkspaceName(e.target.value)}
+            onKeyPress={e => {
+              if (e.key === 'Enter' && newPersonalWorkspaceName.trim()) {
+                handleCreatePersonalWorkspace();
+              }
+            }}
+            inputProps={{
+              maxLength: 100,
+            }}
+            helperText={`${newPersonalWorkspaceName.length}/100 characters`}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowCreatePersonalDialog(false);
+              setNewPersonalWorkspaceName('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreatePersonalWorkspace}
+            variant="contained"
+            disabled={!newPersonalWorkspaceName.trim()}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
