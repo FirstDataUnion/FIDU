@@ -5,6 +5,11 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - UNRELEASED
+
+### Changed
+- **UI Simplification** Redesigned the main UI to slim down the number of buttons available. Most options have been moved to settings. Profiles and workspaces have been merged into the single concept of "workspaces". Feature flags have been set more aggressively to reduce initial number of features, but these can all be set back on via the settings menu. 
+
 ## [0.2.1] - 2026-02-11
 
 ### Added

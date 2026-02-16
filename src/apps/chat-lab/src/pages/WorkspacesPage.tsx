@@ -124,10 +124,42 @@ const WorkspacesPage: React.FC = () => {
     useState<AcceptInvitationProgress | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
 
+  const loadWorkspaces = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const registry = getWorkspaceRegistry();
+
+      // Sync workspaces from API first to ensure we have the latest data
+      // This is critical for members who were added to workspaces in previous sessions
+      // Only sync if shared workspaces feature is enabled
+      if (isSharedWorkspacesEnabled) {
+        try {
+          await registry.syncFromAPI();
+        } catch {
+          // Continue with local registry if sync fails (e.g., offline, API error)
+        }
+      }
+
+      const allWorkspaces = registry.getWorkspaces();
+      // Filter out shared workspaces if feature is disabled
+      const filteredWorkspaces = isSharedWorkspacesEnabled
+        ? allWorkspaces
+        : allWorkspaces.filter(w => w.type !== 'shared');
+      setWorkspaces(filteredWorkspaces);
+    } catch (err: any) {
+      console.error('Failed to load workspaces:', err);
+      setError(err.message || 'Failed to load workspaces');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isSharedWorkspacesEnabled]);
+
   // Load workspaces on mount
   useEffect(() => {
     loadWorkspaces();
-  }, []);
+  }, [loadWorkspaces]);
 
   // Check for drive.file scope when dialog opens
   const checkDriveFileScope = useCallback(async () => {
@@ -230,38 +262,6 @@ const WorkspacesPage: React.FC = () => {
     // TODO: Implement decline API call when available
     console.log('Decline invitation:', invitation.workspace_id);
     setError('Decline functionality not yet implemented');
-  };
-
-  const loadWorkspaces = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const registry = getWorkspaceRegistry();
-
-      // Sync workspaces from API first to ensure we have the latest data
-      // This is critical for members who were added to workspaces in previous sessions
-      // Only sync if shared workspaces feature is enabled
-      if (isSharedWorkspacesEnabled) {
-        try {
-          await registry.syncFromAPI();
-        } catch {
-          // Continue with local registry if sync fails (e.g., offline, API error)
-        }
-      }
-
-      const allWorkspaces = registry.getWorkspaces();
-      // Filter out shared workspaces if feature is disabled
-      const filteredWorkspaces = isSharedWorkspacesEnabled
-        ? allWorkspaces
-        : allWorkspaces.filter(w => w.type !== 'shared');
-      setWorkspaces(filteredWorkspaces);
-    } catch (err: any) {
-      console.error('Failed to load workspaces:', err);
-      setError(err.message || 'Failed to load workspaces');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleCreateWorkspace = () => {
@@ -436,7 +436,6 @@ const WorkspacesPage: React.FC = () => {
 
   // Handler to switch to personal workspace (virtual - no stored entry)
   // Note: Currently unused but kept for potential future use
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handleSwitchToPersonal = async () => {
     if (isSwitching) return; // Prevent multiple switches
 

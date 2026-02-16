@@ -147,13 +147,7 @@ export const UnifiedSyncStatus: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    isCloudStorageMode,
-    unifiedStorage.googleDrive.isAuthenticated,
-    unifiedStorage.googleDrive.user,
-    unifiedStorage.googleDrive.error,
-    unifiedStorage.googleDrive.isLoading,
-  ]);
+  }, [isCloudStorageMode, unifiedStorage.googleDrive]);
 
   useEffect(() => {
     // Initial check
@@ -194,7 +188,7 @@ export const UnifiedSyncStatus: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(countdownInterval);
-  }, [status?.hasUnsyncedData, status?.autoSyncEnabled, updateStatus]);
+  }, [status, updateStatus]);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
