@@ -76,7 +76,10 @@ jest.mock('../../../store', () => {
 
 jest.mock('../../../store/selectors/featureFlagsSelectors', () => ({
   selectIsFeatureFlagEnabled: jest.fn((state: any, flag: string) => {
-    return flag === 'background_agents' && state.systemFeatureFlags?.flags?.background_agents === true;
+    return (
+      flag === 'background_agents'
+      && state.systemFeatureFlags?.flags?.background_agents === true
+    );
   }),
 }));
 
