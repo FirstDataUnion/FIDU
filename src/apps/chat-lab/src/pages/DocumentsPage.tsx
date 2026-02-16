@@ -24,6 +24,7 @@ import DocumentEditDialog from '../components/documents/DocumentEditDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
 import type { MarkdownDocument } from '../types';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<MarkdownDocument[]>([]);
@@ -37,6 +38,7 @@ export default function DocumentsPage() {
   >(undefined);
   const currentProfile = useAppSelector(state => state.auth.currentProfile);
   const user = useAppSelector(state => state.auth.user);
+  const isDocumentsEnabled = useFeatureFlag('documents');
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -86,6 +88,9 @@ export default function DocumentsPage() {
       title: string;
       content: string;
     }): Promise<{ id: string; title: string; content: string }> => {
+      if (!isDocumentsEnabled) {
+        throw new Error('Documents feature is disabled');
+      }
       if (!currentProfile?.id) {
         throw new Error('No profile ID available');
       }
@@ -96,7 +101,7 @@ export default function DocumentsPage() {
       );
       return { id: created.id, title: created.title, content: created.content };
     },
-    [currentProfile?.id]
+    [currentProfile?.id, isDocumentsEnabled]
   );
 
   const handleUpdateDocument = useCallback(
@@ -104,6 +109,9 @@ export default function DocumentsPage() {
       documentId: string,
       document: { title: string; content: string }
     ): Promise<{ id: string; title: string; content: string }> => {
+      if (!isDocumentsEnabled) {
+        throw new Error('Documents feature is disabled');
+      }
       if (!currentProfile?.id) {
         throw new Error('No profile ID available');
       }
@@ -114,13 +122,19 @@ export default function DocumentsPage() {
       );
       return { id: updated.id, title: updated.title, content: updated.content };
     },
-    [currentProfile?.id]
+    [currentProfile?.id, isDocumentsEnabled]
   );
 
-  const handleDeleteDocument = useCallback(async (documentId: string) => {
-    const storage = getUnifiedStorageService();
-    await storage.deleteDocument(documentId);
-  }, []);
+  const handleDeleteDocument = useCallback(
+    async (documentId: string) => {
+      if (!isDocumentsEnabled) {
+        throw new Error('Documents feature is disabled');
+      }
+      const storage = getUnifiedStorageService();
+      await storage.deleteDocument(documentId);
+    },
+    [isDocumentsEnabled]
+  );
 
   const handleDialogClose = useCallback(
     (_?: { id: string; title: string; content: string }) => {

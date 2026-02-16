@@ -259,23 +259,40 @@ export const revokeGoogleDriveAccess = createAsyncThunk(
 // Workspace management thunks
 export const loadWorkspaces = createAsyncThunk(
   'unifiedStorage/loadWorkspaces',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const workspaceRegistry = getWorkspaceRegistry();
 
+      // Check if shared workspaces feature is enabled
+      const state = getState() as any;
+      const { selectIsFeatureFlagEnabled } = await import(
+        '../selectors/featureFlagsSelectors'
+      );
+      const isSharedWorkspacesEnabled = selectIsFeatureFlagEnabled(
+        state,
+        'shared_workspaces'
+      );
+
       // Sync workspaces from API to ensure we have the latest data
       // This is critical for members who were added to workspaces in previous sessions
-      try {
-        await workspaceRegistry.syncFromAPI();
-      } catch {
-        // Continue with local registry if sync fails (e.g., offline, API error, not authenticated)
+      // Only sync if shared workspaces feature is enabled
+      if (isSharedWorkspacesEnabled) {
+        try {
+          await workspaceRegistry.syncFromAPI();
+        } catch {
+          // Continue with local registry if sync fails (e.g., offline, API error, not authenticated)
+        }
       }
 
       const workspaces = workspaceRegistry.getWorkspaces();
+      // Filter out shared workspaces if feature is disabled
+      const filteredWorkspaces = isSharedWorkspacesEnabled
+        ? workspaces
+        : workspaces.filter(w => w.type !== 'shared');
       const activeWorkspaceId = workspaceRegistry.getActiveWorkspaceId();
 
       return {
-        workspaces,
+        workspaces: filteredWorkspaces,
         activeWorkspaceId,
       };
     } catch (error) {

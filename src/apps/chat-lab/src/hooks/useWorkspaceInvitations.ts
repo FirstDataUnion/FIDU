@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { identityServiceAPIClient } from '../services/api/apiClientIdentityService';
+import { useFeatureFlag } from './useFeatureFlag';
 
 export interface WorkspaceInvitation {
   workspace_id: string;
@@ -27,8 +28,17 @@ export const useWorkspaceInvitations = (): UseWorkspaceInvitationsReturn => {
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   const fetchInvitations = useCallback(async () => {
+    // Don't fetch if feature is disabled
+    if (!isSharedWorkspacesEnabled) {
+      setInvitations([]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -62,19 +72,20 @@ export const useWorkspaceInvitations = (): UseWorkspaceInvitationsReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isSharedWorkspacesEnabled]);
 
   useEffect(() => {
-    // Fetch immediately on mount
+    // Fetch immediately on mount (if feature is enabled)
     fetchInvitations();
 
-    // Poll every 5 minutes
-    const interval = setInterval(fetchInvitations, POLL_INTERVAL_MS);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [fetchInvitations]);
+    // Poll every 5 minutes (only if feature is enabled)
+    if (isSharedWorkspacesEnabled) {
+      const interval = setInterval(fetchInvitations, POLL_INTERVAL_MS);
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [fetchInvitations, isSharedWorkspacesEnabled]);
 
   return {
     invitations,

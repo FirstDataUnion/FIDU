@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import { store } from '../index';
+import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
 
 export interface Context {
   id: string;
@@ -42,6 +44,16 @@ const initialState: ContextsState = {
 export const fetchContexts = createAsyncThunk(
   'contexts/fetchContexts',
   async (profileId: string | undefined, { rejectWithValue }) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    if (!isContextsEnabled) {
+      console.log(
+        '📋 [Contexts] Fetch skipped - contexts feature flag is disabled'
+      );
+      return rejectWithValue('Contexts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       const response = await storageService.getContexts(
@@ -71,13 +83,26 @@ export const fetchContexts = createAsyncThunk(
 
 export const createContext = createAsyncThunk(
   'contexts/createContext',
-  async ({
-    contextData,
-    profileId,
-  }: {
-    contextData: Partial<Context>;
-    profileId: string;
-  }) => {
+  async (
+    {
+      contextData,
+      profileId,
+    }: {
+      contextData: Partial<Context>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    if (!isContextsEnabled) {
+      console.log(
+        '📋 [Contexts] Create skipped - contexts feature flag is disabled'
+      );
+      return rejectWithValue('Contexts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       const newContext = await storageService.createContext(
@@ -94,13 +119,26 @@ export const createContext = createAsyncThunk(
 
 export const updateContext = createAsyncThunk(
   'contexts/updateContext',
-  async ({
-    context,
-    profileId,
-  }: {
-    context: Partial<Context>;
-    profileId: string;
-  }) => {
+  async (
+    {
+      context,
+      profileId,
+    }: {
+      context: Partial<Context>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    if (!isContextsEnabled) {
+      console.log(
+        '📋 [Contexts] Update skipped - contexts feature flag is disabled'
+      );
+      return rejectWithValue('Contexts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       const updatedContext = await storageService.updateContext(
@@ -117,7 +155,17 @@ export const updateContext = createAsyncThunk(
 
 export const deleteContext = createAsyncThunk(
   'contexts/deleteContext',
-  async (contextId: string) => {
+  async (contextId: string, { rejectWithValue }) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    if (!isContextsEnabled) {
+      console.log(
+        '📋 [Contexts] Delete skipped - contexts feature flag is disabled'
+      );
+      return rejectWithValue('Contexts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       await storageService.deleteContext(contextId);
@@ -131,17 +179,30 @@ export const deleteContext = createAsyncThunk(
 
 export const addConversationToContext = createAsyncThunk(
   'contexts/addConversationToContext',
-  async ({
-    contextId,
-    conversationId,
-    conversationData,
-    profileId,
-  }: {
-    contextId: string;
-    conversationId: string;
-    conversationData: { title: string; messages: any[]; platform: string };
-    profileId: string;
-  }) => {
+  async (
+    {
+      contextId,
+      conversationId,
+      conversationData,
+      profileId,
+    }: {
+      contextId: string;
+      conversationId: string;
+      conversationData: { title: string; messages: any[]; platform: string };
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    if (!isContextsEnabled) {
+      console.log(
+        '📋 [Contexts] Add conversation skipped - contexts feature flag is disabled'
+      );
+      return rejectWithValue('Contexts feature is disabled');
+    }
+
     // Get the current context to update it
     const storageService = getUnifiedStorageService();
     const contextsResponse = await storageService.getContexts(

@@ -47,11 +47,11 @@ import LoadingProgress from './components/common/LoadingProgress';
 import type { LoadingStep } from './components/common/LoadingProgress';
 import { AlertClickProvider } from './contexts/AlertClickContext';
 import { StorageFeatureGuard } from './components/common/StorageFeatureGuard';
+import { FeatureFlagGuard } from './components/common/FeatureFlagGuard';
 import {
   supportsDocuments,
   supportsBackgroundAgents,
 } from './utils/storageFeatureChecks';
-import { useFeatureFlag } from './hooks/useFeatureFlag';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
 
@@ -264,7 +264,6 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
   const [workspaceRestored, setWorkspaceRestored] = useState(false);
-  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -1058,36 +1057,61 @@ const AppContent: React.FC<AppContentProps> = () => {
                       path="/conversations"
                       element={<ConversationsPage />}
                     />
-                    <Route path="/contexts" element={<ContextsPage />} />
+                    <Route
+                      path="/contexts"
+                      element={
+                        <FeatureFlagGuard
+                          featureFlag="context"
+                          featureName="Contexts"
+                        >
+                          <ContextsPage />
+                        </FeatureFlagGuard>
+                      }
+                    />
                     <Route
                       path="/system-prompts"
-                      element={<SystemPromptsPage />}
+                      element={
+                        <FeatureFlagGuard
+                          featureFlag="system_prompts"
+                          featureName="System Prompts"
+                        >
+                          <SystemPromptsPage />
+                        </FeatureFlagGuard>
+                      }
                     />
                     <Route
                       path="/background-agents"
                       element={
-                        <StorageFeatureGuard
+                        <FeatureFlagGuard
+                          featureFlag="background_agents"
                           featureName="Background Agents"
-                          checkFeature={supportsBackgroundAgents}
                         >
-                          <BackgroundAgentsPage />
-                        </StorageFeatureGuard>
+                          <StorageFeatureGuard
+                            featureName="Background Agents"
+                            checkFeature={supportsBackgroundAgents}
+                          >
+                            <BackgroundAgentsPage />
+                          </StorageFeatureGuard>
+                        </FeatureFlagGuard>
                       }
                     />
                     <Route
                       path="/documents"
                       element={
-                        <StorageFeatureGuard
+                        <FeatureFlagGuard
+                          featureFlag="documents"
                           featureName="Documents"
-                          checkFeature={supportsDocuments}
                         >
-                          <DocumentsPage />
-                        </StorageFeatureGuard>
+                          <StorageFeatureGuard
+                            featureName="Documents"
+                            checkFeature={supportsDocuments}
+                          >
+                            <DocumentsPage />
+                          </StorageFeatureGuard>
+                        </FeatureFlagGuard>
                       }
                     />
-                    {isSharedWorkspacesEnabled && (
-                      <Route path="/workspaces" element={<WorkspacesPage />} />
-                    )}
+                    <Route path="/workspaces" element={<WorkspacesPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route
                       path="/privacy-policy"

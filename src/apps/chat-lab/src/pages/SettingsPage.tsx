@@ -13,7 +13,6 @@ import {
   WhatsNewSettings,
   CustomiseFeaturesSettings,
 } from '../components/settings';
-
 interface Section {
   id: string;
   label: string;
@@ -197,14 +196,14 @@ const SettingsPage: React.FC = () => {
       sx={{
         width: '100%',
         minHeight: '100vh',
-        py: 3,
-        px: 3,
+        py: { xs: 2, md: 3 },
+        px: { xs: 2, md: 3 },
         boxSizing: 'border-box',
         display: 'flex',
-        gap: 3,
+        gap: { xs: 0, md: 3 },
       }}
     >
-      {/* Left Navigation Sidebar */}
+      {/* Left Navigation Sidebar - Hidden on mobile */}
       <Box
         sx={{
           width: 240,
@@ -215,6 +214,7 @@ const SettingsPage: React.FC = () => {
           p: 2,
           borderRight: 1,
           borderColor: 'divider',
+          display: { xs: 'none', md: 'block' },
         }}
       >
         <List sx={{ p: 0 }}>
@@ -266,7 +266,7 @@ const SettingsPage: React.FC = () => {
         ref={mainContentRef}
         sx={{
           flex: 1,
-          maxWidth: 600,
+          maxWidth: { xs: '100%', md: 600 },
           width: '100%',
           textAlign: 'center',
         }}

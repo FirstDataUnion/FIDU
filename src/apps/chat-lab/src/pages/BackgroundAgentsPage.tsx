@@ -1011,6 +1011,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const isOutputToDocumentEnabled = useFeatureFlag(
     'background_agent_to_document'
   );
+  const isDocumentsEnabled = useFeatureFlag('documents');
 
   // Multi-select export state
   const multiSelect = useMultiSelect();
@@ -1297,6 +1298,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         && !outputDocumentId
         && createForm.newOutputDocumentTitle
       ) {
+        // Check if documents feature flag is enabled
+        if (!isDocumentsEnabled) {
+          throw new Error('Documents feature is disabled');
+        }
+
         const created = await storage.createDocument(
           {
             title: createForm.newOutputDocumentTitle,
@@ -1562,6 +1568,11 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         && !viewEditForm.outputDocumentId
         && viewEditForm.newOutputDocumentTitle
       ) {
+        // Check if documents feature flag is enabled
+        if (!isDocumentsEnabled) {
+          throw new Error('Documents feature is disabled');
+        }
+
         const created = await storage.createDocument(
           {
             title: viewEditForm.newOutputDocumentTitle,

@@ -10,6 +10,8 @@ import { loadAgentPreferences } from './agentPreferences';
 import { transformBuiltInAgentsWithPreferences } from './agentTransformers';
 import type { BackgroundAgentAlertMetadata } from '../../types';
 import type { Message } from '../../types';
+import { store } from '../../store';
+import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
 
 /**
  * Debounce tracking for evaluations to prevent duplicate calls during streaming
@@ -172,6 +174,20 @@ export async function maybeEvaluateBackgroundAgents(params: {
   messageId: string; // Required: ID of the assistant message that triggered this evaluation
 }): Promise<void> {
   const { profileId, conversationId, messages, turnCount, messageId } = params;
+
+  // Check if background agents feature flag is enabled
+  const state = store.getState();
+  const isBackgroundAgentsEnabled = selectIsFeatureFlagEnabled(
+    state,
+    'background_agents'
+  );
+
+  if (!isBackgroundAgentsEnabled) {
+    console.log(
+      `🤖 [BackgroundAgents] Evaluation skipped - background agents feature flag is disabled`
+    );
+    return;
+  }
 
   // Validate messageId is provided
   if (!messageId) {

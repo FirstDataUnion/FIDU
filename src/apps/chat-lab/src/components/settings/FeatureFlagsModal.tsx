@@ -291,7 +291,10 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {configurableFlags
               && flagsToDisplay
-                .filter(([_, value]) => value.default_enabled)
+                .filter(
+                  ([_, value]) =>
+                    value.default_enabled || (!value.default_enabled && !value.experimental)
+                )
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)
                 )}
@@ -325,7 +328,7 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {configurableFlags
               && flagsToDisplay
-                .filter(([_, value]) => !value.default_enabled)
+                .filter(([_, value]) => value.experimental === true)
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)
                 )}

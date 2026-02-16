@@ -50,6 +50,7 @@ import {
 } from '../../utils/workspaceHelpers';
 import { refreshAllDataFromStorage } from '../../store/refreshAllData';
 import CreateWorkspaceDialog from './CreateWorkspaceDialog';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const WorkspaceSelector: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -57,6 +58,7 @@ const WorkspaceSelector: React.FC = () => {
   const { currentWorkspace, personalWorkspaces } = useAppSelector(
     state => state.auth
   );
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreatePersonalDialog, setShowCreatePersonalDialog] =
@@ -64,17 +66,22 @@ const WorkspaceSelector: React.FC = () => {
   const [showCreateSharedDialog, setShowCreateSharedDialog] = useState(false);
   const [loadingWorkspaceId, setLoadingWorkspaceId] = useState<string | null>(null);
 
-  // Load shared workspaces from registry
+  // Load shared workspaces from registry (only if feature is enabled)
   const workspaceRegistry = getWorkspaceRegistry();
-  const allWorkspaces = workspaceRegistry.getWorkspaces();
+  const allWorkspaces = isSharedWorkspacesEnabled
+    ? workspaceRegistry.getWorkspaces()
+    : [];
   // Filter to only show valid shared workspaces
   // Real shared workspaces must have a driveFolderId (they're stored in a Drive folder)
-  const sharedWorkspaces = allWorkspaces.filter(
-    w => w.type === 'shared' && w.id && w.name && w.driveFolderId
-  );
+  const sharedWorkspaces = isSharedWorkspacesEnabled
+    ? allWorkspaces.filter(
+        w => w.type === 'shared' && w.id && w.name && w.driveFolderId
+      )
+    : [];
 
-  // Get invitations
+  // Get invitations (only if feature is enabled)
   const { invitations } = useWorkspaceInvitations();
+  const filteredInvitations = isSharedWorkspacesEnabled ? invitations : [];
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -164,7 +171,7 @@ const WorkspaceSelector: React.FC = () => {
   );
 
   const open = Boolean(anchorEl);
-  const hasInvitations = invitations.length > 0;
+  const hasInvitations = filteredInvitations.length > 0;
 
   if (!currentWorkspace) {
     return null; // Should not happen, but safety check
@@ -257,79 +264,81 @@ const WorkspaceSelector: React.FC = () => {
           <ListItemText primary="Create Personal Workspace" />
         </MenuItem>
 
-        {/* Shared Workspaces Section */}
-        <Divider sx={{ my: 1 }} />
-        <MenuItem disabled>
-          <Typography variant="body2" color="text.secondary">
-            Shared Workspaces
-          </Typography>
-        </MenuItem>
-        <Divider />
-        {sharedWorkspaces.length === 0 ? (
-          <MenuItem disabled>
-            <ListItemText
-              primary="No shared workspaces"
-              secondary="Create one to get started"
-            />
-          </MenuItem>
-        ) : (
-          sharedWorkspaces.map(metadata => {
-            const workspace = workspaceMetadataToUnifiedWorkspace(metadata);
-            const isActive = currentWorkspace?.id === workspace.id;
-            const isLoading = loadingWorkspaceId === workspace.id;
-            return (
-              <MenuItem
-                key={workspace.id}
-                onClick={() => handleWorkspaceSwitch(workspace)}
-                selected={isActive}
-                disabled={isLoading}
-              >
-                <ListItemIcon>
-                  {isLoading ? (
-                    <CircularProgress size={20} />
-                  ) : isActive ? (
-                    <CheckIcon fontSize="small" color="primary" />
-                  ) : (
-                    <WorkspaceIcon fontSize="small" />
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={workspace.name}
-                  secondary={
-                    isLoading
-                      ? 'Loading...'
-                      : isActive
-                        ? 'Active'
-                        : workspace.role
-                          ? `${workspace.role.charAt(0).toUpperCase() + workspace.role.slice(1)}`
-                          : undefined
-                  }
-                />
-              </MenuItem>
-            );
-          })
-        )}
-        <MenuItem onClick={handleCreateSharedWorkspace}>
-          <ListItemIcon>
-            <AddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Create Shared Workspace" />
-        </MenuItem>
+        {/* Shared Workspaces Section - only show if feature is enabled */}
+        {isSharedWorkspacesEnabled && [
+          <Divider key="shared-divider-1" sx={{ my: 1 }} />,
+          <MenuItem key="shared-header" disabled>
+            <Typography variant="body2" color="text.secondary">
+              Shared Workspaces
+            </Typography>
+          </MenuItem>,
+          <Divider key="shared-divider-2" />,
+          ...(sharedWorkspaces.length === 0
+            ? [
+                <MenuItem key="shared-empty" disabled>
+                  <ListItemText
+                    primary="No shared workspaces"
+                    secondary="Create one to get started"
+                  />
+                </MenuItem>,
+              ]
+            : sharedWorkspaces.map(metadata => {
+                const workspace = workspaceMetadataToUnifiedWorkspace(metadata);
+                const isActive = currentWorkspace?.id === workspace.id;
+                const isLoading = loadingWorkspaceId === workspace.id;
+                return (
+                  <MenuItem
+                    key={workspace.id}
+                    onClick={() => handleWorkspaceSwitch(workspace)}
+                    selected={isActive}
+                    disabled={isLoading}
+                  >
+                    <ListItemIcon>
+                      {isLoading ? (
+                        <CircularProgress size={20} />
+                      ) : isActive ? (
+                        <CheckIcon fontSize="small" color="primary" />
+                      ) : (
+                        <WorkspaceIcon fontSize="small" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={workspace.name}
+                      secondary={
+                        isLoading
+                          ? 'Loading...'
+                          : isActive
+                            ? 'Active'
+                            : workspace.role
+                              ? `${workspace.role.charAt(0).toUpperCase() + workspace.role.slice(1)}`
+                              : undefined
+                      }
+                    />
+                  </MenuItem>
+                );
+              })),
+          <MenuItem key="shared-create" onClick={handleCreateSharedWorkspace}>
+            <ListItemIcon>
+              <AddIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Create Shared Workspace" />
+          </MenuItem>,
+        ]}
 
-        {/* Pending Invitations */}
-        {hasInvitations && (
-          <>
-            <Divider sx={{ my: 1 }} />
-            <MenuItem disabled>
+        {/* Pending Invitations - only show if feature is enabled */}
+        {isSharedWorkspacesEnabled &&
+          hasInvitations && [
+            <Divider key="invitations-divider-1" sx={{ my: 1 }} />,
+            <MenuItem key="invitations-header" disabled>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <MailIcon fontSize="small" />
                 <Typography variant="body2" color="text.secondary">
-                  Pending Invitations ({invitations.length})
+                  Pending Invitations ({filteredInvitations.length})
                 </Typography>
               </Box>
-            </MenuItem>
-            <Divider />
-            {invitations.map(invitation => (
+            </MenuItem>,
+            <Divider key="invitations-divider-2" />,
+            ...filteredInvitations.map(invitation => (
               <MenuItem
                 key={invitation.workspace_id}
                 onClick={() => {
@@ -345,9 +354,8 @@ const WorkspaceSelector: React.FC = () => {
                   secondary={`Invited by ${invitation.owner_name || invitation.owner_email || 'Unknown'}`}
                 />
               </MenuItem>
-            ))}
-          </>
-        )}
+            )),
+          ]}
 
         {/* Settings */}
         <Divider sx={{ my: 1 }} />
@@ -368,8 +376,8 @@ const WorkspaceSelector: React.FC = () => {
         />
       )}
 
-      {/* Create Shared Workspace Dialog */}
-      {showCreateSharedDialog && (
+      {/* Create Shared Workspace Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && showCreateSharedDialog && (
         <CreateWorkspaceDialog
           open={showCreateSharedDialog}
           onClose={() => setShowCreateSharedDialog(false)}

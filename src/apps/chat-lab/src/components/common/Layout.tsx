@@ -41,7 +41,6 @@ import {
   SmartToy as SmartToyIcon,
   Description as DocumentIcon,
   Help as HelpIcon,
-  FolderSpecial as WorkspacesIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -192,12 +191,6 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
     // NOTE: Data Migration temporarily disabled due to stability issues
     // The UI remains in place but is hidden from navigation for future re-implementation
     // ...(isLocalDeployment ? [] : [{ text: 'Data Migration', icon: <MigrationIcon />, path: '/data-migration' }]),
-    {
-      text: 'Workspaces',
-      icon: <WorkspacesIcon />,
-      path: '/workspaces',
-      enabled: useFeatureFlag('shared_workspaces'),
-    },
     {
       text: 'Settings',
       icon: <SettingsIcon />,

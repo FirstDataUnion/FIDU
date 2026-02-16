@@ -10,23 +10,23 @@
     "system_prompts": {
         "enabled": true,
         "user_configurable": true,
-        "default_enabled": true
+        "default_enabled": false
     },
     "system_prompt_librarian": {
         "enabled": true,
         "depends_on": ["system_prompts"],
         "user_configurable": true,
-        "default_enabled": true
+        "default_enabled": false
     },
     "documents": {
         "enabled": true,
         "user_configurable": true,
-        "default_enabled": true
+        "default_enabled": false
     },
     "background_agents": {
         "enabled": true,
         "user_configurable": true,
-        "default_enabled": true
+        "default_enabled": false
     },
     "background_agent_to_document": {
         "enabled": true,
@@ -60,6 +60,7 @@
     "shared_workspaces": {
         "enabled": true,
         "user_configurable": true,
-        "default_enabled": false
+        "default_enabled": false,
+        "experimental": true
     }    
 }

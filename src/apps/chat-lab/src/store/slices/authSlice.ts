@@ -148,7 +148,7 @@ export const logout = createAsyncThunk(
 
 export const initializeAuth = createAsyncThunk(
   'auth/initializeAuth',
-  async (_, { dispatch, rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue, getState }) => {
     try {
       const fiduAuthService = getFiduAuthService();
 
@@ -170,10 +170,32 @@ export const initializeAuth = createAsyncThunk(
       // Fetch profiles (personal workspaces)
       const profiles = currentUser.profiles;
 
-      // Load shared workspaces from registry
+      // Load shared workspaces from registry (only if feature is enabled)
       const workspaceRegistry = getWorkspaceRegistry();
-      await workspaceRegistry.syncFromAPI();
-      const sharedWorkspaces = workspaceRegistry.getWorkspaces();
+      
+      // Check if shared workspaces feature is enabled
+      const state = getState() as any;
+      const { selectIsFeatureFlagEnabled } = await import(
+        '../selectors/featureFlagsSelectors'
+      );
+      const isSharedWorkspacesEnabled = selectIsFeatureFlagEnabled(
+        state,
+        'shared_workspaces'
+      );
+
+      if (isSharedWorkspacesEnabled) {
+        try {
+          await workspaceRegistry.syncFromAPI();
+        } catch {
+          // Continue with local registry if sync fails (e.g., offline, API error)
+        }
+      }
+      
+      const allWorkspaces = workspaceRegistry.getWorkspaces();
+      // Filter out shared workspaces if feature is disabled
+      const sharedWorkspaces = isSharedWorkspacesEnabled
+        ? allWorkspaces
+        : allWorkspaces.filter(w => w.type !== 'shared');
 
       // Check for existing saved workspace first (new format)
       let currentWorkspace: UnifiedWorkspace | null = null;

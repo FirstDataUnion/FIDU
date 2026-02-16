@@ -66,6 +66,7 @@ import {
   Edit as EditIcon,
   AccountCircle as AccountIcon,
 } from '@mui/icons-material';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const WorkspacesPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -73,6 +74,7 @@ const WorkspacesPage: React.FC = () => {
   const { user, personalWorkspaces, currentWorkspace } = useAppSelector(
     state => state.auth
   );
+  const isSharedWorkspacesEnabled = useFeatureFlag('shared_workspaces');
 
   const [workspaces, setWorkspaces] = useState<WorkspaceMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,12 +113,13 @@ const WorkspacesPage: React.FC = () => {
   );
   const [isCheckingScope, setIsCheckingScope] = useState(false);
 
-  // Invitation state
+  // Invitation state (only fetch if feature is enabled)
   const {
     invitations,
     isLoading: invitationsLoading,
     refresh: refreshInvitations,
   } = useWorkspaceInvitations();
+  const filteredInvitations = isSharedWorkspacesEnabled ? invitations : [];
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<
     string | null
   >(null);
@@ -241,14 +244,21 @@ const WorkspacesPage: React.FC = () => {
 
       // Sync workspaces from API first to ensure we have the latest data
       // This is critical for members who were added to workspaces in previous sessions
-      try {
-        await registry.syncFromAPI();
-      } catch {
-        // Continue with local registry if sync fails (e.g., offline, API error)
+      // Only sync if shared workspaces feature is enabled
+      if (isSharedWorkspacesEnabled) {
+        try {
+          await registry.syncFromAPI();
+        } catch {
+          // Continue with local registry if sync fails (e.g., offline, API error)
+        }
       }
 
       const allWorkspaces = registry.getWorkspaces();
-      setWorkspaces(allWorkspaces);
+      // Filter out shared workspaces if feature is disabled
+      const filteredWorkspaces = isSharedWorkspacesEnabled
+        ? allWorkspaces
+        : allWorkspaces.filter(w => w.type !== 'shared');
+      setWorkspaces(filteredWorkspaces);
     } catch (err: any) {
       console.error('Failed to load workspaces:', err);
       setError(err.message || 'Failed to load workspaces');
@@ -562,8 +572,8 @@ const WorkspacesPage: React.FC = () => {
           <Typography variant="h4" component="h1">
             Workspaces
           </Typography>
-          {invitations.length > 0 && (
-            <Badge badgeContent={invitations.length} color="error">
+          {isSharedWorkspacesEnabled && filteredInvitations.length > 0 && (
+            <Badge badgeContent={filteredInvitations.length} color="error">
               <MailIcon color="action" />
             </Badge>
           )}
@@ -611,8 +621,8 @@ const WorkspacesPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Pending Invitations Section */}
-      {invitations.length > 0 && (
+      {/* Pending Invitations Section - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && filteredInvitations.length > 0 && (
         <Card sx={{ mb: 3, border: 2, borderColor: 'warning.main' }}>
           <CardContent>
             <Box
@@ -624,7 +634,7 @@ const WorkspacesPage: React.FC = () => {
               }}
             >
               <Typography variant="h6">
-                Pending Invitations ({invitations.length})
+                Pending Invitations ({filteredInvitations.length})
               </Typography>
               <Button
                 variant="outlined"
@@ -643,7 +653,7 @@ const WorkspacesPage: React.FC = () => {
               </Button>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {invitations.map(invitation => (
+              {filteredInvitations.map(invitation => (
                 <Box
                   key={invitation.workspace_id}
                   sx={{
@@ -831,30 +841,31 @@ const WorkspacesPage: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Shared Workspaces Section */}
-        <Box>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 2,
-            }}
-          >
-            <Typography variant="h5" component="h2">
-              Shared Workspaces
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateWorkspace}
-              disabled={
-                unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
-              }
+        {/* Shared Workspaces Section - only show if feature is enabled */}
+        {isSharedWorkspacesEnabled && (
+          <Box>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2,
+              }}
             >
-              Create Shared Workspace
-            </Button>
-          </Box>
+              <Typography variant="h5" component="h2">
+                Shared Workspaces
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateWorkspace}
+                disabled={
+                  unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
+                }
+              >
+                Create Shared Workspace
+              </Button>
+            </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Filter to only show valid shared workspaces (with driveFolderId) */}
             {workspaces.filter(w => w.type === 'shared' && w.driveFolderId)
@@ -1038,15 +1049,18 @@ const WorkspacesPage: React.FC = () => {
                 })
             )}
           </Box>
-        </Box>
+          </Box>
+        )}
       </Box>
 
-      {/* Create Workspace Dialog */}
-      <CreateWorkspaceDialog
-        open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {/* Create Workspace Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && (
+        <CreateWorkspaceDialog
+          open={showCreateDialog}
+          onClose={() => setShowCreateDialog(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -1146,8 +1160,8 @@ const WorkspacesPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add Members Dialog */}
-      {showAddMembersDialog && (
+      {/* Add Members Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && showAddMembersDialog && (
         <AddMembersDialog
           open={showAddMembersDialog !== null}
           onClose={handleAddMembersCancel}
@@ -1158,8 +1172,8 @@ const WorkspacesPage: React.FC = () => {
         />
       )}
 
-      {/* Manage Members Dialog */}
-      {showManageMembersDialog && (
+      {/* Manage Members Dialog - only show if feature is enabled */}
+      {isSharedWorkspacesEnabled && showManageMembersDialog && (
         <ManageMembersDialog
           open={showManageMembersDialog !== null}
           onClose={handleManageMembersCancel}

@@ -4,6 +4,8 @@ import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageS
 import { fabricSystemPrompts } from '../../data/prompts/fabricSystemPrompts';
 import { builtInSystemPrompts } from '../../data/prompts/builtInSystemPrompts';
 import { whartonGenAILabsPrompts } from '../../data/prompts/whartonGenAILabsPrompts';
+import { store } from '../index';
+import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
 
 export interface SystemPrompt {
   id: string;
@@ -39,6 +41,19 @@ const initialState: SystemPromptsState = {
 export const fetchSystemPrompts = createAsyncThunk(
   'systemPrompts/fetchSystemPrompts',
   async (profileId: string | undefined, { rejectWithValue }) => {
+    // Check if system prompts feature flag is enabled
+    const state = store.getState();
+    const isSystemPromptsEnabled = selectIsFeatureFlagEnabled(
+      state,
+      'system_prompts'
+    );
+    if (!isSystemPromptsEnabled) {
+      console.log(
+        '📝 [SystemPrompts] Fetch skipped - system prompts feature flag is disabled'
+      );
+      return rejectWithValue('System prompts feature is disabled');
+    }
+
     try {
       if (profileId) {
         const storageService = getUnifiedStorageService();
@@ -74,13 +89,29 @@ export const fetchSystemPrompts = createAsyncThunk(
 
 export const createSystemPrompt = createAsyncThunk(
   'systemPrompts/createSystemPrompt',
-  async ({
-    systemPromptData,
-    profileId,
-  }: {
-    systemPromptData: Partial<SystemPrompt>;
-    profileId: string;
-  }) => {
+  async (
+    {
+      systemPromptData,
+      profileId,
+    }: {
+      systemPromptData: Partial<SystemPrompt>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if system prompts feature flag is enabled
+    const state = store.getState();
+    const isSystemPromptsEnabled = selectIsFeatureFlagEnabled(
+      state,
+      'system_prompts'
+    );
+    if (!isSystemPromptsEnabled) {
+      console.log(
+        '📝 [SystemPrompts] Create skipped - system prompts feature flag is disabled'
+      );
+      return rejectWithValue('System prompts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       const newSystemPrompt = await storageService.createSystemPrompt(
@@ -100,13 +131,29 @@ export const createSystemPrompt = createAsyncThunk(
 
 export const updateSystemPrompt = createAsyncThunk(
   'systemPrompts/updateSystemPrompt',
-  async ({
-    systemPrompt,
-    profileId,
-  }: {
-    systemPrompt: Partial<SystemPrompt>;
-    profileId: string;
-  }) => {
+  async (
+    {
+      systemPrompt,
+      profileId,
+    }: {
+      systemPrompt: Partial<SystemPrompt>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if system prompts feature flag is enabled
+    const state = store.getState();
+    const isSystemPromptsEnabled = selectIsFeatureFlagEnabled(
+      state,
+      'system_prompts'
+    );
+    if (!isSystemPromptsEnabled) {
+      console.log(
+        '📝 [SystemPrompts] Update skipped - system prompts feature flag is disabled'
+      );
+      return rejectWithValue('System prompts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       const updatedSystemPrompt = await storageService.updateSystemPrompt(
@@ -126,7 +173,20 @@ export const updateSystemPrompt = createAsyncThunk(
 
 export const deleteSystemPrompt = createAsyncThunk(
   'systemPrompts/deleteSystemPrompt',
-  async (systemPromptId: string) => {
+  async (systemPromptId: string, { rejectWithValue }) => {
+    // Check if system prompts feature flag is enabled
+    const state = store.getState();
+    const isSystemPromptsEnabled = selectIsFeatureFlagEnabled(
+      state,
+      'system_prompts'
+    );
+    if (!isSystemPromptsEnabled) {
+      console.log(
+        '📝 [SystemPrompts] Delete skipped - system prompts feature flag is disabled'
+      );
+      return rejectWithValue('System prompts feature is disabled');
+    }
+
     try {
       const storageService = getUnifiedStorageService();
       await storageService.deleteSystemPrompt(systemPromptId);

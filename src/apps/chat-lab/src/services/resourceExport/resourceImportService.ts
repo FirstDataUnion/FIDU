@@ -19,6 +19,8 @@ import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
 import { unsyncedDataManager } from '../storage/UnsyncedDataManager';
 import type { Message, SystemPrompt, Context } from '../../types';
 import type { BackgroundAgent } from '../api/backgroundAgents';
+import { store } from '../../store';
+import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
 
 /**
  * Resource Import Service
@@ -277,6 +279,16 @@ export class ResourceImportService {
             userId,
             idMapping
           );
+
+          // Check if documents feature flag is enabled
+          const state = store.getState();
+          const isDocumentsEnabled = selectIsFeatureFlagEnabled(
+            state,
+            'documents'
+          );
+          if (!isDocumentsEnabled) {
+            throw new Error('Documents feature is disabled');
+          }
 
           // Save to storage
           await storage.createDocument(imported, profileId);

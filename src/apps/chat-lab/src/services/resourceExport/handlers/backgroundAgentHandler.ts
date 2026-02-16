@@ -13,6 +13,8 @@ import type {
 } from '../types';
 import type { BackgroundAgent } from '../../../services/api/backgroundAgents';
 import { v4 as uuidv4 } from 'uuid';
+import { store } from '../../../store';
+import { selectIsFeatureFlagEnabled } from '../../../store/selectors/featureFlagsSelectors';
 
 export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> {
   getResourceType(): ResourceType {
@@ -102,6 +104,16 @@ export class BackgroundAgentHandler implements ResourceHandler<BackgroundAgent> 
       outputDocumentId = idMapping?.[exportData.outputDocument.id];
       // But if not, create a new document
       if (!outputDocumentId) {
+        // Check if documents feature flag is enabled
+        const state = store.getState();
+        const isDocumentsEnabled = selectIsFeatureFlagEnabled(
+          state,
+          'documents'
+        );
+        if (!isDocumentsEnabled) {
+          throw new Error('Documents feature is disabled');
+        }
+
         const storage = getUnifiedStorageService();
         const created = await storage.createDocument(
           {
