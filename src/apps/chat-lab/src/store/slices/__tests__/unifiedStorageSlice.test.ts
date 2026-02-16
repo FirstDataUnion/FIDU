@@ -48,7 +48,7 @@ jest.mock('../../../services/auth/GoogleDriveAuth', () => ({
 // Mock conversationsSlice to prevent circular dependency issues
 jest.mock('../conversationsSlice', () => ({
   __esModule: true,
-  default: (state = { items: [] }, action: any) => state,
+  default: (state = { items: [] }, _action: any) => state,
 }));
 
 // Mock localStorage
