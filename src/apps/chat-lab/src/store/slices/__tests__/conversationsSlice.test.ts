@@ -11,6 +11,8 @@ jest.mock('../../../utils/environment', () => ({
   }),
   getIdentityServiceUrl: () => 'https://identity.firstdataunion.org',
   getGatewayUrl: () => 'https://gateway.firstdataunion.org',
+  detectRuntimeEnvironment: () => 'local',
+  isDevEnvironment: () => true,
 }));
 
 // Mock GoogleDriveAuth to fix import.meta errors
@@ -262,17 +264,17 @@ describe('conversationsSlice', () => {
         expect(state.error).toBe('Failed to fetch');
       });
 
-      it('should throw error when no profile is selected', async () => {
+      it('should throw error when no workspace is selected', async () => {
         const thunk = fetchConversations({});
         const dispatch = jest.fn();
         const getState = jest.fn(() => ({
-          auth: { currentProfile: null },
+          auth: { currentProfile: null, currentWorkspace: null },
         }));
 
         const result = await thunk(dispatch, getState, undefined);
         expect(result.type).toBe('conversations/fetchConversations/rejected');
         expect((result as any).error.message).toBe(
-          'No profile selected. Please select a profile to continue.'
+          'No workspace selected. Please select a workspace to continue.'
         );
       });
     });
