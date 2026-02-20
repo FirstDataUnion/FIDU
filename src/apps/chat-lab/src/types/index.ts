@@ -77,6 +77,38 @@ export interface SystemPrompt {
   updatedAt: string;
 }
 
+// Background Agent types
+export type AgentActionType = 'alert' | 'update_document';
+
+export interface BackgroundAgent {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  actionType: AgentActionType;
+  promptTemplate: string;
+  runEveryNTurns: number;
+  verbosityThreshold?: number;
+  outputDocumentId?: string;
+  contextWindowStrategy:
+    | 'lastNMessages'
+    | 'summarizeThenEvaluate'
+    | 'fullThreadIfSmall';
+  contextParams?: {
+    lastN?: number;
+    tokenLimit?: number;
+  };
+  outputSchemaName?: 'default' | 'custom';
+  customOutputSchema?: Record<string, any> | null;
+  notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
+  modelId?: string; // Model ID to use for evaluation (defaults to 'gpt-oss-120b')
+  isSystem?: boolean;
+  categories?: string[];
+  version?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Document interface
 // Not named Document to avoid shadowing the Document type from the browser
 export interface MarkdownDocument {

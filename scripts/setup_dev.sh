@@ -71,27 +71,6 @@ if ! pip install --upgrade pip; then
     return 1
 fi
 
-# Install requirements
-echo "📚 Installing requirements..."
-if ! pip install -r requirements.txt; then
-    echo "❌ Failed to install requirements"
-    return 1
-fi
-
-# Install the package in development mode with all dev dependencies
-echo "📚 Installing package with development dependencies..."
-if ! pip install -e ".[dev]"; then
-    echo "❌ Failed to install package with dev dependencies"
-    return 1
-fi
-
-# Install PyInstaller for building executables
-echo "📦 Installing PyInstaller..."
-if ! pip install pyinstaller; then
-    echo "❌ Failed to install PyInstaller"
-    return 1
-fi
-
 # Install pre-push hooks
 echo "🔧 Installing pre-push hooks..."
 if [ ! -f "scripts/githooks/pre-push" ]; then
@@ -109,18 +88,6 @@ if [ -f ".git/hooks/pre-commit" ]; then
     echo "✅ Pre-commit hook disabled, pre-push hook enabled"
 else
     echo "✅ Pre-push hook enabled"
-fi
-
-# Create .env file if it doesn't exist
-if [ ! -f ".env" ]; then
-    echo "📝 Creating .env file..."
-    if [ -f ".env.example" ]; then
-        cp .env.example .env
-        echo "✅ Created .env from .env.example"
-    else
-        echo "# Add your environment variables here" > .env
-        echo "✅ Created empty .env file"
-    fi
 fi
 
 # Install npm dependencies for chat-lab
@@ -141,7 +108,20 @@ if ! npm install --save-dev @types/node; then
     echo "⚠️  Warning: Failed to install @types/node"
 fi
 
+# Install requirements
+echo "📚 Installing pip requirements for chat-lab..."
+if ! pip install -r requirements.txt; then
+    echo "❌ Failed to install requirements"
+    return 1
+fi
+
 cd ../../..
+
+echo "📚 Installing pip requirements for development..."
+if ! pip install -r requirements.txt; then
+    echo "❌ Failed to install requirements"
+    return 1
+fi
 
 # Install mypy type stubs
 echo "📝 Installing mypy type stubs..."
@@ -193,9 +173,9 @@ M###################@%=           =+@MH%
 ✅ Development environment setup complete!
 
 The virtual environment has been activated automatically.
-You can now run the server with:
+You can now run the chat-lab backend server with:
 
-uvicorn src.fidu_vault.main:app --port 4000 --reload
+python src/apps/chat-lab/backend/server.py
 
 Code quality checks will run automatically before each push.
 To manage hooks, use: ./scripts/manage_hooks.sh status

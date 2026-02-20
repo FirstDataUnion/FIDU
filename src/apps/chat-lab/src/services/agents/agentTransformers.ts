@@ -2,7 +2,7 @@
  * Utilities for transforming and managing Background Agents
  */
 
-import type { BackgroundAgent } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 import type { AllAgentPreferences } from './agentPreferences';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../../data/backgroundAgents';
 

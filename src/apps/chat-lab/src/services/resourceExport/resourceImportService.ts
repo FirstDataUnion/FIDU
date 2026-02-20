@@ -18,7 +18,7 @@ import { RESOURCE_EXPORT_VERSION } from './types';
 import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
 import { unsyncedDataManager } from '../storage/UnsyncedDataManager';
 import type { Message, SystemPrompt, Context } from '../../types';
-import type { BackgroundAgent } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 import { store } from '../../store';
 import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
 

@@ -4,7 +4,7 @@
  */
 
 import { BackgroundAgentHandler } from '../../handlers/backgroundAgentHandler';
-import type { BackgroundAgent } from '../../../api/backgroundAgents';
+import type { BackgroundAgent } from '../../../../types';
 import type { BackgroundAgentExport, ExportableResource } from '../../types';
 
 jest.mock('../../../storage/UnifiedStorageService', () => ({

@@ -43,7 +43,7 @@ import {
 } from '../../services/agents/agentAlerts';
 import { transformBuiltInAgentsWithPreferences } from '../../services/agents/agentTransformers';
 import { loadAgentPreferences } from '../../services/agents/agentPreferences';
-import type { BackgroundAgent } from '../../services/api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 import { conversationsService } from '../../services/conversationsService';
 import type { Message } from '../../types';
 

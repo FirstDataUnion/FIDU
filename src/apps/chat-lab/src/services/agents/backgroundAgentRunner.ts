@@ -5,7 +5,7 @@ import type {
 } from './backgroundAgentsService';
 import { evaluateBackgroundAgent } from './backgroundAgentsService';
 import { addAgentAlert } from './agentAlerts';
-import type { BackgroundAgent } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 import { loadAgentPreferences } from './agentPreferences';
 import { transformBuiltInAgentsWithPreferences } from './agentTransformers';
 import type { BackgroundAgentAlertMetadata } from '../../types';

@@ -25,7 +25,7 @@ import type {
   Conversation,
   MarkdownDocument,
 } from '../../types';
-import type { BackgroundAgent } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 
 /**
  * Resource Export Service

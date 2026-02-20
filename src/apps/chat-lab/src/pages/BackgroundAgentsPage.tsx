@@ -51,10 +51,7 @@ import { FloatingExportActions } from '../components/resourceExport/FloatingExpo
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
-import type {
-  BackgroundAgent,
-  AgentActionType,
-} from '../services/api/backgroundAgents';
+import type { BackgroundAgent, AgentActionType } from '../types';
 import {
   loadAgentPreferences,
   setAgentPreference,

@@ -1,9 +1,6 @@
 # Global repository owners
 * @evenoli
 
-# Python backend code
-src/fidu_vault/ @evenoli
-
 # Frontend application
 src/apps/chat-lab/ @evenoli
 

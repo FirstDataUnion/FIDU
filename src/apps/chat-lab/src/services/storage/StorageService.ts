@@ -3,7 +3,7 @@
  * Manages the active storage adapter and provides initialization
  */
 
-import type { StorageAdapter, StorageConfig } from './types';
+import { StorageMode, type StorageAdapter, type StorageConfig } from './types';
 import { createStorageAdapter } from './StorageFactory';
 import { getEnvironmentInfo } from '../../utils/environment';
 import { getWorkspaceRegistry } from '../workspace/WorkspaceRegistry';
@@ -15,26 +15,24 @@ export class StorageService {
   private config: StorageConfig | null = null;
   private initialized = false;
 
-  async initialize(storageMode?: 'local' | 'cloud'): Promise<void> {
+  async initialize(storageMode?: StorageMode): Promise<void> {
     if (this.initialized) {
       return;
     }
 
     // Get storage mode from parameter, settings, or environment
-    let mode: 'local' | 'cloud' = 'local'; // default
+    let mode: StorageMode = StorageMode.CLOUD; // default
 
+    // TODO: not sure what this needs to do when we have multiple storage modes again
     if (storageMode) {
       mode = storageMode;
     } else {
       // Check environment variable for deployment type
       const envInfo = getEnvironmentInfo();
-      const envMode = envInfo.storageMode as 'local' | 'cloud';
+      const envMode = envInfo.storageMode as StorageMode;
 
-      // For local deployment, always use local mode (FIDU Vault API)
-      if (envMode === 'local') {
-        mode = 'local';
-      } else {
-        // For cloud deployment, respect user's storage mode choice from localStorage
+      // For cloud deployment, respect user's storage mode choice from localStorage
+      if (envMode === StorageMode.CLOUD) {
         try {
           const stored = localStorage.getItem('fidu-chat-lab-settings');
           if (stored) {
@@ -48,17 +46,12 @@ export class StorageService {
             'Failed to load storage mode from settings, using default'
           );
         }
-
-        // Fallback to environment mode if no user preference
-        if (mode === 'local') {
-          mode = envMode || 'local';
-        }
       }
     }
 
     this.config = {
       mode,
-      baseURL: mode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined,
+      baseURL: undefined,
     };
 
     this.adapter = createStorageAdapter(this.config);
@@ -89,7 +82,7 @@ export class StorageService {
     this.initialized = true;
   }
 
-  async switchMode(newMode: 'local' | 'cloud'): Promise<void> {
+  async switchMode(newMode: StorageMode): Promise<void> {
     if (this.config?.mode === newMode) {
       return;
     }
@@ -99,7 +92,7 @@ export class StorageService {
 
     const newConfig: StorageConfig = {
       mode: newMode,
-      baseURL: newMode === 'local' ? 'http://127.0.0.1:4000/api/v1' : undefined,
+      baseURL: undefined,
     };
 
     this.adapter = createStorageAdapter(newConfig);

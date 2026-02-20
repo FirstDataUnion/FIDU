@@ -33,7 +33,7 @@ export interface NLPWorkbenchExecutionStatus {
 }
 
 // NLP Workbench API client class
-export class NLPWorkbenchAPIClient {
+class NLPWorkbenchAPIClient {
   private client: AxiosInstance;
 
   constructor() {
