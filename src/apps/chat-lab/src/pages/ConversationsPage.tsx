@@ -1413,7 +1413,7 @@ const ConversationsPage: React.FC = React.memo(() => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteCancel} sx={{ color: 'primary.dark' }}>
+          <Button onClick={handleDeleteCancel} color="primary">
             Cancel
           </Button>
           <Button

@@ -240,8 +240,8 @@ export const ContextCard = React.memo<ContextCardProps>(
             <Button
               size="small"
               variant="outlined"
+              color="primary"
               onClick={handleViewEdit}
-              sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
             >
               {isBuiltIn ? 'View' : 'View/Edit'}
             </Button>

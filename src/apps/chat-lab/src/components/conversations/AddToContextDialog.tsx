@@ -131,7 +131,7 @@ const AddToContextDialog: React.FC<AddToContextDialogProps> = React.memo(
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose} sx={{ color: 'primary.dark' }}>
+          <Button onClick={onClose} color="primary">
             Cancel
           </Button>
           <Button variant="contained" onClick={onSubmit} disabled={isAdding}>

@@ -39,6 +39,7 @@ import {
   Link,
   Badge,
   Slider,
+  useTheme,
 } from '@mui/material';
 import { CategoryFilter } from '../components/common/CategoryFilter';
 import {
@@ -101,12 +102,14 @@ import {
 } from '../utils/longRequestDetection';
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import HistoryIcon from '../assets/HistoryIcon.png';
+import HistoryIconBlack from '../assets/HistoryIconBlack.png';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
 import {
   parseActualModelInfo,
   type ActualModelInfo,
 } from '../utils/conversationUtils';
+import { getModelColor } from '../utils/themeColors';
 import { DEFAULT_AGENT_CONFIG } from '../services/agents/agentConstants';
 import { useAlertClick } from '../contexts/AlertClickContext';
 
@@ -946,16 +949,15 @@ function BackgroundAgentDialogCard({
                         <Button
                           size="small"
                           variant="outlined"
+                          color="primary"
                           startIcon={<ArrowUpwardIcon />}
                           onClick={() => onJumpToMessage(alert.messageId!)}
                           sx={{
                             fontSize: '0.75rem',
-                            color: 'primary.dark',
-                            borderColor: 'primary.dark',
                             backgroundColor: 'background.paper',
                             '&:hover': {
-                              backgroundColor: 'primary.light',
-                              borderColor: 'primary.main',
+                              backgroundColor: 'primary.light', 
+                              borderColor: 'primary.main', 
                             },
                           }}
                         >
@@ -1678,14 +1680,13 @@ function ContextSelectionModal({
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
+            color="primary"
             startIcon={<AddIcon />}
             onClick={onCreateNewContext}
             sx={{
-              borderColor: 'primary.dark',
-              color: 'primary.dark',
               '&:hover': {
-                backgroundColor: 'primary.main',
-                color: 'white',
+                backgroundColor: 'primary.main', // ✅ Fills on hover
+                color: 'primary.contrastText', // ✅ Use contrastText instead of 'white'
                 borderColor: 'primary.dark',
               },
             }}
@@ -1713,7 +1714,7 @@ function ContextSelectionModal({
             </Button>
           )}
         </Box>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>
+        <Button onClick={onClose} color="primary">
           Done
         </Button>
       </DialogActions>
@@ -2135,10 +2136,10 @@ function FullPromptModal({ open, onClose, fullPrompt }: FullPromptModalProps) {
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleCopy} sx={{ color: 'primary.dark' }}>
+        <Button onClick={handleCopy} color="primary">
           Copy
         </Button>
-        <Button onClick={onClose} sx={{ color: 'primary.dark' }}>
+        <Button onClick={onClose} color="primary">
           Close
         </Button>
       </DialogActions>
@@ -2150,6 +2151,7 @@ export default function PromptLabPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
 
   // Mobile responsiveness
   const { isMobile } = useMobile();
@@ -2668,6 +2670,20 @@ export default function PromptLabPage() {
     }
   }, [messages, scrollToBottom, isAtBottom]);
 
+  // Helper function to get provider key from model ID
+  const getProviderKey = (modelId: string): 'autoRouter' | 'openai' | 'anthropic' | 'google' | 'meta' | 'mistral' | 'microsoft' | 'xai' | 'unknown' => {
+    const modelLower = modelId.toLowerCase();
+    if (modelLower.includes('auto-router') || modelLower.includes('autorouter')) return 'autoRouter';
+    if (modelLower.includes('gpt') || modelLower.includes('openai')) return 'openai';
+    if (modelLower.includes('claude') || modelLower.includes('anthropic')) return 'anthropic';
+    if (modelLower.includes('gemini') || modelLower.includes('google')) return 'google';
+    if (modelLower.includes('llama') || modelLower.includes('meta')) return 'meta';
+    if (modelLower.includes('mistral')) return 'mistral';
+    if (modelLower.includes('phi') || modelLower.includes('microsoft')) return 'microsoft';
+    if (modelLower.includes('grok') || modelLower.includes('xai')) return 'xai';
+    return 'unknown';
+  };
+
   // Get model-specific colors and display names
   const getModelInfo = (
     modelId: string,
@@ -2680,330 +2696,331 @@ export default function PromptLabPage() {
       // Auto Router
       'auto-router': {
         name: 'Auto Router',
-        color: '#6366f1',
+        color: getModelColor(theme.palette.mode, 'autoRouter'),
         provider: 'NLP Workbench',
       },
 
       // OpenAI Models
       'gpt-3.5-turbo': {
         name: 'GPT-3.5 Turbo',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-3.5-turbo-instruct': {
         name: 'GPT-3.5 Turbo Instruct',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-4': { name: 'GPT-4', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4': { name: 'GPT-4', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-4-turbo': {
         name: 'GPT-4 Turbo',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-4o': { name: 'GPT-4o', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4o': { name: 'GPT-4o', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-4o-search-preview': {
         name: 'GPT-4o Search Preview',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-4o-mini': {
         name: 'GPT-4o Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-4o-mini-search-preview': {
         name: 'GPT-4o Mini Search Preview',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-5': { name: 'GPT-5', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5': { name: 'GPT-5', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-5-mini': {
         name: 'GPT-5 Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-5-nano': {
         name: 'GPT-5 Nano',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-5-pro': { name: 'GPT-5 Pro', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-pro': { name: 'GPT-5 Pro', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-oss-120b': {
         name: 'GPT-OSS 120B',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
 
       // Anthropic Claude Models
       'claude-haiku-3': {
         name: 'Claude Haiku 3',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-haiku-3.5': {
         name: 'Claude Haiku 3.5',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-haiku-4.5': {
         name: 'Claude Haiku 4.5',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-opus-4': {
         name: 'Claude Opus 4',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-opus-4.1': {
         name: 'Claude Opus 4.1',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-opus-4.6': {
         name: 'Claude Opus 4.6',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-sonnet-3.7': {
         name: 'Claude Sonnet 3.7',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-sonnet-4': {
         name: 'Claude Sonnet 4',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-sonnet-4.5': {
         name: 'Claude Sonnet 4.5',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
 
       // Google Gemini Models
       'gemini-2.0-flash': {
         name: 'Gemini 2.0 Flash',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-2.0-flash-lite': {
         name: 'Gemini 2.0 Flash-Lite',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-2.5-flash': {
         name: 'Gemini 2.5 Flash',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-2.5-flash-lite': {
         name: 'Gemini 2.5 Flash-Lite',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-2.5-pro': {
         name: 'Gemini 2.5 Pro',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-3-pro-preview': {
         name: 'Gemini 3 Pro Preview',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
 
       // Meta Llama Models
       'llama-4-maverick': {
         name: 'Llama 4 Maverick',
-        color: '#1877f2',
+        color: getModelColor(theme.palette.mode, 'meta'),
         provider: 'Meta',
       },
       'llama-4-scout': {
         name: 'Llama 4 Scout',
-        color: '#1877f2',
+        color: getModelColor(theme.palette.mode, 'meta'),
         provider: 'Meta',
       },
 
       // Mistral Models
       'mistral-medium-3.1': {
         name: 'Mistral Medium 3.1',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-codestral-2508': {
         name: 'Mistral Codestral 2508',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-ministral-3b': {
         name: 'Mistral Ministral 3B',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-ministral-8b': {
         name: 'Mistral Ministral 8B',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-small': {
         name: 'Mistral Small',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-tiny': {
         name: 'Mistral Tiny',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
       'mistral-large': {
         name: 'Mistral Large',
-        color: '#ff6b35',
+        color: getModelColor(theme.palette.mode, 'mistral'),
         provider: 'Mistral',
       },
 
       // Microsoft Phi Models
       'microsoft-phi-4': {
         name: 'Microsoft Phi 4',
-        color: '#00bcf2',
+        color: getModelColor(theme.palette.mode, 'microsoft'),
         provider: 'Microsoft',
       },
       'microsoft-phi-4-multimodal': {
         name: 'Microsoft Phi 4 Multimodal',
-        color: '#00bcf2',
+        color: getModelColor(theme.palette.mode, 'microsoft'),
         provider: 'Microsoft',
       },
       'microsoft-phi-4-reasoning-plus': {
         name: 'Microsoft Phi 4 Reasoning Plus',
-        color: '#00bcf2',
+        color: getModelColor(theme.palette.mode, 'microsoft'),
         provider: 'Microsoft',
       },
 
       // xAI Grok Models
-      'grok-3': { name: 'Grok 3', color: '#ff6b00', provider: 'xAI' },
-      'grok-3-mini': { name: 'Grok 3 Mini', color: '#ff6b00', provider: 'xAI' },
-      'grok-4': { name: 'Grok 4', color: '#ff6b00', provider: 'xAI' },
-      'grok-4-fast': { name: 'Grok 4 Fast', color: '#ff6b00', provider: 'xAI' },
+      'grok-3': { name: 'Grok 3', color: getModelColor(theme.palette.mode, 'xai'), provider: 'xAI' },
+      'grok-3-mini': { name: 'Grok 3 Mini', color: getModelColor(theme.palette.mode, 'xai'), provider: 'xAI' },
+      'grok-4': { name: 'Grok 4', color: getModelColor(theme.palette.mode, 'xai'), provider: 'xAI' },
+      'grok-4-fast': { name: 'Grok 4 Fast', color: getModelColor(theme.palette.mode, 'xai'), provider: 'xAI' },
 
       // Direct Models (Google)
       'gemini-2.5-flash-lite-direct': {
         name: 'Gemini 2.5 Flash Lite',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-2.0-flash-direct': {
         name: 'Gemini 2.0 Flash',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
 
       // Direct Models (Anthropic)
       'claude-opus-4.1-direct': {
         name: 'Claude Opus 4.1',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-haiku-3-direct': {
         name: 'Claude Haiku 3',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-sonnet-3.7-direct': {
         name: 'Claude Sonnet 3.7',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
 
       // Direct Models (OpenAI)
       'gpt-5-nano-direct': {
         name: 'GPT 5.0 Nano',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-5-mini-direct': {
         name: 'GPT 5.0 Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-5-direct': { name: 'GPT 5.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5-direct': { name: 'GPT 5.0', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-4o-mini-direct': {
         name: 'GPT 4.0 Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-4-direct': { name: 'GPT 4.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4-direct': { name: 'GPT 4.0', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-4-turbo-direct': {
         name: 'GPT 4.0 Turbo',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-3.5-turbo-direct': {
         name: 'GPT 3.5 Turbo',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-4o-search-preview-direct': {
         name: 'GPT 4o Search',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
 
       // Legacy mappings for backward compatibility
       'gemini-flash': {
         name: 'Gemini Flash',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'gemini-pro': {
         name: 'Gemini Pro',
-        color: '#4285F4',
+        color: getModelColor(theme.palette.mode, 'google'),
         provider: 'Google',
       },
       'claude-haiku': {
         name: 'Claude Haiku',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-sonnet': {
         name: 'Claude Sonnet',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
       'claude-opus-41': {
         name: 'Claude Opus',
-        color: '#C46902',
+        color: getModelColor(theme.palette.mode, 'anthropic'),
         provider: 'Anthropic',
       },
-      'gpt-4.0': { name: 'GPT-4.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-4.0': { name: 'GPT-4.0', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-4.0-turbo': {
         name: 'GPT-4.0 Turbo',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-4.0-mini': {
         name: 'GPT-4.0 Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
-      'gpt-5.0': { name: 'GPT-5.0', color: '#10a37f', provider: 'OpenAI' },
+      'gpt-5.0': { name: 'GPT-5.0', color: getModelColor(theme.palette.mode, 'openai'), provider: 'OpenAI' },
       'gpt-5.0-mini': {
         name: 'GPT-5.0 Mini',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
       'gpt-5.0-nano': {
         name: 'GPT-5.0 Nano',
-        color: '#10a37f',
+        color: getModelColor(theme.palette.mode, 'openai'),
         provider: 'OpenAI',
       },
     };
 
     // If modelId is missing or unknown, fall back to primary colors
     if (!modelId || modelId === 'unknown' || modelId === 'other') {
+      const providerKey = getProviderKey(modelId || 'unknown');
       const fallback = {
         name: 'AI Assistant',
-        color: 'primary.dark',
+        color: getModelColor(theme.palette.mode, providerKey),
         provider: 'Unknown',
       };
       if (actualModelInfo) {
@@ -3017,9 +3034,10 @@ export default function PromptLabPage() {
       return fallback;
     }
 
+    const providerKey = getProviderKey(modelId);
     const baseInfo = modelMap[modelId] || {
       name: modelId,
-      color: 'primary.dark', // Fallback to primary color for unknown models
+      color: getModelColor(theme.palette.mode, providerKey),
       provider: 'Unknown',
     };
 
@@ -4629,13 +4647,15 @@ export default function PromptLabPage() {
                 minWidth: isMobile ? '60%' : 'auto',
                 backgroundColor:
                   message.role === 'user'
-                    ? 'primary.light'
+                    ? 'tertiary.dark'
                     : message.role === 'assistant'
                         && message.content.startsWith('Error:')
                       ? 'error.light'
                       : modelInfo.color, // Use model-specific color for AI messages
                 color:
-                  message.role === 'user' ? 'primary.contrastText' : 'white',
+                  message.role === 'user' 
+                    ? 'tertiary.contrastText' 
+                    : theme.palette.mode === 'light' ? 'text.primary' : 'white',
                 borderRadius: isMobile ? 3 : 2,
                 position: 'relative',
                 // Add subtle shadow for better visual separation
@@ -4653,7 +4673,9 @@ export default function PromptLabPage() {
                 border:
                   message.role === 'user'
                     ? '1px solid rgba(0,0,0,0.1)'
-                    : '1px solid rgba(255,255,255,0.1)',
+                    : theme.palette.mode === 'light'
+                      ? '1px solid rgba(0,0,0,0.1)'
+                      : '1px solid rgba(255,255,255,0.1)',
                 // Mobile-specific touch feedback
                 ...(isMobile
                   && message.role === 'user' && {
@@ -4675,6 +4697,7 @@ export default function PromptLabPage() {
                     bgcolor: message.content.startsWith('Error:')
                       ? 'error.dark'
                       : modelInfo.color,
+                    color: theme.palette.mode === 'light' ? 'text.primary' : 'white',
                   }}
                 >
                   <ModelIcon fontSize={isMobile ? 'small' : 'small'} />
@@ -4698,8 +4721,10 @@ export default function PromptLabPage() {
                     sx={{
                       height: isMobile ? 18 : 20,
                       fontSize: isMobile ? '0.6rem' : '0.7rem',
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      color: 'white',
+                      backgroundColor: theme.palette.mode === 'light' 
+                        ? 'rgba(0,0,0,0.1)' 
+                        : 'rgba(255,255,255,0.2)',
+                      color: theme.palette.mode === 'light' ? 'text.primary' : 'white',
                       '& .MuiChip-label': {
                         px: isMobile ? 0.5 : 1,
                       },
@@ -4708,7 +4733,10 @@ export default function PromptLabPage() {
                   {!isMobile && (
                     <Typography
                       variant="caption"
-                      sx={{ opacity: 0.7, color: 'white' }}
+                      sx={{ 
+                        opacity: 0.7, 
+                        color: theme.palette.mode === 'light' ? 'text.primary' : 'white' 
+                      }}
                     >
                       {modelInfo.provider}
                     </Typography>
@@ -4817,13 +4845,17 @@ export default function PromptLabPage() {
                     width: isMobile ? 32 : 28,
                     height: isMobile ? 32 : 28,
                     borderRadius: '50%',
-                    backgroundColor: 'rgba(0,0,0,0.15)',
-                    color: 'primary.contrastText',
+                    backgroundColor: theme.palette.mode === 'light' 
+                      ? 'rgba(0,0,0,0.1)' 
+                      : 'rgba(255,255,255,0.2)',
+                    color: theme.palette.mode === 'light' ? 'text.primary' : 'white',
                     opacity: 0.8,
                     zIndex: 10,
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                     '&:hover': {
-                      backgroundColor: 'rgba(0,0,0,0.25)',
+                      backgroundColor: theme.palette.mode === 'light' 
+                        ? 'rgba(0,0,0,0.15)' 
+                        : 'rgba(255,255,255,0.3)',
                       opacity: 1,
                       transform: 'scale(1.1)',
                       boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
@@ -4831,7 +4863,9 @@ export default function PromptLabPage() {
                     '&:active': isMobile
                       ? {
                           transform: 'scale(0.95)',
-                          backgroundColor: 'rgba(0,0,0,0.3)',
+                          backgroundColor: theme.palette.mode === 'light' 
+                            ? 'rgba(0,0,0,0.2)' 
+                            : 'rgba(255,255,255,0.4)',
                         }
                       : {},
                     transition: 'all 0.2s ease',
@@ -4885,13 +4919,17 @@ export default function PromptLabPage() {
                       width: isMobile ? 32 : 28,
                       height: isMobile ? 32 : 28,
                       borderRadius: '50%',
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      color: 'white',
+                      backgroundColor: theme.palette.mode === 'light' 
+                        ? 'rgba(0,0,0,0.1)' 
+                        : 'rgba(255,255,255,0.2)',
+                      color: theme.palette.mode === 'light' ? 'text.primary' : 'white',
                       opacity: 0.8,
                       zIndex: 10,
                       boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                       '&:hover': {
-                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        backgroundColor: theme.palette.mode === 'light' 
+                          ? 'rgba(0,0,0,0.15)' 
+                          : 'rgba(255,255,255,0.3)',
                         opacity: 1,
                         transform: 'scale(1.1)',
                         boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
@@ -4899,7 +4937,9 @@ export default function PromptLabPage() {
                       '&:active': isMobile
                         ? {
                             transform: 'scale(0.95)',
-                            backgroundColor: 'rgba(255,255,255,0.4)',
+                            backgroundColor: theme.palette.mode === 'light' 
+                              ? 'rgba(0,0,0,0.2)' 
+                              : 'rgba(255,255,255,0.4)',
                           }
                         : {},
                       transition: 'all 0.2s ease',

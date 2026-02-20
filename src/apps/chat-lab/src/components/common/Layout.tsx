@@ -49,6 +49,8 @@ import { getVersionDisplay } from '../../utils/version';
 import AgentAlertsToaster from '../alerts/AgentAlertsToaster';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import WorkspaceSelector from '../workspace/WorkspaceSelector';
+import ChatLabLogo from '../../assets/Chat_Lab_2_-_transparent.png';
+import ChatLabLogoDark from '../../assets/FIDU_Chatlab_Dark_mode.png';
 
 const drawerWidth = 240;
 
@@ -210,14 +212,18 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
                 mx: 1,
                 mb: 0.5,
                 borderRadius: 1,
+                color: 'text.primary',
+                '&:hover': {
+                  backgroundColor: 'action.hover', 
+                },
                 '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
+                  backgroundColor: 'primary.main', 
                   color: 'primary.contrastText',
                   '& .MuiListItemIcon-root': {
                     color: 'inherit',
                   },
                   '&:hover': {
-                    backgroundColor: 'primary.dark',
+                    backgroundColor: 'primary.dark', 
                   },
                 },
               }}
@@ -241,15 +247,17 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-        <Toolbar>
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ fontWeight: 600 }}
-          >
-            FIDU Chat Lab
-          </Typography>
+        <Toolbar sx={{ display: 'flex', justifyContent: 'center', px: 2 }}>
+          <Box
+            component="img"
+            src={theme.palette.mode === 'dark' ? ChatLabLogoDark : ChatLabLogo}
+            alt="FIDU Chat Lab"
+            sx={{
+              height: 175,
+              width: 'auto',
+              objectFit: 'contain',
+            }}
+          />
         </Toolbar>
 
         <List dense>
@@ -275,7 +283,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
           sx={{
             textTransform: 'none',
             justifyContent: 'flex-start',
-            color: 'inherit',
+            color: 'text.primary',
             opacity: 0.7,
             '&:hover': {
               opacity: 1,
@@ -292,6 +300,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             mt: 1,
             textAlign: 'center',
             opacity: 0.5,
+            color: 'text.primary',
           }}
         >
           {getVersionDisplay()} • FIDU
@@ -313,7 +322,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              color: 'inherit',
+              color: 'text.primary',
               opacity: 0.5,
               textDecoration: 'none',
               '&:hover': {
@@ -328,6 +337,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
             variant="caption"
             sx={{
               opacity: 0.5,
+              color: 'text.primary',
             }}
           >
             •
@@ -341,7 +351,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              color: 'inherit',
+              color: 'text.primary',
               opacity: 0.5,
               textDecoration: 'none',
               '&:hover': {
@@ -364,7 +374,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+          backgroundColor: theme.palette.background.paper,
           color: 'primary.contrastText',
         }}
       >
@@ -422,7 +432,12 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               onClick={handleProfileMenuOpen}
               sx={{ ml: 1 }}
             >
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+              <Avatar sx={{ 
+                width: 32, 
+                height: 32, 
+                bgcolor: 'secondary.main',
+                color: 'secondary.contrastText', // ✅ Explicitly use white contrast text
+              }}>
                 {user?.name?.[0] || user?.email?.[0] || <AccountIcon />}
               </Avatar>
             </IconButton>
@@ -483,7 +498,7 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               boxSizing: 'border-box',
               width: drawerWidth,
               height: '100vh',
-              backgroundColor: getPrimaryColor(theme.palette.mode, 'light'),
+              backgroundColor: theme.palette.background.paper,
               color: 'primary.contrastText',
             },
           }}

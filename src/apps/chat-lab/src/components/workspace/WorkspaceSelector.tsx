@@ -23,6 +23,7 @@ import {
   Button,
   Alert,
   CircularProgress,
+  useTheme,
 } from '@mui/material';
 import {
   AccountCircle as AccountIcon,
@@ -53,6 +54,7 @@ import CreateWorkspaceDialog from './CreateWorkspaceDialog';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const WorkspaceSelector: React.FC = () => {
+  const theme = useTheme();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentWorkspace, personalWorkspaces } = useAppSelector(
@@ -201,7 +203,16 @@ const WorkspaceSelector: React.FC = () => {
           }
           sx={{
             cursor: 'pointer',
-            '&:hover': { backgroundColor: 'action.hover' },
+            borderColor: 'secondary.light', 
+            color: 'secondary.light',
+            backgroundColor: 'transparent', 
+            '&:hover': { 
+              backgroundColor: theme.palette.mode === 'dark'
+                ? 'rgba(255, 255, 255, 0.2)' // ✅ Slightly lighter on hover in dark mode
+                : 'action.hover', // ✅ Standard hover in light mode
+              borderColor: 'secondary.main', 
+              color: 'secondary.main',
+            },
           }}
         />
       </Badge>
