@@ -130,15 +130,11 @@ def create_app():
         )
 
     if chat_lab_build_dir.exists():
-        print(
-            f"""[{time.time() - start_time:.2f}s]
-             FIDU Chat Lab frontend found at {chat_lab_build_dir}"""
-        )
+        print(f"""[{time.time() - start_time:.2f}s]
+             FIDU Chat Lab frontend found at {chat_lab_build_dir}""")
     else:
-        print(
-            f"""[{time.time() - start_time:.2f}s]
-            Warning: FIDU Chat Lab frontend not found at {chat_lab_build_dir}"""
-        )
+        print(f"""[{time.time() - start_time:.2f}s]
+            Warning: FIDU Chat Lab frontend not found at {chat_lab_build_dir}""")
 
     print(f"[{time.time() - start_time:.2f}s] Importing modules...")
     print(f"[{time.time() - start_time:.2f}s] Modules imported")

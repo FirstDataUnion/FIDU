@@ -8,4 +8,4 @@ httpx==0.28.1
 prometheus-client==0.21.0
 PyYAML==6.0.2
 hvac==2.3.0
-cryptography==44.0.1
+cryptography==46.0.5

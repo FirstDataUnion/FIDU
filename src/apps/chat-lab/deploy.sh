@@ -11,7 +11,7 @@ NC='\033[0m'
 
 # Parse command line arguments
 ENVIRONMENT=${1:-dev}  # Default to dev if no argument provided
-SERVER_IP=${2:-""}     # Server IP as second argument
+SERVER_ADDR=$2        # Server address as second argument
 
 # Validate environment argument
 case $ENVIRONMENT in
@@ -21,6 +21,7 @@ case $ENVIRONMENT in
         PORT=8118
         SERVICE_NAME="fidu-chat-lab-prod"
         DOMAIN="chatlab.firstdataunion.org"
+        SERVER_ADDR=${SERVER_ADDR:-"chatlab.firstdataunion.org"}
         ENV_FILE=".env.production"
         ;;
     "dev"|"development")
@@ -29,16 +30,17 @@ case $ENVIRONMENT in
         PORT=8119
         SERVICE_NAME="fidu-chat-lab-dev"
         DOMAIN="dev.chatlab.firstdataunion.org"
+        SERVER_ADDR=${SERVER_ADDR:-"dev.chatlab.firstdataunion.org"}
         ENV_FILE=".env.development"
         ;;
     *)
         echo -e "${RED}❌ Invalid environment: $ENVIRONMENT${NC}"
-        echo "Usage: $0 [prod|dev] [server_ip]"
-        echo "  prod       - Deploy to production environment"
-        echo "  dev        - Deploy to development environment"
-        echo "  server_ip  - IP address of the deployment server"
+        echo "Usage: $0 [prod|dev] [server_addr]"
+        echo "  prod         - Deploy to production environment"
+        echo "  dev          - Deploy to development environment"
+        echo "  server_addr  - Address of the deployment server (optional)"
         echo ""
-        echo "Example: $0 dev 46.62.134.169"
+        echo "Example: $0 dev dev.chatlab.firstdataunion.org"
         exit 1
         ;;
 esac
@@ -84,11 +86,11 @@ build_ssh_cmd() {
 
 # Function to prompt for server details if not set
 check_server_config() {
-    if [[ -z "$SERVER_IP" ]]; then
-        echo -e "${YELLOW}📋 Server IP not configured${NC}"
-        read -p "Enter server IP address: " SERVER_IP
-        if [[ -z "$SERVER_IP" ]]; then
-            echo -e "${RED}❌ Server IP is required${NC}"
+    if [[ -z "$SERVER_ADDR" ]]; then
+        echo -e "${YELLOW}📋 Server address not configured${NC}"
+        read -p "Enter server address: " SERVER_ADDR
+        if [[ -z "$SERVER_ADDR" ]]; then
+            echo -e "${RED}❌ Server address is required${NC}"
             exit 1
         fi
     fi
@@ -102,7 +104,7 @@ check_server_config() {
         fi
     fi
 
-    echo -e "${BLUE}Server: ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}${NC}"
+    echo -e "${BLUE}Server: ${SERVER_USER}@${SERVER_ADDR}:${DEPLOY_PATH}${NC}"
     echo -e "${BLUE}Domain: ${DOMAIN}${NC}"
     if [[ -n "$SSH_KEY_PATH" ]]; then
         echo -e "${BLUE}SSH Key: ${SSH_KEY_PATH}${NC}"
@@ -412,16 +414,16 @@ EOF
 echo -e "${GREEN}✅ Build complete! Files prepared in: $LOCAL_BUILD_DIR${NC}"
 
 # Step 4: Upload to server
-echo -e "${YELLOW}🌐 Uploading to server ${SERVER_IP}...${NC}"
+echo -e "${YELLOW}🌐 Uploading to server ${SERVER_ADDR}...${NC}"
 
 # Build SSH command
 SSH_CMD=$(build_ssh_cmd)
 
 # Test SSH connection
 echo -e "${BLUE}🔍 Testing SSH connection...${NC}"
-if ! $SSH_CMD "$SERVER_USER@$SERVER_IP" exit 2>/dev/null; then
+if ! $SSH_CMD "$SERVER_USER@$SERVER_ADDR" exit 2>/dev/null; then
     echo -e "${RED}❌ Cannot connect to server. Please check:${NC}"
-    echo "  - Server IP: $SERVER_IP"
+    echo "  - Server address: $SERVER_ADDR"
     echo "  - SSH user: $SERVER_USER"
     if [[ -n "$SSH_KEY_PATH" ]]; then
         echo "  - SSH key: $SSH_KEY_PATH"
@@ -429,7 +431,7 @@ if ! $SSH_CMD "$SERVER_USER@$SERVER_IP" exit 2>/dev/null; then
         echo "  - SSH key authentication is set up"
     fi
     echo ""
-    echo "Try: $SSH_CMD $SERVER_USER@$SERVER_IP"
+    echo "Try: $SSH_CMD $SERVER_USER@$SERVER_ADDR"
     exit 1
 fi
 
@@ -437,11 +439,11 @@ echo -e "${GREEN}✅ SSH connection successful${NC}"
 
 # Create deployment directory on server
 echo -e "${YELLOW}📁 Creating deployment directory on server...${NC}"
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "mkdir -p $DEPLOY_PATH"
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "mkdir -p $DEPLOY_PATH"
 
 # Stop existing service if running
 echo -e "${YELLOW}🛑 Stopping existing service (if running)...${NC}"
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "systemctl stop ${SERVICE_NAME} 2>/dev/null || true"
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "systemctl stop ${SERVICE_NAME} 2>/dev/null || true"
 
 # Create backup
 mkdir -p "$LOCAL_BACKUP_DIR"
@@ -452,41 +454,41 @@ else
 fi
 echo -e "${YELLOW}🗄️ Copying backup to local directory...${NC}"
 if [ -n "$SSH_KEY_PATH" ] && [ -f "$EXPANDED_SSH_KEY_PATH" ]; then
-    rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
+    rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$SERVER_USER@$SERVER_ADDR:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
 else
-    rsync -avz --progress "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
+    rsync -avz --progress "$SERVER_USER@$SERVER_ADDR:$DEPLOY_PATH/" "$LOCAL_BACKUP_DIR/"
 fi
 
 # Upload files
 echo -e "${YELLOW}📤 Uploading files...${NC}"
 if [ -n "$SSH_KEY_PATH" ] && [ -f "$EXPANDED_SSH_KEY_PATH" ]; then
-    rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$LOCAL_BUILD_DIR/" "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/"
+    rsync -avz --progress -e "ssh -i \"$EXPANDED_SSH_KEY_PATH\"" "$LOCAL_BUILD_DIR/" "$SERVER_USER@$SERVER_ADDR:$DEPLOY_PATH/"
 else
-    rsync -avz --progress "$LOCAL_BUILD_DIR/" "$SERVER_USER@$SERVER_IP:$DEPLOY_PATH/"
+    rsync -avz --progress "$LOCAL_BUILD_DIR/" "$SERVER_USER@$SERVER_ADDR:$DEPLOY_PATH/"
 fi
 
 # Run installation script on server
 echo -e "${YELLOW}⚙️  Running installation script on server...${NC}"
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "cd $DEPLOY_PATH && chmod +x install.sh && ./install.sh"
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "cd $DEPLOY_PATH && chmod +x install.sh && ./install.sh"
 
 # Start the service
 echo -e "${YELLOW}🚀 Starting service...${NC}"
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "systemctl start ${SERVICE_NAME}"
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "systemctl start ${SERVICE_NAME}"
 
 # Check service status
 echo -e "${YELLOW}📊 Checking service status...${NC}"
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "systemctl status ${SERVICE_NAME} --no-pager" || true
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "systemctl status ${SERVICE_NAME} --no-pager" || true
 
 # Test the health endpoint
 echo -e "${YELLOW}🏥 Testing health endpoint...${NC}"
 sleep 2  # Give the service a moment to start
-$SSH_CMD "$SERVER_USER@$SERVER_IP" "curl -f http://localhost:${PORT}/health" || echo -e "${YELLOW}⚠️  Health check failed (service may still be starting)${NC}"
+$SSH_CMD "$SERVER_USER@$SERVER_ADDR" "curl -f http://localhost:${PORT}/health" || echo -e "${YELLOW}⚠️  Health check failed (service may still be starting)${NC}"
 
 echo ""
 echo -e "${GREEN}🎉 Deployment complete!${NC}"
 echo ""
 echo -e "${BLUE}📋 Deployment Summary:${NC}"
-echo "  Server: $SERVER_USER@$SERVER_IP"
+echo "  Server: $SERVER_USER@$SERVER_ADDR"
 echo "  Path: $DEPLOY_PATH"
 echo "  Port: $PORT"
 echo "  Health Check: http://${DOMAIN}:${PORT}/health"
@@ -494,13 +496,13 @@ echo "  App URL: http://${DOMAIN}:${PORT}/fidu-chat-lab"
 echo ""
 echo -e "${BLUE}📝 Useful Commands:${NC}"
 if [ -n "$SSH_KEY_PATH" ]; then
-    echo "  Check status: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_IP 'systemctl status ${SERVICE_NAME}'"
-    echo "  View logs: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_IP 'journalctl -u ${SERVICE_NAME} -f'"
-    echo "  Restart: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_IP 'systemctl restart ${SERVICE_NAME}'"
+    echo "  Check status: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_ADDR 'systemctl status ${SERVICE_NAME}'"
+    echo "  View logs: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_ADDR 'journalctl -u ${SERVICE_NAME} -f'"
+    echo "  Restart: ssh -i \"$SSH_KEY_PATH\" $SERVER_USER@$SERVER_ADDR 'systemctl restart ${SERVICE_NAME}'"
 else
-    echo "  Check status: ssh $SERVER_USER@$SERVER_IP 'systemctl status ${SERVICE_NAME}'"
-    echo "  View logs: ssh $SERVER_USER@$SERVER_IP 'journalctl -u ${SERVICE_NAME} -f'"
-    echo "  Restart: ssh $SERVER_USER@$SERVER_IP 'systemctl restart ${SERVICE_NAME}'"
+    echo "  Check status: ssh $SERVER_USER@$SERVER_ADDR 'systemctl status ${SERVICE_NAME}'"
+    echo "  View logs: ssh $SERVER_USER@$SERVER_ADDR 'journalctl -u ${SERVICE_NAME} -f'"
+    echo "  Restart: ssh $SERVER_USER@$SERVER_ADDR 'systemctl restart ${SERVICE_NAME}'"
 fi
 echo ""
 echo -e "${YELLOW}⚠️  Next Steps:${NC}"
