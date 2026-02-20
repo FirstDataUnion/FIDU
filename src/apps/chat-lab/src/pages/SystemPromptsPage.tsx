@@ -365,10 +365,9 @@ const SystemPromptCard = React.memo<{
             <Button
               size="small"
               variant="outlined"
+              color="primary"
               onClick={handleViewEdit}
               sx={{
-                color: 'primary.dark',
-                borderColor: 'primary.dark',
                 backgroundColor: 'background.paper',
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
                 px: { xs: 2, sm: 1.5 },

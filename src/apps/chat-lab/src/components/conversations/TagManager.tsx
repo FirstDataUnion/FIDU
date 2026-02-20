@@ -90,7 +90,7 @@ const TagManager: React.FC<TagManagerProps> = React.memo(
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose} sx={{ color: 'primary.dark' }}>
+          <Button onClick={onClose} color="primary">
             Cancel
           </Button>
           <Button onClick={onSave}>Save</Button>

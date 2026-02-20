@@ -177,7 +177,7 @@ export default function DocumentEditDialog({
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button onClick={handleClose} sx={{ color: 'primary.dark' }}>
+            <Button onClick={handleClose} color="primary">
               Close
             </Button>
             <Button

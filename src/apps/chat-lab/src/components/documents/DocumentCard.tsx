@@ -200,8 +200,8 @@ export const DocumentCard = React.memo<DocumentCardProps>(
             <Button
               size="small"
               variant="outlined"
+              color="primary"
               onClick={handleViewEdit}
-              sx={{ color: 'primary.dark', borderColor: 'primary.dark' }}
             >
               View/Edit
             </Button>

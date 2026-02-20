@@ -53,7 +53,7 @@ const ContextBuilder: React.FC<ContextBuilderProps> = React.memo(
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose} sx={{ color: 'primary.dark' }}>
+          <Button onClick={onClose} color="primary">
             Cancel
           </Button>
           <Button
