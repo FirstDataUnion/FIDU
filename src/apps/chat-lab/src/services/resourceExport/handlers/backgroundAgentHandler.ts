@@ -11,7 +11,7 @@ import type {
   BackgroundAgentExport,
   ResourceType,
 } from '../types';
-import type { BackgroundAgent } from '../../../services/api/backgroundAgents';
+import type { BackgroundAgent } from '../../../types';
 import { v4 as uuidv4 } from 'uuid';
 import { store } from '../../../store';
 import { selectIsFeatureFlagEnabled } from '../../../store/selectors/featureFlagsSelectors';

@@ -34,7 +34,7 @@ import type {
   Conversation,
   MarkdownDocument,
 } from '../../types';
-import type { BackgroundAgent } from '../../services/api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 
 interface ResourceExportDialogProps {
   open: boolean;

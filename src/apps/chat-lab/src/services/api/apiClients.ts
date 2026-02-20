@@ -11,13 +11,6 @@ export class ApiError extends Error {
   }
 }
 
-// Response type wrapper
-export interface ApiResponse<T> {
-  data: T;
-  status: number;
-  message?: string;
-}
-
 // Error response type
 export interface ErrorResponse {
   message?: string;

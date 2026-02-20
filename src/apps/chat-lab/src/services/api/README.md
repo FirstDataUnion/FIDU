@@ -7,15 +7,10 @@ This directory contains API client implementations and service layers for integr
 ```
 services/api/
 ├── apiClients.ts              # Base API client types and error handling
-├── apiClientFIDUVault.ts      # FIDU Vault API client
 ├── apiClientIdentityService.ts # Identity Service API client
 ├── apiClientNLPWorkbench.ts   # NLP Workbench API client
 ├── apiKeyService.ts           # API key management service
-├── auth.ts                    # Authentication API wrapper
-├── conversations.ts           # Conversation API service
-├── contexts.ts                # Context API service
 ├── prompts.ts                 # Prompt API service
-└── systemPrompts.ts           # System prompt API service
 ```
 
 ## API Client Architecture
@@ -40,32 +35,6 @@ export interface ApiResponse<T> {
   status: number;
   message?: string;
 }
-```
-
-### FIDU Vault API Client (`apiClientFIDUVault.ts`)
-
-**Purpose**: Client for local FIDU Vault instance API
-
-**Configuration:**
-- **Base URL**: `http://127.0.0.1:4000/api/v1`
-- **Timeout**: 10 seconds
-- **Content-Type**: `application/json`
-
-**Key Features:**
-- Automatic token refresh integration
-- Request/response interceptors
-- Error handling and retry logic
-- TypeScript integration
-
-**Usage:**
-```typescript
-import { fiduVaultAPIClient } from './apiClientFIDUVault';
-
-// GET request
-const response = await fiduVaultAPIClient.get<DataType>('/endpoint');
-
-// POST request
-const response = await fiduVaultAPIClient.post<DataType>('/endpoint', data);
 ```
 
 ### Identity Service API Client (`apiClientIdentityService.ts`)
@@ -157,65 +126,6 @@ import { authApi } from './auth';
 
 const user = await authApi.getCurrentUser(token);
 const profile = await authApi.createProfile('Profile Name', token);
-```
-
-### Conversation Service (`conversations.ts`)
-
-**Purpose**: Conversation data management and transformation
-
-**Key Features:**
-- **Data Transformation**: Converts between API and local formats
-- **UUID Generation**: Deterministic UUIDs for consistency
-- **Message Handling**: Complete message lifecycle management
-- **Original Prompt Support**: Preserves prompt context and system prompts
-
-**Data Flow:**
-1. **API → Local**: Transform FIDU Vault data packets to local conversation format
-2. **Local → API**: Transform local conversations to data packets for storage
-3. **Message Processing**: Handle message arrays and attachments
-
-**Key Operations:**
-- **`createConversation`** - Create new conversation with messages
-- **`updateConversation`** - Update existing conversation
-- **`getAll`** - Fetch conversations with filtering and pagination
-- **`getById`** - Get specific conversation
-- **`getMessages`** - Retrieve messages for conversation
-
-**Transformation Functions:**
-- **`transformDataPacketToConversation`** - API → Local format
-- **`transformConversationToDataPacket`** - Local → API format
-- **`transformConversationToDataPacketUpdate`** - Update format
-
-### Context Service (`contexts.ts`)
-
-**Purpose**: Context management for conversation knowledge bases
-
-**Key Features:**
-- **Factory Pattern**: `createContextsApi()` for flexible instantiation
-- **Data Transformation**: Context format conversion
-- **Tag Management**: Automatic tag handling
-- **Profile Integration**: Profile-specific context management
-
-**Key Operations:**
-- **`getAll`** - Fetch contexts with pagination
-- **`createContext`** - Create new context
-- **`updateContext`** - Update existing context
-- **`deleteContext`** - Remove context
-
-**Data Structure:**
-```typescript
-interface ContextDataPacket {
-  id: string;
-  profile_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-  tags: string[];
-  data: {
-    context_title: string;
-    context_body: string;
-    token_count: number;
-  };
-}
 ```
 
 ### FIDU Authentication (`FiduAuthService`)
