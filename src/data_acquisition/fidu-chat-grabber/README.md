@@ -1,5 +1,14 @@
 # FIDU Chat Grabber
 
+> [!WARNING]
+> Unsupported!
+> 
+> The FIDU Chat Grabber is implemented to write to the local FIDU Vault which
+> is now deprecated. The code here remains to be integrated into the new
+> cloud-based FIDU storage solutions (see Chat Lab for an example), but is not
+> supported until that migration happens.
+
+
 A browser extension that captures and manages conversations from various chatbot platforms.
 
 ## Features

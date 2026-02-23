@@ -79,7 +79,7 @@ import {
 import { conversationsService } from '../services/conversationsService';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../data/backgroundAgents';
-import type { BackgroundAgent } from '../services/api/backgroundAgents';
+import type { BackgroundAgent } from '../types';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { ApiError } from '../services/api/apiClients';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
@@ -2701,420 +2701,421 @@ export default function PromptLabPage() {
   };
 
   // Get model-specific colors and display names
-  const getModelInfo = (
-    modelId: string,
-    actualModelInfo?: ActualModelInfo | null
-  ) => {
-    const modelMap: Record<
-      string,
-      { name: string; color: string; provider: string }
-    > = {
-      // Auto Router
-      'auto-router': {
-        name: 'Auto Router',
-        color: getModelColor(theme.palette.mode, 'autoRouter'),
-        provider: 'NLP Workbench',
-      },
+  const getModelInfo = useCallback(
+    (modelId: string, actualModelInfo?: ActualModelInfo | null) => {
+      const modelMap: Record<
+        string,
+        { name: string; color: string; provider: string }
+      > = {
+        // Auto Router
+        'auto-router': {
+          name: 'Auto Router',
+          color: getModelColor(theme.palette.mode, 'autoRouter'),
+          provider: 'NLP Workbench',
+        },
 
-      // OpenAI Models
-      'gpt-3.5-turbo': {
-        name: 'GPT-3.5 Turbo',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-3.5-turbo-instruct': {
-        name: 'GPT-3.5 Turbo Instruct',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4': {
-        name: 'GPT-4',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4-turbo': {
-        name: 'GPT-4 Turbo',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o': {
-        name: 'GPT-4o',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o-search-preview': {
-        name: 'GPT-4o Search Preview',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o-mini': {
-        name: 'GPT-4o Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o-mini-search-preview': {
-        name: 'GPT-4o Mini Search Preview',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5': {
-        name: 'GPT-5',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5-mini': {
-        name: 'GPT-5 Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5-nano': {
-        name: 'GPT-5 Nano',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5-pro': {
-        name: 'GPT-5 Pro',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-oss-120b': {
-        name: 'GPT-OSS 120B',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
+        // OpenAI Models
+        'gpt-3.5-turbo': {
+          name: 'GPT-3.5 Turbo',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-3.5-turbo-instruct': {
+          name: 'GPT-3.5 Turbo Instruct',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4': {
+          name: 'GPT-4',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4-turbo': {
+          name: 'GPT-4 Turbo',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o': {
+          name: 'GPT-4o',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o-search-preview': {
+          name: 'GPT-4o Search Preview',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o-mini': {
+          name: 'GPT-4o Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o-mini-search-preview': {
+          name: 'GPT-4o Mini Search Preview',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5': {
+          name: 'GPT-5',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5-mini': {
+          name: 'GPT-5 Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5-nano': {
+          name: 'GPT-5 Nano',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5-pro': {
+          name: 'GPT-5 Pro',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-oss-120b': {
+          name: 'GPT-OSS 120B',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
 
-      // Anthropic Claude Models
-      'claude-haiku-3': {
-        name: 'Claude Haiku 3',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-haiku-3.5': {
-        name: 'Claude Haiku 3.5',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-haiku-4.5': {
-        name: 'Claude Haiku 4.5',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-opus-4': {
-        name: 'Claude Opus 4',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-opus-4.1': {
-        name: 'Claude Opus 4.1',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-opus-4.6': {
-        name: 'Claude Opus 4.6',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-sonnet-3.7': {
-        name: 'Claude Sonnet 3.7',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-sonnet-4': {
-        name: 'Claude Sonnet 4',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-sonnet-4.5': {
-        name: 'Claude Sonnet 4.5',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
+        // Anthropic Claude Models
+        'claude-haiku-3': {
+          name: 'Claude Haiku 3',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-haiku-3.5': {
+          name: 'Claude Haiku 3.5',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-haiku-4.5': {
+          name: 'Claude Haiku 4.5',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-opus-4': {
+          name: 'Claude Opus 4',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-opus-4.1': {
+          name: 'Claude Opus 4.1',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-opus-4.6': {
+          name: 'Claude Opus 4.6',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-sonnet-3.7': {
+          name: 'Claude Sonnet 3.7',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-sonnet-4': {
+          name: 'Claude Sonnet 4',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-sonnet-4.5': {
+          name: 'Claude Sonnet 4.5',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
 
-      // Google Gemini Models
-      'gemini-2.0-flash': {
-        name: 'Gemini 2.0 Flash',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-2.0-flash-lite': {
-        name: 'Gemini 2.0 Flash-Lite',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-2.5-flash': {
-        name: 'Gemini 2.5 Flash',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-2.5-flash-lite': {
-        name: 'Gemini 2.5 Flash-Lite',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-2.5-pro': {
-        name: 'Gemini 2.5 Pro',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-3-pro-preview': {
-        name: 'Gemini 3 Pro Preview',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
+        // Google Gemini Models
+        'gemini-2.0-flash': {
+          name: 'Gemini 2.0 Flash',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-2.0-flash-lite': {
+          name: 'Gemini 2.0 Flash-Lite',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-2.5-flash': {
+          name: 'Gemini 2.5 Flash',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-2.5-flash-lite': {
+          name: 'Gemini 2.5 Flash-Lite',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-2.5-pro': {
+          name: 'Gemini 2.5 Pro',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-3-pro-preview': {
+          name: 'Gemini 3 Pro Preview',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
 
-      // Meta Llama Models
-      'llama-4-maverick': {
-        name: 'Llama 4 Maverick',
-        color: getModelColor(theme.palette.mode, 'meta'),
-        provider: 'Meta',
-      },
-      'llama-4-scout': {
-        name: 'Llama 4 Scout',
-        color: getModelColor(theme.palette.mode, 'meta'),
-        provider: 'Meta',
-      },
+        // Meta Llama Models
+        'llama-4-maverick': {
+          name: 'Llama 4 Maverick',
+          color: getModelColor(theme.palette.mode, 'meta'),
+          provider: 'Meta',
+        },
+        'llama-4-scout': {
+          name: 'Llama 4 Scout',
+          color: getModelColor(theme.palette.mode, 'meta'),
+          provider: 'Meta',
+        },
 
-      // Mistral Models
-      'mistral-medium-3.1': {
-        name: 'Mistral Medium 3.1',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-codestral-2508': {
-        name: 'Mistral Codestral 2508',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-ministral-3b': {
-        name: 'Mistral Ministral 3B',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-ministral-8b': {
-        name: 'Mistral Ministral 8B',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-small': {
-        name: 'Mistral Small',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-tiny': {
-        name: 'Mistral Tiny',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
-      'mistral-large': {
-        name: 'Mistral Large',
-        color: getModelColor(theme.palette.mode, 'mistral'),
-        provider: 'Mistral',
-      },
+        // Mistral Models
+        'mistral-medium-3.1': {
+          name: 'Mistral Medium 3.1',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-codestral-2508': {
+          name: 'Mistral Codestral 2508',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-ministral-3b': {
+          name: 'Mistral Ministral 3B',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-ministral-8b': {
+          name: 'Mistral Ministral 8B',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-small': {
+          name: 'Mistral Small',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-tiny': {
+          name: 'Mistral Tiny',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
+        'mistral-large': {
+          name: 'Mistral Large',
+          color: getModelColor(theme.palette.mode, 'mistral'),
+          provider: 'Mistral',
+        },
 
-      // Microsoft Phi Models
-      'microsoft-phi-4': {
-        name: 'Microsoft Phi 4',
-        color: getModelColor(theme.palette.mode, 'microsoft'),
-        provider: 'Microsoft',
-      },
-      'microsoft-phi-4-multimodal': {
-        name: 'Microsoft Phi 4 Multimodal',
-        color: getModelColor(theme.palette.mode, 'microsoft'),
-        provider: 'Microsoft',
-      },
-      'microsoft-phi-4-reasoning-plus': {
-        name: 'Microsoft Phi 4 Reasoning Plus',
-        color: getModelColor(theme.palette.mode, 'microsoft'),
-        provider: 'Microsoft',
-      },
+        // Microsoft Phi Models
+        'microsoft-phi-4': {
+          name: 'Microsoft Phi 4',
+          color: getModelColor(theme.palette.mode, 'microsoft'),
+          provider: 'Microsoft',
+        },
+        'microsoft-phi-4-multimodal': {
+          name: 'Microsoft Phi 4 Multimodal',
+          color: getModelColor(theme.palette.mode, 'microsoft'),
+          provider: 'Microsoft',
+        },
+        'microsoft-phi-4-reasoning-plus': {
+          name: 'Microsoft Phi 4 Reasoning Plus',
+          color: getModelColor(theme.palette.mode, 'microsoft'),
+          provider: 'Microsoft',
+        },
 
-      // xAI Grok Models
-      'grok-3': {
-        name: 'Grok 3',
-        color: getModelColor(theme.palette.mode, 'xai'),
-        provider: 'xAI',
-      },
-      'grok-3-mini': {
-        name: 'Grok 3 Mini',
-        color: getModelColor(theme.palette.mode, 'xai'),
-        provider: 'xAI',
-      },
-      'grok-4': {
-        name: 'Grok 4',
-        color: getModelColor(theme.palette.mode, 'xai'),
-        provider: 'xAI',
-      },
-      'grok-4-fast': {
-        name: 'Grok 4 Fast',
-        color: getModelColor(theme.palette.mode, 'xai'),
-        provider: 'xAI',
-      },
+        // xAI Grok Models
+        'grok-3': {
+          name: 'Grok 3',
+          color: getModelColor(theme.palette.mode, 'xai'),
+          provider: 'xAI',
+        },
+        'grok-3-mini': {
+          name: 'Grok 3 Mini',
+          color: getModelColor(theme.palette.mode, 'xai'),
+          provider: 'xAI',
+        },
+        'grok-4': {
+          name: 'Grok 4',
+          color: getModelColor(theme.palette.mode, 'xai'),
+          provider: 'xAI',
+        },
+        'grok-4-fast': {
+          name: 'Grok 4 Fast',
+          color: getModelColor(theme.palette.mode, 'xai'),
+          provider: 'xAI',
+        },
 
-      // Direct Models (Google)
-      'gemini-2.5-flash-lite-direct': {
-        name: 'Gemini 2.5 Flash Lite',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-2.0-flash-direct': {
-        name: 'Gemini 2.0 Flash',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
+        // Direct Models (Google)
+        'gemini-2.5-flash-lite-direct': {
+          name: 'Gemini 2.5 Flash Lite',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-2.0-flash-direct': {
+          name: 'Gemini 2.0 Flash',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
 
-      // Direct Models (Anthropic)
-      'claude-opus-4.1-direct': {
-        name: 'Claude Opus 4.1',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-haiku-3-direct': {
-        name: 'Claude Haiku 3',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-sonnet-3.7-direct': {
-        name: 'Claude Sonnet 3.7',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
+        // Direct Models (Anthropic)
+        'claude-opus-4.1-direct': {
+          name: 'Claude Opus 4.1',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-haiku-3-direct': {
+          name: 'Claude Haiku 3',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-sonnet-3.7-direct': {
+          name: 'Claude Sonnet 3.7',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
 
-      // Direct Models (OpenAI)
-      'gpt-5-nano-direct': {
-        name: 'GPT 5.0 Nano',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5-mini-direct': {
-        name: 'GPT 5.0 Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5-direct': {
-        name: 'GPT 5.0',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o-mini-direct': {
-        name: 'GPT 4.0 Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4-direct': {
-        name: 'GPT 4.0',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4-turbo-direct': {
-        name: 'GPT 4.0 Turbo',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-3.5-turbo-direct': {
-        name: 'GPT 3.5 Turbo',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4o-search-preview-direct': {
-        name: 'GPT 4o Search',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
+        // Direct Models (OpenAI)
+        'gpt-5-nano-direct': {
+          name: 'GPT 5.0 Nano',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5-mini-direct': {
+          name: 'GPT 5.0 Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5-direct': {
+          name: 'GPT 5.0',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o-mini-direct': {
+          name: 'GPT 4.0 Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4-direct': {
+          name: 'GPT 4.0',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4-turbo-direct': {
+          name: 'GPT 4.0 Turbo',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-3.5-turbo-direct': {
+          name: 'GPT 3.5 Turbo',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4o-search-preview-direct': {
+          name: 'GPT 4o Search',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
 
-      // Legacy mappings for backward compatibility
-      'gemini-flash': {
-        name: 'Gemini Flash',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'gemini-pro': {
-        name: 'Gemini Pro',
-        color: getModelColor(theme.palette.mode, 'google'),
-        provider: 'Google',
-      },
-      'claude-haiku': {
-        name: 'Claude Haiku',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-sonnet': {
-        name: 'Claude Sonnet',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'claude-opus-41': {
-        name: 'Claude Opus',
-        color: getModelColor(theme.palette.mode, 'anthropic'),
-        provider: 'Anthropic',
-      },
-      'gpt-4.0': {
-        name: 'GPT-4.0',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4.0-turbo': {
-        name: 'GPT-4.0 Turbo',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-4.0-mini': {
-        name: 'GPT-4.0 Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5.0': {
-        name: 'GPT-5.0',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5.0-mini': {
-        name: 'GPT-5.0 Mini',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-      'gpt-5.0-nano': {
-        name: 'GPT-5.0 Nano',
-        color: getModelColor(theme.palette.mode, 'openai'),
-        provider: 'OpenAI',
-      },
-    };
+        // Legacy mappings for backward compatibility
+        'gemini-flash': {
+          name: 'Gemini Flash',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'gemini-pro': {
+          name: 'Gemini Pro',
+          color: getModelColor(theme.palette.mode, 'google'),
+          provider: 'Google',
+        },
+        'claude-haiku': {
+          name: 'Claude Haiku',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-sonnet': {
+          name: 'Claude Sonnet',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'claude-opus-41': {
+          name: 'Claude Opus',
+          color: getModelColor(theme.palette.mode, 'anthropic'),
+          provider: 'Anthropic',
+        },
+        'gpt-4.0': {
+          name: 'GPT-4.0',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4.0-turbo': {
+          name: 'GPT-4.0 Turbo',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-4.0-mini': {
+          name: 'GPT-4.0 Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5.0': {
+          name: 'GPT-5.0',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5.0-mini': {
+          name: 'GPT-5.0 Mini',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+        'gpt-5.0-nano': {
+          name: 'GPT-5.0 Nano',
+          color: getModelColor(theme.palette.mode, 'openai'),
+          provider: 'OpenAI',
+        },
+      };
 
-    // If modelId is missing or unknown, fall back to primary colors
-    if (!modelId || modelId === 'unknown' || modelId === 'other') {
-      const providerKey = getProviderKey(modelId || 'unknown');
-      const fallback = {
-        name: 'AI Assistant',
+      // If modelId is missing or unknown, fall back to primary colors
+      if (!modelId || modelId === 'unknown' || modelId === 'other') {
+        const providerKey = getProviderKey(modelId || 'unknown');
+        const fallback = {
+          name: 'AI Assistant',
+          color: getModelColor(theme.palette.mode, providerKey),
+          provider: 'Unknown',
+        };
+        if (actualModelInfo) {
+          return {
+            ...fallback,
+            name: actualModelInfo.modelDisplay?.trim() || fallback.name,
+            provider:
+              actualModelInfo.providerDisplay?.trim() || fallback.provider,
+          };
+        }
+        return fallback;
+      }
+
+      const providerKey = getProviderKey(modelId);
+      const baseInfo = modelMap[modelId] || {
+        name: modelId,
         color: getModelColor(theme.palette.mode, providerKey),
         provider: 'Unknown',
       };
+
       if (actualModelInfo) {
         return {
-          ...fallback,
-          name: actualModelInfo.modelDisplay?.trim() || fallback.name,
+          ...baseInfo,
+          name: actualModelInfo.modelDisplay?.trim() || baseInfo.name,
           provider:
-            actualModelInfo.providerDisplay?.trim() || fallback.provider,
+            actualModelInfo.providerDisplay?.trim() || baseInfo.provider,
         };
       }
-      return fallback;
-    }
 
-    const providerKey = getProviderKey(modelId);
-    const baseInfo = modelMap[modelId] || {
-      name: modelId,
-      color: getModelColor(theme.palette.mode, providerKey),
-      provider: 'Unknown',
-    };
-
-    if (actualModelInfo) {
-      return {
-        ...baseInfo,
-        name: actualModelInfo.modelDisplay?.trim() || baseInfo.name,
-        provider: actualModelInfo.providerDisplay?.trim() || baseInfo.provider,
-      };
-    }
-
-    return baseInfo;
-  };
+      return baseInfo;
+    },
+    [theme.palette.mode]
+  );
 
   // State for the right sidebar
   const [conversationsDrawerOpen, setConversationsDrawerOpen] = useState(false);

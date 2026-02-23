@@ -2,7 +2,7 @@ import {
   maybeEvaluateBackgroundAgents,
   clearDebounceCache,
 } from '../backgroundAgentRunner';
-import type { BackgroundAgent } from '../../api/backgroundAgents';
+import type { BackgroundAgent } from '../../../types';
 import type {
   ConversationSliceMessage,
   EvaluationResult,

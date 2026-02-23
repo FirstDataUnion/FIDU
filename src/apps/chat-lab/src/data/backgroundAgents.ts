@@ -1,4 +1,4 @@
-import type { BackgroundAgent } from '../services/api/backgroundAgents';
+import type { BackgroundAgent } from '../types';
 
 // Built-in Background Agent templates (read-only). Clone to user DataPackets to customize.
 export const BUILT_IN_BACKGROUND_AGENTS: Array<

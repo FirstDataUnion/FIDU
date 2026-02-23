@@ -10,6 +10,7 @@ import type {
   FilterOptions,
   ConversationsResponse,
 } from '../../types';
+import type { StorageMode } from './types';
 
 export class UnifiedStorageService {
   private storageService = getStorageService();
@@ -31,7 +32,7 @@ export class UnifiedStorageService {
     }
   }
 
-  async switchMode(mode: 'local' | 'cloud'): Promise<void> {
+  async switchMode(mode: StorageMode): Promise<void> {
     await this.storageService.switchMode(mode);
   }
 

@@ -1,17 +1,6 @@
-import { fiduVaultAPIClient } from './apiClientFIDUVault';
 import { ApiError } from './apiClients';
 import { getUnifiedStorageService } from '../storage/UnifiedStorageService';
 import { getEnvironmentInfo } from '../../utils/environment';
-
-// API Key response types from FIDU Vault
-export interface APIKeyWithValue {
-  id: string;
-  provider: string;
-  api_key: string;
-  user_id: string;
-  create_timestamp: string;
-  update_timestamp: string;
-}
 
 // Provider mapping for API key field names
 export const PROVIDER_API_KEY_FIELDS = {
@@ -24,13 +13,9 @@ export const PROVIDER_API_KEY_FIELDS = {
 export type SupportedProvider = keyof typeof PROVIDER_API_KEY_FIELDS;
 
 /**
- * Service for managing API keys from FIDU Vault
+ * Service for managing API keys
  */
 export class APIKeyService {
-  private cache: Map<string, APIKeyWithValue> = new Map();
-  private cacheExpiry: Map<string, number> = new Map();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
   /**
    * Get API key for a specific provider
    * @param provider The provider name (openai, anthropic, google)
@@ -67,37 +52,6 @@ export class APIKeyService {
         }
         return apiKey;
       } else {
-        // Use FIDU Vault API (original behavior)
-        console.log(
-          `🔑 [APIKeyService] Using FIDU Vault API for provider: ${provider}`
-        );
-
-        // Check cache first
-        const cached = this.getCachedAPIKey(provider);
-        if (cached) {
-          console.log(
-            `🔑 [APIKeyService] Using cached API key for provider: ${provider}`
-          );
-          return cached.api_key;
-        }
-
-        // Fetch from FIDU Vault API
-        const response = await fiduVaultAPIClient.get<APIKeyWithValue>(
-          `/api-keys/provider/${provider}/value`
-        );
-
-        if (response.data) {
-          // Cache the result
-          this.setCachedAPIKey(provider, response.data);
-          console.log(
-            `🔑 [APIKeyService] Retrieved API key from FIDU Vault for provider: ${provider}`
-          );
-          return response.data.api_key;
-        }
-
-        console.log(
-          `🔑 [APIKeyService] No API key found in FIDU Vault for provider: ${provider}`
-        );
         return null;
       }
     } catch (error) {
@@ -124,47 +78,6 @@ export class APIKeyService {
    */
   getAPIKeyFieldName(provider: SupportedProvider): string {
     return PROVIDER_API_KEY_FIELDS[provider];
-  }
-
-  /**
-   * Get cached API key if still valid
-   */
-  private getCachedAPIKey(provider: string): APIKeyWithValue | null {
-    const cached = this.cache.get(provider);
-    const expiry = this.cacheExpiry.get(provider);
-
-    if (cached && expiry && Date.now() < expiry) {
-      return cached;
-    }
-
-    // Clear expired cache
-    if (expiry && Date.now() >= expiry) {
-      this.cache.delete(provider);
-      this.cacheExpiry.delete(provider);
-    }
-
-    return null;
-  }
-
-  /**
-   * Cache an API key with expiry
-   */
-  private setCachedAPIKey(provider: string, apiKey: APIKeyWithValue): void {
-    this.cache.set(provider, apiKey);
-    this.cacheExpiry.set(provider, Date.now() + this.CACHE_DURATION);
-  }
-
-  /**
-   * Clear cache for a specific provider
-   */
-  clearCache(provider?: SupportedProvider): void {
-    if (provider) {
-      this.cache.delete(provider);
-      this.cacheExpiry.delete(provider);
-    } else {
-      this.cache.clear();
-      this.cacheExpiry.clear();
-    }
   }
 
   /**

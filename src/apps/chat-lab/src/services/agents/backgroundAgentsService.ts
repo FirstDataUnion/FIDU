@@ -1,4 +1,4 @@
-import type { BackgroundAgent } from '../api/backgroundAgents';
+import type { BackgroundAgent } from '../../types';
 import { createNLPWorkbenchAPIClientWithSettings } from '../api/apiClientNLPWorkbench';
 
 export interface ConversationSliceMessage {
