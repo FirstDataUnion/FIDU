@@ -48,7 +48,7 @@ Your conversations and application data include:
 ### 2.3. Model Usage Data
 
 When you make requests to AI models through FIDU Chat Lab, we store usage records linked to your account.
-This data is used to for billing, service management and compliance.
+This data is used for billing, service management and compliance.
 
 **What We Store:**
 - **User identification** (linked to your account)
@@ -80,7 +80,20 @@ We collect anonymous usage metrics to monitor system health and improve the serv
 
 For detailed information about what metrics we collect, how they are used, and how to opt out, see **Section 4: Anonymous Metrics Collection**. 
 
-### 2.5. Google Drive Integration
+### 2.5 Cross-FIDU Usage Data
+
+Additionally to the data collection mentioned in 2.4, FIDU operates anonymous server request data collection
+across the entire *.firstdataunion.org domain.
+
+The data we collect includes:
+- Your IP address
+- Your browser type and version
+- Your operating system
+- The path of the request you make to the server
+
+Please see FIDU's [Privacy Policy](https://firstdataunion.org/privacy-policy.html) for more details.
+
+### 2.6. Google Drive Integration
 
 If you enable Google Drive cloud storage, we use the Google Drive API to:
 
@@ -142,7 +155,7 @@ FIDU Chat Lab does **not** use:
 - **Analytics cookies** (e.g., Google Analytics, Facebook Pixel)
 - **Advertising cookies** (e.g., third-party ad networks)
 - **Social media tracking cookies** (e.g., Facebook Like button trackers)
-- **Cross-site tracking** or fingerprinting technologies
+- **Cross-domain tracking** or fingerprinting shared with third parties (only for data collected, stored and used exclusively by FIDU)
 - **Third-party data sharing** mechanisms
 
 ### 3.3. Managing Cookies & Storage
@@ -414,6 +427,7 @@ We may update this Privacy Policy to reflect:
 - You can always review the current policy at `/fidu-chat-lab/privacy-policy`
 
 **Version History:**
+- v1.3 - 25 February 2026: Added passive, anonymous behaviour tracking
 - v1.2 - 19 January 2026: Updated for Workspace feature; corrected server location; updated data types, cookie data; remove file system option
 - v1.1 - 24 October 2025: Enhanced authentication security with HTTP-only encrypted cookies
 - v1.0 - 9 October 2025: Initial Chat Lab-specific privacy policy
@@ -432,9 +446,9 @@ CO7 9DP, United Kingdom
 
 ---
 
-**Last Updated:** 11 February 2026
-**Effective Date:** 11 February 2026
-**Version:** 1.2
+**Last Updated:** 25 February 2026
+**Effective Date:** 25 February 2026
+**Version:** 1.3
 
 For the full FIDU organizational privacy policy, visit: [https://firstdataunion.org/privacy-policy.html](https://firstdataunion.org/privacy-policy.html)
 
