@@ -204,7 +204,7 @@ const FiduAuthLogin: React.FC = () => {
             mb: 1,
           }}
         >
-          Welcome Back
+          Welcome
         </Typography>
         <Typography
           variant="body1"
