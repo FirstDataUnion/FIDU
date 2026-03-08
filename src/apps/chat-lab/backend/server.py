@@ -12,6 +12,7 @@ import logging
 import time
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -108,7 +109,40 @@ METRICS_FLUSH_INTERVAL = int(os.getenv("METRICS_FLUSH_INTERVAL", "30"))  # secon
 # (pylint doesn't like the global so demands UPPER_CASE name)
 chatlab_secrets: Optional[ChatLabSecrets] = None  # pylint: disable=invalid-name
 
-app = FastAPI(title=f"FIDU Chat Lab ({ENVIRONMENT})")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup
+    global chatlab_secrets  # pylint: disable=global-statement
+    logger.info("🚀 Starting FIDU Chat Lab (%s) metrics service", ENVIRONMENT)
+    logger.info("📊 Environment: %s", ENVIRONMENT)
+    logger.info("📍 VictoriaMetrics URL: %s", VM_URL)
+
+    # Note: .env file is already loaded before module imports (see above)
+    # This ensures encryption_service and other modules get the correct values
+
+    # Load secrets from OpenBao with fallback to environment variables
+    try:
+        logger.info("Loading secrets from OpenBao...")
+        chatlab_secrets = load_chatlab_secrets_from_openbao()
+        if chatlab_secrets.google_client_id:
+            logger.info("✅ Secrets loaded successfully")
+        else:
+            logger.warning("⚠️  Secrets loaded but Google Client ID is empty")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("❌ Failed to load secrets: %s", e)
+        chatlab_secrets = None
+
+    asyncio.create_task(send_metrics_to_victoria())
+
+    yield
+
+    # Shutdown (if needed in the future)
+    # Add any cleanup logic here
+
+
+app = FastAPI(title=f"FIDU Chat Lab ({ENVIRONMENT})", lifespan=lifespan)
 
 # Store client-side logs in memory
 client_logs = []
@@ -416,32 +450,6 @@ async def send_metrics_to_victoria():
                 ENVIRONMENT,
                 e,
             )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Start background tasks on startup."""
-    global chatlab_secrets  # pylint: disable=global-statement
-    logger.info("🚀 Starting FIDU Chat Lab (%s) metrics service", ENVIRONMENT)
-    logger.info("📊 Environment: %s", ENVIRONMENT)
-    logger.info("📍 VictoriaMetrics URL: %s", VM_URL)
-
-    # Note: .env file is already loaded before module imports (see above)
-    # This ensures encryption_service and other modules get the correct values
-
-    # Load secrets from OpenBao with fallback to environment variables
-    try:
-        logger.info("Loading secrets from OpenBao...")
-        chatlab_secrets = load_chatlab_secrets_from_openbao()
-        if chatlab_secrets.google_client_id:
-            logger.info("✅ Secrets loaded successfully")
-        else:
-            logger.warning("⚠️  Secrets loaded but Google Client ID is empty")
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("❌ Failed to load secrets: %s", e)
-        chatlab_secrets = None
-
-    asyncio.create_task(send_metrics_to_victoria())
 
 
 # Get the directory where this script is located

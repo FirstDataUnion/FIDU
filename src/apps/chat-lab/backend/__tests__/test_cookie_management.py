@@ -240,14 +240,14 @@ class TestOAuthEndpoints:
                     )
 
                     # Set up cookies with proper user ID
-                    cookies = {
-                        "google_refresh_token": "encrypted_token",
-                        "fidu_user_dev": '{"id": "test_user_123", "email": "test@example.com"}',
-                    }
+                    client.cookies.set("google_refresh_token", "encrypted_token")
+                    client.cookies.set(
+                        "fidu_user_dev",
+                        '{"id": "test_user_123", "email": "test@example.com"}',
+                    )
 
                     response = client.post(
                         "/fidu-chat-lab/api/oauth/refresh-token",
-                        cookies=cookies,
                         headers={"Authorization": "Bearer test_token"},
                     )
 
@@ -291,16 +291,14 @@ class TestFiduAuthEndpoints:
         """Test retrieving FIDU auth tokens from HTTP-only cookies."""
         client = TestClient(app)
 
-        # Set up cookies
-        cookies = {
-            "fidu_access_token_dev": "test_access_token",
-            "fidu_refresh_token_dev": "test_refresh_token",
-            "fidu_user_dev": '{"id": "test-user", "email": "test@example.com"}',
-        }
-
-        response = client.get(
-            "/fidu-chat-lab/api/auth/fidu/get-tokens?env=dev", cookies=cookies
+        # Set up cookies on client instance
+        client.cookies.set("fidu_access_token_dev", "test_access_token")
+        client.cookies.set("fidu_refresh_token_dev", "test_refresh_token")
+        client.cookies.set(
+            "fidu_user_dev", '{"id": "test-user", "email": "test@example.com"}'
         )
+
+        response = client.get("/fidu-chat-lab/api/auth/fidu/get-tokens?env=dev")
 
         assert response.status_code == 200
         data = response.json()
@@ -373,12 +371,11 @@ class TestSettingsEndpoints:
                 '{"id": "test-user", "theme": "dark", "storageMode": "cloud"}'
             )
 
-            # Set up cookies
-            cookies = {"user_settings": "encrypted_settings"}
+            # Set up cookies on client instance
+            client.cookies.set("user_settings", "encrypted_settings")
 
             response = client.get(
                 "/fidu-chat-lab/api/settings/get",
-                cookies=cookies,
                 headers={"Authorization": "Bearer test-token"},
             )
 
