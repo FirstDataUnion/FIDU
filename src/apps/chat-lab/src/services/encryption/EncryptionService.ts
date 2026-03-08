@@ -23,6 +23,9 @@ export class EncryptionService {
     { key: CryptoKey; expires: number }
   >();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  // Track in-flight promises to deduplicate concurrent API calls
+  private inFlightKeyPromises = new Map<string, Promise<CryptoKey>>();
+  private inFlightWorkspaceKeyPromises = new Map<string, Promise<CryptoKey>>();
 
   /**
    * Encrypt data for a specific user or workspace
@@ -139,87 +142,122 @@ export class EncryptionService {
   }
 
   /**
-   * Get encryption key for a user (with caching)
-   * @param userId - The user ID
-   * @returns Promise<CryptoKey> - The encryption key
+   * Get encryption key for a user with caching and promise deduplication.
+   * Concurrent calls share the same promise to prevent duplicate API requests.
    */
   private async getEncryptionKey(userId: string): Promise<CryptoKey> {
-    // Check cache first
     const cached = this.keyCache.get(userId);
     if (cached && !this.isKeyExpired(cached.expires)) {
       return cached.key;
     }
 
-    // Fetch key from identity service
-    const keyString = await identityServiceAPIClient.getEncryptionKey();
+    const inFlightPromise = this.inFlightKeyPromises.get(userId);
+    if (inFlightPromise) {
+      return inFlightPromise;
+    }
 
-    // Convert string key to CryptoKey
-    const keyBuffer = this.base64ToArrayBuffer(keyString);
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyBuffer,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt', 'decrypt']
-    );
-
-    // Cache the key
-    this.keyCache.set(userId, {
-      key,
-      expires: Date.now() + this.CACHE_TTL,
+    // Create controlled promise and set it before starting async operation
+    // This ensures concurrent calls will see it and wait for the same request
+    let resolvePromise!: (value: CryptoKey) => void;
+    let rejectPromise!: (reason?: any) => void;
+    const sharedPromise = new Promise<CryptoKey>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
     });
 
-    return key;
+    this.inFlightKeyPromises.set(userId, sharedPromise);
+
+    (async () => {
+      try {
+        const keyString = await identityServiceAPIClient.getEncryptionKey();
+        const keyBuffer = this.base64ToArrayBuffer(keyString);
+        const key = await crypto.subtle.importKey(
+          'raw',
+          keyBuffer,
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt', 'decrypt']
+        );
+
+        this.keyCache.set(userId, {
+          key,
+          expires: Date.now() + this.CACHE_TTL,
+        });
+
+        resolvePromise(key);
+      } catch (error) {
+        rejectPromise(error);
+      } finally {
+        this.inFlightKeyPromises.delete(userId);
+      }
+    })();
+
+    return sharedPromise;
   }
 
   /**
-   * Get workspace encryption key for a shared workspace (with caching and unwrapping)
-   * Fetches the wrapped key from the identity service, unwraps it using the user's personal key,
-   * and caches the unwrapped key for performance.
-   *
-   * @param workspaceId - The workspace ID
-   * @param userId - The user ID (needed to get personal key for unwrapping)
-   * @returns Promise<CryptoKey> - The unwrapped workspace encryption key
+   * Get workspace encryption key with caching and promise deduplication.
+   * Fetches wrapped key from identity service and unwraps it using the user's personal key.
    */
   async getWorkspaceEncryptionKey(
     workspaceId: string,
     userId: string
   ): Promise<CryptoKey> {
-    // Check cache first
     const cached = this.workspaceKeyCache.get(workspaceId);
     if (cached && !this.isKeyExpired(cached.expires)) {
       return cached.key;
     }
 
-    try {
-      // 1. Fetch wrapped key from identity service
-      const wrappedKeyBase64 =
-        await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(
-          workspaceId
+    const cacheKey = `${workspaceId}:${userId}`;
+    const inFlightPromise = this.inFlightWorkspaceKeyPromises.get(cacheKey);
+    if (inFlightPromise) {
+      return inFlightPromise;
+    }
+
+    // Create controlled promise and set it before starting async operation
+    let resolvePromise!: (value: CryptoKey) => void;
+    let rejectPromise!: (reason?: any) => void;
+    const sharedPromise = new Promise<CryptoKey>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+
+    this.inFlightWorkspaceKeyPromises.set(cacheKey, sharedPromise);
+
+    (async () => {
+      try {
+        const wrappedKeyBase64 =
+          await identityServiceAPIClient.getWrappedWorkspaceEncryptionKey(
+            workspaceId
+          );
+        const personalKey = await this.getEncryptionKey(userId);
+        const workspaceKey = await this.unwrapKey(
+          wrappedKeyBase64,
+          personalKey
         );
 
-      // 2. Get user's personal encryption key
-      const personalKey = await this.getEncryptionKey(userId);
+        this.workspaceKeyCache.set(workspaceId, {
+          key: workspaceKey,
+          expires: Date.now() + this.CACHE_TTL,
+        });
 
-      // 3. Unwrap workspace key using personal key
-      const workspaceKey = await this.unwrapKey(wrappedKeyBase64, personalKey);
+        resolvePromise(workspaceKey);
+      } catch (error) {
+        console.error(
+          `Failed to get workspace encryption key for workspace ${workspaceId}:`,
+          error
+        );
+        rejectPromise(
+          new Error(
+            `Failed to get workspace encryption key. ${error instanceof Error ? error.message : 'Please try again.'}`
+          )
+        );
+      } finally {
+        this.inFlightWorkspaceKeyPromises.delete(cacheKey);
+      }
+    })();
 
-      // 4. Cache the unwrapped key
-      this.workspaceKeyCache.set(workspaceId, {
-        key: workspaceKey,
-        expires: Date.now() + this.CACHE_TTL,
-      });
-
-      return workspaceKey;
-    } catch (error) {
-      console.error(
-        `Failed to get workspace encryption key for workspace ${workspaceId}:`,
-        error
-      );
-      throw new Error(
-        `Failed to get workspace encryption key. ${error instanceof Error ? error.message : 'Please try again.'}`
-      );
-    }
+    return sharedPromise;
   }
 
   /**
@@ -237,6 +275,7 @@ export class EncryptionService {
    */
   clearUserKeyCache(userId: string): void {
     this.keyCache.delete(userId);
+    this.inFlightKeyPromises.delete(userId);
   }
 
   /**
@@ -245,6 +284,8 @@ export class EncryptionService {
   clearAllKeyCache(): void {
     this.keyCache.clear();
     this.workspaceKeyCache.clear();
+    this.inFlightKeyPromises.clear();
+    this.inFlightWorkspaceKeyPromises.clear();
   }
 
   /**
@@ -253,6 +294,12 @@ export class EncryptionService {
    */
   clearWorkspaceKeyCache(workspaceId: string): void {
     this.workspaceKeyCache.delete(workspaceId);
+    // Clear all in-flight promises for this workspace (they may have different userIds)
+    for (const [key, _] of this.inFlightWorkspaceKeyPromises.entries()) {
+      if (key.startsWith(`${workspaceId}:`)) {
+        this.inFlightWorkspaceKeyPromises.delete(key);
+      }
+    }
   }
 
   /**
