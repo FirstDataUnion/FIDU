@@ -35,91 +35,101 @@ jest.mock('../services/auth/FiduAuthService', () => ({
   TokenAcquisitionTimeoutError: class TokenAcquisitionTimeoutError extends Error {},
 }));
 
+// Unmock the environment module so we can test the real detectRuntimeEnvironment function
+// Jest automatically uses __mocks__/utils/environment.ts, but we need the real implementation
+jest.unmock('../utils/environment');
+
 import { detectRuntimeEnvironment } from '../utils/environment';
 import { CookieSettingsService } from '../services/settings/CookieSettingsService';
 import { UserSettings } from '../types';
 
 describe('Environment Detection for Dev/Prod Switching', () => {
   beforeEach(() => {
-    // Mock window.location with default values
-    Object.defineProperty(window, 'location', {
-      value: {
-        hostname: 'chatlab.firstdataunion.org',
-        pathname: '/fidu-chat-lab',
-      },
-      writable: true,
-    });
-
     jest.clearAllMocks();
   });
 
   describe('CookieSettingsService Environment Detection', () => {
     it('should detect dev environment correctly', () => {
-      // Mock dev environment
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'dev.chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      // Mock dev environment by passing a mock location object
+      const mockLocation = {
+        hostname: 'dev.chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://dev.chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const environment = detectRuntimeEnvironment();
+      // Verify the mock location has the expected hostname
+      expect((mockLocation as any).hostname).toBe(
+        'dev.chatlab.firstdataunion.org'
+      );
+
+      const environment = detectRuntimeEnvironment(mockLocation);
       expect(environment).toBe('dev');
     });
 
     it('should detect prod environment correctly', () => {
-      // Mock prod environment
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      // Mock prod environment by passing a mock location object
+      const mockLocation = {
+        hostname: 'chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const environment = detectRuntimeEnvironment();
+      const environment = detectRuntimeEnvironment(mockLocation);
       expect(environment).toBe('prod');
     });
 
     it('should detect local environment correctly', () => {
-      // Mock local environment
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'localhost',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      // Mock local environment by passing a mock location object
+      const mockLocation = {
+        hostname: 'localhost',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://localhost:3000/fidu-chat-lab',
+        protocol: 'http:',
+        port: '3000',
+      } as Location;
 
-      const environment = detectRuntimeEnvironment();
+      const environment = detectRuntimeEnvironment(mockLocation);
       expect(environment).toBe('local');
     });
 
     it('should generate correct environment prefix', () => {
       // Test dev prefix
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'dev.chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      const devLocation = {
+        hostname: 'dev.chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://dev.chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const devService = new CookieSettingsService();
+      const devService = new CookieSettingsService(undefined, devLocation);
       const devPrefix = devService['getEnvironmentPrefix']();
       expect(devPrefix).toBe('_dev');
 
       // Test prod prefix (should be empty)
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      const prodLocation = {
+        hostname: 'chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const prodService = new CookieSettingsService();
+      const prodService = new CookieSettingsService(undefined, prodLocation);
       const prodPrefix = prodService['getEnvironmentPrefix']();
       expect(prodPrefix).toBe('');
     });
@@ -127,15 +137,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
 
   describe('Environment-Specific Cookie Names', () => {
     it('should use dev cookie names for dev environment', async () => {
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'dev.chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      const devLocation = {
+        hostname: 'dev.chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://dev.chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const devService = new CookieSettingsService();
+      const devService = new CookieSettingsService(undefined, devLocation);
 
       // Mock axios post to return success
       mockPost.mockResolvedValueOnce({
@@ -163,15 +175,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
     });
 
     it('should use prod cookie names for prod environment', async () => {
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      const prodLocation = {
+        hostname: 'chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const prodService = new CookieSettingsService();
+      const prodService = new CookieSettingsService(undefined, prodLocation);
 
       // Mock axios post to return success
       mockPost.mockResolvedValueOnce({
@@ -199,16 +213,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
     });
 
     it('should validate environment when retrieving settings', async () => {
-      // Mock dev environment
-      Object.defineProperty(window, 'location', {
-        value: {
-          hostname: 'dev.chatlab.firstdataunion.org',
-          pathname: '/fidu-chat-lab',
-        },
-        writable: true,
-      });
+      const devLocation = {
+        hostname: 'dev.chatlab.firstdataunion.org',
+        pathname: '/fidu-chat-lab',
+        search: '',
+        hash: '',
+        href: 'http://dev.chatlab.firstdataunion.org/fidu-chat-lab',
+        protocol: 'http:',
+        port: '',
+      } as Location;
 
-      const devService = new CookieSettingsService();
+      const devService = new CookieSettingsService(undefined, devLocation);
 
       // Mock axios get to return settings for wrong environment
       mockGet.mockResolvedValueOnce({
@@ -238,15 +253,17 @@ describe('Environment Detection for Dev/Prod Switching', () => {
       ];
 
       testCases.forEach(({ hostname, expected }) => {
-        Object.defineProperty(window, 'location', {
-          value: {
-            hostname,
-            pathname: '/fidu-chat-lab',
-          },
-          writable: true,
-        });
+        const mockLocation = {
+          hostname,
+          pathname: '/fidu-chat-lab',
+          search: '',
+          hash: '',
+          href: `http://${hostname}/fidu-chat-lab`,
+          protocol: 'http:',
+          port: '',
+        } as Location;
 
-        const environment = detectRuntimeEnvironment();
+        const environment = detectRuntimeEnvironment(mockLocation);
         expect(environment).toBe(expected);
       });
     });

@@ -119,15 +119,18 @@ describe('CookieSettingsService', () => {
     await setUpMockServer();
 
     // Mock window.location for production path and environment
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: '/fidu-chat-lab/some-page',
-        hostname: 'dev.chatlab.firstdataunion.org',
-      },
-      writable: true,
-    });
+    // Use mock location object for CookieSettingsService
+    const mockLocation = {
+      pathname: '/fidu-chat-lab/some-page',
+      hostname: 'dev.chatlab.firstdataunion.org',
+      href: 'http://dev.chatlab.firstdataunion.org/fidu-chat-lab/some-page',
+      search: '',
+      hash: '',
+      protocol: 'http:',
+      port: '',
+    } as Location;
 
-    service = new CookieSettingsService(testBaseUrl);
+    service = new CookieSettingsService(testBaseUrl, mockLocation);
     const fiduService = getFiduAuthService() as any;
     fiduService.cachedAccessToken = null;
     fiduService.cachedRefreshTokenAvailable = null;
@@ -199,13 +202,29 @@ describe('CookieSettingsService', () => {
 
   describe('getSettings', () => {
     it('should successfully retrieve settings from HTTP-only cookie', async () => {
+      // Add environment to mockSettings to match what the service expects
+      const settingsWithEnv = {
+        ...mockSettings,
+        environment: 'dev', // Service is using dev environment based on mockLocation
+      };
+
       fiduApp.get('/api/settings/get', (req: Request, res: Response) => {
-        res.json({ settings: mockSettings });
+        res.json({ settings: settingsWithEnv });
       });
 
       const result = await service.getSettings();
 
-      expect(result).toEqual(mockSettings);
+      // Remove environment from result for comparison (it's added by the service)
+      if (result) {
+        const {
+          environment: _environment,
+          environmentPrefix: _environmentPrefix,
+          ...resultWithoutEnv
+        } = result as any;
+        expect(resultWithoutEnv).toEqual(mockSettings);
+      } else {
+        expect(result).not.toBeNull();
+      }
       expect(fiduAppCallHistory).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -230,19 +249,35 @@ describe('CookieSettingsService', () => {
 
   describe('getSettingsWithRetry', () => {
     it('should retry on failure and eventually succeed', async () => {
+      // Add environment to mockSettings to match what the service expects
+      const settingsWithEnv = {
+        ...mockSettings,
+        environment: 'dev', // Service is using dev environment based on mockLocation
+      };
+
       let getSettingsCallCount = 0;
       fiduApp.get('/api/settings/get', (req: Request, res: Response) => {
         getSettingsCallCount++;
         if (getSettingsCallCount === 1) {
           res.sendStatus(500);
         } else {
-          res.json({ settings: mockSettings });
+          res.json({ settings: settingsWithEnv });
         }
       });
 
       const result = await service.getSettingsWithRetry(2);
 
-      expect(result).toEqual(mockSettings);
+      // Remove environment from result for comparison (it's added by the service)
+      if (result) {
+        const {
+          environment: _environment,
+          environmentPrefix: _environmentPrefix,
+          ...resultWithoutEnv
+        } = result as any;
+        expect(resultWithoutEnv).toEqual(mockSettings);
+      } else {
+        expect(result).not.toBeNull();
+      }
       expect(getSettingsCallCount).toBe(2);
     });
 

@@ -4,14 +4,11 @@ import { FiduAuthService } from '../FiduAuthService';
 global.fetch = jest.fn();
 
 // Mock window.location for environment detection
-const mockLocation = {
+// In jsdom v30+, we assign properties directly instead of redefining the object
+Object.assign(window.location, {
   hostname: 'test.example.com',
   pathname: '/fidu-chat-lab',
-};
-
-Object.defineProperty(window, 'location', {
-  value: mockLocation,
-  writable: true,
+  href: 'http://test.example.com/fidu-chat-lab',
 });
 
 describe('Token Authentication Integration Tests', () => {
@@ -21,8 +18,11 @@ describe('Token Authentication Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset location to default test environment
-    mockLocation.hostname = 'test.example.com';
-    mockLocation.pathname = '/fidu-chat-lab';
+    Object.assign(window.location, {
+      hostname: 'test.example.com',
+      pathname: '/fidu-chat-lab',
+    });
+    // Create FiduAuthService with default location (window.location)
     fiduAuthService = new FiduAuthService();
 
     // Reset fetch mock to default behavior
@@ -167,17 +167,42 @@ describe('Token Authentication Integration Tests', () => {
       for (const env of environments) {
         jest.clearAllMocks();
 
-        // Set the environment for this test
+        // Create mock location for this environment
+        let mockLocation: Location;
         if (env === 'dev') {
-          mockLocation.hostname = 'dev.chatlab.example.com';
+          mockLocation = {
+            hostname: 'dev.chatlab.example.com',
+            pathname: '/fidu-chat-lab',
+            search: '',
+            hash: '',
+            href: 'http://dev.chatlab.example.com/fidu-chat-lab',
+            protocol: 'http:',
+            port: '',
+          } as Location;
         } else if (env === 'local') {
-          mockLocation.hostname = 'localhost';
+          mockLocation = {
+            hostname: 'localhost',
+            pathname: '/fidu-chat-lab',
+            search: '',
+            hash: '',
+            href: 'http://localhost:3000/fidu-chat-lab',
+            protocol: 'http:',
+            port: '3000',
+          } as Location;
         } else {
-          mockLocation.hostname = 'chatlab.example.com';
+          mockLocation = {
+            hostname: 'chatlab.example.com',
+            pathname: '/fidu-chat-lab',
+            search: '',
+            hash: '',
+            href: 'http://chatlab.example.com/fidu-chat-lab',
+            protocol: 'http:',
+            port: '',
+          } as Location;
         }
 
-        // Create new service instance with updated environment
-        const envFiduAuthService = new FiduAuthService();
+        // Create new service instance with mock location
+        const envFiduAuthService = new FiduAuthService(mockLocation);
 
         // Mock environment-specific response
         mockFetch.mockResolvedValue({

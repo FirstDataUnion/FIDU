@@ -21,9 +21,10 @@ describe('Cookie-Based Authentication and Settings Smoke Tests', () => {
       const testPaths = ['/fidu-chat-lab/some-page', '/some-page', '/'];
 
       testPaths.forEach(path => {
-        Object.defineProperty(window, 'location', {
-          value: { pathname: path },
-          writable: true,
+        Object.assign(window.location, {
+          pathname: path,
+          href: `http://localhost:3000${path}`,
+          hostname: 'localhost',
         });
 
         const basePath = path.includes('/fidu-chat-lab')

@@ -24,12 +24,10 @@ jest.mock('../../../store/slices/unifiedStorageSlice', () => ({
 }));
 
 // Mock window.location
-const mockLocation = {
+Object.assign(window.location, {
   href: '',
-};
-Object.defineProperty(window, 'location', {
-  value: mockLocation,
-  writable: true,
+  hostname: 'localhost',
+  pathname: '/',
 });
 
 // Create a theme for testing
@@ -46,7 +44,7 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe('StorageConfigurationBanner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockLocation.href = '';
+    Object.assign(window.location, { href: '' });
 
     // Default mock return values
     mockUseAppSelector.mockImplementation(selector => {

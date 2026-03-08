@@ -173,17 +173,11 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     urlParams.set('code', code);
     urlParams.set('state', 'test-state');
     sessionStorage.setItem('google_oauth_state', 'test-state');
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: '/',
-        hostname: 'localhost',
-        port: String(testPort),
-        origin: testBaseUrl,
-        href: `${testBaseUrl}/?${urlParams.toString()}`,
-        search: `?${urlParams.toString()}`,
-      },
-      writable: true,
-    });
+
+    // In jsdom v30, use window.history.replaceState to set search params
+    // This is the recommended way to change URL parameters in jsdom
+    const searchString = `?${urlParams.toString()}`;
+    window.history.replaceState({}, '', searchString);
   }
 
   function setUpExpiredGoogleOAuthToken(
@@ -366,16 +360,14 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
       .mockReturnValue(testEnvironment);
 
     // Mock window.location
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: '/',
-        hostname: 'localhost',
-        port: String(testPort),
-        origin: testBaseUrl,
-        href: `${testBaseUrl}/`,
-        search: '',
-      },
-      writable: true,
+    // In jsdom v30, we need to override property getters since they're read-only
+    const url = new URL(testBaseUrl);
+    (global as any).overrideLocationProperties({
+      hostname: url.hostname,
+      port: url.port || String(testPort),
+      protocol: url.protocol,
+      pathname: '/',
+      search: '',
     });
 
     // Mock fetch

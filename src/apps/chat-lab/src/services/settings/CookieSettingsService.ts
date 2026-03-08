@@ -28,12 +28,13 @@ export class CookieSettingsService {
   private client: AxiosInstance;
   private environment: string;
 
-  constructor(testHostName?: string) {
+  constructor(testHostName?: string, testLocation?: Location) {
     let baseURL;
-    if (testHostName && detectRuntimeEnvironment() === 'dev') {
+    const location = testLocation || window.location;
+    if (testHostName && detectRuntimeEnvironment(location) === 'dev') {
       baseURL = testHostName;
     } else {
-      baseURL = window.location.pathname.includes('/fidu-chat-lab')
+      baseURL = location.pathname.includes('/fidu-chat-lab')
         ? '/fidu-chat-lab'
         : '';
     }
@@ -48,7 +49,7 @@ export class CookieSettingsService {
     this.setUpInterceptors();
 
     // Detect environment based on hostname using shared utility
-    this.environment = detectRuntimeEnvironment();
+    this.environment = detectRuntimeEnvironment(location);
   }
 
   /**
@@ -130,6 +131,14 @@ export class CookieSettingsService {
       }
     } catch (error) {
       console.error('❌ Error storing settings in cookie:', error);
+      // Check if it's an AxiosError with a response (server error)
+      if (error instanceof AxiosError && error.response) {
+        return {
+          success: false,
+          reason: 'request_failed',
+          status: error.response.status,
+        };
+      }
       return { success: false, reason: 'unexpected_error', error };
     }
   }

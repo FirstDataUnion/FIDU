@@ -29,13 +29,23 @@ export const getGatewayUrl = () => 'http://localhost:9878';
 /**
  * Detect the current runtime environment based on hostname
  * Mock implementation that uses window.location.hostname if available
+ * Updated to accept optional location parameter for testability
  */
-export const detectRuntimeEnvironment = (): 'dev' | 'prod' | 'local' => {
+export const detectRuntimeEnvironment = (
+  location?: Location
+): 'dev' | 'prod' | 'local' => {
   if (typeof window === 'undefined') {
     return 'local';
   }
 
-  const hostname = window.location.hostname;
+  // Use provided location or fall back to window.location
+  const loc =
+    location !== undefined && location !== null ? location : window.location;
+  const hostname = (loc as any).hostname || (loc as Location).hostname;
+
+  if (!hostname || typeof hostname !== 'string') {
+    return 'local';
+  }
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'local';

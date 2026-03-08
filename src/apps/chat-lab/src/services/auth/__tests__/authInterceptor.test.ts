@@ -106,13 +106,11 @@ describe('FiduAuthService Auth Interceptor', () => {
       .mockReturnValue(testEnvironment);
 
     // Mock window.location
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: '/',
-        hostname: testBaseUrl,
-        port: testPort,
-      },
-      writable: true,
+    Object.assign(window.location, {
+      pathname: '/',
+      hostname: testBaseUrl,
+      port: testPort,
+      href: `${testBaseUrl}/`,
     });
 
     // Mock fetch

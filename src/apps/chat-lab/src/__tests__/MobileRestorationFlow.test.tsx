@@ -7,12 +7,10 @@
 global.fetch = jest.fn();
 
 // Mock window.location
-Object.defineProperty(window, 'location', {
-  value: {
-    pathname: '/fidu-chat-lab',
-    origin: 'http://localhost:3000',
-  },
-  writable: true,
+Object.assign(window.location, {
+  pathname: '/fidu-chat-lab',
+  href: 'http://localhost:3000/fidu-chat-lab',
+  hostname: 'localhost',
 });
 
 // Mock navigator.onLine

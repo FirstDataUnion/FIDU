@@ -51,15 +51,49 @@ export const getGatewayUrl = () => {
  * Detect the current runtime environment based on hostname
  * This is used for cookie prefixes and environment-specific behavior
  *
+ * @param location - Optional Location object to use for detection. Defaults to window.location.
  * @returns 'dev' | 'prod' | 'local'
  */
-export const detectRuntimeEnvironment = (): 'dev' | 'prod' | 'local' => {
+export const detectRuntimeEnvironment = (
+  location?: Location
+): 'dev' | 'prod' | 'local' => {
   if (typeof window === 'undefined') {
     // Fallback for SSR or non-browser contexts
     return import.meta.env.DEV ? 'dev' : 'prod';
   }
 
-  const hostname = window.location.hostname;
+  // Use provided location or fall back to window.location
+  // Check explicitly for undefined/null to avoid issues with falsy values
+  let hostname: string;
+
+  if (location !== undefined && location !== null) {
+    // Use provided location (e.g., from tests)
+    // For mock objects, access hostname directly as a property
+    // Try multiple ways to access it to handle different object types
+    const locAny = location as any;
+    hostname =
+      locAny.hostname || locAny['hostname'] || (location as Location).hostname;
+
+    // Debug: log what we got (only in test environment)
+    if (process.env.NODE_ENV === 'test' && !hostname) {
+      console.warn(
+        'detectRuntimeEnvironment: location provided but hostname not found',
+        {
+          location,
+          keys: Object.keys(locAny),
+          hasHostname: 'hostname' in locAny,
+        }
+      );
+    }
+  } else {
+    // Use window.location
+    hostname = window.location.hostname;
+  }
+
+  if (!hostname || typeof hostname !== 'string') {
+    // If hostname is missing or invalid, default to local for safety
+    return 'local';
+  }
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'local';
@@ -80,8 +114,10 @@ export const detectRuntimeEnvironment = (): 'dev' | 'prod' | 'local' => {
  * 1. VITE_WORKBENCH_ENV env var (explicit control)
  * 2. Hostname detection (for deployments)
  * 3. Default to 'dev' for localhost (for local testing with staging workbench)
+ *
+ * @param location - Optional Location object to use for detection. Defaults to window.location.
  */
-export const isDevEnvironment = (): boolean => {
+export const isDevEnvironment = (location?: Location): boolean => {
   // First, check for explicit env var override
   const envVar = import.meta.env.VITE_WORKBENCH_ENV;
   if (envVar === 'dev' || envVar === 'staging') {
@@ -96,7 +132,9 @@ export const isDevEnvironment = (): boolean => {
     return import.meta.env.DEV;
   }
 
-  const hostname = window.location.hostname;
+  // Use provided location or fall back to window.location
+  const loc = location || window.location;
+  const hostname = loc.hostname;
 
   // Localhost defaults to dev/staging for local testing
   if (hostname === 'localhost' || hostname === '127.0.0.1') {

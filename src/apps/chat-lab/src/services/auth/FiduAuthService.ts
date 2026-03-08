@@ -88,12 +88,13 @@ export class FiduAuthService {
   private refreshTimer: NodeJS.Timeout | null = null;
   private validationInterval: NodeJS.Timeout | null = null;
 
-  constructor() {
-    this.basePath = window.location.pathname.includes('/fidu-chat-lab')
+  constructor(testLocation?: Location) {
+    const location = testLocation || window.location;
+    this.basePath = location.pathname.includes('/fidu-chat-lab')
       ? '/fidu-chat-lab'
       : '';
 
-    this.environment = detectRuntimeEnvironment();
+    this.environment = detectRuntimeEnvironment(location);
   }
 
   /**

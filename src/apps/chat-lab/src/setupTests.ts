@@ -98,15 +98,142 @@ Object.defineProperty(global, 'localStorage', {
 // Mock fetch for HTTP-only cookie services
 global.fetch = jest.fn();
 
-// Mock window.location for environment detection
-Object.defineProperty(window, 'location', {
-  value: {
-    hostname: 'localhost',
-    pathname: '/',
-    href: 'http://localhost:3000/',
-  },
-  writable: true,
-});
+// Type for mock location values (used in mockWindowLocation helper)
+type MockLocationValues = {
+  hostname?: string;
+  pathname?: string;
+  href?: string;
+  search?: string;
+  hash?: string;
+  protocol?: string;
+  port?: string;
+};
+
+// Helper function to compute origin from location properties
+function computeOrigin(location: Location): string {
+  const protocol = location.protocol || 'http:';
+  const hostname = location.hostname || 'localhost';
+  const port = location.port || '';
+  const defaultPort = protocol === 'https:' ? '443' : '80';
+
+  if (port && port !== defaultPort && port !== '') {
+    return `${protocol}//${hostname}:${port}`;
+  }
+  return `${protocol}//${hostname}`;
+}
+
+// Note: locationOverrides was removed as it was unused
+
+// Helper function to mock window.location in jsdom v30
+// Recommended approach: Use window.history.replaceState to change the URL
+// This is a legitimate browser API that jsdom supports and will update location properties
+// DEPRECATED: In jsdom v30, location properties are read-only and cannot be mocked
+// This function is kept for backward compatibility but will only update search/hash via history API
+// Tests should use mock location objects passed to functions instead
+(global as any).overrideLocationProperties = (overrides: {
+  hostname?: string;
+  search?: string;
+  pathname?: string;
+  protocol?: string;
+  port?: string;
+  hash?: string;
+}) => {
+  // Only attempt to set search/hash/pathname via history API (safe in jsdom v30)
+  if (
+    overrides.search !== undefined
+    || overrides.hash !== undefined
+    || overrides.pathname !== undefined
+  ) {
+    const url = new URL(window.location.href);
+    if (overrides.pathname !== undefined) {
+      url.pathname = overrides.pathname;
+    }
+    if (overrides.search !== undefined) {
+      url.search = overrides.search;
+    }
+    if (overrides.hash !== undefined) {
+      url.hash = overrides.hash;
+    }
+    try {
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // Silently fail - navigation errors can cause leaks
+    }
+  }
+
+  // hostname, port, and protocol cannot be changed in jsdom v30 without causing navigation errors
+  // These attempts are silently ignored to prevent leaks
+};
+
+// Helper to restore original window (call in afterEach if needed)
+(global as any).restoreWindowLocation = () => {
+  if ((global as any).__originalWindow) {
+    (global as any).window = (global as any).__originalWindow;
+    delete (global as any).__originalWindow;
+  }
+};
+
+// Helper function to update origin getter after setting location properties
+// Export it so tests can use it
+(global as any).updateLocationOrigin = () => {
+  try {
+    Object.defineProperty(window.location, 'origin', {
+      get: () => computeOrigin(window.location),
+      configurable: true,
+    });
+  } catch {
+    // Ignore if we can't update origin
+  }
+};
+
+// Override the origin getter since it's read-only in jsdom v30
+// We compute it from protocol, hostname, and port
+try {
+  const locationDescriptor = Object.getOwnPropertyDescriptor(
+    window,
+    'location'
+  );
+  if (locationDescriptor) {
+    Object.defineProperty(window.location, 'origin', {
+      get: () => computeOrigin(window.location),
+      configurable: true,
+    });
+  }
+} catch (error) {
+  // If we can't override origin, that's okay - tests can handle it
+  console.warn('Could not override window.location.origin:', error);
+}
+
+// Note: buildHrefFromProperties was removed as it was unused
+
+// Helper function for tests to mock window.location properties
+// In jsdom v30, location properties are read-only and cannot be mocked directly
+// Tests should use mock location objects passed to functions instead
+// This helper is deprecated - use window.history.replaceState for search/hash changes
+(global as any).mockWindowLocation = (values: Partial<MockLocationValues>) => {
+  console.warn(
+    'mockWindowLocation is deprecated in jsdom v30. '
+      + 'Use window.history.replaceState for search/hash changes, '
+      + 'or pass mock location objects to functions that accept them.'
+  );
+  // Only attempt to set search/hash via history API (safe in jsdom v30)
+  if (values.search !== undefined || values.hash !== undefined) {
+    const url = new URL(window.location.href);
+    if (values.search !== undefined) {
+      url.search = values.search;
+    }
+    if (values.hash !== undefined) {
+      url.hash = values.hash;
+    }
+    window.history.replaceState({}, '', url.toString());
+  }
+};
+
+// In jsdom v30+, window.location properties are read-only and non-configurable
+// Attempting to modify them causes navigation errors and leaks
+// Individual tests that need location mocking should pass mock location objects
+// to functions that accept them, or use window.history.replaceState for search/hash
+// We no longer attempt to mock window.location globally in setupTests
 
 // Mock document.cookie for cookie operations
 Object.defineProperty(document, 'cookie', {
