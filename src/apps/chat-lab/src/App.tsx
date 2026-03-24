@@ -22,6 +22,7 @@ import {
 } from './store/slices/unifiedStorageSlice';
 import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
+import { useFeatureFlag } from './hooks/useFeatureFlag';
 import { getThemeColors } from './utils/themeColors';
 import { logEnvironmentInfo, getEnvironmentInfo } from './utils/environment';
 import Layout from './components/common/Layout';
@@ -54,6 +55,7 @@ import {
 } from './utils/storageFeatureChecks';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
+import RagPage from './pages/RagPage';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -265,6 +267,8 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
   const [workspaceRestored, setWorkspaceRestored] = useState(false);
+
+  const isRagEnabled = useFeatureFlag('rag');
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -1065,7 +1069,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                           featureFlag="context"
                           featureName="Contexts"
                         >
-                          <ContextsPage />
+                          {isRagEnabled ? <RagPage /> : <ContextsPage />}
                         </FeatureFlagGuard>
                       }
                     />

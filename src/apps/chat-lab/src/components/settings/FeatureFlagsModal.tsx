@@ -73,6 +73,7 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
       recent_conversations_in_chat_page: 'Recent Conversations in Chat Page',
       most_used_models: 'Most Used Models',
       direct_openrouter: 'Direct OpenRouter Integration',
+      rag: 'Retrieval-Augmented Generation (RAG)',
     };
   }, []);
 

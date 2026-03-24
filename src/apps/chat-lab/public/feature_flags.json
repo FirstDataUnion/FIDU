@@ -73,5 +73,12 @@
         "user_configurable": true,
         "default_enabled": false,
         "experimental": true
-    }    
+    },
+    "rag": {
+        "enabled": true,
+        "user_configurable": true,
+        "default_enabled": false,
+        "experimental": true,
+        "depends_on": ["context"]
+    }
 }
