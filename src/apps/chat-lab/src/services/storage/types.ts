@@ -2,7 +2,14 @@
  * Storage types and interfaces
  */
 
-import type { Conversation, Message, FilterOptions } from '../../types';
+import type {
+  Conversation,
+  Message,
+  FilterOptions,
+  ContextCorpus,
+  ContextCorpusUrl,
+  ContextCorpusDocument,
+} from '../../types';
 
 export const StorageMode = {
   CLOUD: 'cloud',
@@ -74,6 +81,72 @@ export interface StorageAdapter {
   createContext(context: any, profileId: string): Promise<any>;
   updateContext(context: any, profileId: string): Promise<any>;
   deleteContext(contextId: string): Promise<void>;
+
+  getContextCorpora(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextCorpora: ContextCorpus[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  getContextCorpusById(contextCorpusId: string): Promise<ContextCorpus>;
+  createContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus>;
+  updateContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus>;
+  deleteContextCorpus(contextCorpusId: string): Promise<void>;
+
+  getContextCorpusDocuments(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextDocuments: ContextCorpusDocument[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  getContextCorpusDocumentById(contextDocumentId: string): Promise<ContextCorpusDocument>;
+  createContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument>;
+  updateContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument>;
+  deleteContextCorpusDocument(contextDocumentId: string): Promise<void>;
+
+  getContextCorpusUrls(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextUrls: ContextCorpusUrl[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  getContextCorpusUrlById(contextUrlId: string): Promise<ContextCorpusUrl>;
+  createContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl>;
+  updateContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl>;
+  deleteContextCorpusUrl(contextUrlId: string): Promise<void>;
 
   // System Prompt operations
   getSystemPrompts(

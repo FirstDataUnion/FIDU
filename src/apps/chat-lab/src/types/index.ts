@@ -120,6 +120,55 @@ export interface MarkdownDocument {
   tags: string[];
 }
 
+// RAG Types
+export type CorpusDatabaseType = 'cortexdb';
+export type ExternalLocationType = {
+  type: 'google_drive';
+  fileId: string;
+};
+export type ContextLocationType =
+  | ExternalLocationType
+  | {
+      type: 'fidu';
+      contextId: string;
+    };
+
+export interface ContextCorpus {
+  id: string;
+  name: string;
+  description: string;
+  database: {
+    type: CorpusDatabaseType;
+    location: ExternalLocationType;
+  };
+  documents: {
+    id: string;
+    addedAt: string;
+  }[];
+  urls: {
+    id: string;
+    addedAt: string;
+  }[];
+  urlDocument?: ExternalLocationType;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
+export interface ContextCorpusDocument {
+  id: string;
+  addedAt: string;
+  location: ContextLocationType;
+  tags: string[];
+}
+
+export interface ContextCorpusUrl {
+  id: string;
+  addedAt: string;
+  url: string;
+  tags: string[];
+}
+
 // Workspace Types
 export interface WorkspaceMetadata {
   id: string;

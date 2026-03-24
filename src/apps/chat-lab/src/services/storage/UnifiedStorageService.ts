@@ -9,6 +9,9 @@ import type {
   Message,
   FilterOptions,
   ConversationsResponse,
+  ContextCorpus,
+  ContextCorpusDocument,
+  ContextCorpusUrl,
 } from '../../types';
 import type { StorageMode } from './types';
 
@@ -166,6 +169,136 @@ export class UnifiedStorageService {
   async deleteContext(contextId: string): Promise<void> {
     const adapter = this.storageService.getAdapter();
     return await adapter.deleteContext(contextId);
+  }
+
+  async getContextCorpora(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextCorpora: ContextCorpus[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpora(queryParams, page, limit, profileId);
+  }
+
+  async getContextCorpusById(contextCorpusId: string): Promise<ContextCorpus> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpusById(contextCorpusId);
+  }
+
+  async createContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createContextCorpus(contextCorpus, profileId);
+  }
+
+  async updateContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateContextCorpus(contextCorpus, profileId);
+  }
+
+  async deleteContextCorpus(contextCorpusId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteContextCorpus(contextCorpusId);
+  }
+
+  async getContextCorpusDocuments(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextDocuments: ContextCorpusDocument[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpusDocuments(
+      queryParams,
+      page,
+      limit,
+      profileId
+    );
+  }
+
+  async getContextCorpusDocumentById(
+    contextDocumentId: string
+  ): Promise<ContextCorpusDocument> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpusDocumentById(contextDocumentId);
+  }
+
+  async createContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createContextCorpusDocument(contextDocument, profileId);
+  }
+
+  async updateContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateContextCorpusDocument(contextDocument, profileId);
+  }
+
+  async deleteContextCorpusDocument(contextDocumentId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteContextCorpusDocument(contextDocumentId);
+  }
+
+  async getContextCorpusUrls(
+    queryParams?: any,
+    page?: number,
+    limit?: number,
+    profileId?: string
+  ): Promise<{
+    contextUrls: ContextCorpusUrl[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpusUrls(queryParams, page, limit, profileId);
+  }
+
+  async getContextCorpusUrlById(contextUrlId: string): Promise<ContextCorpusUrl> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.getContextCorpusUrlById(contextUrlId);
+  }
+
+  async createContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.createContextCorpusUrl(contextUrl, profileId);
+  }
+
+  async updateContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.updateContextCorpusUrl(contextUrl, profileId);
+  }
+
+  async deleteContextCorpusUrl(contextUrlId: string): Promise<void> {
+    const adapter = this.storageService.getAdapter();
+    return await adapter.deleteContextCorpusUrl(contextUrlId);
   }
 
   // System Prompt operations

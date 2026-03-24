@@ -13,6 +13,9 @@ import type {
   Message,
   FilterOptions,
   MarkdownDocument,
+  ContextCorpus,
+  ContextCorpusDocument,
+  ContextCorpusUrl,
 } from '../../../types';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import {
@@ -797,6 +800,390 @@ export class CloudStorageAdapter implements StorageAdapter {
       unsyncedDataManager.markAsUnsynced();
     } catch (error) {
       console.error('Error deleting context:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpora(
+    _queryParams?: any,
+    page: number = 1,
+    limit: number = 1000,
+    profileId?: string
+  ): Promise<{
+    contextCorpora: ContextCorpus[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    await this.ensureFullyReady();
+
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+
+    const contextCorpusQueryParams: any = {
+      tags: ['FIDU-CHAT-LAB-ContextCorpus'],
+      limit: limit,
+      offset: (page - 1) * limit,
+      sort_order: 'desc',
+    };
+
+    if (!isSharedWorkspace) {
+      contextCorpusQueryParams.profile_id = profileId;
+    }
+
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(
+        contextCorpusQueryParams
+      );
+      const contextCorpora = dataPackets.map(
+        this.transformDataPacketToContextCorpus
+      );
+
+      return {
+        contextCorpora,
+        total: contextCorpora.length,
+        page,
+        limit,
+      };
+    } catch (error) {
+      console.error('Error fetching context corpora:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpusById(contextCorpusId: string): Promise<ContextCorpus> {
+    this.ensureFullyReady();
+    try {
+      const dataPacket =
+        await this.dbManager!.getDataPacketById(contextCorpusId);
+      return this.transformDataPacketToContextCorpus(dataPacket);
+    } catch (error) {
+      console.error('Error fetching context corpus:', error);
+      throw error;
+    }
+  }
+
+  async createContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus> {
+    await this.ensureFullyReady();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusToDataPacket(
+      contextCorpus as ContextCorpus,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpus(storedPacket);
+    } catch (error) {
+      console.error('Error creating context corpus:', error);
+      throw error;
+    }
+  }
+
+  async updateContextCorpus(
+    contextCorpus: Partial<ContextCorpus>,
+    profileId: string
+  ): Promise<ContextCorpus> {
+    await this.ensureFullyReady();
+    if (!contextCorpus.id) {
+      throw new Error('Context corpus ID is required to update context corpus');
+    }
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusToDataPacket(
+      contextCorpus as ContextCorpus,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'update'
+    );
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpus(updatedPacket);
+    } catch (error) {
+      console.error('Error updating context corpus:', error);
+      throw error;
+    }
+  }
+
+  async deleteContextCorpus(contextCorpusId: string): Promise<void> {
+    await this.ensureFullyReady();
+    try {
+      await this.dbManager!.deleteDataPacket(contextCorpusId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting context corpus:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpusDocuments(
+    queryParams?: any,
+    page: number = 1,
+    limit: number = 1000,
+    profileId?: string
+  ): Promise<{
+    contextDocuments: ContextCorpusDocument[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    await this.ensureFullyReady();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const contextDocumentQueryParams: any = {
+      tags: ['FIDU-CHAT-LAB-ContextCorpusDocument'],
+      limit: limit,
+      offset: (page - 1) * limit,
+      sort_order: 'desc',
+    };
+    if (!isSharedWorkspace) {
+      contextDocumentQueryParams.profile_id = profileId;
+    }
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(
+        contextDocumentQueryParams
+      );
+      const contextDocuments = dataPackets.map(
+        this.transformDataPacketToContextCorpusDocument
+      );
+      return { contextDocuments, total: contextDocuments.length, page, limit };
+    } catch (error) {
+      console.error('Error fetching context documents:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpusDocumentById(
+    contextDocumentId: string
+  ): Promise<ContextCorpusDocument> {
+    await this.ensureFullyReady();
+    try {
+      const dataPacket =
+        await this.dbManager!.getDataPacketById(contextDocumentId);
+      return this.transformDataPacketToContextCorpusDocument(dataPacket);
+    } catch (error) {
+      console.error('Error fetching context document:', error);
+      throw error;
+    }
+  }
+
+  async createContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument> {
+    await this.ensureFullyReady();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusDocumentToDataPacket(
+      contextDocument as ContextCorpusDocument,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpusDocument(storedPacket);
+    } catch (error) {
+      console.error('Error creating context document:', error);
+      throw error;
+    }
+  }
+
+  async updateContextCorpusDocument(
+    contextDocument: Partial<ContextCorpusDocument>,
+    profileId: string
+  ): Promise<ContextCorpusDocument> {
+    await this.ensureFullyReady();
+
+    if (!contextDocument.id) {
+      throw new Error(
+        'Context document ID is required to update context document'
+      );
+    }
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusDocumentToDataPacket(
+      contextDocument as ContextCorpusDocument,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'update'
+    );
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpusDocument(updatedPacket);
+    } catch (error) {
+      console.error('Error updating context document:', error);
+      throw error;
+    }
+  }
+
+  async deleteContextCorpusDocument(contextDocumentId: string): Promise<void> {
+    await this.ensureFullyReady();
+    try {
+      await this.dbManager!.deleteDataPacket(contextDocumentId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting context document:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpusUrls(
+    queryParams?: any,
+    page: number = 1,
+    limit: number = 1000,
+    profileId?: string
+  ): Promise<{
+    contextUrls: ContextCorpusUrl[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    await this.ensureFullyReady();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const contextUrlQueryParams: any = {
+      tags: ['FIDU-CHAT-LAB-ContextCorpusUrl'],
+      limit: limit,
+      offset: (page - 1) * limit,
+      sort_order: 'desc',
+    };
+    if (!isSharedWorkspace) {
+      contextUrlQueryParams.profile_id = profileId;
+    }
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(
+        contextUrlQueryParams
+      );
+      const contextUrls = dataPackets.map(this.transformDataPacketToContextCorpusUrl);
+      return { contextUrls, total: contextUrls.length, page, limit };
+    } catch (error) {
+      console.error('Error fetching context urls:', error);
+      throw error;
+    }
+  }
+
+  async getContextCorpusUrlById(contextUrlId: string): Promise<ContextCorpusUrl> {
+    await this.ensureFullyReady();
+    try {
+      const dataPacket = await this.dbManager!.getDataPacketById(contextUrlId);
+      return this.transformDataPacketToContextCorpusUrl(dataPacket);
+    } catch (error) {
+      console.error('Error fetching context url:', error);
+      throw error;
+    }
+  }
+
+  async createContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl> {
+    await this.ensureFullyReady();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusUrlToDataPacket(
+      contextUrl as ContextCorpusUrl,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'create'
+    );
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpusUrl(storedPacket);
+    } catch (error) {
+      console.error('Error creating context url:', error);
+      throw error;
+    }
+  }
+
+  async updateContextCorpusUrl(
+    contextUrl: Partial<ContextCorpusUrl>,
+    profileId: string
+  ): Promise<ContextCorpusUrl> {
+    await this.ensureFullyReady();
+    if (!contextUrl.id) {
+      throw new Error('Context url ID is required to update context url');
+    }
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const effectiveProfileId = isSharedWorkspace
+      ? `workspace-${this.config.workspaceId}-default`
+      : profileId;
+    const dataPacket = this.transformContextCorpusUrlToDataPacket(
+      contextUrl as ContextCorpusUrl,
+      effectiveProfileId
+    );
+    const requestId = this.generateRequestId(
+      effectiveProfileId,
+      dataPacket.id,
+      'update'
+    );
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToContextCorpusUrl(updatedPacket);
+    } catch (error) {
+      console.error('Error updating context url:', error);
+      throw error;
+    }
+  }
+
+  async deleteContextCorpusUrl(contextUrlId: string): Promise<void> {
+    await this.ensureFullyReady();
+    try {
+      await this.dbManager!.deleteDataPacket(contextUrlId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting context url:', error);
       throw error;
     }
   }
@@ -1816,6 +2203,84 @@ export class CloudStorageAdapter implements StorageAdapter {
         lastAddedAt: packet.create_timestamp,
         platforms: [],
       },
+    };
+  }
+
+  private transformContextCorpusToDataPacket(
+    contextCorpus: ContextCorpus,
+    profileId: string
+  ): any {
+    return {
+      id: contextCorpus.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-ContextCorpus', ...(contextCorpus.tags || [])],
+      data: { ...contextCorpus },
+    };
+  }
+
+  private transformDataPacketToContextCorpus(packet: any): ContextCorpus {
+    const data = packet.data || {};
+    return {
+      ...data,
+      id: packet.id,
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      tags: packet.tags || [],
+    };
+  }
+
+  private transformContextCorpusDocumentToDataPacket(
+    contextDocument: ContextCorpusDocument,
+    profileId: string
+  ): any {
+    return {
+      id: contextDocument.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-ContextCorpusDocument', ...(contextDocument.tags || [])],
+      data: { ...contextDocument },
+    };
+  }
+
+  private transformDataPacketToContextCorpusDocument(packet: any): ContextCorpusDocument {
+    const data = packet.data || {};
+    return {
+      ...data,
+      id: packet.id,
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      tags: packet.tags || [],
+    };
+  }
+
+  private transformContextCorpusUrlToDataPacket(
+    contextUrl: ContextCorpusUrl,
+    profileId: string
+  ): any {
+    return {
+      id: contextUrl.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      create_timestamp: new Date().toISOString(),
+      update_timestamp: new Date().toISOString(),
+      tags: ['FIDU-CHAT-LAB-ContextCorpusUrl', ...(contextUrl.tags || [])],
+      data: { ...contextUrl },
+    };
+  }
+
+  private transformDataPacketToContextCorpusUrl(packet: any): ContextCorpusUrl {
+    const data = packet.data || {};
+    return {
+      ...data,
+      id: packet.id,
+      createdAt: packet.create_timestamp,
+      updatedAt: packet.update_timestamp,
+      tags: packet.tags || [],
     };
   }
 
