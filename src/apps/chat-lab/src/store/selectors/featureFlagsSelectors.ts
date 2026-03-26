@@ -1,3 +1,4 @@
+import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '../index';
 import type {
   FeatureFlagKey,
@@ -79,22 +80,35 @@ export const selectSystemFeatureFlags = (state: RootState) =>
 export const selectUserFeatureFlagOverrides = (state: RootState) =>
   state.userFeatureFlags.userOverrides;
 
-export const selectFeatureFlags = (
-  state: RootState
-): FeatureFlagsMap | null => {
-  const systemFlags = state.systemFeatureFlags.flags;
-  const userOverrides = state.userFeatureFlags.userOverrides;
-  return combineSystemFlagsWithOverrides(systemFlags, userOverrides);
+export const selectFeatureFlags = createSelector(
+  [selectSystemFeatureFlags, selectUserFeatureFlagOverrides],
+  (systemFlags, userOverrides) =>
+    combineSystemFlagsWithOverrides(systemFlags, userOverrides)
+);
+
+const flagKeyToSelectorMap = new Map<
+  FeatureFlagKey,
+  (state: RootState) => boolean
+>();
+
+const makeSelectIsFeatureFlagEnabledByKey = (key: FeatureFlagKey) =>
+  createSelector([selectFeatureFlags], flags =>
+    flags ? resolveFlagEnabled(flags, key) : false
+  );
+
+export const selectorForFlagKey = (key: FeatureFlagKey) => {
+  let selector = flagKeyToSelectorMap.get(key);
+  if (!selector) {
+    selector = makeSelectIsFeatureFlagEnabledByKey(key);
+    flagKeyToSelectorMap.set(key, selector);
+  }
+  return selector;
 };
 
 export const selectIsFeatureFlagEnabled = (
   state: RootState,
   key: FeatureFlagKey
 ): boolean => {
-  const flags = selectFeatureFlags(state);
-  if (!flags) {
-    return false;
-  }
-
-  return resolveFlagEnabled(flags, key);
+  const selector = selectorForFlagKey(key);
+  return selector(state);
 };

@@ -46,7 +46,7 @@ export interface ConversationsResponse {
 export interface Context {
   id: string;
   title: string;
-  body: string;
+  body?: string;
   tokenCount: number;
   createdAt: string;
   updatedAt: string;
@@ -157,6 +157,7 @@ export interface ContextCorpus {
 
 export interface ContextCorpusDocument {
   id: string;
+  name: string;
   addedAt: string;
   location: ContextLocationType;
   tags: string[];
@@ -164,6 +165,7 @@ export interface ContextCorpusDocument {
 
 export interface ContextCorpusUrl {
   id: string;
+  name: string;
   addedAt: string;
   url: string;
   tags: string[];
@@ -572,10 +574,16 @@ export interface Notification {
 
 // Additional Redux State Types
 export interface ContextsState {
-  items: Context[];
   loading: boolean;
   error: string | null;
   selectedContext: Context | null;
+  fiduContexts: Context[];
+  corpora: ContextCorpus[];
+  corpusDocuments: ContextCorpusDocument[];
+  corpusUrls: ContextCorpusUrl[];
+  bodies: {
+    [key: string]: { loading: boolean; body: string; error: string | null };
+  };
 }
 
 export interface SystemPromptsState {

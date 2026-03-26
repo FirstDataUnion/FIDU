@@ -120,6 +120,7 @@ import { truncateTitle } from '../utils/stringUtils';
 import { getContextTokenCount } from '../utils/tokenEstimation';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { getModelConfig, loadOpenRouterModels } from '../data/models';
+import { selectContexts } from '../store/selectors/contextSelectors';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (
@@ -2162,10 +2163,10 @@ export default function PromptLabPage() {
   const { currentPrompt } = useAppSelector(state => state.promptLab);
   const { currentProfile } = useAppSelector(state => state.auth);
   const {
-    items: contexts,
+    contexts,
     loading: contextsLoading,
     error: contextsError,
-  } = useAppSelector(state => state.contexts);
+  } = useAppSelector(selectContexts);
   const {
     items: systemPrompts,
     loading: systemPromptsLoading,

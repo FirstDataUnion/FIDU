@@ -115,7 +115,9 @@ export interface StorageAdapter {
     page: number;
     limit: number;
   }>;
-  getContextCorpusDocumentById(contextDocumentId: string): Promise<ContextCorpusDocument>;
+  getContextCorpusDocumentById(
+    contextDocumentId: string
+  ): Promise<ContextCorpusDocument>;
   createContextCorpusDocument(
     contextDocument: Partial<ContextCorpusDocument>,
     profileId: string

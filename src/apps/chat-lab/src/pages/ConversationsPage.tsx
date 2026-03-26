@@ -67,6 +67,7 @@ import {
   selectSortedConversations,
 } from '../store/selectors/conversationsSelectors';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import { selectContexts } from '../store/selectors/contextSelectors';
 
 const ConversationsPage: React.FC = React.memo(() => {
   const theme = useTheme();
@@ -77,7 +78,7 @@ const ConversationsPage: React.FC = React.memo(() => {
   // Use memoized selectors for better performance
   const loading = useAppSelector(state => selectConversationsLoading(state));
   const error = useAppSelector(state => selectConversationsError(state));
-  const { items: contexts } = useAppSelector(state => state.contexts);
+  const { contexts } = useAppSelector(selectContexts);
   const { isAuthenticated, currentProfile, currentWorkspace, user } =
     useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();

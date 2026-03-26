@@ -244,7 +244,10 @@ export class UnifiedStorageService {
     profileId: string
   ): Promise<ContextCorpusDocument> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.createContextCorpusDocument(contextDocument, profileId);
+    return await adapter.createContextCorpusDocument(
+      contextDocument,
+      profileId
+    );
   }
 
   async updateContextCorpusDocument(
@@ -252,7 +255,10 @@ export class UnifiedStorageService {
     profileId: string
   ): Promise<ContextCorpusDocument> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.updateContextCorpusDocument(contextDocument, profileId);
+    return await adapter.updateContextCorpusDocument(
+      contextDocument,
+      profileId
+    );
   }
 
   async deleteContextCorpusDocument(contextDocumentId: string): Promise<void> {
@@ -272,10 +278,17 @@ export class UnifiedStorageService {
     limit: number;
   }> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.getContextCorpusUrls(queryParams, page, limit, profileId);
+    return await adapter.getContextCorpusUrls(
+      queryParams,
+      page,
+      limit,
+      profileId
+    );
   }
 
-  async getContextCorpusUrlById(contextUrlId: string): Promise<ContextCorpusUrl> {
+  async getContextCorpusUrlById(
+    contextUrlId: string
+  ): Promise<ContextCorpusUrl> {
     const adapter = this.storageService.getAdapter();
     return await adapter.getContextCorpusUrlById(contextUrlId);
   }

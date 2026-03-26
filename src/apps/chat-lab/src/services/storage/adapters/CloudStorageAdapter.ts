@@ -1093,7 +1093,9 @@ export class CloudStorageAdapter implements StorageAdapter {
       const dataPackets = await this.dbManager!.listDataPackets(
         contextUrlQueryParams
       );
-      const contextUrls = dataPackets.map(this.transformDataPacketToContextCorpusUrl);
+      const contextUrls = dataPackets.map(
+        this.transformDataPacketToContextCorpusUrl
+      );
       return { contextUrls, total: contextUrls.length, page, limit };
     } catch (error) {
       console.error('Error fetching context urls:', error);
@@ -1101,7 +1103,9 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getContextCorpusUrlById(contextUrlId: string): Promise<ContextCorpusUrl> {
+  async getContextCorpusUrlById(
+    contextUrlId: string
+  ): Promise<ContextCorpusUrl> {
     await this.ensureFullyReady();
     try {
       const dataPacket = await this.dbManager!.getDataPacketById(contextUrlId);
@@ -2242,12 +2246,17 @@ export class CloudStorageAdapter implements StorageAdapter {
       user_id: this.ensureUserId(),
       create_timestamp: new Date().toISOString(),
       update_timestamp: new Date().toISOString(),
-      tags: ['FIDU-CHAT-LAB-ContextCorpusDocument', ...(contextDocument.tags || [])],
+      tags: [
+        'FIDU-CHAT-LAB-ContextCorpusDocument',
+        ...(contextDocument.tags || []),
+      ],
       data: { ...contextDocument },
     };
   }
 
-  private transformDataPacketToContextCorpusDocument(packet: any): ContextCorpusDocument {
+  private transformDataPacketToContextCorpusDocument(
+    packet: any
+  ): ContextCorpusDocument {
     const data = packet.data || {};
     return {
       ...data,

@@ -47,14 +47,15 @@ import { FloatingExportActions } from '../components/resourceExport/FloatingExpo
 import { getResourceExportService } from '../services/resourceExport/resourceExportService';
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
+import type { Context } from '../types';
 import type {
-  Context,
   ContextFormData,
   ViewEditFormData,
   ContextMenuPosition,
   Conversation,
 } from '../types/contexts';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import { selectContexts } from '../store/selectors/contextSelectors';
 
 export default function ContextsPage() {
   const theme = useTheme();
@@ -62,11 +63,7 @@ export default function ContextsPage() {
 
   const dispatch = useAppDispatch();
   const { currentProfile, user } = useAppSelector(state => state.auth);
-  const {
-    items: contexts,
-    loading,
-    error,
-  } = useAppSelector(state => state.contexts);
+  const { contexts, loading, error } = useAppSelector(selectContexts);
   const unifiedStorage = useUnifiedStorage();
 
   // Multi-select export state

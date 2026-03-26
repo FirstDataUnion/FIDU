@@ -1,20 +1,3 @@
-export interface Context {
-  id: string;
-  title: string;
-  body: string;
-  tokenCount: number;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-  isBuiltIn: boolean;
-  conversationIds?: string[];
-  conversationMetadata?: {
-    totalMessages: number;
-    lastAddedAt: string;
-    platforms: string[];
-  };
-}
-
 export interface ContextFormData {
   title: string;
   body: string;

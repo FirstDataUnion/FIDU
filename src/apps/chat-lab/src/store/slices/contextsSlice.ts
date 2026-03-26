@@ -3,44 +3,35 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { store } from '../index';
 import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
-
-export interface Context {
-  id: string;
-  title: string;
-  body: string;
-  tokenCount: number;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-  isBuiltIn: boolean;
-  // Conversation references for building context over time
-  conversationIds?: string[];
-  // Metadata about conversations in this context
-  conversationMetadata?: {
-    totalMessages: number;
-    lastAddedAt: string;
-    platforms: string[];
-  };
-}
-
-export interface ContextsState {
-  items: Context[];
-  loading: boolean;
-  error: string | null;
-  selectedContext: Context | null;
-}
+import type { Context, ContextsState } from '../../types';
 
 // Built-in contexts (these will always be available)
 export const builtInContexts: Context[] = [];
 
 const initialState: ContextsState = {
-  items: builtInContexts,
   loading: false,
   error: null,
   selectedContext: null,
+  fiduContexts: builtInContexts,
+  corpora: [],
+  corpusDocuments: [],
+  corpusUrls: [],
+  bodies: {},
 };
 
 // Async actions
+export const fetchContextBody = createAsyncThunk(
+  'contexts/fetchContextBody',
+  async (contextId: string) => {
+    try {
+      return 'temporary body string for context ' + contextId;
+    } catch (error: any) {
+      console.error('Failed to fetch context body:', error);
+      throw error;
+    }
+  }
+);
+
 export const fetchContexts = createAsyncThunk(
   'contexts/fetchContexts',
   async (profileId: string | undefined, { rejectWithValue }) => {
@@ -54,15 +45,65 @@ export const fetchContexts = createAsyncThunk(
       return rejectWithValue('Contexts feature is disabled');
     }
 
+    const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
+
     try {
       const storageService = getUnifiedStorageService();
-      const response = await storageService.getContexts(
+      const fiduContexts = await storageService.getContexts(
         undefined,
         1,
         100,
         profileId
       );
-      return response;
+      if (!isRagEnabled) {
+        return {
+          fiduContexts,
+          corpora: [],
+          corpusDocuments: [],
+          corpusUrls: [],
+        };
+      }
+
+      // If RAG is enabled, we need to fetch the context corpora, documents, and urls
+      const corpora = await storageService.getContextCorpora(
+        undefined,
+        1,
+        1000,
+        profileId
+      );
+      if (corpora.total == corpora.limit) {
+        console.warn(
+          'More than 1000 context corpora found, pagination not implemented'
+        );
+      }
+      const corpusDocuments = await storageService.getContextCorpusDocuments(
+        undefined,
+        1,
+        1000,
+        profileId
+      );
+      if (corpusDocuments.total == corpusDocuments.limit) {
+        console.warn(
+          'More than 1000 context corpus documents found, pagination not implemented'
+        );
+      }
+      const corpusUrls = await storageService.getContextCorpusUrls(
+        undefined,
+        1,
+        1000,
+        profileId
+      );
+      if (corpusUrls.total == corpusUrls.limit) {
+        console.warn(
+          'More than 1000 context corpus urls found, pagination not implemented'
+        );
+      }
+      return {
+        fiduContexts,
+        corpora: corpora.contextCorpora,
+        corpusDocuments: corpusDocuments.contextDocuments,
+        corpusUrls: corpusUrls.contextUrls,
+      };
     } catch (error: any) {
       // Check if this is a storage init error and handle gracefully
       if (
@@ -273,6 +314,25 @@ const contextsSlice = createSlice({
   },
   extraReducers: builder => {
     builder
+      .addCase(fetchContextBody.pending, (state, action) => {
+        state.bodies[action.meta.arg] = state.bodies[action.meta.arg] || {
+          loading: true,
+          body: '',
+        };
+        state.bodies[action.meta.arg].loading = true;
+        state.bodies[action.meta.arg].error = null;
+      })
+      .addCase(fetchContextBody.fulfilled, (state, action) => {
+        state.bodies[action.meta.arg].loading = false;
+        state.bodies[action.meta.arg].body = action.payload;
+        state.bodies[action.meta.arg].error = null;
+      })
+      .addCase(fetchContextBody.rejected, (state, action) => {
+        state.bodies[action.meta.arg].loading = false;
+        state.bodies[action.meta.arg].body = '';
+        state.bodies[action.meta.arg].error =
+          action.error.message || 'Failed to fetch context body';
+      })
       .addCase(fetchContexts.pending, state => {
         state.loading = true;
         state.error = null;
@@ -280,36 +340,44 @@ const contextsSlice = createSlice({
       .addCase(fetchContexts.fulfilled, (state, action) => {
         state.loading = false;
         // Combine built-in contexts with user-created ones
-        state.items = [...builtInContexts, ...action.payload.contexts];
+        state.fiduContexts = [
+          ...builtInContexts,
+          ...action.payload.fiduContexts.contexts,
+        ];
+        state.corpora = action.payload.corpora;
+        state.corpusDocuments = action.payload.corpusDocuments;
+        state.corpusUrls = action.payload.corpusUrls;
       })
       .addCase(fetchContexts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch contexts';
         // Even if API fails, we still have built-in contexts
-        state.items = builtInContexts;
+        state.fiduContexts = builtInContexts;
       })
       .addCase(createContext.fulfilled, (state, action) => {
-        state.items.push(action.payload);
+        state.fiduContexts.push(action.payload);
       })
       .addCase(updateContext.fulfilled, (state, action) => {
-        const index = state.items.findIndex(
+        const index = state.fiduContexts.findIndex(
           item => item.id === action.payload.id
         );
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.fiduContexts[index] = action.payload;
         }
       })
       .addCase(deleteContext.fulfilled, (state, action) => {
-        state.items = state.items.filter(item => item.id !== action.payload);
+        state.fiduContexts = state.fiduContexts.filter(
+          item => item.id !== action.payload
+        );
       })
       .addCase(addConversationToContext.fulfilled, (state, action) => {
         // Update the context in the store with the updated context from FIDU Vault
         if (action.payload.updatedContext) {
-          const index = state.items.findIndex(
+          const index = state.fiduContexts.findIndex(
             item => item.id === action.payload.contextId
           );
           if (index !== -1) {
-            state.items[index] = action.payload.updatedContext;
+            state.fiduContexts[index] = action.payload.updatedContext;
           }
         }
       });

@@ -33,7 +33,7 @@ export class ContextHandler implements ResourceHandler<Context> {
     const exportData: ContextExport = {
       id: resource.id, // Preserve original ID for reference resolution
       title: resource.title,
-      body: resource.body,
+      body: resource.body || '',
       tokenCount: resource.tokenCount,
       tags: resource.tags || [],
       isBuiltIn: resource.isBuiltIn,

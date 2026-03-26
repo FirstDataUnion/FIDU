@@ -15,7 +15,7 @@ import {
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
 
-import type { Context } from '../../types/contexts';
+import type { Context } from '../../types';
 import { truncateTitle } from '../../utils/stringUtils';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../../constants/resourceLimits';
 
