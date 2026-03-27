@@ -4215,7 +4215,9 @@ export default function PromptLabPage() {
     } catch (error) {
       console.error('Error getting wizard response:', error);
       if (useStreaming) {
-        setWizardMessages(prev => prev.filter(wm => wm.id !== assistantWizardId));
+        setWizardMessages(prev =>
+          prev.filter(wm => wm.id !== assistantWizardId)
+        );
       }
       setWizardError('Failed to get wizard response. Please try again.');
     } finally {
@@ -5525,10 +5527,10 @@ export default function PromptLabPage() {
                 .filter((msg, i) => {
                   // Hide empty assistant message when showing thinking bubble
                   if (
-                    isLoading &&
-                    i === messages.length - 1 &&
-                    msg.role === 'assistant' &&
-                    msg.content.length === 0
+                    isLoading
+                    && i === messages.length - 1
+                    && msg.role === 'assistant'
+                    && msg.content.length === 0
                   ) {
                     return false;
                   }
@@ -5548,51 +5550,53 @@ export default function PromptLabPage() {
               )}
 
               {/* Loading indicator - hide when streaming has begun (assistant message has content) */}
-              {isLoading &&
-                !(
-                  messages.length > 0 &&
-                  messages[messages.length - 1].role === 'assistant' &&
-                  messages[messages.length - 1].content.length > 0
+              {isLoading
+                && !(
+                  messages.length > 0
+                  && messages[messages.length - 1].role === 'assistant'
+                  && messages[messages.length - 1].content.length > 0
                 ) && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-start',
-                    mb: 2,
-                  }}
-                >
-                  <Paper
+                  <Box
                     sx={{
-                      p: 2,
-                      maxWidth: '70%',
-                      backgroundColor: getModelInfo(selectedModel).color, // Use selected model's color
-                      color: 'white',
-                      borderRadius: 2,
-                      position: 'relative',
-                      boxShadow: 2,
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      mb: 2,
                     }}
                   >
-                    <Avatar
+                    <Paper
                       sx={{
-                        width: 24,
-                        height: 24,
-                        position: 'absolute',
-                        top: -12,
-                        left: -12,
-                        bgcolor: getModelInfo(selectedModel).color,
+                        p: 2,
+                        maxWidth: '70%',
+                        backgroundColor: getModelInfo(selectedModel).color, // Use selected model's color
+                        color: 'white',
+                        borderRadius: 2,
+                        position: 'relative',
+                        boxShadow: 2,
                       }}
                     >
-                      <ModelIcon fontSize="small" />
-                    </Avatar>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={16} color="inherit" />
-                      <Typography variant="body2">
-                        {getModelInfo(selectedModel).name} is thinking...
-                      </Typography>
-                    </Box>
-                  </Paper>
-                </Box>
-              )}
+                      <Avatar
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          position: 'absolute',
+                          top: -12,
+                          left: -12,
+                          bgcolor: getModelInfo(selectedModel).color,
+                        }}
+                      >
+                        <ModelIcon fontSize="small" />
+                      </Avatar>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <CircularProgress size={16} color="inherit" />
+                        <Typography variant="body2">
+                          {getModelInfo(selectedModel).name} is thinking...
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Box>
+                )}
 
               {/* Scroll anchor for auto-scrolling */}
               <div ref={messagesEndRef} />

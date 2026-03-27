@@ -5,6 +5,14 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.2.3] - UNRELEASED
+
+### Changed
+- **Model selection modal redesign**: Redesigned the model selection window to be larger and easier to navigate, with smaller filter options and grouping of models by provider to reduce the size of the inital list. 
+
+### Added
+- **Direct OpenRouter Mode**: Added flagged experimental "direct to open router" mode that cuts out the NLP workbench and works directly with the OpenRouter API, allowing a range of new features such as streaming, model request parameter control, and dynamic model list/selection.
+
 ## [0.2.2] - 2026-02-25
 
 ### Changed

@@ -4,7 +4,10 @@
  */
 
 import { openRouterAPIClient } from '../api/apiClientOpenRouter';
-import type { OpenRouterModel, OpenRouterModelsResponse } from '../../types/openRouter';
+import type {
+  OpenRouterModel,
+  OpenRouterModelsResponse,
+} from '../../types/openRouter';
 import type { ModelConfig } from '../../data/models';
 
 // Cache configuration
@@ -224,9 +227,7 @@ class OpenRouterModelService {
   /**
    * Get all models as ModelConfig array
    */
-  async getModelsAsConfig(
-    forceRefresh = false
-  ): Promise<ModelConfig[]> {
+  async getModelsAsConfig(forceRefresh = false): Promise<ModelConfig[]> {
     const models = await this.fetchModels(forceRefresh);
     return models.map(model => this.transformToModelConfig(model));
   }

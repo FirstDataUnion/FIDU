@@ -110,7 +110,10 @@ export interface OpenRouterChatRequest {
   plugins?: string[]; // e.g., ["web_search", "pdf_parsing"]
   // Tool calling
   tools?: any[]; // Tool definitions
-  tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
+  tool_choice?:
+    | 'auto'
+    | 'none'
+    | { type: 'function'; function: { name: string } };
   // Response format
   response_format?: {
     type: 'text' | 'json_object';
@@ -233,7 +236,10 @@ export class OpenRouterAPIError extends Error {
     this.param = param;
   }
 
-  static fromResponse(error: OpenRouterError, status: number): OpenRouterAPIError {
+  static fromResponse(
+    error: OpenRouterError,
+    status: number
+  ): OpenRouterAPIError {
     return new OpenRouterAPIError(
       error.error.message,
       status,

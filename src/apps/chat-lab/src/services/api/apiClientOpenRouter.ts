@@ -55,9 +55,8 @@ class OpenRouterAPIClient {
     const authInterceptor = this.authService.createAuthInterceptor();
 
     // Request interceptor
-    this.client.interceptors.request.use(
-      authInterceptor.request,
-      error => Promise.reject(error)
+    this.client.interceptors.request.use(authInterceptor.request, error =>
+      Promise.reject(error)
     );
 
     // Response interceptor
@@ -87,15 +86,13 @@ class OpenRouterAPIClient {
   /**
    * Handle API errors with OpenRouter-specific error handling
    */
-  private async handleError(
-    response: any
-  ): Promise<never> {
+  private async handleError(response: any): Promise<never> {
     let errorData: OpenRouterError | any;
-    
+
     // Handle both fetch Response and axios response
     const status = response.status || response.statusCode || 500;
     const statusText = response.statusText || 'Unknown error';
-    
+
     try {
       // If it's an axios response, data is already parsed
       if (response.data) {
@@ -184,7 +181,10 @@ class OpenRouterAPIClient {
           0,
           'network_error'
         );
-      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      } else if (
+        error.code === 'ECONNABORTED'
+        || error.message?.includes('timeout')
+      ) {
         throw new OpenRouterAPIError(
           'Request timeout while fetching models',
           408,
@@ -264,18 +264,13 @@ class OpenRouterAPIClient {
           0,
           'network_error'
         );
-      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        throw new OpenRouterAPIError(
-          'Request timeout',
-          408,
-          'timeout'
-        );
+      } else if (
+        error.code === 'ECONNABORTED'
+        || error.message?.includes('timeout')
+      ) {
+        throw new OpenRouterAPIError('Request timeout', 408, 'timeout');
       } else if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
-        throw new OpenRouterAPIError(
-          'Request aborted',
-          499,
-          'aborted'
-        );
+        throw new OpenRouterAPIError('Request aborted', 499, 'aborted');
       } else {
         throw new OpenRouterAPIError(
           `Failed to create chat completion: ${error.message || 'Unknown error'}`,
@@ -311,7 +306,8 @@ class OpenRouterAPIClient {
           if (handler.fulfilled) {
             const processedConfig = await handler.fulfilled(dummyConfig);
             if (processedConfig && processedConfig.headers?.Authorization) {
-              headers['Authorization'] = processedConfig.headers.Authorization as string;
+              headers['Authorization'] = processedConfig.headers
+                .Authorization as string;
               console.log('[OpenRouter] Got auth header for streaming request');
               break;
             }
@@ -319,7 +315,10 @@ class OpenRouterAPIClient {
         }
       }
     } catch (error) {
-      console.warn('[OpenRouter] Failed to get auth headers for streaming:', error);
+      console.warn(
+        '[OpenRouter] Failed to get auth headers for streaming:',
+        error
+      );
       // Continue without auth - gateway should handle or return clear error
     }
 
@@ -352,7 +351,8 @@ class OpenRouterAPIClient {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),
-        signal: abortSignal || AbortSignal.timeout(OPENROUTER_API_CONFIG.timeout),
+        signal:
+          abortSignal || AbortSignal.timeout(OPENROUTER_API_CONFIG.timeout),
       });
 
       if (!response.ok) {
@@ -421,10 +421,13 @@ class OpenRouterAPIClient {
                 const chunk: OpenRouterStreamChunk = JSON.parse(dataStr);
                 yield chunk;
               } catch (parseError) {
-                console.warn('[OpenRouter] Failed to parse final stream chunk:', {
-                  dataStr,
-                  error: parseError,
-                });
+                console.warn(
+                  '[OpenRouter] Failed to parse final stream chunk:',
+                  {
+                    dataStr,
+                    error: parseError,
+                  }
+                );
               }
             }
           }
@@ -437,18 +440,10 @@ class OpenRouterAPIClient {
         throw error;
       }
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new OpenRouterAPIError(
-          'Request aborted',
-          499,
-          'aborted'
-        );
+        throw new OpenRouterAPIError('Request aborted', 499, 'aborted');
       }
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new OpenRouterAPIError(
-          'Request timeout',
-          408,
-          'timeout'
-        );
+        throw new OpenRouterAPIError('Request timeout', 408, 'timeout');
       }
       throw new OpenRouterAPIError(
         `Failed to create streaming chat completion: ${error instanceof Error ? error.message : 'Unknown error'}`,

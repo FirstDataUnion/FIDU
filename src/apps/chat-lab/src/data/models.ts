@@ -2372,8 +2372,7 @@ export const loadOpenRouterModels = async (): Promise<ModelConfig[]> => {
     .catch(error => {
       console.error('[Models] Failed to load OpenRouter models:', error);
       openRouterModelsLoadPromise = null;
-      const err =
-        error instanceof Error ? error : new Error(String(error));
+      const err = error instanceof Error ? error : new Error(String(error));
       lastOpenRouterModelsLoadError = err;
       throw err;
     });

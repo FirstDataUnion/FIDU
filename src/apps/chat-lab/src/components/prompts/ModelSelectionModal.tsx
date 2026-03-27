@@ -189,9 +189,8 @@ export default function ModelSelectionModal({
   }, []);
 
   // OpenRouter request params (only used when direct OpenRouter is enabled)
-  const [openRouterParams, setOpenRouterParamsState] = useState<OpenRouterParams>(
-    () => getOpenRouterParams()
-  );
+  const [openRouterParams, setOpenRouterParamsState] =
+    useState<OpenRouterParams>(() => getOpenRouterParams());
 
   const updateOpenRouterParam = <K extends keyof OpenRouterParams>(
     key: K,
@@ -297,7 +296,7 @@ export default function ModelSelectionModal({
   // Filter models based on BYOK mode, search and filters
   const filteredModels = useMemo(() => {
     let baseList: ModelConfig[];
-    
+
     if (useBYOK) {
       baseList = getModelsForMode({
         useBYOK: true,
@@ -542,16 +541,14 @@ export default function ModelSelectionModal({
                 {model.description}
               </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Capabilities:</strong>{' '}
-                {model.capabilities.join(', ')}
+                <strong>Capabilities:</strong> {model.capabilities.join(', ')}
               </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
                 <strong>Category:</strong> {model.category} |{' '}
                 <strong>Speed:</strong> {model.speed}
               </Typography>
               <Typography variant="body2">
-                <strong>Max Tokens:</strong>{' '}
-                {model.maxTokens.toLocaleString()}
+                <strong>Max Tokens:</strong> {model.maxTokens.toLocaleString()}
               </Typography>
             </Box>
           }
@@ -584,16 +581,10 @@ export default function ModelSelectionModal({
             >
               <Avatar
                 sx={{
-                  bgcolor: model.isMostUsed
-                    ? 'secondary.main'
-                    : 'primary.main',
+                  bgcolor: model.isMostUsed ? 'secondary.main' : 'primary.main',
                 }}
               >
-                {model.isMostUsed ? (
-                  <FavoriteModelIcon />
-                ) : (
-                  <SmartToyIcon />
-                )}
+                {model.isMostUsed ? <FavoriteModelIcon /> : <SmartToyIcon />}
               </Avatar>
             </ListItemAvatar>
             <ListItemText
@@ -792,20 +783,35 @@ export default function ModelSelectionModal({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <SettingsIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2">
-                  Request parameters
-                </Typography>
+                <Typography variant="subtitle2">Request parameters</Typography>
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
               <Stack spacing={2.5}>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Temperature: {openRouterParams.temperature}
                     </Typography>
-                    <Tooltip title="Controls randomness. Lower = more focused and deterministic; higher = more creative and varied." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Controls randomness. Lower = more focused and deterministic; higher = more creative and varied."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -821,12 +827,29 @@ export default function ModelSelectionModal({
                   />
                 </Box>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Top P: {openRouterParams.top_p}
                     </Typography>
-                    <Tooltip title="Nucleus sampling. Limits choices to the top tokens whose probabilities sum to P. Lower = more predictable." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Nucleus sampling. Limits choices to the top tokens whose probabilities sum to P. Lower = more predictable."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -842,12 +865,32 @@ export default function ModelSelectionModal({
                   />
                 </Box>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
-                      Top K: {openRouterParams.top_k === 0 ? 'Off' : openRouterParams.top_k}
+                      Top K:{' '}
+                      {openRouterParams.top_k === 0
+                        ? 'Off'
+                        : openRouterParams.top_k}
                     </Typography>
-                    <Tooltip title="Limits choices to the top K most likely tokens at each step. 0 = disabled." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Limits choices to the top K most likely tokens at each step. 0 = disabled."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -863,12 +906,29 @@ export default function ModelSelectionModal({
                   />
                 </Box>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Frequency penalty: {openRouterParams.frequency_penalty}
                     </Typography>
-                    <Tooltip title="Reduces repetition based on how often tokens appear in the input. Higher = less repetition." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Reduces repetition based on how often tokens appear in the input. Higher = less repetition."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -884,12 +944,29 @@ export default function ModelSelectionModal({
                   />
                 </Box>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Presence penalty: {openRouterParams.presence_penalty}
                     </Typography>
-                    <Tooltip title="Penalizes tokens that have already appeared. Higher = encourages new topics." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Penalizes tokens that have already appeared. Higher = encourages new topics."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -905,12 +982,29 @@ export default function ModelSelectionModal({
                   />
                 </Box>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mb: 0.5,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Repetition penalty: {openRouterParams.repetition_penalty}
                     </Typography>
-                    <Tooltip title="Reduces repetition of tokens from the input. Higher = less repetition." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    <Tooltip
+                      title="Reduces repetition of tokens from the input. Higher = less repetition."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Slider
@@ -925,7 +1019,14 @@ export default function ModelSelectionModal({
                     size="small"
                   />
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <TextField
                       label="Max tokens"
@@ -947,8 +1048,19 @@ export default function ModelSelectionModal({
                       }}
                       sx={{ width: 120 }}
                     />
-                    <Tooltip title="Maximum number of tokens the model can generate in its response." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    <Tooltip
+                      title="Maximum number of tokens the model can generate in its response."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                          mt: 1,
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -972,8 +1084,19 @@ export default function ModelSelectionModal({
                       }}
                       sx={{ width: 120 }}
                     />
-                    <Tooltip title="Minimum number of tokens the model must generate before it can stop." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    <Tooltip
+                      title="Minimum number of tokens the model must generate before it can stop."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                          mt: 1,
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -993,8 +1116,19 @@ export default function ModelSelectionModal({
                       inputProps={{ min: 0 }}
                       sx={{ width: 120 }}
                     />
-                    <Tooltip title="For reproducible outputs. Same seed + same input = same output." placement="top" arrow>
-                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    <Tooltip
+                      title="For reproducible outputs. Same seed + same input = same output."
+                      placement="top"
+                      arrow
+                    >
+                      <HelpOutlineIcon
+                        sx={{
+                          fontSize: 14,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                          mt: 1,
+                        }}
+                      />
                     </Tooltip>
                   </Box>
                 </Box>
@@ -1079,7 +1213,10 @@ export default function ModelSelectionModal({
                 size="small"
                 sx={{ flex: '1 1 200px', minWidth: 160 }}
               />
-              <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto' }}>
+              <FormControl
+                size="small"
+                sx={{ minWidth: 100, flex: '0 1 auto' }}
+              >
                 <InputLabel id="model-sort-label">Sort</InputLabel>
                 <Select
                   labelId="model-sort-label"
@@ -1094,7 +1231,10 @@ export default function ModelSelectionModal({
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto' }}>
+              <FormControl
+                size="small"
+                sx={{ minWidth: 100, flex: '0 1 auto' }}
+              >
                 <InputLabel id="model-speed-label">Speed</InputLabel>
                 <Select
                   labelId="model-speed-label"
@@ -1109,7 +1249,10 @@ export default function ModelSelectionModal({
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 110, flex: '1 1 120px' }}>
+              <FormControl
+                size="small"
+                sx={{ minWidth: 110, flex: '1 1 120px' }}
+              >
                 <InputLabel id="model-provider-label">Provider</InputLabel>
                 <Select
                   labelId="model-provider-label"
@@ -1160,24 +1303,24 @@ export default function ModelSelectionModal({
             </Box>
           ) : isDirectOpenRouterEnabled
             && openRouterListFetch.status === 'error' ? (
-              <Box sx={{ p: 2 }}>
-                <Alert
-                  severity="error"
-                  action={
-                    <Button
-                      color="inherit"
-                      size="small"
-                      onClick={retryLoadOpenRouterModels}
-                    >
-                      Retry
-                    </Button>
-                  }
-                >
-                  Could not load models from OpenRouter.{' '}
-                  {openRouterListFetch.error.message}
-                </Alert>
-              </Box>
-            ) : showProviderAccordions ? (
+            <Box sx={{ p: 2 }}>
+              <Alert
+                severity="error"
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={retryLoadOpenRouterModels}
+                  >
+                    Retry
+                  </Button>
+                }
+              >
+                Could not load models from OpenRouter.{' '}
+                {openRouterListFetch.error.message}
+              </Alert>
+            </Box>
+          ) : showProviderAccordions ? (
             modelsByProvider.map(group => (
               <Accordion
                 key={group.key}
@@ -1223,10 +1366,7 @@ export default function ModelSelectionModal({
                 <AccordionDetails sx={{ p: 0 }}>
                   <List disablePadding component="ul" sx={{ py: 0 }}>
                     {group.models.map((model, idx) =>
-                      renderModelRow(
-                        model,
-                        idx === group.models.length - 1
-                      )
+                      renderModelRow(model, idx === group.models.length - 1)
                     )}
                   </List>
                 </AccordionDetails>
@@ -1235,29 +1375,26 @@ export default function ModelSelectionModal({
           ) : (
             <List disablePadding component="ul" sx={{ py: 0 }}>
               {filteredModels.map((model, index) =>
-                renderModelRow(
-                  model,
-                  index === filteredModels.length - 1
-                )
+                renderModelRow(model, index === filteredModels.length - 1)
               )}
             </List>
-            )}
+          )}
         </Box>
 
         {filteredModels.length === 0
-        && !(
-          isDirectOpenRouterEnabled
-          && (openRouterListFetch.status === 'loading'
-            || openRouterListFetch.status === 'error')
-        ) && (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              {useBYOK
-                ? 'No models available. Add your provider API keys in Settings to enable BYOK.'
-                : 'No models match your search and filters'}
-            </Typography>
-          </Box>
-        )}
+          && !(
+            isDirectOpenRouterEnabled
+            && (openRouterListFetch.status === 'loading'
+              || openRouterListFetch.status === 'error')
+          ) && (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                {useBYOK
+                  ? 'No models available. Add your provider API keys in Settings to enable BYOK.'
+                  : 'No models match your search and filters'}
+              </Typography>
+            </Box>
+          )}
       </DialogContent>
 
       <DialogActions sx={{ p: 1.5, pt: 1, flexShrink: 0 }}>

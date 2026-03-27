@@ -1,4 +1,7 @@
-import { convertToOpenRouterMessages, mergeSystemPrompts } from '../openRouterMessageBuilder';
+import {
+  convertToOpenRouterMessages,
+  mergeSystemPrompts,
+} from '../openRouterMessageBuilder';
 import type { Message } from '../../../types';
 
 describe('mergeSystemPrompts', () => {
@@ -81,7 +84,9 @@ describe('convertToOpenRouterMessages', () => {
       ],
       'Next'
     );
-    expect(messages.find(m => m.content === 'ignored in history')).toBeUndefined();
+    expect(
+      messages.find(m => m.content === 'ignored in history')
+    ).toBeUndefined();
     expect(messages.filter(m => m.role === 'user')[0].content).toBe('hello');
   });
 });

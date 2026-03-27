@@ -210,8 +210,7 @@ export const createPromptsApi = () => {
           lastChunkCreated = chunk.created;
           lastChunkModel = chunk.model;
 
-          const delta =
-            chunk.choices?.[0]?.delta?.content ?? '';
+          const delta = chunk.choices?.[0]?.delta?.content ?? '';
           if (delta) {
             accumulatedContent += delta;
             onStreamChunk?.(delta);
@@ -223,8 +222,7 @@ export const createPromptsApi = () => {
           status: 'completed',
           responses: {
             modelId: selectedModel,
-            content:
-              accumulatedContent || 'No response received',
+            content: accumulatedContent || 'No response received',
             actualModel: lastChunkModel,
           },
           timestamp: new Date(lastChunkCreated * 1000).toISOString(),

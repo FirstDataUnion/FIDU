@@ -114,7 +114,9 @@ export function convertToOpenRouterMessages(
       .filter(instruction => instruction && instruction.length > 0);
 
     if (selectedInstructions.length > 0) {
-      systemParts.push(`Additional Instructions:\n${selectedInstructions.join('\n')}`);
+      systemParts.push(
+        `Additional Instructions:\n${selectedInstructions.join('\n')}`
+      );
     }
   }
 
@@ -142,7 +144,9 @@ export function convertToOpenRouterMessages(
         'Answer the following prompt, keeping the existing contexts in mind.'
       );
     } else {
-      systemParts.push('Answer the following prompt, keeping the existing context in mind.');
+      systemParts.push(
+        'Answer the following prompt, keeping the existing context in mind.'
+      );
     }
   } else if (conversationMessages.length > 0) {
     systemParts.push(
@@ -161,7 +165,9 @@ export function convertToOpenRouterMessages(
   }
 
   // 2. Add conversation history (excluding system messages)
-  const historyMessages = conversationMessages.filter(msg => msg.role !== 'system');
+  const historyMessages = conversationMessages.filter(
+    msg => msg.role !== 'system'
+  );
   for (const msg of historyMessages) {
     // Map ChatLab roles to OpenRouter roles
     const role: 'user' | 'assistant' =
