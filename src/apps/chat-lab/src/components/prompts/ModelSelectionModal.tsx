@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,6 +26,12 @@ import {
   FormControlLabel,
   Paper,
   Stack,
+  Slider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   SmartToy as SmartToyIcon,
@@ -34,17 +40,27 @@ import {
   Speed as SpeedIcon,
   Category as CategoryIcon,
   AutoAwesome as AutoIcon,
-  Sort as SortIcon,
-  FilterList as FilterIcon,
   Star as FavoriteModelIcon,
+  ExpandMore as ExpandMoreIcon,
+  Settings as SettingsIcon,
+  HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import {
   getAllModels,
   getModelsForMode,
+  getCachedOpenRouterModels,
+  loadOpenRouterModels,
   type ModelConfig,
   type ProviderKey,
 } from '../../data/models';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
+import {
+  getOpenRouterParams,
+  setOpenRouterParams,
+  DEFAULT_OPENROUTER_PARAMS,
+  OPENROUTER_PARAM_LIMITS,
+  type OpenRouterParams,
+} from '../../services/api/openRouterParams';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { selectConversations } from '../../store/selectors/conversationsSelectors';
 import { fetchConversations } from '../../store/slices/conversationsSlice';
@@ -60,6 +76,45 @@ interface ModelSelectionModalProps {
 
 type SortOption = 'name' | 'provider' | 'speed' | 'category';
 type FilterOption = 'all' | 'fast' | 'medium' | 'slow';
+
+/** Title-case words for provider labels shown in lists and accordions. */
+function formatProviderDisplayName(provider: string | undefined): string {
+  const t = provider?.trim();
+  if (!t) return 'Other';
+  return t
+    .split(/\s+/)
+    .map(w => {
+      if (!w) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+type ProviderModelGroup = {
+  key: string;
+  displayLabel: string;
+  models: ModelConfig[];
+};
+
+function groupModelsByProvider(models: ModelConfig[]): ProviderModelGroup[] {
+  const map = new Map<string, ModelConfig[]>();
+  for (const m of models) {
+    const key = m.provider?.trim() || 'Other';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(m);
+  }
+  return [...map.entries()]
+    .map(([key, models]) => ({
+      key,
+      displayLabel: formatProviderDisplayName(key),
+      models,
+    }))
+    .sort((a, b) =>
+      a.displayLabel.localeCompare(b.displayLabel, undefined, {
+        sensitivity: 'base',
+      })
+    );
+}
 
 export default function ModelSelectionModal({
   open,
@@ -85,10 +140,76 @@ export default function ModelSelectionModal({
     null
   );
   const isMostUsedModelsEnabled = useFeatureFlag('most_used_models');
+  const isDirectOpenRouterEnabled = useFeatureFlag('direct_openrouter');
   const [usedModels, setUsedModels] = useState<
     { modelId: string; count: number }[]
   >([]);
   const conversations = useAppSelector(selectConversations);
+
+  /** Load state for API-only model list when Direct OpenRouter is on (avoids empty list flash). */
+  type OpenRouterListFetchState =
+    | { status: 'idle' }
+    | { status: 'loading' }
+    | { status: 'ready' }
+    | { status: 'error'; error: Error };
+
+  const [openRouterListFetch, setOpenRouterListFetch] =
+    useState<OpenRouterListFetchState>({ status: 'idle' });
+
+  useEffect(() => {
+    if (!open || !isDirectOpenRouterEnabled) {
+      setOpenRouterListFetch({ status: 'idle' });
+      return;
+    }
+    if (getCachedOpenRouterModels().length > 0) {
+      setOpenRouterListFetch({ status: 'ready' });
+      return;
+    }
+    setOpenRouterListFetch({ status: 'loading' });
+    loadOpenRouterModels()
+      .then(() => setOpenRouterListFetch({ status: 'ready' }))
+      .catch((err: unknown) => {
+        setOpenRouterListFetch({
+          status: 'error',
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      });
+  }, [open, isDirectOpenRouterEnabled]);
+
+  const retryLoadOpenRouterModels = React.useCallback(() => {
+    setOpenRouterListFetch({ status: 'loading' });
+    loadOpenRouterModels()
+      .then(() => setOpenRouterListFetch({ status: 'ready' }))
+      .catch((err: unknown) => {
+        setOpenRouterListFetch({
+          status: 'error',
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      });
+  }, []);
+
+  // OpenRouter request params (only used when direct OpenRouter is enabled)
+  const [openRouterParams, setOpenRouterParamsState] = useState<OpenRouterParams>(
+    () => getOpenRouterParams()
+  );
+
+  const updateOpenRouterParam = <K extends keyof OpenRouterParams>(
+    key: K,
+    value: OpenRouterParams[K]
+  ) => {
+    setOpenRouterParamsState(prev => {
+      const next = { ...prev, [key]: value };
+      setOpenRouterParams(next);
+      return next;
+    });
+  };
+
+  // Sync params from storage when modal opens
+  React.useEffect(() => {
+    if (open && isDirectOpenRouterEnabled) {
+      setOpenRouterParamsState(getOpenRouterParams());
+    }
+  }, [open, isDirectOpenRouterEnabled]);
 
   // Get all available models from the centralized configuration
   const availableModels = getAllModels();
@@ -175,12 +296,20 @@ export default function ModelSelectionModal({
 
   // Filter models based on BYOK mode, search and filters
   const filteredModels = useMemo(() => {
-    const baseList = useBYOK
-      ? getModelsForMode({
-          useBYOK: true,
-          userProviders: userProviders || undefined,
-        })
-      : otherModels.filter(m => m.executionPath === 'openrouter');
+    let baseList: ModelConfig[];
+    
+    if (useBYOK) {
+      baseList = getModelsForMode({
+        useBYOK: true,
+        userProviders: userProviders || undefined,
+      });
+    } else if (isDirectOpenRouterEnabled) {
+      // Direct OpenRouter: list comes from API only (see getAllModels); auto-router is separate
+      baseList = otherModels;
+    } else {
+      // Normal mode: only show models with openrouter execution path
+      baseList = otherModels.filter(m => m.executionPath === 'openrouter');
+    }
 
     const mostUsedModels =
       isMostUsedModelsEnabled && usedModels
@@ -206,10 +335,9 @@ export default function ModelSelectionModal({
         )
         || model.category.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Provider filter
+      const providerKey = model.provider?.trim() || 'Other';
       const matchesProvider =
-        providerFilter === 'all'
-        || model.provider.toLowerCase() === providerFilter.toLowerCase();
+        providerFilter === 'all' || providerKey === providerFilter;
 
       // Speed filter
       let matchesFilter = true;
@@ -238,7 +366,9 @@ export default function ModelSelectionModal({
         case 'name':
           return a.name.localeCompare(b.name);
         case 'provider':
-          return a.provider.localeCompare(b.provider);
+          return a.provider.localeCompare(b.provider, undefined, {
+            sensitivity: 'base',
+          });
         case 'speed': {
           const speedOrder = { fast: 0, medium: 1, slow: 2 };
           return speedOrder[a.speed] - speedOrder[b.speed];
@@ -261,6 +391,7 @@ export default function ModelSelectionModal({
     providerFilter,
     usedModels,
     isMostUsedModelsEnabled,
+    isDirectOpenRouterEnabled,
   ]);
 
   const handleModelSelect = (modelId: string) => {
@@ -327,21 +458,234 @@ export default function ModelSelectionModal({
     }
   };
 
-  const uniqueProviders = Array.from(
-    new Set(otherModels.map(model => model.provider))
-  ).sort();
+  /** One entry per distinct provider string (trimmed), with formatted labels. */
+  const uniqueProviders = useMemo(() => {
+    const seen = new Set<string>();
+    const rows: { key: string; label: string }[] = [];
+    for (const model of otherModels) {
+      const key = model.provider?.trim() || 'Other';
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ key, label: formatProviderDisplayName(model.provider) });
+    }
+    return rows.sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+    );
+  }, [otherModels]);
+
+  // If the stored filter no longer matches (e.g. casing), snap to a list key or All
+  useEffect(() => {
+    if (providerFilter === 'all') return;
+    const keys = uniqueProviders.map(p => p.key);
+    if (keys.includes(providerFilter)) return;
+    const match = uniqueProviders.find(
+      p => p.key.toLowerCase() === providerFilter.toLowerCase()
+    );
+    if (match) setProviderFilter(match.key);
+    else setProviderFilter('all');
+  }, [uniqueProviders, providerFilter]);
+
+  /** Group filtered models by provider (alphabetical by formatted label). */
+  const modelsByProvider = useMemo(
+    () => groupModelsByProvider(filteredModels),
+    [filteredModels]
+  );
+
+  /** When using provider accordions, which sections are expanded. */
+  const [providerExpanded, setProviderExpanded] = useState<
+    Record<string, boolean>
+  >({});
+  const providerAccordionInitRef = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      providerAccordionInitRef.current = false;
+      return;
+    }
+    if (filteredModels.length === 0) {
+      providerAccordionInitRef.current = false;
+      return;
+    }
+    if (providerAccordionInitRef.current) return;
+    providerAccordionInitRef.current = true;
+
+    const groups = groupModelsByProvider(filteredModels);
+    const next: Record<string, boolean> = {};
+    let anySelected = false;
+    for (const g of groups) {
+      const hasSelected = g.models.some(m => m.id === selectedModel);
+      next[g.key] = hasSelected;
+      if (hasSelected) anySelected = true;
+    }
+    if (!anySelected && groups.length > 0) {
+      next[groups[0].key] = true;
+    }
+    setProviderExpanded(next);
+  }, [open, filteredModels, selectedModel]);
+
+  const showProviderAccordions =
+    providerFilter === 'all' && modelsByProvider.length > 1;
+
+  const renderModelRow = (
+    model: ModelConfig & { isMostUsed?: boolean },
+    isLastInSection: boolean
+  ) => (
+    <React.Fragment key={model.id}>
+      <ListItem disablePadding>
+        <Tooltip
+          title={
+            <Box sx={{ maxWidth: 300 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                {model.name}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                {model.description}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Capabilities:</strong>{' '}
+                {model.capabilities.join(', ')}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Category:</strong> {model.category} |{' '}
+                <strong>Speed:</strong> {model.speed}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Max Tokens:</strong>{' '}
+                {model.maxTokens.toLocaleString()}
+              </Typography>
+            </Box>
+          }
+          placement="right"
+          arrow
+          enterDelay={500}
+          leaveDelay={200}
+        >
+          <ListItemButton
+            onClick={() => handleModelSelect(model.id)}
+            selected={selectedModel === model.id}
+            disabled={isAutoModeEnabled}
+            sx={{
+              py: 1.5,
+              opacity: isAutoModeEnabled ? 0.6 : 1,
+              '&.Mui-selected': {
+                backgroundColor: 'primary.light',
+                '&:hover': {
+                  backgroundColor: 'primary.light',
+                },
+              },
+            }}
+          >
+            <ListItemAvatar
+              title={
+                model.isMostUsed
+                  ? 'Your most used models (calculated locally)'
+                  : undefined
+              }
+            >
+              <Avatar
+                sx={{
+                  bgcolor: model.isMostUsed
+                    ? 'secondary.main'
+                    : 'primary.main',
+                }}
+              >
+                {model.isMostUsed ? (
+                  <FavoriteModelIcon />
+                ) : (
+                  <SmartToyIcon />
+                )}
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText
+              primary={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {model.name}
+                  </Typography>
+                  {selectedModel === model.id && (
+                    <CheckIcon color="primary" fontSize="small" />
+                  )}
+                </Box>
+              }
+              secondary={
+                <Box sx={{ mt: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    component="div"
+                    sx={{ mb: 1 }}
+                  >
+                    {model.description}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Chip
+                      label={formatProviderDisplayName(model.provider)}
+                      size="small"
+                      color={getProviderColor(model.provider) as any}
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={model.category}
+                      size="small"
+                      variant="outlined"
+                      icon={<CategoryIcon sx={{ fontSize: 14 }} />}
+                    />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                      }}
+                    >
+                      {getSpeedIcon(model.speed)}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        component="span"
+                      >
+                        {model.speed}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={`${model.maxTokens.toLocaleString()} tokens`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+                </Box>
+              }
+              secondaryTypographyProps={{ component: 'div' }}
+            />
+          </ListItemButton>
+        </Tooltip>
+      </ListItem>
+      {!isLastInSection && <Divider component="li" />}
+    </React.Fragment>
+  );
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth="lg"
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 },
+        sx: {
+          borderRadius: 2,
+          maxHeight: 'min(92vh, 960px)',
+          display: 'flex',
+          flexDirection: 'column',
+        },
       }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
+      <DialogTitle sx={{ pb: 1, flexShrink: 0 }}>
         <Box>
           <Typography
             component="span"
@@ -361,14 +705,23 @@ export default function ModelSelectionModal({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0 }}>
+      <DialogContent
+        sx={{
+          p: 0,
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         {/* Auto Router Toggle */}
         {autoRouterModel && (
-          <Box sx={{ p: 2, pb: 1 }}>
+          <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
             <Paper
               elevation={1}
               sx={{
-                p: 2,
+                p: 1.5,
                 backgroundColor: isAutoModeEnabled
                   ? 'primary.light'
                   : 'background.paper',
@@ -421,11 +774,251 @@ export default function ModelSelectionModal({
           </Box>
         )}
 
-        <Divider />
+        {/* OpenRouter request parameters - only when direct OpenRouter is enabled */}
+        {isDirectOpenRouterEnabled && (
+          <Accordion
+            defaultExpanded={false}
+            sx={{
+              flexShrink: 0,
+              '&:before': { display: 'none' },
+              boxShadow: 'none',
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{ px: 2, py: 0 }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SettingsIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2">
+                  Request parameters
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
+              <Stack spacing={2.5}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Temperature: {openRouterParams.temperature}
+                    </Typography>
+                    <Tooltip title="Controls randomness. Lower = more focused and deterministic; higher = more creative and varied." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.temperature}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('temperature', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.temperature.min}
+                    max={OPENROUTER_PARAM_LIMITS.temperature.max}
+                    step={OPENROUTER_PARAM_LIMITS.temperature.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Top P: {openRouterParams.top_p}
+                    </Typography>
+                    <Tooltip title="Nucleus sampling. Limits choices to the top tokens whose probabilities sum to P. Lower = more predictable." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.top_p}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('top_p', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.top_p.min}
+                    max={OPENROUTER_PARAM_LIMITS.top_p.max}
+                    step={OPENROUTER_PARAM_LIMITS.top_p.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Top K: {openRouterParams.top_k === 0 ? 'Off' : openRouterParams.top_k}
+                    </Typography>
+                    <Tooltip title="Limits choices to the top K most likely tokens at each step. 0 = disabled." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.top_k}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('top_k', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.top_k.min}
+                    max={OPENROUTER_PARAM_LIMITS.top_k.max}
+                    step={OPENROUTER_PARAM_LIMITS.top_k.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Frequency penalty: {openRouterParams.frequency_penalty}
+                    </Typography>
+                    <Tooltip title="Reduces repetition based on how often tokens appear in the input. Higher = less repetition." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.frequency_penalty}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('frequency_penalty', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.frequency_penalty.min}
+                    max={OPENROUTER_PARAM_LIMITS.frequency_penalty.max}
+                    step={OPENROUTER_PARAM_LIMITS.frequency_penalty.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Presence penalty: {openRouterParams.presence_penalty}
+                    </Typography>
+                    <Tooltip title="Penalizes tokens that have already appeared. Higher = encourages new topics." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.presence_penalty}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('presence_penalty', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.presence_penalty.min}
+                    max={OPENROUTER_PARAM_LIMITS.presence_penalty.max}
+                    step={OPENROUTER_PARAM_LIMITS.presence_penalty.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Repetition penalty: {openRouterParams.repetition_penalty}
+                    </Typography>
+                    <Tooltip title="Reduces repetition of tokens from the input. Higher = less repetition." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Slider
+                    value={openRouterParams.repetition_penalty}
+                    onChange={(_, v) =>
+                      updateOpenRouterParam('repetition_penalty', v as number)
+                    }
+                    min={OPENROUTER_PARAM_LIMITS.repetition_penalty.min}
+                    max={OPENROUTER_PARAM_LIMITS.repetition_penalty.max}
+                    step={OPENROUTER_PARAM_LIMITS.repetition_penalty.step}
+                    valueLabelDisplay="auto"
+                    size="small"
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TextField
+                      label="Max tokens"
+                      type="number"
+                      size="small"
+                      value={openRouterParams.max_tokens}
+                      onChange={e => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!Number.isNaN(v)) {
+                          updateOpenRouterParam(
+                            'max_tokens',
+                            Math.min(Math.max(v, 1), 128000)
+                          );
+                        }
+                      }}
+                      inputProps={{
+                        min: OPENROUTER_PARAM_LIMITS.max_tokens.min,
+                        max: OPENROUTER_PARAM_LIMITS.max_tokens.max,
+                      }}
+                      sx={{ width: 120 }}
+                    />
+                    <Tooltip title="Maximum number of tokens the model can generate in its response." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    </Tooltip>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TextField
+                      label="Min tokens"
+                      type="number"
+                      size="small"
+                      value={openRouterParams.min_tokens}
+                      onChange={e => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!Number.isNaN(v)) {
+                          updateOpenRouterParam(
+                            'min_tokens',
+                            Math.min(Math.max(v, 0), 4096)
+                          );
+                        }
+                      }}
+                      inputProps={{
+                        min: OPENROUTER_PARAM_LIMITS.min_tokens.min,
+                        max: OPENROUTER_PARAM_LIMITS.min_tokens.max,
+                      }}
+                      sx={{ width: 120 }}
+                    />
+                    <Tooltip title="Minimum number of tokens the model must generate before it can stop." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    </Tooltip>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TextField
+                      label="Seed (optional)"
+                      type="number"
+                      size="small"
+                      placeholder="None"
+                      value={openRouterParams.seed ?? ''}
+                      onChange={e => {
+                        const v = e.target.value;
+                        updateOpenRouterParam(
+                          'seed',
+                          v === '' ? null : Math.floor(parseInt(v, 10) || 0)
+                        );
+                      }}
+                      inputProps={{ min: 0 }}
+                      sx={{ width: 120 }}
+                    />
+                    <Tooltip title="For reproducible outputs. Same seed + same input = same output." placement="top" arrow>
+                      <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help', mt: 1 }} />
+                    </Tooltip>
+                  </Box>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const defaults = { ...DEFAULT_OPENROUTER_PARAMS };
+                    setOpenRouterParamsState(defaults);
+                    setOpenRouterParams(defaults);
+                  }}
+                >
+                  Reset to defaults
+                </Button>
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )}
 
-        {/* Search and Filters */}
-        <Box sx={{ p: 2, pb: 1 }}>
-          <Stack spacing={2}>
+        <Divider sx={{ flexShrink: 0 }} />
+
+        {/* Search and Filters — compact row to maximize list height */}
+        <Box sx={{ px: 2, py: 0.75, flexShrink: 0 }}>
+          <Stack spacing={1}>
             {/* BYOK Toggle */}
             <Box
               sx={{
@@ -440,9 +1033,14 @@ export default function ModelSelectionModal({
                     checked={useBYOK}
                     onChange={e => setUseBYOK(e.target.checked)}
                     color="primary"
+                    size="small"
                   />
                 }
                 label="Use my own API keys"
+                sx={{
+                  m: 0,
+                  '& .MuiFormControlLabel-label': { typography: 'caption' },
+                }}
               />
               {useBYOK && userProviders?.length === 0 && (
                 <Tooltip
@@ -458,31 +1056,36 @@ export default function ModelSelectionModal({
               )}
             </Box>
 
-            {/* Search */}
-            <TextField
-              fullWidth
-              placeholder="Search models..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
+            {/* Search + filters on one dense row where possible */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                alignItems: 'center',
               }}
-              size="small"
-            />
-
-            {/* Filters */}
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Sort by</InputLabel>
+            >
+              <TextField
+                placeholder="Search models..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ fontSize: 18 }} color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                size="small"
+                sx={{ flex: '1 1 200px', minWidth: 160 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto' }}>
+                <InputLabel id="model-sort-label">Sort</InputLabel>
                 <Select
+                  labelId="model-sort-label"
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as SortOption)}
-                  label="Sort by"
-                  startAdornment={<SortIcon sx={{ mr: 1, fontSize: 16 }} />}
+                  label="Sort"
                 >
                   <MenuItem value="name">Name</MenuItem>
                   <MenuItem value="provider">Provider</MenuItem>
@@ -491,13 +1094,13 @@ export default function ModelSelectionModal({
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Filter by</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto' }}>
+                <InputLabel id="model-speed-label">Speed</InputLabel>
                 <Select
+                  labelId="model-speed-label"
                   value={filterBy}
                   onChange={e => setFilterBy(e.target.value as FilterOption)}
-                  label="Filter by"
-                  startAdornment={<FilterIcon sx={{ mr: 1, fontSize: 16 }} />}
+                  label="Speed"
                 >
                   <MenuItem value="all">All</MenuItem>
                   <MenuItem value="fast">Fast Speed</MenuItem>
@@ -506,17 +1109,18 @@ export default function ModelSelectionModal({
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Provider</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 110, flex: '1 1 120px' }}>
+                <InputLabel id="model-provider-label">Provider</InputLabel>
                 <Select
+                  labelId="model-provider-label"
                   value={providerFilter}
                   onChange={e => setProviderFilter(e.target.value)}
                   label="Provider"
                 >
                   <MenuItem value="all">All Providers</MenuItem>
-                  {uniqueProviders.map(provider => (
-                    <MenuItem key={provider} value={provider}>
-                      {provider}
+                  {uniqueProviders.map(({ key, label }) => (
+                    <MenuItem key={key} value={key}>
+                      {label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -525,161 +1129,127 @@ export default function ModelSelectionModal({
           </Stack>
         </Box>
 
-        <Divider />
+        <Divider sx={{ flexShrink: 0 }} />
 
-        {/* Models List */}
-        <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-          {filteredModels.map((model, index) => (
-            <React.Fragment key={model.id}>
-              <ListItem disablePadding>
-                <Tooltip
-                  title={
-                    <Box sx={{ maxWidth: 300 }}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: 600, mb: 1 }}
-                      >
-                        {model.name}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        {model.description}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Capabilities:</strong>{' '}
-                        {model.capabilities.join(', ')}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Category:</strong> {model.category} |{' '}
-                        <strong>Speed:</strong> {model.speed}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Max Tokens:</strong>{' '}
-                        {model.maxTokens.toLocaleString()}
-                      </Typography>
-                    </Box>
-                  }
-                  placement="right"
-                  arrow
-                  enterDelay={500}
-                  leaveDelay={200}
-                >
-                  <ListItemButton
-                    onClick={() => handleModelSelect(model.id)}
-                    selected={selectedModel === model.id}
-                    disabled={isAutoModeEnabled}
-                    sx={{
-                      py: 2,
-                      opacity: isAutoModeEnabled ? 0.6 : 1,
-                      '&.Mui-selected': {
-                        backgroundColor: 'primary.light',
-                        '&:hover': {
-                          backgroundColor: 'primary.light',
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemAvatar
-                      title={
-                        model.isMostUsed
-                          ? 'Your most used models (calculated locally)'
-                          : undefined
-                      }
+        {/* Models list — per-provider accordions when showing all providers */}
+        <Box
+          sx={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflow: 'auto',
+            py: 0,
+          }}
+        >
+          {isDirectOpenRouterEnabled
+          && openRouterListFetch.status === 'loading' ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 6,
+                px: 2,
+                gap: 2,
+              }}
+            >
+              <CircularProgress size={36} />
+              <Typography variant="body2" color="text.secondary" align="center">
+                Loading models from OpenRouter…
+              </Typography>
+            </Box>
+          ) : isDirectOpenRouterEnabled
+            && openRouterListFetch.status === 'error' ? (
+              <Box sx={{ p: 2 }}>
+                <Alert
+                  severity="error"
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={retryLoadOpenRouterModels}
                     >
-                      <Avatar
-                        sx={{
-                          bgcolor: model.isMostUsed
-                            ? 'secondary.main'
-                            : 'primary.main',
-                        }}
-                      >
-                        {model.isMostUsed ? (
-                          <FavoriteModelIcon />
-                        ) : (
-                          <SmartToyIcon />
-                        )}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                        >
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600 }}
-                          >
-                            {model.name}
-                          </Typography>
-                          {selectedModel === model.id && (
-                            <CheckIcon color="primary" fontSize="small" />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            component="div"
-                            sx={{ mb: 1 }}
-                          >
-                            {model.description}
-                          </Typography>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              gap: 1,
-                              flexWrap: 'wrap',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <Chip
-                              label={model.provider}
-                              size="small"
-                              color={getProviderColor(model.provider) as any}
-                              variant="outlined"
-                            />
-                            <Chip
-                              label={model.category}
-                              size="small"
-                              variant="outlined"
-                              icon={<CategoryIcon sx={{ fontSize: 14 }} />}
-                            />
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                              }}
-                            >
-                              {getSpeedIcon(model.speed)}
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                component="span"
-                              >
-                                {model.speed}
-                              </Typography>
-                            </Box>
-                            <Chip
-                              label={`${model.maxTokens.toLocaleString()} tokens`}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </Box>
-                        </Box>
-                      }
-                      secondaryTypographyProps={{ component: 'div' }}
-                    />
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-              {index < filteredModels.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+                      Retry
+                    </Button>
+                  }
+                >
+                  Could not load models from OpenRouter.{' '}
+                  {openRouterListFetch.error.message}
+                </Alert>
+              </Box>
+            ) : showProviderAccordions ? (
+            modelsByProvider.map(group => (
+              <Accordion
+                key={group.key}
+                disableGutters
+                elevation={0}
+                square
+                expanded={providerExpanded[group.key] ?? false}
+                onChange={(_, expanded) => {
+                  setProviderExpanded(prev => ({
+                    ...prev,
+                    [group.key]: expanded,
+                  }));
+                }}
+                sx={{
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  '&:before': { display: 'none' },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    minHeight: 44,
+                    px: 2,
+                    bgcolor: 'action.hover',
+                    '& .MuiAccordionSummary-content': {
+                      alignItems: 'center',
+                      gap: 1,
+                      my: 0.75,
+                    },
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {group.displayLabel}
+                  </Typography>
+                  <Chip
+                    label={group.models.length}
+                    size="small"
+                    color={getProviderColor(group.key) as any}
+                    variant="outlined"
+                  />
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 0 }}>
+                  <List disablePadding component="ul" sx={{ py: 0 }}>
+                    {group.models.map((model, idx) =>
+                      renderModelRow(
+                        model,
+                        idx === group.models.length - 1
+                      )
+                    )}
+                  </List>
+                </AccordionDetails>
+              </Accordion>
+            ))
+          ) : (
+            <List disablePadding component="ul" sx={{ py: 0 }}>
+              {filteredModels.map((model, index) =>
+                renderModelRow(
+                  model,
+                  index === filteredModels.length - 1
+                )
+              )}
+            </List>
+            )}
+        </Box>
 
-        {filteredModels.length === 0 && (
+        {filteredModels.length === 0
+        && !(
+          isDirectOpenRouterEnabled
+          && (openRouterListFetch.status === 'loading'
+            || openRouterListFetch.status === 'error')
+        ) && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               {useBYOK
@@ -690,7 +1260,7 @@ export default function ModelSelectionModal({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, pt: 1 }}>
+      <DialogActions sx={{ p: 1.5, pt: 1, flexShrink: 0 }}>
         <Button onClick={onClose} variant="outlined">
           Cancel
         </Button>

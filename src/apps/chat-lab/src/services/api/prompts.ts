@@ -1,5 +1,11 @@
 import { createNLPWorkbenchAPIClientWithSettings } from './apiClientNLPWorkbench';
+import { openRouterAPIClient } from './apiClientOpenRouter';
+import { convertToOpenRouterMessages } from './openRouterMessageBuilder';
+import { getOpenRouterParams } from './openRouterParams';
 import type { Message } from '../../types';
+import type { OpenRouterChatRequest } from '../../types/openRouter';
+import { store } from '../../store';
+import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
 
 // Unified function to build the complete prompt
 export const buildCompletePrompt = (
@@ -140,12 +146,92 @@ export const createPromptsApi = () => {
       profileId?: string,
       systemPrompts?: any[], // Changed to array to support multiple system prompts
       embellishments?: any[],
-      abortSignal?: AbortSignal
+      abortSignal?: AbortSignal,
+      onStreamChunk?: (delta: string) => void
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
       }
 
+      // direct_openrouter: OpenRouter chat/completions via SSE (createStreamingChatCompletion).
+      // Otherwise: NLP Workbench agent + polling (executeAgentAndWait) — not token streaming.
+      const useDirectOpenRouter = selectIsFeatureFlagEnabled(
+        store.getState(),
+        'direct_openrouter'
+      );
+
+      if (useDirectOpenRouter) {
+        // Map auto-router to OpenRouter's auto model when in direct mode
+        const openRouterModelId =
+          selectedModel === 'auto-router' ? 'openrouter/auto' : selectedModel;
+
+        console.log(
+          `[PromptsAPI] Using direct OpenRouter mode for model: ${selectedModel}${selectedModel === 'auto-router' ? ' (mapped to openrouter/auto)' : ''}`
+        );
+
+        // Convert to OpenRouter messages format
+        const messages = convertToOpenRouterMessages(
+          systemPrompts || [],
+          embellishments || [],
+          contexts,
+          conversationMessages,
+          prompt
+        );
+
+        // Build OpenRouter request with user-configured params
+        const params = getOpenRouterParams();
+        const openRouterRequest: OpenRouterChatRequest = {
+          model: openRouterModelId, // Use OpenRouter model ID (mapped if auto-router)
+          messages,
+          temperature: params.temperature,
+          top_p: params.top_p,
+          ...(params.top_k > 0 && { top_k: params.top_k }),
+          frequency_penalty: params.frequency_penalty,
+          presence_penalty: params.presence_penalty,
+          repetition_penalty: params.repetition_penalty,
+          max_tokens: params.max_tokens,
+          ...(params.min_tokens > 0 && { min_tokens: params.min_tokens }),
+          ...(params.seed != null && { seed: params.seed }),
+        };
+
+        // Use streaming for direct OpenRouter - yields incremental content to UI
+        let accumulatedContent = '';
+        let lastChunkId = `exec-${Date.now()}`;
+        let lastChunkCreated = Math.floor(Date.now() / 1000);
+        let lastChunkModel = openRouterModelId;
+
+        const stream = openRouterAPIClient.createStreamingChatCompletion(
+          openRouterRequest,
+          abortSignal
+        );
+
+        for await (const chunk of stream) {
+          lastChunkId = chunk.id;
+          lastChunkCreated = chunk.created;
+          lastChunkModel = chunk.model;
+
+          const delta =
+            chunk.choices?.[0]?.delta?.content ?? '';
+          if (delta) {
+            accumulatedContent += delta;
+            onStreamChunk?.(delta);
+          }
+        }
+
+        return {
+          id: lastChunkId,
+          status: 'completed',
+          responses: {
+            modelId: selectedModel,
+            content:
+              accumulatedContent || 'No response received',
+            actualModel: lastChunkModel,
+          },
+          timestamp: new Date(lastChunkCreated * 1000).toISOString(),
+        };
+      }
+
+      // Default: Use NLP Workbench flow
       // Build the complete prompt using the unified function
       const agentPrompt = buildCompletePrompt(
         systemPrompts || [],

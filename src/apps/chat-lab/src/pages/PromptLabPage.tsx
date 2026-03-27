@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useState,
   useEffect,
   useCallback,
@@ -118,6 +119,7 @@ import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { truncateTitle } from '../utils/stringUtils';
 import { getContextTokenCount } from '../utils/tokenEstimation';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import { getModelConfig, loadOpenRouterModels } from '../data/models';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (
@@ -2187,6 +2189,26 @@ export default function PromptLabPage() {
   const isSystemPromptLibrarianEnabled = useFeatureFlag(
     'system_prompt_librarian'
   );
+  const isDirectOpenRouterEnabled = useFeatureFlag('direct_openrouter');
+
+  // Load OpenRouter models when feature flag is enabled
+  useEffect(() => {
+    if (isDirectOpenRouterEnabled) {
+      console.log('[PromptLabPage] Loading OpenRouter models...');
+      loadOpenRouterModels()
+        .then(models => {
+          console.log(
+            `[PromptLabPage] Loaded ${models.length} OpenRouter models`
+          );
+        })
+        .catch(error => {
+          console.error(
+            '[PromptLabPage] Failed to load OpenRouter models:',
+            error
+          );
+        });
+    }
+  }, [isDirectOpenRouterEnabled]);
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
   const STORAGE_KEYS = useMemo(
@@ -2235,6 +2257,9 @@ export default function PromptLabPage() {
   const [selectedModel, setSelectedModel] = useState(
     settings.lastUsedModel || 'auto-router'
   );
+  const selectedModelRef = useRef(selectedModel);
+  selectedModelRef.current = selectedModel;
+
   const [selectedContexts, setSelectedContexts] = useState<Context[]>(() => {
     const STORAGE_KEYS_TEMP = {
       context: 'promptlab_context',
@@ -2335,6 +2360,36 @@ export default function PromptLabPage() {
       setSelectedModel(settings.lastUsedModel);
     }
   }, [settings.lastUsedModel, selectedModel]);
+
+  /**
+   * If the persisted selection no longer resolves (OpenRouter-only id with cache empty/failed,
+   * direct_openrouter off, etc.), fall back to Auto Router so the toggle and API stay consistent.
+   * When direct OpenRouter is on, wait until the catalog load settles so we do not reset while fetching.
+   */
+  useEffect(() => {
+    if (selectedModel === 'auto-router') return;
+
+    const maybeFallbackToAutoRouter = (modelId: string) => {
+      if (modelId === 'auto-router') return;
+      if (getModelConfig(modelId) !== undefined) return;
+      setSelectedModel('auto-router');
+      dispatch(updateLastUsedModel('auto-router'));
+    };
+
+    if (!isDirectOpenRouterEnabled) {
+      maybeFallbackToAutoRouter(selectedModel);
+      return;
+    }
+
+    let cancelled = false;
+    loadOpenRouterModels().finally(() => {
+      if (cancelled) return;
+      maybeFallbackToAutoRouter(selectedModelRef.current);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedModel, isDirectOpenRouterEnabled, dispatch]);
 
   // Load background agents when dialog opens
   useEffect(() => {
@@ -3663,6 +3718,22 @@ export default function PromptLabPage() {
     setError(null);
     promptAbortController.current = new AbortController();
 
+    // When using direct OpenRouter, add optimistic assistant message for streaming
+    const assistantMessageId = `msg-${Date.now()}-ai`;
+    const useStreaming = isDirectOpenRouterEnabled;
+    if (useStreaming) {
+      const optimisticMessage: Message = {
+        id: assistantMessageId,
+        conversationId: conversationId,
+        content: '',
+        role: 'assistant',
+        timestamp: new Date().toISOString(),
+        platform: selectedModel,
+        isEdited: false,
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+    }
+
     // Analyze request for potential long duration
     const contextLength = selectedContexts.reduce(
       (total, ctx) => total + JSON.stringify(ctx).length,
@@ -3697,7 +3768,18 @@ export default function PromptLabPage() {
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
         [],
-        promptAbortController.current.signal
+        promptAbortController.current.signal,
+        useStreaming
+          ? (delta: string) => {
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantMessageId
+                    ? { ...m, content: m.content + delta }
+                    : m
+                )
+              );
+            }
+          : undefined
       );
 
       // Track successful message sent to model (safely handle if MetricsService unavailable)
@@ -3710,7 +3792,7 @@ export default function PromptLabPage() {
         );
 
         const aiMessage: Message = {
-          id: `msg-${Date.now()}-ai`,
+          id: assistantMessageId,
           conversationId: conversationId,
           content: content,
           role: 'assistant',
@@ -3727,7 +3809,17 @@ export default function PromptLabPage() {
               }
             : undefined,
         };
-        setMessages(prev => [...prev, aiMessage]);
+
+        if (useStreaming) {
+          // Message already in list; update with metadata
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === assistantMessageId ? { ...m, ...aiMessage } : m
+            )
+          );
+        } else {
+          setMessages(prev => [...prev, aiMessage]);
+        }
 
         // Save conversation after AI response, then trigger background agents
         // Use fire-and-forget with comprehensive error handling to ensure
@@ -3883,6 +3975,10 @@ export default function PromptLabPage() {
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         console.log('Request cancelled by user');
+        // Remove partial streaming message if present
+        if (useStreaming) {
+          setMessages(prev => prev.filter(m => m.id !== assistantMessageId));
+        }
         return;
       }
 
@@ -3905,7 +4001,7 @@ export default function PromptLabPage() {
 
       setError(errorUserMessage);
 
-      // Add error message to chat
+      // Remove partial streaming message before adding error message
       const errorMessage: Message = {
         id: `msg-${Date.now()}-error`,
         conversationId: currentConversation?.id || 'current',
@@ -3915,7 +4011,12 @@ export default function PromptLabPage() {
         platform: selectedModel, // Store the selected model ID for error messages
         isEdited: false,
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const filtered = useStreaming
+          ? prev.filter(m => m.id !== assistantMessageId)
+          : prev;
+        return [...filtered, errorMessage];
+      });
 
       // Save conversation even with error message
       setTimeout(() => {
@@ -4011,6 +4112,20 @@ export default function PromptLabPage() {
     setWizardLoading(true);
     setWizardError(null);
 
+    const assistantWizardId = `wizard-${Date.now()}-ai`;
+    const useStreaming = isDirectOpenRouterEnabled;
+    if (useStreaming) {
+      setWizardMessages(prev => [
+        ...prev,
+        {
+          id: assistantWizardId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+
     try {
       // Find the Prompt Wizard system prompt
       const promptWizardSystemPrompt = wizardSystemPrompts.find(
@@ -4053,19 +4168,45 @@ export default function PromptLabPage() {
         'gpt-oss-120b', // Fixed model for wizard
         currentProfile.id,
         [promptWizardSystemPrompt], // Use Prompt Wizard system prompt
-        []
+        [],
+        undefined,
+        useStreaming
+          ? (delta: string) => {
+              setWizardMessages(prev =>
+                prev.map(wm =>
+                  wm.id === assistantWizardId
+                    ? { ...wm, content: wm.content + delta }
+                    : wm
+                )
+              );
+            }
+          : undefined
       );
 
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
 
-        const aiMessage: WizardMessage = {
-          id: `wizard-${Date.now()}-ai`,
-          role: 'assistant',
-          content: content,
-          timestamp: new Date().toISOString(),
-        };
-        setWizardMessages(prev => [...prev, aiMessage]);
+        if (useStreaming) {
+          setWizardMessages(prev =>
+            prev.map(wm =>
+              wm.id === assistantWizardId
+                ? {
+                    ...wm,
+                    content,
+                    timestamp: new Date().toISOString(),
+                  }
+                : wm
+            )
+          );
+        } else {
+          const aiMessage: WizardMessage = {
+            id: `wizard-${Date.now()}-ai`,
+            role: 'assistant',
+            content: content,
+            timestamp: new Date().toISOString(),
+          };
+          setWizardMessages(prev => [...prev, aiMessage]);
+        }
       } else {
         throw new Error(
           'The wizard failed to complete the call, please try again shortly'
@@ -4073,6 +4214,9 @@ export default function PromptLabPage() {
       }
     } catch (error) {
       console.error('Error getting wizard response:', error);
+      if (useStreaming) {
+        setWizardMessages(prev => prev.filter(wm => wm.id !== assistantWizardId));
+      }
       setWizardError('Failed to get wizard response. Please try again.');
     } finally {
       setWizardLoading(false);
@@ -4142,6 +4286,20 @@ export default function PromptLabPage() {
     setSystemPromptSuggestorLoading(true);
     setSystemPromptSuggestorError(null);
 
+    const assistantSuggestorId = `system-prompt-suggestor-${Date.now()}-ai`;
+    const useStreamingSuggestor = isDirectOpenRouterEnabled;
+    if (useStreamingSuggestor) {
+      setSystemPromptSuggestorMessages(prev => [
+        ...prev,
+        {
+          id: assistantSuggestorId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+
     try {
       // Find the System Prompt Suggestor system prompt
       const systemPromptSuggestorSystemPrompt = wizardSystemPrompts.find(
@@ -4185,19 +4343,45 @@ export default function PromptLabPage() {
         'gpt-oss-120b', // Fixed model for wizard
         currentProfile.id,
         [systemPromptSuggestorSystemPrompt], // Use System Prompt Suggestor system prompt
-        []
+        [],
+        undefined,
+        useStreamingSuggestor
+          ? (delta: string) => {
+              setSystemPromptSuggestorMessages(prev =>
+                prev.map(wm =>
+                  wm.id === assistantSuggestorId
+                    ? { ...wm, content: wm.content + delta }
+                    : wm
+                )
+              );
+            }
+          : undefined
       );
 
       if (response.status === 'completed' && response.responses?.content) {
         const content = response.responses.content;
 
-        const aiMessage: WizardMessage = {
-          id: `system-prompt-suggestor-${Date.now()}-ai`,
-          role: 'assistant',
-          content: content,
-          timestamp: new Date().toISOString(),
-        };
-        setSystemPromptSuggestorMessages(prev => [...prev, aiMessage]);
+        if (useStreamingSuggestor) {
+          setSystemPromptSuggestorMessages(prev =>
+            prev.map(wm =>
+              wm.id === assistantSuggestorId
+                ? {
+                    ...wm,
+                    content,
+                    timestamp: new Date().toISOString(),
+                  }
+                : wm
+            )
+          );
+        } else {
+          const aiMessage: WizardMessage = {
+            id: `system-prompt-suggestor-${Date.now()}-ai`,
+            role: 'assistant',
+            content: content,
+            timestamp: new Date().toISOString(),
+          };
+          setSystemPromptSuggestorMessages(prev => [...prev, aiMessage]);
+        }
       } else {
         throw new Error(
           'The System Prompt Suggestor failed to complete the call, please try again shortly'
@@ -4205,6 +4389,11 @@ export default function PromptLabPage() {
       }
     } catch (error) {
       console.error('Error getting System Prompt Suggestor response:', error);
+      if (useStreamingSuggestor) {
+        setSystemPromptSuggestorMessages(prev =>
+          prev.filter(wm => wm.id !== assistantSuggestorId)
+        );
+      }
       setSystemPromptSuggestorError(
         'Failed to get System Prompt Suggestor response. Please try again.'
       );
@@ -4491,6 +4680,23 @@ export default function PromptLabPage() {
 
       promptAbortController.current = new AbortController();
 
+      const assistantMessageId = `msg-${Date.now()}-ai`;
+      const useStreaming = isDirectOpenRouterEnabled;
+      if (useStreaming) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: assistantMessageId,
+            conversationId: currentConversation?.id || 'current',
+            content: '',
+            role: 'assistant',
+            timestamp: new Date().toISOString(),
+            platform: selectedModel,
+            isEdited: false,
+          },
+        ]);
+      }
+
       try {
         // Call the API to get AI response
         const response = await promptsApi.executePrompt(
@@ -4501,7 +4707,18 @@ export default function PromptLabPage() {
           currentProfile!.id,
           selectedSystemPrompts,
           [],
-          promptAbortController.current.signal
+          promptAbortController.current.signal,
+          useStreaming
+            ? (delta: string) => {
+                setMessages(prev =>
+                  prev.map(m =>
+                    m.id === assistantMessageId
+                      ? { ...m, content: m.content + delta }
+                      : m
+                  )
+                );
+              }
+            : undefined
         );
 
         if (response.status === 'completed' && response.responses?.content) {
@@ -4511,7 +4728,7 @@ export default function PromptLabPage() {
           );
 
           const aiMessage: Message = {
-            id: `msg-${Date.now()}-ai`,
+            id: useStreaming ? assistantMessageId : `msg-${Date.now()}-ai`,
             conversationId: currentConversation?.id || 'current',
             content: content,
             role: 'assistant',
@@ -4529,7 +4746,15 @@ export default function PromptLabPage() {
               : undefined,
           };
 
-          setMessages(prev => [...prev, aiMessage]);
+          if (useStreaming) {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === assistantMessageId ? { ...m, ...aiMessage } : m
+              )
+            );
+          } else {
+            setMessages(prev => [...prev, aiMessage]);
+          }
 
           // Save conversation after AI response
           setTimeout(() => {
@@ -4555,6 +4780,13 @@ export default function PromptLabPage() {
           );
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          if (useStreaming) {
+            setMessages(prev => prev.filter(m => m.id !== assistantMessageId));
+          }
+          return;
+        }
+
         console.error('Error retrying message:', error);
 
         // Determine user-friendly error message and debug info
@@ -4581,7 +4813,12 @@ export default function PromptLabPage() {
           platform: selectedModel,
           isEdited: false,
         };
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages(prev => {
+          const base = useStreaming
+            ? prev.filter(m => m.id !== assistantMessageId)
+            : prev;
+          return [...base, errorMessage];
+        });
 
         // Save conversation even with error message
         setTimeout(() => {
@@ -4606,6 +4843,7 @@ export default function PromptLabPage() {
       showToast,
       currentConversation?.id,
       dispatch,
+      isDirectOpenRouterEnabled,
     ]
   );
 
@@ -4689,9 +4927,8 @@ export default function PromptLabPage() {
 
       const modelInfo = getModelInfo(message.platform, actualModelInfo);
       return (
-        <>
+        <Fragment key={message.id}>
           <Box
-            key={message.id}
             id={`message-${message.id}`}
             data-message-id={message.id}
             sx={{
@@ -5078,10 +5315,10 @@ export default function PromptLabPage() {
             </Paper>
           </Box>
           {ghostMessages[message.id]
-            && ghostMessages[message.id].map(message =>
-              renderMessage(message, 1e6, true)
+            && ghostMessages[message.id].map(ghostMsg =>
+              renderMessage(ghostMsg, 1e6, true)
             )}
-        </>
+        </Fragment>
       );
     },
     [
@@ -5284,9 +5521,22 @@ export default function PromptLabPage() {
                 (message, messageIndex) =>
                   renderMessage(message, messageIndex, true)
               )}
-              {messages.map((message, messageIndex) =>
-                renderMessage(message, messageIndex)
-              )}
+              {messages
+                .filter((msg, i) => {
+                  // Hide empty assistant message when showing thinking bubble
+                  if (
+                    isLoading &&
+                    i === messages.length - 1 &&
+                    msg.role === 'assistant' &&
+                    msg.content.length === 0
+                  ) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((message, messageIndex) =>
+                  renderMessage(message, messageIndex)
+                )}
 
               {/* Long request warning */}
               {longRequestAnalysis && (
@@ -5297,8 +5547,13 @@ export default function PromptLabPage() {
                 />
               )}
 
-              {/* Loading indicator */}
-              {isLoading && (
+              {/* Loading indicator - hide when streaming has begun (assistant message has content) */}
+              {isLoading &&
+                !(
+                  messages.length > 0 &&
+                  messages[messages.length - 1].role === 'assistant' &&
+                  messages[messages.length - 1].content.length > 0
+                ) && (
                 <Box
                   sx={{
                     display: 'flex',

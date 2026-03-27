@@ -2,6 +2,9 @@
 // This file contains all available AI models with their configurations, URLs, and descriptions
 
 import { getGatewayUrl, isDevEnvironment } from '../utils/environment';
+import { store } from '../store';
+import { selectIsFeatureFlagEnabled } from '../store/selectors/featureFlagsSelectors';
+import { openRouterModelService } from '../services/models/openRouterModelService';
 
 export interface ModelConfig {
   id: string;
@@ -2328,13 +2331,164 @@ export const getModelConfigs = (): Record<string, ModelConfig> => {
   return isDevEnvironment() ? MODEL_CONFIGS_STAGING : MODEL_CONFIGS_PROD;
 };
 
+// Cache for OpenRouter models (populated asynchronously)
+let cachedOpenRouterModels: ModelConfig[] = [];
+let openRouterModelsLoadPromise: Promise<ModelConfig[]> | null = null;
+/** Set when the last fetch failed (cleared on success). For UI error messages. */
+let lastOpenRouterModelsLoadError: Error | null = null;
+
+export const getLastOpenRouterModelsLoadError = (): Error | null =>
+  lastOpenRouterModelsLoadError;
+
+export const clearLastOpenRouterModelsLoadError = (): void => {
+  lastOpenRouterModelsLoadError = null;
+};
+
+/**
+ * Load OpenRouter models and cache them
+ * This is called asynchronously to populate the cache
+ */
+export const loadOpenRouterModels = async (): Promise<ModelConfig[]> => {
+  // If already loading, return the existing promise
+  if (openRouterModelsLoadPromise) {
+    return openRouterModelsLoadPromise;
+  }
+
+  // If already loaded, return cached models
+  if (cachedOpenRouterModels.length > 0) {
+    lastOpenRouterModelsLoadError = null;
+    return cachedOpenRouterModels;
+  }
+
+  // Start loading
+  lastOpenRouterModelsLoadError = null;
+  openRouterModelsLoadPromise = openRouterModelService
+    .getModelsAsConfig(false)
+    .then(models => {
+      cachedOpenRouterModels = models;
+      lastOpenRouterModelsLoadError = null;
+      return models;
+    })
+    .catch(error => {
+      console.error('[Models] Failed to load OpenRouter models:', error);
+      openRouterModelsLoadPromise = null;
+      const err =
+        error instanceof Error ? error : new Error(String(error));
+      lastOpenRouterModelsLoadError = err;
+      throw err;
+    });
+
+  return openRouterModelsLoadPromise;
+};
+
+/**
+ * Get OpenRouter models from cache (synchronous)
+ * Returns empty array if not loaded yet
+ */
+export const getCachedOpenRouterModels = (): ModelConfig[] => {
+  return cachedOpenRouterModels;
+};
+
+/**
+ * Clear OpenRouter models cache
+ */
+export const clearOpenRouterModelsCache = (): void => {
+  cachedOpenRouterModels = [];
+  openRouterModelsLoadPromise = null;
+  lastOpenRouterModelsLoadError = null;
+  openRouterModelService.clearCache();
+};
+
+/**
+ * Safely check if store is available and initialized
+ */
+function isStoreAvailable(): boolean {
+  try {
+    // Check if store exists and has getState method
+    return (
+      typeof store !== 'undefined'
+      && store !== null
+      && typeof store.getState === 'function'
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Helper functions for working with models
 export const getModelConfig = (modelId: string): ModelConfig | undefined => {
-  return getModelConfigs()[modelId];
+  // First check static models
+  const staticConfig = getModelConfigs()[modelId];
+  if (staticConfig) {
+    return staticConfig;
+  }
+
+  // Only check OpenRouter if store is available
+  if (!isStoreAvailable()) {
+    return undefined;
+  }
+
+  try {
+    // Check if direct OpenRouter is enabled
+    const useDirectOpenRouter = selectIsFeatureFlagEnabled(
+      store.getState(),
+      'direct_openrouter'
+    );
+
+    if (useDirectOpenRouter) {
+      // Check cached OpenRouter models
+      const openRouterModel = cachedOpenRouterModels.find(
+        m => m.id === modelId
+      );
+      if (openRouterModel) {
+        return openRouterModel;
+      }
+    }
+  } catch (error) {
+    // If store access fails, just return undefined (fallback to static models only)
+    console.warn('[Models] Failed to check OpenRouter models:', error);
+  }
+
+  return undefined;
 };
 
 export const getAllModels = (): ModelConfig[] => {
-  return Object.values(getModelConfigs());
+  const staticModels = Object.values(getModelConfigs());
+
+  // Only check OpenRouter if store is available
+  if (!isStoreAvailable()) {
+    return staticModels;
+  }
+
+  try {
+    // Check if direct OpenRouter is enabled
+    const useDirectOpenRouter = selectIsFeatureFlagEnabled(
+      store.getState(),
+      'direct_openrouter'
+    );
+
+    if (useDirectOpenRouter) {
+      // Direct OpenRouter: only API-fetched models (not the NLP workbench static catalog).
+      // Keep auto-router from static config so Auto Mode can still map to openrouter/auto.
+      const configs = getModelConfigs();
+      const autoRouter = configs['auto-router'];
+      if (autoRouter && cachedOpenRouterModels.length > 0) {
+        return [autoRouter, ...cachedOpenRouterModels];
+      }
+      if (cachedOpenRouterModels.length > 0) {
+        return [...cachedOpenRouterModels];
+      }
+      if (autoRouter) {
+        return [autoRouter];
+      }
+      return [];
+    }
+  } catch (error) {
+    // If store access fails, return static models only
+    console.warn('[Models] Failed to check OpenRouter models:', error);
+  }
+
+  return staticModels;
 };
 
 export const getModelsByProvider = (provider: string): ModelConfig[] => {

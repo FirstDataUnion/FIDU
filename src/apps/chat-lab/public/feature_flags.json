@@ -67,5 +67,11 @@
         "user_configurable": true,
         "default_enabled": false,
         "experimental": true
+    },
+    "direct_openrouter": {
+        "enabled": true,
+        "user_configurable": true,
+        "default_enabled": false,
+        "experimental": true
     }    
 }
