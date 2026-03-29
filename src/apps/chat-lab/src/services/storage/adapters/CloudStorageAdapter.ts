@@ -16,6 +16,8 @@ import type {
   ContextCorpus,
   ContextCorpusDocument,
   ContextCorpusUrl,
+  ContextSource,
+  Context,
 } from '../../../types';
 import { BrowserSQLiteManager } from '../database/BrowserSQLiteManager';
 import {
@@ -721,7 +723,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
-  async createContext(context: any, profileId: string): Promise<any> {
+  async createContext(context: any, profileId: string): Promise<Context> {
     await this.ensureAuthenticated();
 
     const isSharedWorkspace = this.config.workspaceType === 'shared';
@@ -2110,6 +2112,7 @@ export class CloudStorageAdapter implements StorageAdapter {
               title: finalData.originalPrompt.contextTitle || 'Unknown Context',
               body: finalData.originalPrompt.contextDescription || '',
               tokenCount: 0,
+              source: {} as ContextSource,
               createdAt: packet.create_timestamp,
               updatedAt: packet.update_timestamp,
               tags: [],
@@ -2174,7 +2177,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     };
   }
 
-  private transformDataPacketToContext(packet: any): any {
+  private transformDataPacketToContext(packet: any): Context {
     const data = packet.data || {};
 
     // Handle JSON string data parsing
@@ -2195,6 +2198,11 @@ export class CloudStorageAdapter implements StorageAdapter {
       title: finalData.context_title || 'Untitled Context',
       body: finalData.context_body || '',
       tokenCount: finalData.token_count || 0,
+      source: {
+        type: 'fidu',
+        contextId: packet.id,
+        mimeType: 'text/markdown',
+      },
       createdAt: packet.create_timestamp,
       updatedAt: packet.update_timestamp,
       isBuiltIn: false,

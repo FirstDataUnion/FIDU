@@ -9,6 +9,7 @@ import type {
   ContextCorpus,
   ContextCorpusUrl,
   ContextCorpusDocument,
+  Context,
 } from '../../types';
 
 export const StorageMode = {
@@ -78,7 +79,7 @@ export interface StorageAdapter {
     profileId?: string
   ): Promise<any>;
   getContextById(contextId: string): Promise<any>;
-  createContext(context: any, profileId: string): Promise<any>;
+  createContext(context: any, profileId: string): Promise<Context>;
   updateContext(context: any, profileId: string): Promise<any>;
   deleteContext(contextId: string): Promise<void>;
 

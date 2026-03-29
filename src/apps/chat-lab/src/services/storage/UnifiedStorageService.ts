@@ -12,6 +12,7 @@ import type {
   ContextCorpus,
   ContextCorpusDocument,
   ContextCorpusUrl,
+  Context,
 } from '../../types';
 import type { StorageMode } from './types';
 
@@ -151,12 +152,12 @@ export class UnifiedStorageService {
     return await adapter.getContexts(queryParams, page, limit, profileId);
   }
 
-  async getContextById(contextId: string): Promise<any> {
+  async getContextById(contextId: string): Promise<Context> {
     const adapter = this.storageService.getAdapter();
     return await adapter.getContextById(contextId);
   }
 
-  async createContext(context: any, profileId: string): Promise<any> {
+  async createContext(context: any, profileId: string): Promise<Context> {
     const adapter = this.storageService.getAdapter();
     return await adapter.createContext(context, profileId);
   }

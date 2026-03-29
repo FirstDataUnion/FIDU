@@ -350,7 +350,10 @@ const contextsSlice = createSlice({
       })
       .addCase(fetchContexts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch contexts';
+        state.error =
+          (typeof action.payload === 'string' && action.payload)
+          || action.error.message
+          || 'Failed to fetch contexts';
         // Even if API fails, we still have built-in contexts
         state.fiduContexts = builtInContexts;
       })

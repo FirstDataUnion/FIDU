@@ -43,11 +43,22 @@ export interface ConversationsResponse {
 }
 
 // Context interface for prompt context
+export type ContextSource = {
+  type:'fidu';
+  contextId: string;
+  mimeType: 'text/markdown';
+} | {
+  type: 'google_drive';
+  fileId: string;
+  mimeType: string;
+};
+
 export interface Context {
   id: string;
   title: string;
   body?: string;
   tokenCount: number;
+  source: ContextSource;
   createdAt: string;
   updatedAt: string;
   tags: string[];

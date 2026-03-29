@@ -1,13 +1,37 @@
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
-import { useState } from 'react';
+import { Alert, Box, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
 import ContextCorporaTab from '../components/contexts/ContextCorporaTab';
 import ContextDocumentsTab from '../components/contexts/ContextDocumentsTab';
 import ContextUrlsTab from '../components/contexts/ContextUrlsTab';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { selectContexts } from '../store/selectors/contextSelectors';
+import { fetchContexts } from '../store/slices/contextsSlice';
+import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 
 type RagTab = 'corpora' | 'documents' | 'urls';
 
 export default function RagPage() {
   const [activeTab, setActiveTab] = useState<RagTab>('corpora');
+  const { currentProfile } = useAppSelector(state => state.auth);
+  const { contexts, loading, error } = useAppSelector(selectContexts);
+  const unifiedStorage = useUnifiedStorage();
+
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    if (
+      currentProfile?.id
+      || unifiedStorage.activeWorkspace?.type === 'shared'
+    ) {
+      dispatch(fetchContexts(currentProfile?.id));
+    }
+  }, [
+    dispatch,
+    currentProfile?.id,
+    unifiedStorage.googleDrive.isAuthenticated,
+    unifiedStorage?.activeWorkspace?.id,
+    unifiedStorage.activeWorkspace?.type,
+  ]);
+
   return (
     <Box
       sx={{
@@ -32,6 +56,17 @@ export default function RagPage() {
           Manage your knowledge bases for adding context to your conversations.
         </Typography>
 
+        {loading && (
+          <Typography variant="body1" color="text.secondary">
+            Loading...
+          </Typography>
+        )}
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         <Paper sx={{ borderRadius: 2, mb: 2, mt: 2 }}>
           <Tabs
             value={activeTab}
@@ -43,10 +78,20 @@ export default function RagPage() {
             <Tab label="Documents" value="documents" />
             <Tab label="URLs" value="urls" />
           </Tabs>
+
+          <Typography variant="body1" color="text.secondary" sx={{ p: 2 }}>
+            {activeTab === 'corpora' && 'Corpora are collections of documents that you can allow the LLM to search for context when responding to you.'}
+            {activeTab === 'documents' && 'Documents are files that you can add to conversations directly or via a corpus.'}
+            {activeTab === 'urls' && 'URLs are scraped to produce documents dynamically to be added to a conversation directly or via a corpus.'}
+          </Typography>
         </Paper>
 
         {activeTab === 'corpora' && <ContextCorporaTab />}
-        {activeTab === 'documents' && <ContextDocumentsTab />}
+        {activeTab === 'documents' && (
+          <ContextDocumentsTab
+            contexts={contexts}
+          />
+        )}
         {activeTab === 'urls' && <ContextUrlsTab />}
       </Box>
     </Box>
