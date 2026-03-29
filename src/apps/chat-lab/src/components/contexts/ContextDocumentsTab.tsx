@@ -10,16 +10,20 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material';
-import { OpenInNew as OpenInNewIcon } from '@mui/icons-material';
+import { OpenInNew as OpenInNewIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useCallback, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { deleteContext, updateContext } from '../../store/slices/contextsSlice';
+import { deleteContext, fetchContexts, updateContext } from '../../store/slices/contextsSlice';
 import type { Context, ContextSource } from '../../types';
 import type { ViewEditFormData } from '../../types/contexts';
 import ViewEditContextDialog from './ViewEditContextDialog';
 import NewContextDocumentDialog from './NewContextDocumentDialog';
 
 function SourceChip({ source }: { source: ContextSource }) {
+  if (source.type === 'url') {
+    console.warn("Trying to display URL source as Document", {source});
+    return null;
+  }
   const label = {
     fidu: 'FIDU',
     google_drive: 'Google Drive',
@@ -146,7 +150,7 @@ export default function ContextDocumentsTab({
     }
   }, [dispatch, currentProfile?.id, selectedContext, viewEditForm]);
 
-  const handleDeleteContext = useCallback(async () => {
+  const handleDeleteContextFromEdit = useCallback(async () => {
     if (!selectedContext) return;
 
     try {
@@ -154,10 +158,21 @@ export default function ContextDocumentsTab({
       setViewEditDialogOpen(false);
       setSelectedContext(null);
       setViewEditForm({ title: '', body: '' });
+      await dispatch(fetchContexts(currentProfile?.id));
     } catch (deleteError) {
       console.error('Error deleting context:', deleteError);
     }
-  }, [dispatch, selectedContext]);
+  }, [currentProfile?.id, dispatch, selectedContext]);
+
+  const handleDeleteContextFromList = useCallback(async (context: Context) => {
+    if (!context) return;
+    try {
+      await dispatch(deleteContext(context.id)).unwrap();
+      await dispatch(fetchContexts(currentProfile?.id));
+    } catch (deleteError) {
+      console.error('Error deleting context:', deleteError);
+    }
+  }, [currentProfile?.id, dispatch]);
 
   const handleAddNewContext = useCallback(() => {
     setNewContextDocumentDialogOpen(true);
@@ -183,10 +198,19 @@ export default function ContextDocumentsTab({
               <ListItem
                 key={context.id}
                 secondaryAction={
+                  <>
                   <ViewEditButton
                     context={context}
                     handleOpenViewEditDialog={handleOpenViewEditDialog}
                   />
+                  <IconButton
+                    onClick={() => handleDeleteContextFromList(context)}
+                    aria-label="Delete context"
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                  </>
                 }
               >
                 <ListItemText
@@ -198,7 +222,7 @@ export default function ContextDocumentsTab({
                       sx={{ mt: 0.5, flexWrap: 'wrap' }}
                     >
                       <SourceChip source={context.source} />
-                      {context.source.mimeType && (
+                      {context.source?.mimeType && (
                         <MimeTypeChip mimeType={context.source.mimeType} />
                       )}
                     </Stack>
@@ -218,7 +242,7 @@ export default function ContextDocumentsTab({
         onClose={handleCloseViewEditDialog}
         onFormChange={setViewEditForm}
         onSave={handleViewEditSubmit}
-        onDelete={handleDeleteContext}
+        onDelete={handleDeleteContextFromEdit}
       />
 
       <NewContextDocumentDialog

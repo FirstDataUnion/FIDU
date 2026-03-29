@@ -3,7 +3,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { store } from '../index';
 import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
-import type { Context, ContextsState } from '../../types';
+import type { Context, ContextCorpusDocument, ContextsState } from '../../types';
 
 // Built-in contexts (these will always be available)
 export const builtInContexts: Context[] = [];
@@ -153,6 +153,43 @@ export const createContext = createAsyncThunk(
       return newContext;
     } catch (error: any) {
       console.error('Failed to create context using unified storage:', error);
+      throw error;
+    }
+  }
+);
+
+export const createContextCorpusDocument = createAsyncThunk(
+  'contexts/createContextCorpusDocument',
+  async (
+    {
+      data,
+      profileId,
+    }: {
+      data: Partial<ContextCorpusDocument>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
+    if (!isContextsEnabled || !isRagEnabled) {
+      console.log(
+        '📋 [Contexts] Create context corpus document skipped - contexts or rag feature flag is disabled', {isContextsEnabled, isRagEnabled}
+      );
+      return rejectWithValue('Contexts or RAG feature is disabled');
+    }
+
+    try {
+      const storageService = getUnifiedStorageService();
+      const newContextCorpusDocument = await storageService.createContextCorpusDocument(
+        data,
+        profileId
+      );
+      return newContextCorpusDocument;
+    } catch (error: any) {
+      console.error('Failed to create context corpus document using unified storage:', error);
       throw error;
     }
   }
@@ -359,6 +396,9 @@ const contextsSlice = createSlice({
       })
       .addCase(createContext.fulfilled, (state, action) => {
         state.fiduContexts.push(action.payload);
+      })
+      .addCase(createContextCorpusDocument.fulfilled, (state, action) => {
+        state.corpusDocuments.push(action.payload);
       })
       .addCase(updateContext.fulfilled, (state, action) => {
         const index = state.fiduContexts.findIndex(

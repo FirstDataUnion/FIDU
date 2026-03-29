@@ -422,6 +422,86 @@ export class DrivePicker {
   }
 
   /**
+   * Opens the Google Picker for folder selection (Shared with me + My Drive).
+   * Shared logic used by grantAccessToSharedFolder and pickFolder.
+   *
+   * @param options.title - Picker dialog title
+   * @param options.query - Optional search query to pre-filter folders (e.g. folder name)
+   * @returns The picked folder ID, or null if user cancelled
+   */
+  private async openFolderPicker(options: {
+    title: string;
+    query?: string;
+  }): Promise<string | null> {
+    const { title, query } = options;
+
+    await this.loadPickerApi();
+    const accessToken = await this.authService.getAccessToken();
+
+    if (!window.google?.picker) {
+      throw new Error('Google Picker API not loaded');
+    }
+
+    const googlePicker = window.google.picker;
+
+    return new Promise(resolve => {
+      const clientId = this.authService.getClientId();
+
+      const builder = new googlePicker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setAppId(clientId)
+        .setTitle(title);
+
+      // Shared with me + My Drive folder views
+      const sharedView = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(true)
+        .setMimeTypes('application/vnd.google-apps.folder');
+
+      if (query) {
+        sharedView.setQuery(query);
+      }
+
+      builder.addView(sharedView);
+
+      const myDriveView = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(true)
+        .setMimeTypes('application/vnd.google-apps.folder');
+
+      if (query) {
+        myDriveView.setQuery(query);
+      }
+
+      builder.addView(myDriveView);
+
+      let callbackFired = false;
+      builder.setCallback((data: any) => {
+        const action = data[googlePicker.Response.ACTION];
+
+        if (action === 'loaded') {
+          return;
+        }
+
+        if (callbackFired) {
+          return;
+        }
+        callbackFired = true;
+
+        if (action === googlePicker.Action.PICKED) {
+          const folder = data[googlePicker.Response.DOCUMENTS][0];
+          resolve(folder.id);
+        } else {
+          resolve(null);
+        }
+      });
+
+      const picker = builder.build();
+      picker.setVisible(true);
+    });
+  }
+
+  /**
    * Grant app access to a specific shared folder via Picker
    * User selects the folder, which grants app permission
    * This is required for drive.file scope - even if user has accepted Drive share,
@@ -436,7 +516,6 @@ export class DrivePicker {
     folderName?: string
   ): Promise<PickerResult> {
     try {
-      // Show instructions dialog first
       const shouldContinue = await this.showPickerInstructions({
         folderName: folderName || 'Workspace Folder',
         folderId: expectedFolderId,
@@ -450,6 +529,114 @@ export class DrivePicker {
         return { success: false, reason: 'cancelled' };
       }
 
+      const title = folderName
+        ? `Select the shared folder: "${folderName}"`
+        : 'Select the shared workspace folder';
+
+      const selectedFolderId = await this.openFolderPicker({
+        title,
+        query: folderName,
+      });
+
+      if (selectedFolderId === null) {
+        return { success: false, reason: 'cancelled' };
+      }
+
+      if (selectedFolderId !== expectedFolderId) {
+        MetricsService.recordGoogleApiRequest(
+          'drive',
+          'picker_shared_folder',
+          'error'
+        );
+        return {
+          success: false,
+          folderId: selectedFolderId,
+          reason: 'mismatch',
+        };
+      }
+
+      MetricsService.recordGoogleApiRequest(
+        'drive',
+        'picker_shared_folder',
+        'success'
+      );
+      return { success: true, folderId: selectedFolderId };
+    } catch (error) {
+      MetricsService.recordGoogleApiRequest(
+        'drive',
+        'picker_shared_folder',
+        'error'
+      );
+      console.error('Failed to grant access to shared folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Open the folder picker and let the user choose any folder (Shared with me or My Drive).
+   * No expected folder or name required; returns whatever folder the user selects.
+   *
+   * @returns PickerResult with success and folderId, or reason 'cancelled' if user cancels
+   */
+  async pickFolder(): Promise<PickerResult> {
+    try {
+      const selectedFolderId = await this.openFolderPicker({
+        title: 'Select a folder',
+      });
+
+      if (selectedFolderId === null) {
+        return { success: false, reason: 'cancelled' };
+      }
+
+      MetricsService.recordGoogleApiRequest(
+        'drive',
+        'picker_folder',
+        'success'
+      );
+      return { success: true, folderId: selectedFolderId };
+    } catch (error) {
+      MetricsService.recordGoogleApiRequest('drive', 'picker_folder', 'error');
+      console.error('Failed to pick folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generic method to pick files from a folder using Google Picker.
+   *
+   * This is a reusable function that handles the common picker setup and callback management.
+   * The caller provides a callback function to process the selected documents.
+   *
+   * @param config - Configuration object
+   * @param config.folderId - The folder ID to show files from
+   * @param config.title - Title for the picker dialog
+   * @param config.includeFolders - Whether to include subfolders in the view (default: false)
+   * @param config.enableMultiSelect - Whether to enable multi-select (default: true)
+   * @param config.onFilesPicked - Callback function that receives selected documents and returns result
+   * @param config.onCancelled - Optional callback for when user cancels (default: returns result with cancelled reason)
+   * @param config.metricsName - Name for metrics tracking (default: 'picker_files')
+   * @returns Promise that resolves with the result from onFilesPicked or onCancelled callback
+   */
+  async pickFilesFromFolder<T>(config: {
+    folderId?: string;
+    title: string;
+    includeFolders?: boolean;
+    enableMultiSelect?: boolean;
+    onFilesPicked: (documents: any[]) => T;
+    onCancelled?: () => T;
+    metricsName?: string;
+  }): Promise<T> {
+    const {
+      folderId,
+      title,
+      includeFolders = false,
+      enableMultiSelect = true,
+      onFilesPicked,
+      onCancelled,
+      metricsName = 'picker_files',
+    } = config;
+
+    try {
       await this.loadPickerApi();
       const accessToken = await this.authService.getAccessToken();
 
@@ -459,70 +646,50 @@ export class DrivePicker {
 
       const googlePicker = window.google.picker;
 
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
         // Get client ID for setAppId - CRITICAL for drive.file scope!
+        // Without setAppId, the Picker selection doesn't grant app access to files
         const clientId = this.authService.getClientId();
 
         const builder = new googlePicker.PickerBuilder()
           .setOAuthToken(accessToken)
           .setAppId(clientId); // Critical: links Picker selection to our app for drive.file access
 
-        // Set a helpful title with the folder name if provided
-        if (folderName) {
-          builder.setTitle(`Select the shared folder: "${folderName}"`);
-        } else {
-          builder.setTitle('Select the shared workspace folder');
+        // Enable multi-select if requested
+        if (enableMultiSelect) {
+          builder.enableFeature(googlePicker.Feature.MULTISELECT_ENABLED);
         }
 
-        // Create a view for "Shared with me" folders - most likely location
-        const sharedView = new googlePicker.DocsView(
-          googlePicker.ViewId.FOLDERS
-        )
-          .setIncludeFolders(true)
-          .setSelectFolderEnabled(true)
-          .setMimeTypes('application/vnd.google-apps.folder');
+        // Set title
+        builder.setTitle(title);
 
-        // If we have a folder name, pre-filter the search to make it easier to find
-        if (folderName) {
-          sharedView.setQuery(folderName);
+        // Create a view showing files in the specific folder
+        // Using DOCS view to show all document types, filtered to the parent folder
+        const filesView = new googlePicker.DocsView(googlePicker.ViewId.DOCS)
+          .setIncludeFolders(includeFolders)
+          .setSelectFolderEnabled(false);
+
+        // Show files in the specified folder
+        if (folderId) {
+          filesView.setParent(folderId);
         }
 
-        // Add the "Shared with me" view first (most likely location for invited folders)
-        builder.addView(sharedView);
+        builder.addView(filesView);
 
-        // Also add "My Drive" view as fallback (in case folder was moved)
-        const myDriveView = new googlePicker.DocsView(
-          googlePicker.ViewId.FOLDERS
-        )
-          .setIncludeFolders(true)
-          .setSelectFolderEnabled(true)
-          .setMimeTypes('application/vnd.google-apps.folder');
-
-        if (folderName) {
-          myDriveView.setQuery(folderName);
-        }
-
-        builder.addView(myDriveView);
-
-        // Set callback
-        // Note: The callback can fire multiple times:
-        // 1. "loaded" - when picker UI loads (ignore this)
-        // 2. "picked" - when user selects a folder (process this)
-        // 3. "cancel" - when user cancels (process this)
         let callbackFired = false;
         builder.setCallback((data: any) => {
           const action = data[googlePicker.Response.ACTION];
           console.log(
-            '🔍 [DrivePicker] Picker callback received, action:',
+            '🔍 [DrivePicker] File picker callback received, action:',
             action
           );
 
           // Ignore "loaded" action - this fires when picker opens, not when user selects
           if (action === 'loaded') {
             console.log(
-              'ℹ️ [DrivePicker] Picker loaded, waiting for user selection...'
+              'ℹ️ [DrivePicker] File picker loaded, waiting for user selection...'
             );
-            return; // Don't resolve, wait for actual pick or cancel
+            return;
           }
 
           // Prevent multiple callbacks from resolving
@@ -534,48 +701,44 @@ export class DrivePicker {
           }
           callbackFired = true;
 
-          console.log('🔍 [DrivePicker] Expected folder ID:', expectedFolderId);
-
           if (action === googlePicker.Action.PICKED) {
-            const folder = data[googlePicker.Response.DOCUMENTS][0];
-            const selectedFolderId = folder.id;
+            const documents = data[googlePicker.Response.DOCUMENTS];
 
-            console.log('✅ [DrivePicker] Folder picked:', selectedFolderId);
+            console.log(`✅ [DrivePicker] ${documents.length} file(s) picked`);
 
-            // Verify selected folder matches expected
-            if (selectedFolderId !== expectedFolderId) {
-              console.warn(
-                `⚠️ [DrivePicker] Folder mismatch: expected ${expectedFolderId}, got ${selectedFolderId}`
+            try {
+              const result = onFilesPicked(documents);
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'success'
               );
-              // Don't record as error - this is handled by caller
-              resolve({
-                success: false,
-                folderId: selectedFolderId,
-                reason: 'mismatch',
-              });
-              return;
+              resolve(result);
+            } catch (error) {
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'error'
+              );
+              reject(error);
             }
-
-            console.log('✅ [DrivePicker] Folder ID matches expected');
-            MetricsService.recordGoogleApiRequest(
-              'drive',
-              'picker_shared_folder',
-              'success'
-            );
-            resolve({
-              success: true,
-              folderId: selectedFolderId,
-            });
           } else {
             // User cancelled or other action
             console.log(
-              '❌ [DrivePicker] Picker action was not PICKED:',
+              '❌ [DrivePicker] File picker action was not PICKED:',
               action
             );
-            resolve({
-              success: false,
-              reason: 'cancelled',
-            });
+            try {
+              const result = onCancelled ? onCancelled() : onFilesPicked([]); // Fallback to onFilesPicked with empty array
+              resolve(result);
+            } catch (error) {
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'error'
+              );
+              reject(error);
+            }
           }
         });
 
@@ -583,12 +746,8 @@ export class DrivePicker {
         picker.setVisible(true);
       });
     } catch (error) {
-      MetricsService.recordGoogleApiRequest(
-        'drive',
-        'picker_shared_folder',
-        'error'
-      );
-      console.error('Failed to grant access to shared folder:', error);
+      MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+      console.error('Failed to pick files from folder:', error);
       throw error;
     }
   }
@@ -630,109 +789,35 @@ export class DrivePicker {
         return { success: false, reason: 'cancelled' };
       }
 
-      await this.loadPickerApi();
-      const accessToken = await this.authService.getAccessToken();
+      return await this.pickFilesFromFolder<{
+        success: boolean;
+        fileIds?: string[];
+        reason?: string;
+      }>({
+        folderId,
+        title:
+          'Select ALL workspace files (Ctrl+A to select all, then click Select)',
+        includeFolders: false,
+        enableMultiSelect: true,
+        metricsName: 'picker_workspace_files',
+        onFilesPicked: documents => {
+          const fileIds = documents.map((doc: any) => doc.id);
 
-      if (!window.google?.picker) {
-        throw new Error('Google Picker API not loaded');
-      }
-
-      const googlePicker = window.google.picker;
-
-      return new Promise(resolve => {
-        // Get client ID for setAppId - CRITICAL for drive.file scope!
-        // Without setAppId, the Picker selection doesn't grant app access to files
-        const clientId = this.authService.getClientId();
-
-        const builder = new googlePicker.PickerBuilder()
-          .setOAuthToken(accessToken)
-          .setAppId(clientId); // Critical: links Picker selection to our app for drive.file access
-
-        // Enable multi-select so user can select all workspace files at once
-        builder.enableFeature(googlePicker.Feature.MULTISELECT_ENABLED);
-
-        // Set title - make it clear users need to select ALL files
-        builder.setTitle(
-          'Select ALL workspace files (Ctrl+A to select all, then click Select)'
-        );
-
-        // Create a view showing files in the specific folder
-        // Using DOCS view to show all document types, filtered to the parent folder
-        const filesView = new googlePicker.DocsView(googlePicker.ViewId.DOCS)
-          .setIncludeFolders(false) // Only show files, not sub-folders
-          .setSelectFolderEnabled(false)
-          .setParent(folderId); // Show files in the shared folder
-
-        builder.addView(filesView);
-
-        let callbackFired = false;
-        builder.setCallback((data: any) => {
-          const action = data[googlePicker.Response.ACTION];
-          console.log(
-            '🔍 [DrivePicker] File picker callback received, action:',
-            action
-          );
-
-          if (action === 'loaded') {
-            console.log(
-              'ℹ️ [DrivePicker] File picker loaded, waiting for user selection...'
-            );
-            return;
+          if (fileIds.length === 0) {
+            console.warn('⚠️ [DrivePicker] No files selected');
+            return { success: false, reason: 'No files selected' };
           }
 
-          if (callbackFired) {
-            console.warn(
-              '⚠️ [DrivePicker] Callback already fired, ignoring duplicate'
-            );
-            return;
-          }
-          callbackFired = true;
-
-          if (action === googlePicker.Action.PICKED) {
-            const documents = data[googlePicker.Response.DOCUMENTS];
-            const fileIds = documents.map((doc: any) => doc.id);
-
-            console.log(
-              `✅ [DrivePicker] ${fileIds.length} file(s) picked:`,
-              fileIds
-            );
-
-            if (fileIds.length === 0) {
-              console.warn('⚠️ [DrivePicker] No files selected');
-              resolve({ success: false, reason: 'No files selected' });
-              return;
-            }
-
-            MetricsService.recordGoogleApiRequest(
-              'drive',
-              'picker_workspace_files',
-              'success'
-            );
-            resolve({
-              success: true,
-              fileIds: fileIds,
-            });
-          } else {
-            console.log(
-              '❌ [DrivePicker] File picker action was not PICKED:',
-              action
-            );
-            resolve({
-              success: false,
-              reason: 'cancelled',
-            });
-          }
-        });
-
-        const picker = builder.build();
-        picker.setVisible(true);
+          return {
+            success: true,
+            fileIds: fileIds,
+          };
+        },
+        onCancelled: () => {
+          return { success: false, reason: 'cancelled' };
+        },
       });
     } catch (error) {
-      MetricsService.recordGoogleApiRequest(
-        'drive',
-        'picker_workspace_files',
-        'error'
-      );
       console.error('Failed to grant access to workspace files:', error);
       throw error;
     }

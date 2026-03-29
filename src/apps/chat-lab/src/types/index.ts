@@ -43,15 +43,21 @@ export interface ConversationsResponse {
 }
 
 // Context interface for prompt context
-export type ContextSource = {
-  type:'fidu';
-  contextId: string;
-  mimeType: 'text/markdown';
-} | {
-  type: 'google_drive';
-  fileId: string;
-  mimeType: string;
-};
+export type ContextSource = { mimeType: string } & (
+  | {
+      type: 'fidu';
+      contextId: string;
+      mimeType: 'text/markdown';
+    }
+  | {
+      type: 'google_drive';
+      fileId: string;
+    }
+  | {
+      type: 'url';
+      url: string;
+    }
+);
 
 export interface Context {
   id: string;
@@ -133,10 +139,17 @@ export interface MarkdownDocument {
 
 // RAG Types
 export type CorpusDatabaseType = 'cortexdb';
-export type ExternalLocationType = {
-  type: 'google_drive';
-  fileId: string;
-};
+export type ExternalLocationType =
+  | {
+      type: 'google_drive';
+      fileId: string;
+      mimeType: string;
+    }
+  | {
+      type: 'url';
+      url: string;
+      mimeType: string;
+    };
 export type ContextLocationType =
   | ExternalLocationType
   | {
@@ -169,16 +182,24 @@ export interface ContextCorpus {
 export interface ContextCorpusDocument {
   id: string;
   name: string;
+  location: {
+    type: 'google_drive';
+    fileId: string;
+    mimeType: string;
+  };
   addedAt: string;
-  location: ContextLocationType;
   tags: string[];
 }
 
 export interface ContextCorpusUrl {
   id: string;
   name: string;
+  location: {
+    type: 'url';
+    url: string;
+    mimeType: string;
+  };
   addedAt: string;
-  url: string;
   tags: string[];
 }
 

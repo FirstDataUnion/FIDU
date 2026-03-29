@@ -68,6 +68,11 @@ function corpusDocToContext(corpusDoc: ContextCorpusDocument): Context {
   return {
     id: corpusDoc.id,
     title: corpusDoc.name,
+    source: {
+      type: 'google_drive',
+      fileId: corpusDoc.location.fileId,
+      mimeType: corpusDoc.location.mimeType,
+    },
     tokenCount: -1, // TODO: calculate token count?
     createdAt: corpusDoc.addedAt,
     updatedAt: corpusDoc.addedAt, // TODO: overwrite with ingestion timestamp
@@ -80,6 +85,11 @@ function corpusUrlToContext(corpusUrl: ContextCorpusUrl): Context {
   return {
     id: corpusUrl.id,
     title: corpusUrl.name,
+    source: {
+      type: 'url',
+      url: corpusUrl.location.url,
+      mimeType: corpusUrl.location.mimeType,
+    },
     tokenCount: -1,
     createdAt: corpusUrl.addedAt,
     updatedAt: corpusUrl.addedAt, // TODO: overwrite with ingestion timestamp
