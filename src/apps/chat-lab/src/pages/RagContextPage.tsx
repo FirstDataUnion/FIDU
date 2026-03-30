@@ -17,7 +17,9 @@ function getTabFromHash(hash: string): RagTab | null {
 }
 
 export default function RagContextPage() {
-  const [activeTab, setActiveTab] = useState<RagTab>(() => getTabFromHash(window.location.hash) ?? 'corpora');
+  const [activeTab, setActiveTab] = useState<RagTab>(
+    () => getTabFromHash(window.location.hash) ?? 'corpora'
+  );
   const { currentProfile } = useAppSelector(state => state.auth);
   const { contexts, loading, error } = useAppSelector(selectContexts);
   const unifiedStorage = useUnifiedStorage();

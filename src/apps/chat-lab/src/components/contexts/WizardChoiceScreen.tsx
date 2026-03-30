@@ -62,13 +62,19 @@ export default function WizardChoiceScreen<T extends string>({
                 <ListItemText
                   primary={<Typography variant="h6">{choice.label}</Typography>}
                   slotProps={{ secondary: { component: 'div' } }}
-                  secondary={<Stack direction="column" spacing={1}>
-                    {choice.description.map((description, i) => (
-                      <Typography variant="body2" color="text.secondary" key={`${choice.value}-${i}`}>
-                        {description}
-                      </Typography>
-                    ))}
-                  </Stack>}
+                  secondary={
+                    <Stack direction="column" spacing={1}>
+                      {choice.description.map((description, i) => (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          key={`${choice.value}-${i}`}
+                        >
+                          {description}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  }
                 />
               </ListItemButton>
             </ListItem>
