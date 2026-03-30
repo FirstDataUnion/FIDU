@@ -29,6 +29,7 @@ export default function WizardChoiceScreen<T extends string>({
     label: string;
     description: React.ReactNode[];
     value: T;
+    disabled?: boolean;
   }[];
   onChoiceMade: (choice: T) => void;
 }) {
@@ -55,6 +56,7 @@ export default function WizardChoiceScreen<T extends string>({
               <ListItemButton
                 selected={selectedChoice === choice.value}
                 onClick={() => setSelectedChoice(choice.value)}
+                disabled={choice.disabled}
                 sx={optionStyle}
               >
                 <ListItemText

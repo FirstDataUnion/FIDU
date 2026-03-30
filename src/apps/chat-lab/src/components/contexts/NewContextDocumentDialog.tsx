@@ -1,15 +1,4 @@
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Typography,
-} from '@mui/material';
+import { Button, Dialog, DialogContent, DialogTitle } from '@mui/material';
 import { useCallback, useState } from 'react';
 import { useAppDispatch } from '../../store';
 import { selectCurrentProfile } from '../../store/selectors/conversationsSelectors';
@@ -22,15 +11,7 @@ import CreateContextDialog from './CreateContextDialog';
 import type { ContextFormData } from '../../types/contexts';
 import { DrivePicker } from '../../services/drive/DrivePicker';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
-
-const optionStyle = {
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: 1,
-  '&.Mui-selected': {
-    borderColor: 'primary.main',
-  },
-};
+import WizardChoiceScreen from './WizardChoiceScreen';
 
 type DocumentType = 'fidu' | 'google_drive';
 function DocumentTypeStep({
@@ -38,91 +19,38 @@ function DocumentTypeStep({
 }: {
   onNext: (documentType: DocumentType) => void;
 }) {
-  const [selectedDocumentType, setSelectedDocumentType] = useState<
-    DocumentType | undefined
-  >(undefined);
-
-  const handleNext = useCallback(() => {
-    setSelectedDocumentType(undefined);
-    if (!selectedDocumentType) {
-      console.error('Next pressed with no document type selected');
-      return;
-    }
-    onNext(selectedDocumentType);
-  }, [setSelectedDocumentType, onNext, selectedDocumentType]);
-
   return (
-    <>
-      <Box>
-        <Typography>Choose type of document to add</Typography>
-        <List disablePadding sx={{ mt: 2 }}>
-          <ListItem disablePadding sx={{ mb: 1 }}>
-            <ListItemButton
-              selected={selectedDocumentType === 'fidu'}
-              onClick={() => setSelectedDocumentType('fidu')}
-              sx={optionStyle}
-            >
-              <ListItemText
-                primary={<Typography variant="h6">FIDU Document</Typography>}
-                secondary={
-                  <>
-                    <Typography variant="body2" color="text.secondary">
-                      Stored in your FIDU Vault, alongside your conversations.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      This is encrypted before storage so Google cannot read it.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      A Markdown document managed entirely within ChatLab.
-                    </Typography>
-                  </>
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={selectedDocumentType === 'google_drive'}
-              onClick={() => setSelectedDocumentType('google_drive')}
-              sx={optionStyle}
-            >
-              <ListItemText
-                primary={
-                  <Typography variant="h6">Google Drive Document</Typography>
-                }
-                secondary={
-                  <>
-                    <Typography variant="body2" color="text.secondary">
-                      Stored as a normal file in your Google Drive.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      This is not encrypted so Google (or anyone with access to
-                      your Google Drive) can read it and it is subject to
-                      Google's Terms of Service.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Larger variety of file types supported, including PDFs and
-                      Google Docs.
-                    </Typography>
-                  </>
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-        </List>
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            disabled={!selectedDocumentType}
-            onClick={handleNext}
-          >
-            Next
-          </Button>
-        </Box>
-      </Box>
-    </>
+    <WizardChoiceScreen
+      title="Choose type of document to add"
+      choices={[
+        {
+          label: 'FIDU Document',
+          value: 'fidu',
+          description: [
+            <>Stored in your FIDU Vault, alongside your conversations.</>,
+            <>This is encrypted before storage so Google cannot read it.</>,
+            <>A Markdown document managed entirely within ChatLab.</>,
+          ],
+        },
+        {
+          label: 'Google Drive Document',
+          value: 'google_drive',
+          description: [
+            <>Stored as a normal file in your Google Drive.</>,
+            <>
+              This is not encrypted so Google (or anyone with access to your
+              Google Drive) can read it and it is subject to Google's Terms of
+              Service.
+            </>,
+            <>
+              Larger variety of file types supported, including PDFs and Google
+              Docs.
+            </>,
+          ],
+        },
+      ]}
+      onChoiceMade={onNext}
+    />
   );
 }
 
@@ -168,82 +96,31 @@ function GoogleDriveDocumentLocationStep({
 }: {
   onNext: (currentLocation: CurrentLocation) => void;
 }) {
-  const [selectedCurrentLocation, setSelectedCurrentLocation] = useState<
-    CurrentLocation | undefined
-  >(undefined);
-
-  const handleNext = useCallback(() => {
-    if (!selectedCurrentLocation) {
-      console.error('Next pressed with no current location selected');
-      return;
-    }
-    onNext(selectedCurrentLocation);
-  }, [selectedCurrentLocation, onNext]);
-
   return (
-    <>
-      <Box>
-        <Typography>Where is the document located?</Typography>
-        <List disablePadding sx={{ mt: 2 }}>
-          <ListItem disablePadding sx={{ mb: 1 }}>
-            <ListItemButton
-              selected={selectedCurrentLocation === 'google_drive'}
-              onClick={() => setSelectedCurrentLocation('google_drive')}
-              sx={optionStyle}
-            >
-              <ListItemText
-                primary={<Typography variant="h6">Google Drive</Typography>}
-                secondary={
-                  <>
-                    <Typography variant="body2" color="text.secondary">
-                      The file already exists in your Google Drive.
-                    </Typography>
-                  </>
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={selectedCurrentLocation === 'local'}
-              onClick={() => setSelectedCurrentLocation('local')}
-              sx={optionStyle}
-              disabled={true}
-            >
-              <ListItemText
-                primary={<Typography variant="h6">Local File</Typography>}
-                secondary={
-                  <>
-                    <Typography variant="body2" color="text.secondary">
-                      The file is on your local machine.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      This file will be uploaded to Google Drive and stored
-                      there.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      This feature is not yet implemented. Please upload the
-                      file manually and proceed with the other option.
-                    </Typography>
-                  </>
-                }
-              />
-            </ListItemButton>
-          </ListItem>
-        </List>
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            disabled={!selectedCurrentLocation}
-            onClick={handleNext}
-          >
-            Next
-          </Button>
-        </Box>
-      </Box>
-    </>
+    <WizardChoiceScreen
+      title="Where is the document located?"
+      choices={[
+        {
+          label: 'Google Drive',
+          value: 'google_drive',
+          description: [<>The file already exists in your Google Drive.</>],
+        },
+        {
+          label: 'Local File',
+          value: 'local',
+          disabled: true,
+          description: [
+            <>The file is on your local machine.</>,
+            <>This file will be uploaded to Google Drive and stored there.</>,
+            <>
+              This feature is not yet implemented. Please upload the file
+              manually and proceed with the other option.
+            </>,
+          ],
+        },
+      ]}
+      onChoiceMade={onNext}
+    />
   );
 }
 
