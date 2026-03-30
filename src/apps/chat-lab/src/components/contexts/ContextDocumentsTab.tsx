@@ -229,6 +229,7 @@ export default function ContextDocumentsTab({
               >
                 <ListItemText
                   primary={context.title}
+                  slotProps={{ secondary: { component: 'div' } }}
                   secondary={
                     <Stack
                       direction="row"
