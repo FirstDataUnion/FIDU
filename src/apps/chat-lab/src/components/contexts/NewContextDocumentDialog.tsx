@@ -97,8 +97,9 @@ function DocumentTypeStep({
                       Stored as a normal file in your Google Drive.
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      This is not encrypted so Google can read it and it is
-                      subject to Google's Terms of Service.
+                      This is not encrypted so Google (or anyone with access to
+                      your Google Drive) can read it and it is subject to
+                      Google's Terms of Service.
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Larger variety of file types supported, including PDFs and
@@ -356,8 +357,8 @@ export default function NewContextDocumentDialog({
   );
 
   const handleClose = useCallback(() => {
-    resetState();
     onClose();
+    resetState();
   }, [onClose, resetState]);
 
   return (
