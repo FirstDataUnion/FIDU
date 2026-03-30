@@ -8,10 +8,16 @@ import { selectContexts } from '../store/selectors/contextSelectors';
 import { fetchContexts } from '../store/slices/contextsSlice';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 
-type RagTab = 'corpora' | 'documents' | 'urls';
+const RAG_TABS = ['corpora', 'documents', 'urls'] as const;
+type RagTab = (typeof RAG_TABS)[number];
+
+function getTabFromHash(hash: string): RagTab | null {
+  const raw = hash.replace(/^#/, '');
+  return (RAG_TABS as readonly string[]).includes(raw) ? (raw as RagTab) : null;
+}
 
 export default function RagContextPage() {
-  const [activeTab, setActiveTab] = useState<RagTab>('corpora');
+  const [activeTab, setActiveTab] = useState<RagTab>(() => getTabFromHash(window.location.hash) ?? 'corpora');
   const { currentProfile } = useAppSelector(state => state.auth);
   const { contexts, loading, error } = useAppSelector(selectContexts);
   const unifiedStorage = useUnifiedStorage();
@@ -31,6 +37,23 @@ export default function RagContextPage() {
     unifiedStorage?.activeWorkspace?.id,
     unifiedStorage.activeWorkspace?.type,
   ]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const next = getTabFromHash(window.location.hash) ?? 'corpora';
+      setActiveTab(next);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const desiredHash = `#${activeTab}`;
+    if (window.location.hash !== desiredHash) {
+      window.location.hash = desiredHash;
+    }
+  }, [activeTab]);
 
   return (
     <Box
