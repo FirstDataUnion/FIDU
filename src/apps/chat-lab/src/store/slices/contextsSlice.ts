@@ -3,7 +3,11 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { getUnifiedStorageService } from '../../services/storage/UnifiedStorageService';
 import { store } from '../index';
 import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
-import type { Context, ContextCorpusDocument, ContextsState } from '../../types';
+import type {
+  Context,
+  ContextCorpusDocument,
+  ContextsState,
+} from '../../types';
 
 // Built-in contexts (these will always be available)
 export const builtInContexts: Context[] = [];
@@ -176,20 +180,22 @@ export const createContextCorpusDocument = createAsyncThunk(
     const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
     if (!isContextsEnabled || !isRagEnabled) {
       console.log(
-        '📋 [Contexts] Create context corpus document skipped - contexts or rag feature flag is disabled', {isContextsEnabled, isRagEnabled}
+        '📋 [Contexts] Create context corpus document skipped - contexts or rag feature flag is disabled',
+        { isContextsEnabled, isRagEnabled }
       );
       return rejectWithValue('Contexts or RAG feature is disabled');
     }
 
     try {
       const storageService = getUnifiedStorageService();
-      const newContextCorpusDocument = await storageService.createContextCorpusDocument(
-        data,
-        profileId
-      );
+      const newContextCorpusDocument =
+        await storageService.createContextCorpusDocument(data, profileId);
       return newContextCorpusDocument;
     } catch (error: any) {
-      console.error('Failed to create context corpus document using unified storage:', error);
+      console.error(
+        'Failed to create context corpus document using unified storage:',
+        error
+      );
       throw error;
     }
   }

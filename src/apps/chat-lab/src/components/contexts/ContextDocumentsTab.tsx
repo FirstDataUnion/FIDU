@@ -10,10 +10,17 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material';
-import { OpenInNew as OpenInNewIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  OpenInNew as OpenInNewIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
 import { useCallback, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { deleteContext, fetchContexts, updateContext } from '../../store/slices/contextsSlice';
+import {
+  deleteContext,
+  fetchContexts,
+  updateContext,
+} from '../../store/slices/contextsSlice';
 import type { Context, ContextSource } from '../../types';
 import type { ViewEditFormData } from '../../types/contexts';
 import ViewEditContextDialog from './ViewEditContextDialog';
@@ -21,7 +28,7 @@ import NewContextDocumentDialog from './NewContextDocumentDialog';
 
 function SourceChip({ source }: { source: ContextSource }) {
   if (source.type === 'url') {
-    console.warn("Trying to display URL source as Document", {source});
+    console.warn('Trying to display URL source as Document', { source });
     return null;
   }
   const label = {
@@ -101,7 +108,8 @@ export default function ContextDocumentsTab({
     body: '',
   });
   const [isEditSaving, setIsEditSaving] = useState(false);
-  const [newContextDocumentDialogOpen, setNewContextDocumentDialogOpen] = useState(false);
+  const [newContextDocumentDialogOpen, setNewContextDocumentDialogOpen] =
+    useState(false);
 
   const handleOpenViewEditDialog = useCallback((context: Context) => {
     setSelectedContext(context);
@@ -164,15 +172,18 @@ export default function ContextDocumentsTab({
     }
   }, [currentProfile?.id, dispatch, selectedContext]);
 
-  const handleDeleteContextFromList = useCallback(async (context: Context) => {
-    if (!context) return;
-    try {
-      await dispatch(deleteContext(context.id)).unwrap();
-      await dispatch(fetchContexts(currentProfile?.id));
-    } catch (deleteError) {
-      console.error('Error deleting context:', deleteError);
-    }
-  }, [currentProfile?.id, dispatch]);
+  const handleDeleteContextFromList = useCallback(
+    async (context: Context) => {
+      if (!context) return;
+      try {
+        await dispatch(deleteContext(context.id)).unwrap();
+        await dispatch(fetchContexts(currentProfile?.id));
+      } catch (deleteError) {
+        console.error('Error deleting context:', deleteError);
+      }
+    },
+    [currentProfile?.id, dispatch]
+  );
 
   const handleAddNewContext = useCallback(() => {
     setNewContextDocumentDialogOpen(true);
@@ -184,10 +195,13 @@ export default function ContextDocumentsTab({
 
   return (
     <Box>
-
-      <Button variant="outlined" color="primary" onClick={() => {
-        handleAddNewContext();
-      }}>
+      <Button
+        variant="outlined"
+        color="primary"
+        onClick={() => {
+          handleAddNewContext();
+        }}
+      >
         Add New
       </Button>
 
@@ -199,17 +213,17 @@ export default function ContextDocumentsTab({
                 key={context.id}
                 secondaryAction={
                   <>
-                  <ViewEditButton
-                    context={context}
-                    handleOpenViewEditDialog={handleOpenViewEditDialog}
-                  />
-                  <IconButton
-                    onClick={() => handleDeleteContextFromList(context)}
-                    aria-label="Delete context"
-                    color="error"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                    <ViewEditButton
+                      context={context}
+                      handleOpenViewEditDialog={handleOpenViewEditDialog}
+                    />
+                    <IconButton
+                      onClick={() => handleDeleteContextFromList(context)}
+                      aria-label="Delete context"
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
                   </>
                 }
               >

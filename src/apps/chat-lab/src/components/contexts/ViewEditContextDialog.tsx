@@ -140,19 +140,18 @@ export default function ViewEditContextDialog({
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the context "{selectedContext?.title}"?
-            {' '}This action cannot be undone.
+            Are you sure you want to delete the context "
+            {selectedContext?.title}"? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: 'primary.dark' }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: 'primary.dark' }}
+          >
             Cancel
           </Button>
-          <Button
-            onClick={onDelete}
-            color="error"
-            variant="contained"
-          >
+          <Button onClick={onDelete} color="error" variant="contained">
             Delete
           </Button>
         </DialogActions>

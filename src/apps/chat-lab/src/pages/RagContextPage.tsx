@@ -80,17 +80,18 @@ export default function RagContextPage() {
           </Tabs>
 
           <Typography variant="body1" color="text.secondary" sx={{ p: 2 }}>
-            {activeTab === 'corpora' && 'Corpora are collections of documents that you can allow the LLM to search for context when responding to you.'}
-            {activeTab === 'documents' && 'Documents are files that you can add to conversations directly or via a corpus.'}
-            {activeTab === 'urls' && 'URLs are scraped to produce documents dynamically to be added to a conversation directly or via a corpus.'}
+            {activeTab === 'corpora'
+              && 'Corpora are collections of documents that you can allow the LLM to search for context when responding to you.'}
+            {activeTab === 'documents'
+              && 'Documents are files that you can add to conversations directly or via a corpus.'}
+            {activeTab === 'urls'
+              && 'URLs are scraped to produce documents dynamically to be added to a conversation directly or via a corpus.'}
           </Typography>
         </Paper>
 
         {activeTab === 'corpora' && <ContextCorporaTab />}
         {activeTab === 'documents' && (
-          <ContextDocumentsTab
-            contexts={contexts}
-          />
+          <ContextDocumentsTab contexts={contexts} />
         )}
         {activeTab === 'urls' && <ContextUrlsTab />}
       </Box>

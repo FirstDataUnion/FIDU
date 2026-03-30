@@ -693,9 +693,7 @@ export default function ContextsPage() {
         onClose={() => setCreateDialogOpen(false)}
         onFormChange={setContextForm}
         onCreate={handleCreateContextSubmit}
-        onAddConversation={() =>
-          setCreateConversationSelectionDialogOpen(true)
-        }
+        onAddConversation={() => setCreateConversationSelectionDialogOpen(true)}
       />
 
       {/* Edit Context Dialog */}
