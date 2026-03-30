@@ -10,7 +10,7 @@ import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 
 type RagTab = 'corpora' | 'documents' | 'urls';
 
-export default function RagPage() {
+export default function RagContextPage() {
   const [activeTab, setActiveTab] = useState<RagTab>('corpora');
   const { currentProfile } = useAppSelector(state => state.auth);
   const { contexts, loading, error } = useAppSelector(selectContexts);

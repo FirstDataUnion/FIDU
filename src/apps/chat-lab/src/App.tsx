@@ -55,7 +55,7 @@ import {
 } from './utils/storageFeatureChecks';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
-import RagPage from './pages/RagPage';
+import RagContextPage from './pages/RagContextPage';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -1069,7 +1069,7 @@ const AppContent: React.FC<AppContentProps> = () => {
                           featureFlag="context"
                           featureName="Contexts"
                         >
-                          {isRagEnabled ? <RagPage /> : <ContextsPage />}
+                          {isRagEnabled ? <RagContextPage /> : <ContextsPage />}
                         </FeatureFlagGuard>
                       }
                     />
