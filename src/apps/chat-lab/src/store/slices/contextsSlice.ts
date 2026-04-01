@@ -5,6 +5,7 @@ import { store } from '../index';
 import { selectIsFeatureFlagEnabled } from '../selectors/featureFlagsSelectors';
 import type {
   Context,
+  ContextCorpus,
   ContextCorpusDocument,
   ContextsState,
 } from '../../types';
@@ -201,6 +202,46 @@ export const createContextCorpusDocument = createAsyncThunk(
   }
 );
 
+export const createContextCorpus = createAsyncThunk(
+  'contexts/createContextCorpus',
+  async (
+    {
+      data,
+      profileId,
+    }: {
+      data: Partial<ContextCorpus>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
+    if (!isContextsEnabled || !isRagEnabled) {
+      console.log(
+        '📋 [Contexts] Create context corpus skipped - contexts or rag feature flag is disabled',
+        { isContextsEnabled, isRagEnabled }
+      );
+      return rejectWithValue('Contexts or RAG feature is disabled');
+    }
+
+    try {
+      const storageService = getUnifiedStorageService();
+      const newContextCorpus = await storageService.createContextCorpus(
+        data,
+        profileId
+      );
+      return newContextCorpus;
+    } catch (error: any) {
+      console.error(
+        'Failed to create context corpus using unified storage:',
+        error
+      );
+      throw error;
+    }
+  }
+);
+
 export const updateContext = createAsyncThunk(
   'contexts/updateContext',
   async (
@@ -256,6 +297,35 @@ export const deleteContext = createAsyncThunk(
       return contextId;
     } catch (error: any) {
       console.error('Failed to delete context using unified storage:', error);
+      throw error;
+    }
+  }
+);
+
+export const deleteContextCorpus = createAsyncThunk(
+  'contexts/deleteContextCorpus',
+  async (corpusId: string, { rejectWithValue }) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
+    if (!isContextsEnabled || !isRagEnabled) {
+      console.log(
+        '📋 [Contexts] Delete context corpus skipped - contexts or rag feature flag is disabled',
+        { isContextsEnabled, isRagEnabled }
+      );
+      return rejectWithValue('Contexts or RAG feature is disabled');
+    }
+
+    try {
+      const storageService = getUnifiedStorageService();
+      await storageService.deleteContextCorpus(corpusId);
+      return corpusId;
+    } catch (error: any) {
+      console.error(
+        'Failed to delete context corpus using unified storage:',
+        error
+      );
       throw error;
     }
   }
@@ -406,6 +476,9 @@ const contextsSlice = createSlice({
       .addCase(createContextCorpusDocument.fulfilled, (state, action) => {
         state.corpusDocuments.push(action.payload);
       })
+      .addCase(createContextCorpus.fulfilled, (state, action) => {
+        state.corpora.push(action.payload);
+      })
       .addCase(updateContext.fulfilled, (state, action) => {
         const index = state.fiduContexts.findIndex(
           item => item.id === action.payload.id
@@ -416,6 +489,11 @@ const contextsSlice = createSlice({
       })
       .addCase(deleteContext.fulfilled, (state, action) => {
         state.fiduContexts = state.fiduContexts.filter(
+          item => item.id !== action.payload
+        );
+      })
+      .addCase(deleteContextCorpus.fulfilled, (state, action) => {
+        state.corpora = state.corpora.filter(
           item => item.id !== action.payload
         );
       })

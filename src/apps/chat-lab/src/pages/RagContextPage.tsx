@@ -21,7 +21,8 @@ export default function RagContextPage() {
     () => getTabFromHash(window.location.hash) ?? 'corpora'
   );
   const { currentProfile } = useAppSelector(state => state.auth);
-  const { contexts, loading, error } = useAppSelector(selectContexts);
+  const { contexts } = useAppSelector(selectContexts);
+  const { corpora, loading, error } = useAppSelector(state => state.contexts);
   const unifiedStorage = useUnifiedStorage();
 
   const dispatch = useAppDispatch();
@@ -114,7 +115,9 @@ export default function RagContextPage() {
           </Typography>
         </Paper>
 
-        {activeTab === 'corpora' && <ContextCorporaTab />}
+        {activeTab === 'corpora' && (
+          <ContextCorporaTab corpora={corpora} contexts={contexts} />
+        )}
         {activeTab === 'documents' && (
           <ContextDocumentsTab contexts={contexts} />
         )}

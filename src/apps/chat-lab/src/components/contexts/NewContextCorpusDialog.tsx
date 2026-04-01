@@ -4,19 +4,33 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Icon,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import { useCallback, useState } from 'react';
+import {
+  Pending as PendingIcon,
+  Loop as InProgressIcon,
+  CheckCircle as CompletedIcon,
+  Error as ErrorIcon,
+} from '@mui/icons-material';
+import { useCallback, useEffect, useState } from 'react';
 import WizardChoiceScreen from './WizardChoiceScreen';
 import { DrivePicker } from '../../services/drive/DrivePicker';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import type { ContextCorpus } from '../../types';
+import { useAppDispatch } from '../../store';
+import { useAppSelector } from '../../hooks/redux';
+import { selectCurrentProfile } from '../../store/selectors/conversationsSelectors';
+import { createContextCorpus } from '../../store/slices/contextsSlice';
+import { createRagApiClient } from '../../services/api/apiClientRag';
 
 type Steps =
   | 'corpus_type'
   | 'corpus_location'
   | 'corpus_drive_location'
+  | 'corpus_name_description'
   | 'create_corpus';
 type CorpusType = 'cortexdb';
 type CorpusLocation = 'google_drive';
@@ -131,38 +145,205 @@ function CorpusDriveLocationStep({
   );
 }
 
+function CorpusNameDescriptionStep({
+  onNext,
+}: {
+  onNext: (name: string, description: string) => void;
+}) {
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+
+  return (
+    <Box>
+      <TextField
+        label="Name"
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <TextField
+        label="Description"
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+      />
+      <Button
+        disabled={!name.trim() || !description.trim()}
+        onClick={() => onNext(name, description)}
+      >
+        Next
+      </Button>
+    </Box>
+  );
+}
+
 function CreateCorpusStep({
   corpusType,
   corpusLocation,
   corpusDriveLocation,
+  corpusInfo,
   onClose,
 }: {
   corpusType: CorpusType;
   corpusLocation: CorpusLocation;
   corpusDriveLocation: { folderId?: string; fileName: string };
-  onClose: () => void;
+  corpusInfo: { name: string; description: string };
+  onClose: (createdCorpus?: ContextCorpus) => void;
 }) {
+  const steps = ['create_empty_drive_file', 'initialise_corpus'] as const;
+  type CorpusCreationStep = (typeof steps)[number];
+  type StepProgressStatus = 'pending' | 'in_progress' | 'completed' | 'error';
+  const labels: Readonly<Record<CorpusCreationStep, string>> = {
+    create_empty_drive_file: 'Creating empty drive file',
+    initialise_corpus: 'Initialising corpus',
+  };
+  const [stepsProgress, setStepsProgress] = useState<
+    Record<CorpusCreationStep, StepProgressStatus>
+  >({
+    create_empty_drive_file: 'pending',
+    initialise_corpus: 'pending',
+  });
+
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreated, setIsCreated] = useState(false);
   const [createdCorpus, setCreatedCorpus] = useState<ContextCorpus | undefined>(
     undefined
   );
+  const dispatch = useAppDispatch();
+  const currentProfile = useAppSelector(selectCurrentProfile);
+
+  useEffect(() => {
+    setIsCreating(
+      Object.values(stepsProgress).reduce(
+        (acc, status) => acc || status === 'in_progress',
+        false
+      )
+    );
+  }, [stepsProgress]);
+
+  useEffect(() => {
+    setIsCreated(
+      Object.values(stepsProgress).reduce(
+        (acc, status) => acc || status === 'completed',
+        false
+      )
+    );
+  }, [stepsProgress]);
+
+  const createEmptyDriveFile = useCallback(async (): Promise<string> => {
+    const authService = await getGoogleDriveAuthService();
+    const accessToken = await authService.getAccessToken();
+    const metadata: {
+      name: string;
+      mimeType: string;
+      parents?: string[];
+    } = {
+      name: corpusDriveLocation.fileName,
+      mimeType: 'application/octet-stream',
+    };
+    if (corpusDriveLocation.folderId) {
+      metadata.parents = [corpusDriveLocation.folderId];
+    }
+    const response = await fetch(
+      'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metadata),
+      }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to create empty Drive file: ${response.status} ${response.statusText} - ${errorText}`
+      );
+    }
+    const data: { id?: string } = await response.json();
+    const fileId = data.id;
+    if (!fileId) {
+      throw new Error('Drive did not return a created file ID');
+    }
+    return fileId;
+  }, [corpusDriveLocation.fileName, corpusDriveLocation.folderId]);
 
   const handleCreate = useCallback(async () => {
-    setIsCreating(true);
     console.log(
       'Creating corpus',
       corpusType,
       corpusLocation,
       corpusDriveLocation
     );
-    try {
-      // TODO
-      // const corpus = await dispatch(somethingThatTakesAWhile());
-      // setCreatedCorpus(corpus);
-    } finally {
-      setIsCreating(false);
+
+    setStepsProgress({
+      create_empty_drive_file: 'in_progress',
+      initialise_corpus: 'pending',
+    });
+    if (!currentProfile?.id) {
+      throw new Error('No profile ID found');
     }
-  }, [corpusType, corpusLocation, corpusDriveLocation]);
+    const fileId = await createEmptyDriveFile();
+    const result = await dispatch(
+      createContextCorpus({
+        data: {
+          name: corpusInfo.name,
+          description: corpusInfo.description,
+          database: {
+            type: corpusType,
+            location: {
+              type: corpusLocation,
+              fileId,
+              mimeType: 'application/octet-stream',
+            },
+          },
+          documents: [],
+          urls: [],
+          tags: [],
+        },
+        profileId: currentProfile.id,
+      })
+    );
+    if (createContextCorpus.fulfilled.match(result)) {
+      setCreatedCorpus(result.payload);
+      setStepsProgress(prev => ({
+        ...prev,
+        create_empty_drive_file: 'completed',
+      }));
+    } else {
+      setStepsProgress(prev => ({ ...prev, create_empty_drive_file: 'error' }));
+      throw new Error(
+        (typeof result.payload === 'string' && result.payload)
+          || result.error.message
+          || 'Failed to create corpus'
+      );
+    }
+
+    setStepsProgress(prev => ({ ...prev, initialise_corpus: 'in_progress' }));
+    try {
+      const ragApiClient = createRagApiClient();
+      await ragApiClient.initialiseCorpus({
+        provider: 'fidu_rag',
+        engine: corpusType,
+        location: {
+          provider: 'google_drive',
+          fileId,
+        },
+      });
+      setStepsProgress(prev => ({ ...prev, initialise_corpus: 'completed' }));
+    } catch (error) {
+      setStepsProgress(prev => ({ ...prev, initialise_corpus: 'error' }));
+      throw error;
+    }
+  }, [
+    corpusType,
+    corpusLocation,
+    corpusDriveLocation,
+    currentProfile?.id,
+    createEmptyDriveFile,
+    dispatch,
+    corpusInfo.name,
+    corpusInfo.description,
+  ]);
 
   return (
     <Box>
@@ -173,13 +354,47 @@ function CreateCorpusStep({
         Corpus Drive location: {corpusDriveLocation.fileName} in{' '}
         {corpusDriveLocation.folderId ?? 'root'}
       </Typography>
+      <Typography variant="body1">Corpus name: {corpusInfo.name}</Typography>
+      <Typography variant="body1">
+        Corpus description: {corpusInfo.description}
+      </Typography>
+      {(isCreating || isCreated) && (
+        <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+          {steps.map(step => (
+            <Stack direction="row" spacing={1} key={step}>
+              <Icon
+                color={
+                  stepsProgress[step] === 'error'
+                    ? 'error'
+                    : stepsProgress[step] === 'completed'
+                      ? 'success'
+                      : 'secondary'
+                }
+              >
+                {
+                  {
+                    pending: <PendingIcon />,
+                    in_progress: <InProgressIcon />,
+                    completed: <CompletedIcon />,
+                    error: <ErrorIcon />,
+                  }[stepsProgress[step]]
+                }
+              </Icon>
+              <Typography sx={{ pt: 0.3 }} variant="body1">
+                {labels[step]}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      )}
       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        {createdCorpus ? (
+        {isCreated ? (
           <>
-            <Typography variant="body1">
-              Corpus created: {createdCorpus.name}
-            </Typography>
-            <Button variant="outlined" color="primary" onClick={onClose}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => onClose(createdCorpus)}
+            >
               Close
             </Button>
           </>
@@ -203,7 +418,7 @@ export default function NewContextCorpusDialog({
   onClose,
 }: {
   open: boolean;
-  onClose: () => void;
+  onClose: (createdCorpus?: ContextCorpus) => void;
 }) {
   const [step, setStep] = useState<Steps>('corpus_type');
   const [corpusType, setCorpusType] = useState<CorpusType>('cortexdb');
@@ -215,6 +430,13 @@ export default function NewContextCorpusDialog({
   }>({
     folderId: undefined,
     fileName: 'fidu.db',
+  });
+  const [corpusInfo, setCorpusInfo] = useState<{
+    name: string;
+    description: string;
+  }>({
+    name: '',
+    description: '',
   });
 
   const reset = useCallback(() => {
@@ -245,18 +467,29 @@ export default function NewContextCorpusDialog({
   const handleCorpusDriveLocationNext = useCallback(
     (location: { folderId: string | undefined; fileName: string }) => {
       setCorpusDriveLocation(location);
-      setStep('create_corpus');
+      setStep('corpus_name_description');
     },
     [setStep]
   );
 
-  const handleClose = useCallback(() => {
-    onClose();
-    reset();
-  }, [reset, onClose]);
+  const handleCorpusNameDescriptionNext = useCallback(
+    (name: string, description: string) => {
+      setCorpusInfo({ name, description });
+      setStep('create_corpus');
+    },
+    [setStep, setCorpusInfo]
+  );
+
+  const handleClose = useCallback(
+    (createdCorpus?: ContextCorpus) => {
+      onClose(createdCorpus);
+      reset();
+    },
+    [reset, onClose]
+  );
 
   return (
-    <Dialog open={open} onClose={handleClose}>
+    <Dialog open={open} onClose={() => handleClose()}>
       <DialogTitle>Add New Context Corpus</DialogTitle>
       <DialogContent>
         {step === 'corpus_type' ? (
@@ -265,11 +498,14 @@ export default function NewContextCorpusDialog({
           <CorpusLocationStep onNext={handleCorpusLocationNext} />
         ) : step === 'corpus_drive_location' ? (
           <CorpusDriveLocationStep onNext={handleCorpusDriveLocationNext} />
+        ) : step === 'corpus_name_description' ? (
+          <CorpusNameDescriptionStep onNext={handleCorpusNameDescriptionNext} />
         ) : step === 'create_corpus' ? (
           <CreateCorpusStep
             corpusType={corpusType}
             corpusLocation={corpusLocation}
             corpusDriveLocation={corpusDriveLocation}
+            corpusInfo={corpusInfo}
             onClose={handleClose}
           />
         ) : null}
