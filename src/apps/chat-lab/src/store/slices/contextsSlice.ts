@@ -278,6 +278,41 @@ export const updateContext = createAsyncThunk(
   }
 );
 
+export const updateContextCorpus = createAsyncThunk(
+  'contexts/updateContextCorpus',
+  async (
+    {
+      corpus,
+      profileId,
+    }: {
+      corpus: Partial<ContextCorpus>;
+      profileId: string;
+    },
+    { rejectWithValue }
+  ) => {
+    // Check if contexts feature flag is enabled
+    const state = store.getState();
+    const isContextsEnabled = selectIsFeatureFlagEnabled(state, 'context');
+    const isRagEnabled = selectIsFeatureFlagEnabled(state, 'rag');
+    if (!isContextsEnabled || !isRagEnabled) {
+      console.log(
+        '📋 [Contexts] Update context corpus skipped - contexts or rag feature flag is disabled',
+        { isContextsEnabled, isRagEnabled }
+      );
+      return rejectWithValue('Contexts or RAG feature is disabled');
+    }
+
+    try {
+      const storageService = getUnifiedStorageService();
+      const updatedContextCorpus = await storageService.updateContextCorpus(corpus, profileId);
+      return updatedContextCorpus;
+    } catch (error: any) {
+      console.error('Failed to update context corpus using unified storage:', error);
+      throw error;
+    }
+  }
+);
+
 export const deleteContext = createAsyncThunk(
   'contexts/deleteContext',
   async (contextId: string, { rejectWithValue }) => {
@@ -485,6 +520,14 @@ const contextsSlice = createSlice({
         );
         if (index !== -1) {
           state.fiduContexts[index] = action.payload;
+        }
+      })
+      .addCase(updateContextCorpus.fulfilled, (state, action) => {
+        const index = state.corpora.findIndex(
+          item => item.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.corpora[index] = action.payload;
         }
       })
       .addCase(deleteContext.fulfilled, (state, action) => {

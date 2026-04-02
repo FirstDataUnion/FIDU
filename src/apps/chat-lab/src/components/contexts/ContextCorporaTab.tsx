@@ -19,8 +19,13 @@ import { useCallback, useEffect, useState } from 'react';
 import NewContextCorpusDialog from './NewContextCorpusDialog';
 import type { Context, ContextCorpus } from '../../types';
 import { createRagApiClient } from '../../services/api/apiClientRag';
-import { deleteContextCorpus } from '../../store/slices/contextsSlice';
-import { useAppDispatch } from '../../store';
+import {
+  deleteContextCorpus,
+  updateContextCorpus,
+} from '../../store/slices/contextsSlice';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { MimeTypeChip, SourceChip } from './ContextDocumentsTab';
+import { selectCurrentProfile } from '../../store/selectors/conversationsSelectors';
 
 export default function ContextCorporaTab({
   corpora,
@@ -30,9 +35,13 @@ export default function ContextCorporaTab({
   contexts: Context[];
 }) {
   const dispatch = useAppDispatch();
+  const currentProfile = useAppSelector(selectCurrentProfile);
   const [newContextCorpusDialogOpen, setNewContextCorpusDialogOpen] =
     useState(false);
+  const [addDocumentDialogOpen, setAddDocumentDialogOpen] = useState(false);
+  const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
 
+  const [selectedCorpusId, setSelectedCorpusId] = useState<string | null>(null);
   const [selectedCorpus, setSelectedCorpus] = useState<ContextCorpus | null>(
     null
   );
@@ -43,6 +52,12 @@ export default function ContextCorporaTab({
     [contextId: string]: Context;
   }>({});
   const [urls, setUrls] = useState<{ [contextId: string]: Context }>({});
+
+  useEffect(() => {
+    setSelectedCorpus(
+      corpora.find(corpus => corpus.id === selectedCorpusId) || null
+    );
+  }, [selectedCorpusId, corpora]);
 
   useEffect(() => {
     setDocuments(
@@ -110,11 +125,39 @@ export default function ContextCorporaTab({
 
       setCorpusToDelete(null);
       if (selectedCorpus?.id === corpus.id) {
-        setSelectedCorpus(null);
+        setSelectedCorpusId(null);
       }
     },
     [dispatch, selectedCorpus?.id]
   );
+
+  const handleOpenAddDocumentDialog = useCallback(() => {
+    setAddDocumentDialogOpen(true);
+    setSelectedContextIds([]);
+  }, [setAddDocumentDialogOpen, setSelectedContextIds]);
+
+  const handleAddSelectedDocuments = useCallback(() => {
+    setAddDocumentDialogOpen(false);
+    setSelectedContextIds([]);
+    if (!selectedCorpus || !currentProfile?.id) return;
+    const corpus = {
+      ...selectedCorpus,
+      tags: undefined,
+      documents: [
+        ...selectedCorpus.documents,
+        ...selectedContextIds
+          .filter(
+            id =>
+              !selectedCorpus.documents.find(document => document.id === id)
+          )
+          .map(id => ({
+            id,
+            addedAt: new Date().toISOString(),
+          })),
+      ],
+    };
+    dispatch(updateContextCorpus({ corpus, profileId: currentProfile?.id }));
+  }, [currentProfile?.id, dispatch, selectedContextIds, selectedCorpus]);
 
   return (
     <Box>
@@ -144,11 +187,13 @@ export default function ContextCorporaTab({
             Select a corpus to expand contained documents and URLs.
           </Typography>
           <List disablePadding>
-            {corpora.map(corpus => (
+            {corpora.map(corpus => {
+              console.log('corpus', corpus);
+              return (
               <ListItem key={corpus.id} disablePadding sx={{ mb: 1 }}>
                 <ListItemButton
                   selected={selectedCorpus?.id === corpus.id}
-                  onClick={() => setSelectedCorpus(corpus)}
+                  onClick={() => setSelectedCorpusId(corpus.id)}
                   sx={{
                     borderRadius: 1,
                     border: theme => `1px solid ${theme.palette.divider}`,
@@ -159,7 +204,7 @@ export default function ContextCorporaTab({
                     secondary={
                       <Stack spacing={0.5}>
                         <Typography variant="caption" color="text.secondary">
-                          {`${corpus.documents.length} docs • ${corpus.urls.length} urls`}
+                          {`${corpus.documents?.length ?? 0} docs • ${corpus.urls?.length ?? 0} urls`}
                         </Typography>
                       </Stack>
                     }
@@ -175,7 +220,7 @@ export default function ContextCorporaTab({
                   </Box>
                 </ListItemButton>
               </ListItem>
-            ))}
+            );})}
           </List>
         </Paper>
 
@@ -193,7 +238,15 @@ export default function ContextCorporaTab({
                 Documents
               </Typography>
               <Stack spacing={1} sx={{ mb: 2 }}>
-                {selectedCorpus.documents.map(({ id, addedAt }) => {
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleOpenAddDocumentDialog()}
+                  sx={{ width: 'fit-content' }}
+                >
+                  Import Documents
+                </Button>
+                {selectedCorpus.documents?.map(({ id, addedAt }) => {
                   const document = documents[id];
                   return (
                     <Paper key={document.id} variant="outlined" sx={{ p: 1 }}>
@@ -212,7 +265,7 @@ export default function ContextCorporaTab({
                 URLs
               </Typography>
               <Stack spacing={1} sx={{ mb: 2 }}>
-                {selectedCorpus.urls.map(({ id, addedAt }) => {
+                {selectedCorpus.urls?.map(({ id, addedAt }) => {
                   const url = urls[id];
                   return (
                     <Paper key={url.id} variant="outlined" sx={{ p: 1 }}>
@@ -258,6 +311,85 @@ export default function ContextCorporaTab({
               Delete
             </Button>
           </DialogActions>
+        </Dialog>
+      )}
+      {addDocumentDialogOpen && (
+        <Dialog open={true} onClose={() => setAddDocumentDialogOpen(false)}>
+          <DialogTitle>Add New Document</DialogTitle>
+          <DialogContent>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 1,
+                mb: 2,
+                pb: 2,
+                borderBottom: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={() => setAddDocumentDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={selectedContextIds.length === 0}
+                onClick={handleAddSelectedDocuments}
+              >
+                Add Selected
+              </Button>
+            </Box>
+            <Box
+              sx={{
+                maxHeight: '70vh',
+                overflowY: 'auto',
+              }}
+            >
+              <List>
+                {contexts.map(context => {
+                  const selected = selectedContextIds.includes(context.id);
+                  return (
+                    <ListItem key={context.id} disablePadding sx={{ mb: 1 }}>
+                      <ListItemButton
+                        selected={selected}
+                        onClick={
+                          selected
+                            ? () =>
+                                setSelectedContextIds(prev =>
+                                  prev.filter(id => id !== context.id)
+                                )
+                            : () =>
+                                setSelectedContextIds(prev => [
+                                  ...prev,
+                                  context.id,
+                                ])
+                        }
+                      >
+                        <ListItemText
+                          primary={context.title}
+                          secondary={
+                            <Stack direction="row" spacing={0.5}>
+                              <SourceChip source={context.source} />
+                              {context.source?.mimeType && (
+                                <MimeTypeChip
+                                  mimeType={context.source.mimeType}
+                                />
+                              )}
+                            </Stack>
+                          }
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Box>
+          </DialogContent>
         </Dialog>
       )}
     </Box>

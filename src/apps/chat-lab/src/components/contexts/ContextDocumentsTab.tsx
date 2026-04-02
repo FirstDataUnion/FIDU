@@ -26,7 +26,7 @@ import type { ViewEditFormData } from '../../types/contexts';
 import ViewEditContextDialog from './ViewEditContextDialog';
 import NewContextDocumentDialog from './NewContextDocumentDialog';
 
-function SourceChip({ source }: { source: ContextSource }) {
+export function SourceChip({ source }: { source: ContextSource }) {
   if (source.type === 'url') {
     console.warn('Trying to display URL source as Document', { source });
     return null;
@@ -47,7 +47,7 @@ function SourceChip({ source }: { source: ContextSource }) {
   );
 }
 
-function MimeTypeChip({ mimeType }: { mimeType: string }) {
+export function MimeTypeChip({ mimeType }: { mimeType: string }) {
   const niceNames: Record<string, string> = {
     'application/pdf': 'PDF',
     'text/markdown': 'Markdown',
