@@ -2333,6 +2333,8 @@ export const getModelConfigs = (): Record<string, ModelConfig> => {
 
 // Cache for OpenRouter models (populated asynchronously)
 let cachedOpenRouterModels: ModelConfig[] = [];
+/** From last successful load: true if /endpoints/zdr returned at least one model id. */
+let cachedOpenRouterZdrAllowlistAvailable: boolean | null = null;
 let openRouterModelsLoadPromise: Promise<ModelConfig[]> | null = null;
 /** Set when the last fetch failed (cleared on success). For UI error messages. */
 let lastOpenRouterModelsLoadError: Error | null = null;
@@ -2364,8 +2366,9 @@ export const loadOpenRouterModels = async (): Promise<ModelConfig[]> => {
   lastOpenRouterModelsLoadError = null;
   openRouterModelsLoadPromise = openRouterModelService
     .getModelsAsConfig(false)
-    .then(models => {
+    .then(({ models, zdrAllowlistAvailable }) => {
       cachedOpenRouterModels = models;
+      cachedOpenRouterZdrAllowlistAvailable = zdrAllowlistAvailable;
       lastOpenRouterModelsLoadError = null;
       return models;
     })
@@ -2389,10 +2392,18 @@ export const getCachedOpenRouterModels = (): ModelConfig[] => {
 };
 
 /**
+ * Whether the last successful OpenRouter load had a non-empty ZDR allowlist from the API.
+ * `null` if models have not been loaded successfully in this session.
+ */
+export const getCachedOpenRouterZdrAllowlistAvailable = (): boolean | null =>
+  cachedOpenRouterZdrAllowlistAvailable;
+
+/**
  * Clear OpenRouter models cache
  */
 export const clearOpenRouterModelsCache = (): void => {
   cachedOpenRouterModels = [];
+  cachedOpenRouterZdrAllowlistAvailable = null;
   openRouterModelsLoadPromise = null;
   lastOpenRouterModelsLoadError = null;
   openRouterModelService.clearCache();

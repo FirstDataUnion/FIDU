@@ -49,6 +49,7 @@ import {
   getAllModels,
   getModelsForMode,
   getCachedOpenRouterModels,
+  getCachedOpenRouterZdrAllowlistAvailable,
   loadOpenRouterModels,
   type ModelConfig,
   type ProviderKey,
@@ -531,131 +532,98 @@ export default function ModelSelectionModal({
   ) => (
     <React.Fragment key={model.id}>
       <ListItem disablePadding>
-        <Tooltip
-          title={
-            <Box sx={{ maxWidth: 300 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                {model.name}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                {model.description}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Capabilities:</strong> {model.capabilities.join(', ')}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Category:</strong> {model.category} |{' '}
-                <strong>Speed:</strong> {model.speed}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Max Tokens:</strong> {model.maxTokens.toLocaleString()}
-              </Typography>
-            </Box>
-          }
-          placement="right"
-          arrow
-          enterDelay={500}
-          leaveDelay={200}
-        >
-          <ListItemButton
-            onClick={() => handleModelSelect(model.id)}
-            selected={selectedModel === model.id}
-            disabled={isAutoModeEnabled}
-            sx={{
-              py: 1.5,
-              opacity: isAutoModeEnabled ? 0.6 : 1,
-              '&.Mui-selected': {
+        <ListItemButton
+          onClick={() => handleModelSelect(model.id)}
+          selected={selectedModel === model.id}
+          disabled={isAutoModeEnabled}
+          sx={{
+            py: 1.5,
+            opacity: isAutoModeEnabled ? 0.6 : 1,
+            '&.Mui-selected': {
+              backgroundColor: 'primary.light',
+              '&:hover': {
                 backgroundColor: 'primary.light',
-                '&:hover': {
-                  backgroundColor: 'primary.light',
-                },
               },
-            }}
-          >
-            <ListItemAvatar
-              title={
-                model.isMostUsed
-                  ? 'Your most used models (calculated locally)'
-                  : undefined
-              }
+            },
+          }}
+        >
+          <ListItemAvatar>
+            <Avatar
+              sx={{
+                bgcolor: model.isMostUsed ? 'secondary.main' : 'primary.main',
+              }}
             >
-              <Avatar
-                sx={{
-                  bgcolor: model.isMostUsed ? 'secondary.main' : 'primary.main',
-                }}
-              >
-                {model.isMostUsed ? <FavoriteModelIcon /> : <SmartToyIcon />}
-              </Avatar>
-            </ListItemAvatar>
-            <ListItemText
-              primary={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {model.name}
-                  </Typography>
-                  {selectedModel === model.id && (
-                    <CheckIcon color="primary" fontSize="small" />
-                  )}
-                </Box>
-              }
-              secondary={
-                <Box sx={{ mt: 0.5 }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    component="div"
-                    sx={{ mb: 1 }}
-                  >
-                    {model.description}
-                  </Typography>
+              {model.isMostUsed ? <FavoriteModelIcon /> : <SmartToyIcon />}
+            </Avatar>
+          </ListItemAvatar>
+          <ListItemText
+            primary={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {model.name}
+                </Typography>
+                {selectedModel === model.id && (
+                  <CheckIcon color="primary" fontSize="small" />
+                )}
+              </Box>
+            }
+            secondary={
+              <Box sx={{ mt: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  component="div"
+                  sx={{ mb: 1 }}
+                >
+                  {model.description}
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Chip
+                    label={formatProviderDisplayName(model.provider)}
+                    size="small"
+                    color={getProviderColor(model.provider) as any}
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={model.category}
+                    size="small"
+                    variant="outlined"
+                    icon={<CategoryIcon sx={{ fontSize: 14 }} />}
+                  />
                   <Box
                     sx={{
                       display: 'flex',
-                      gap: 1,
-                      flexWrap: 'wrap',
                       alignItems: 'center',
+                      gap: 0.5,
                     }}
                   >
-                    <Chip
-                      label={formatProviderDisplayName(model.provider)}
-                      size="small"
-                      color={getProviderColor(model.provider) as any}
-                      variant="outlined"
-                    />
-                    <Chip
-                      label={model.category}
-                      size="small"
-                      variant="outlined"
-                      icon={<CategoryIcon sx={{ fontSize: 14 }} />}
-                    />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                      }}
+                    {getSpeedIcon(model.speed)}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="span"
                     >
-                      {getSpeedIcon(model.speed)}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        component="span"
-                      >
-                        {model.speed}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={`${model.maxTokens.toLocaleString()} tokens`}
-                      size="small"
-                      variant="outlined"
-                    />
+                      {model.speed}
+                    </Typography>
                   </Box>
+                  <Chip
+                    label={`${model.maxTokens.toLocaleString()} tokens`}
+                    size="small"
+                    variant="outlined"
+                  />
                 </Box>
-              }
-              secondaryTypographyProps={{ component: 'div' }}
-            />
-          </ListItemButton>
-        </Tooltip>
+              </Box>
+            }
+            secondaryTypographyProps={{ component: 'div' }}
+          />
+        </ListItemButton>
       </ListItem>
       {!isLastInSection && <Divider component="li" />}
     </React.Fragment>
@@ -1397,7 +1365,48 @@ export default function ModelSelectionModal({
           )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 1.5, pt: 1, flexShrink: 0 }}>
+      <DialogActions
+        sx={{
+          p: 1.5,
+          pt: 1,
+          flexShrink: 0,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent:
+            isDirectOpenRouterEnabled
+            && openRouterListFetch.status === 'ready'
+              ? 'space-between'
+              : 'flex-end',
+          gap: 2,
+        }}
+      >
+        {isDirectOpenRouterEnabled
+        && openRouterListFetch.status === 'ready' && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              flex: '1 1 240px',
+              minWidth: 0,
+              lineHeight: 1.5,
+              textAlign: 'left',
+            }}
+          >
+            {getCachedOpenRouterZdrAllowlistAvailable() ? (
+              <>
+                All models provided have a ZDR (Zero Data Retention) policy,
+                meaning none of your data is stored on the provider&apos;s servers
+                for any period of time.
+              </>
+            ) : (
+              <>
+                The ZDR (Zero Data Retention) route list is unavailable, so every
+                catalog model is shown. OpenRouter will block chat requests to
+                models that are not on a ZDR route.
+              </>
+            )}
+          </Typography>
+        )}
         <Button onClick={onClose} variant="outlined">
           Cancel
         </Button>

@@ -12,6 +12,7 @@ import {
   type OpenRouterChatResponse,
   type OpenRouterStreamChunk,
   type OpenRouterModelsResponse,
+  type OpenRouterZdrEndpointsResponse,
   type OpenRouterError,
 } from '../../types/openRouter';
 
@@ -156,16 +157,11 @@ class OpenRouterAPIClient {
   async fetchModels(): Promise<OpenRouterModelsResponse> {
     const url = `${this.getBaseUrl()}/models`;
 
-    console.log(`[OpenRouter] Fetching models from: ${url}`);
-
     try {
       const response = await this.client.get<OpenRouterModelsResponse>(url, {
         timeout: 30000, // 30 second timeout
       });
 
-      console.log(
-        `[OpenRouter] Fetched ${response.data.data?.length || 0} models`
-      );
       return response.data;
     } catch (error: any) {
       if (error instanceof OpenRouterAPIError) {
@@ -193,6 +189,54 @@ class OpenRouterAPIClient {
       } else {
         throw new OpenRouterAPIError(
           `Failed to fetch models: ${error.message || 'Unknown error'}`,
+          0,
+          'network_error'
+        );
+      }
+    }
+  }
+
+  /**
+   * ZDR (zero data retention) eligible routes for chat-capable models.
+   * Same gateway base as {@link fetchModels}: `/v1/endpoints/zdr`.
+   */
+  async fetchZdrEndpoints(): Promise<OpenRouterZdrEndpointsResponse> {
+    const url = `${this.getBaseUrl()}/endpoints/zdr`;
+
+    try {
+      const response = await this.client.get<OpenRouterZdrEndpointsResponse>(
+        url,
+        {
+          timeout: 30000,
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      if (error instanceof OpenRouterAPIError) {
+        throw error;
+      }
+
+      if (error.response) {
+        return this.handleAxiosError(error);
+      } else if (error.request) {
+        throw new OpenRouterAPIError(
+          'No response received from OpenRouter ZDR endpoints API',
+          0,
+          'network_error'
+        );
+      } else if (
+        error.code === 'ECONNABORTED'
+        || error.message?.includes('timeout')
+      ) {
+        throw new OpenRouterAPIError(
+          'Request timeout while fetching ZDR endpoints',
+          408,
+          'timeout'
+        );
+      } else {
+        throw new OpenRouterAPIError(
+          `Failed to fetch ZDR endpoints: ${error.message || 'Unknown error'}`,
           0,
           'network_error'
         );

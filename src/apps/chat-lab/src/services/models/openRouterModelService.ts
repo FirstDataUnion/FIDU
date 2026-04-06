@@ -7,15 +7,100 @@ import { openRouterAPIClient } from '../api/apiClientOpenRouter';
 import type {
   OpenRouterModel,
   OpenRouterModelsResponse,
+  OpenRouterZdrEndpointsResponse,
 } from '../../types/openRouter';
 import type { ModelConfig } from '../../data/models';
+
+/**
+ * Keep models that declare text as both an input and output modality.
+ * When modality arrays are missing (e.g. stale cache), keep the model unless
+ * architecture clearly indicates a non-chat image-only path.
+ */
+export function openRouterModelHasTextInputAndOutput(
+  model: OpenRouterModel
+): boolean {
+  const { input_modalities: inputs, output_modalities: outputs } =
+    model.architecture;
+  const hasIn = Array.isArray(inputs) && inputs.length > 0;
+  const hasOut = Array.isArray(outputs) && outputs.length > 0;
+
+  if (hasIn && hasOut) {
+    return inputs.includes('text') && outputs.includes('text');
+  }
+
+  const modality = model.architecture.modality;
+  if (modality === 'image') {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * True if the catalog model is routable under ZDR (zero data retention), per
+ * GET /v1/endpoints/zdr `model_id` values. Matches exact id or canonical_slug,
+ * or catalog ids that extend a ZDR id with `-…` / `:…` (e.g. dated or :free).
+ */
+export function openRouterCatalogModelAllowedByZdr(
+  model: OpenRouterModel,
+  zdrModelIds: Set<string>
+): boolean {
+  if (zdrModelIds.has(model.id)) {
+    return true;
+  }
+  if (model.canonical_slug && zdrModelIds.has(model.canonical_slug)) {
+    return true;
+  }
+  for (const zid of zdrModelIds) {
+    if (
+      model.id.startsWith(`${zid}-`)
+      || model.id.startsWith(`${zid}:`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Subset of models that already passed {@link openRouterModelHasTextInputAndOutput}.
+ * Used by {@link OpenRouterModelService.getModelsAsConfig} and tests.
+ */
+export function filterOpenRouterModelsByZdr(
+  afterTextIo: OpenRouterModel[],
+  zdrModelIds: Set<string>
+): OpenRouterModel[] {
+  return afterTextIo.filter(m =>
+    openRouterCatalogModelAllowedByZdr(m, zdrModelIds)
+  );
+}
+
+/**
+ * Applies ZDR allowlist when it is non-empty. If {@link fetchZdrModelIds} yields no ids
+ * (empty response, parse miss, etc.), returns `afterTextIo` unchanged so the model picker
+ * stays usable; OpenRouter still blocks non-ZDR routes on chat requests.
+ */
+export function applyOpenRouterZdrAllowlist(
+  afterTextIo: OpenRouterModel[],
+  zdrModelIds: Set<string>
+): OpenRouterModel[] {
+  if (zdrModelIds.size === 0) {
+    return afterTextIo;
+  }
+  return filterOpenRouterModelsByZdr(afterTextIo, zdrModelIds);
+}
 
 // Cache configuration
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CACHE_KEY = 'openrouter_models_cache';
+const ZDR_CACHE_KEY = 'openrouter_zdr_model_ids_cache';
 
 interface CachedModels {
   models: OpenRouterModel[];
+  timestamp: number;
+}
+
+interface CachedZdrModelIds {
+  ids: string[];
   timestamp: number;
 }
 
@@ -25,6 +110,7 @@ interface CachedModels {
 class OpenRouterModelService {
   private cache: CachedModels | null = null;
   private fetchPromise: Promise<OpenRouterModelsResponse> | null = null;
+  private zdrFetchPromise: Promise<OpenRouterZdrEndpointsResponse> | null = null;
 
   /**
    * Get cached models from localStorage
@@ -67,52 +153,112 @@ class OpenRouterModelService {
     }
   }
 
+  private getCachedZdrModelIds(): CachedZdrModelIds | null {
+    try {
+      const cached = localStorage.getItem(ZDR_CACHE_KEY);
+      if (!cached) {
+        return null;
+      }
+      const parsed: CachedZdrModelIds = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp >= CACHE_TTL_MS) {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.warn('[OpenRouterModelService] Failed to read ZDR cache:', error);
+      return null;
+    }
+  }
+
+  private saveCachedZdrModelIds(ids: string[]): void {
+    try {
+      const cached: CachedZdrModelIds = {
+        ids,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(ZDR_CACHE_KEY, JSON.stringify(cached));
+    } catch (error) {
+      console.warn('[OpenRouterModelService] Failed to save ZDR cache:', error);
+    }
+  }
+
+  /**
+   * Unique `model_id` values from GET /v1/endpoints/zdr (ZDR-eligible routes).
+   */
+  async fetchZdrModelIds(forceRefresh = false): Promise<Set<string>> {
+    if (!forceRefresh) {
+      const cached = this.getCachedZdrModelIds();
+      if (cached) {
+        return new Set(cached.ids);
+      }
+    }
+
+    if (this.zdrFetchPromise) {
+      const response = await this.zdrFetchPromise;
+      const ids = [
+        ...new Set(
+          (response.data || [])
+            .map(e => e.model_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ];
+      return new Set(ids);
+    }
+
+    this.zdrFetchPromise = openRouterAPIClient.fetchZdrEndpoints();
+
+    try {
+      const response = await this.zdrFetchPromise;
+      const ids = [
+        ...new Set(
+          (response.data || [])
+            .map(e => e.model_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ];
+      this.saveCachedZdrModelIds(ids);
+      return new Set(ids);
+    } catch (error) {
+      console.error('[OpenRouterModelService] Failed to fetch ZDR endpoints:', error);
+      throw error;
+    } finally {
+      this.zdrFetchPromise = null;
+    }
+  }
+
   /**
    * Fetch models from OpenRouter API
    */
   async fetchModels(forceRefresh = false): Promise<OpenRouterModel[]> {
-    // Check cache first (unless force refresh)
     if (!forceRefresh) {
       const cached = this.getCachedModels();
       if (cached) {
-        console.log(
-          `[OpenRouterModelService] Using cached models (${cached.models.length} models)`
-        );
         return cached.models;
       }
     }
 
     // If there's already a fetch in progress, wait for it
     if (this.fetchPromise) {
-      console.log('[OpenRouterModelService] Waiting for existing fetch...');
       const response = await this.fetchPromise;
       return response.data;
     }
 
-    // Start new fetch
-    console.log('[OpenRouterModelService] Fetching models from OpenRouter...');
     this.fetchPromise = openRouterAPIClient.fetchModels();
 
     try {
       const response = await this.fetchPromise;
       const models = response.data || [];
 
-      // Update cache
       this.cache = {
         models,
         timestamp: Date.now(),
       };
       this.saveCachedModels(models);
 
-      console.log(
-        `[OpenRouterModelService] Fetched ${models.length} models from OpenRouter`
-      );
-
       return models;
     } catch (error) {
       console.error('[OpenRouterModelService] Failed to fetch models:', error);
 
-      // If we have cached models, return them even if expired
       const cached = this.getCachedModels();
       if (cached) {
         console.warn(
@@ -152,6 +298,8 @@ class OpenRouterModelService {
         openRouterModel.category.includes('multimodal')
         || openRouterModel.architecture.modality === 'multimodal'
         || openRouterModel.architecture.modality === 'image'
+        || (openRouterModel.architecture.input_modalities?.length ?? 0) > 1
+        || (openRouterModel.architecture.output_modalities?.length ?? 0) > 1
       ) {
         category = 'multimodal';
       } else if (openRouterModel.capabilities?.web_search) {
@@ -225,11 +373,24 @@ class OpenRouterModelService {
   }
 
   /**
-   * Get all models as ModelConfig array
+   * OpenRouter catalog as {@link ModelConfig}s plus whether the ZDR endpoint returned any ids.
    */
-  async getModelsAsConfig(forceRefresh = false): Promise<ModelConfig[]> {
-    const models = await this.fetchModels(forceRefresh);
-    return models.map(model => this.transformToModelConfig(model));
+  async getModelsAsConfig(forceRefresh = false): Promise<{
+    models: ModelConfig[];
+    zdrAllowlistAvailable: boolean;
+  }> {
+    const [raw, zdrModelIds] = await Promise.all([
+      this.fetchModels(forceRefresh),
+      this.fetchZdrModelIds(forceRefresh),
+    ]);
+    const afterText = raw.filter(openRouterModelHasTextInputAndOutput);
+    const zdrAllowlistAvailable = zdrModelIds.size > 0;
+    const kept = applyOpenRouterZdrAllowlist(afterText, zdrModelIds);
+
+    return {
+      models: kept.map(model => this.transformToModelConfig(model)),
+      zdrAllowlistAvailable,
+    };
   }
 
   /**
@@ -239,7 +400,7 @@ class OpenRouterModelService {
     category: string,
     forceRefresh = false
   ): Promise<ModelConfig[]> {
-    const models = await this.getModelsAsConfig(forceRefresh);
+    const { models } = await this.getModelsAsConfig(forceRefresh);
     return models.filter(model => {
       if (category === 'all') {
         return true;
@@ -254,8 +415,8 @@ class OpenRouterModelService {
   clearCache(): void {
     try {
       localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(ZDR_CACHE_KEY);
       this.cache = null;
-      console.log('[OpenRouterModelService] Cache cleared');
     } catch (error) {
       console.warn('[OpenRouterModelService] Failed to clear cache:', error);
     }

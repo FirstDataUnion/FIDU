@@ -29,18 +29,40 @@ export interface OpenRouterPricing {
   cache_write?: string; // Price per cache write (if applicable)
 }
 
+/** Declared input kinds for a model (OpenRouter /models `architecture.input_modalities`). */
+export type OpenRouterInputModality =
+  | 'text'
+  | 'image'
+  | 'file'
+  | 'audio'
+  | 'video';
+
+/** Declared output kinds for a model (OpenRouter /models `architecture.output_modalities`). */
+export type OpenRouterOutputModality =
+  | 'text'
+  | 'image'
+  | 'embeddings'
+  | 'audio'
+  | 'video'
+  | 'rerank';
+
 /**
  * OpenRouter model metadata
  */
 export interface OpenRouterModel {
   id: string; // Model identifier (e.g., "openai/gpt-4")
+  /** Stable slug when the routed id includes dated suffixes; see GET /models. */
+  canonical_slug?: string;
   name: string; // Human-readable model name
   description?: string; // Model description
   context_length: number; // Maximum context length in tokens
   architecture: {
-    modality: 'text' | 'image' | 'multimodal';
+    /** Primary modality; nullable in API. */
+    modality?: string | null;
     tokenizer: string; // Tokenizer used
-    instruct_type?: string; // Instruction type if applicable
+    instruct_type?: string | null; // Instruction type if applicable
+    input_modalities?: OpenRouterInputModality[];
+    output_modalities?: OpenRouterOutputModality[];
   };
   top_provider: {
     max_completion_tokens?: number; // Maximum completion tokens
@@ -72,6 +94,22 @@ export interface OpenRouterModel {
  */
 export interface OpenRouterModelsResponse {
   data: OpenRouterModel[];
+}
+
+/**
+ * One ZDR-eligible provider route from GET /v1/endpoints/zdr.
+ * @see https://openrouter.ai/docs/api-reference (endpoints / ZDR)
+ */
+export interface OpenRouterZdrEndpoint {
+  model_id: string;
+  name?: string;
+  model_name?: string;
+  provider_name?: string;
+  status?: number;
+}
+
+export interface OpenRouterZdrEndpointsResponse {
+  data: OpenRouterZdrEndpoint[];
 }
 
 /**

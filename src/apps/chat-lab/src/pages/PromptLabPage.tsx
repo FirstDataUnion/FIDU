@@ -2194,19 +2194,12 @@ export default function PromptLabPage() {
   // Load OpenRouter models when feature flag is enabled
   useEffect(() => {
     if (isDirectOpenRouterEnabled) {
-      console.log('[PromptLabPage] Loading OpenRouter models...');
-      loadOpenRouterModels()
-        .then(models => {
-          console.log(
-            `[PromptLabPage] Loaded ${models.length} OpenRouter models`
-          );
-        })
-        .catch(error => {
-          console.error(
-            '[PromptLabPage] Failed to load OpenRouter models:',
-            error
-          );
-        });
+      loadOpenRouterModels().catch(error => {
+        console.error(
+          '[PromptLabPage] Failed to load OpenRouter models:',
+          error
+        );
+      });
     }
   }, [isDirectOpenRouterEnabled]);
 
