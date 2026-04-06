@@ -1373,40 +1373,39 @@ export default function ModelSelectionModal({
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent:
-            isDirectOpenRouterEnabled
-            && openRouterListFetch.status === 'ready'
+            isDirectOpenRouterEnabled && openRouterListFetch.status === 'ready'
               ? 'space-between'
               : 'flex-end',
           gap: 2,
         }}
       >
         {isDirectOpenRouterEnabled
-        && openRouterListFetch.status === 'ready' && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              flex: '1 1 240px',
-              minWidth: 0,
-              lineHeight: 1.5,
-              textAlign: 'left',
-            }}
-          >
-            {getCachedOpenRouterZdrAllowlistAvailable() ? (
-              <>
-                All models provided have a ZDR (Zero Data Retention) policy,
-                meaning none of your data is stored on the provider&apos;s servers
-                for any period of time.
-              </>
-            ) : (
-              <>
-                The ZDR (Zero Data Retention) route list is unavailable, so every
-                catalog model is shown. OpenRouter will block chat requests to
-                models that are not on a ZDR route.
-              </>
-            )}
-          </Typography>
-        )}
+          && openRouterListFetch.status === 'ready' && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                flex: '1 1 240px',
+                minWidth: 0,
+                lineHeight: 1.5,
+                textAlign: 'left',
+              }}
+            >
+              {getCachedOpenRouterZdrAllowlistAvailable() ? (
+                <>
+                  All models provided have a ZDR (Zero Data Retention) policy,
+                  meaning none of your data is stored on the provider&apos;s
+                  servers for any period of time.
+                </>
+              ) : (
+                <>
+                  The ZDR (Zero Data Retention) route list is unavailable, so
+                  every catalog model is shown. OpenRouter will block chat
+                  requests to models that are not on a ZDR route.
+                </>
+              )}
+            </Typography>
+          )}
         <Button onClick={onClose} variant="outlined">
           Cancel
         </Button>

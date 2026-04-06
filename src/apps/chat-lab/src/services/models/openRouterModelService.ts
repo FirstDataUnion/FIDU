@@ -51,10 +51,7 @@ export function openRouterCatalogModelAllowedByZdr(
     return true;
   }
   for (const zid of zdrModelIds) {
-    if (
-      model.id.startsWith(`${zid}-`)
-      || model.id.startsWith(`${zid}:`)
-    ) {
+    if (model.id.startsWith(`${zid}-`) || model.id.startsWith(`${zid}:`)) {
       return true;
     }
   }
@@ -110,7 +107,8 @@ interface CachedZdrModelIds {
 class OpenRouterModelService {
   private cache: CachedModels | null = null;
   private fetchPromise: Promise<OpenRouterModelsResponse> | null = null;
-  private zdrFetchPromise: Promise<OpenRouterZdrEndpointsResponse> | null = null;
+  private zdrFetchPromise: Promise<OpenRouterZdrEndpointsResponse> | null =
+    null;
 
   /**
    * Get cached models from localStorage
@@ -199,7 +197,9 @@ class OpenRouterModelService {
         ...new Set(
           (response.data || [])
             .map(e => e.model_id)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+            .filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            )
         ),
       ];
       return new Set(ids);
@@ -213,13 +213,18 @@ class OpenRouterModelService {
         ...new Set(
           (response.data || [])
             .map(e => e.model_id)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+            .filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            )
         ),
       ];
       this.saveCachedZdrModelIds(ids);
       return new Set(ids);
     } catch (error) {
-      console.error('[OpenRouterModelService] Failed to fetch ZDR endpoints:', error);
+      console.error(
+        '[OpenRouterModelService] Failed to fetch ZDR endpoints:',
+        error
+      );
       throw error;
     } finally {
       this.zdrFetchPromise = null;

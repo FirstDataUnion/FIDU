@@ -105,10 +105,7 @@ describe('openRouterModelHasTextInputAndOutput', () => {
 
 describe('applyOpenRouterZdrAllowlist', () => {
   it('passes through all models when ZDR allowlist is empty', () => {
-    const models = [
-      textChatModel('a/b'),
-      textChatModel('nope/model'),
-    ];
+    const models = [textChatModel('a/b'), textChatModel('nope/model')];
     expect(applyOpenRouterZdrAllowlist(models, new Set())).toEqual(models);
   });
 
@@ -133,8 +130,8 @@ describe('filterOpenRouterModelsByZdr (display pipeline invariant)', () => {
     const out = filterOpenRouterModelsByZdr(afterText, zdr);
 
     expect(out.map(m => m.id)).toEqual(['a/b', 'c/d-2025']);
-    expect(
-      out.every(m => openRouterCatalogModelAllowedByZdr(m, zdr))
-    ).toBe(true);
+    expect(out.every(m => openRouterCatalogModelAllowedByZdr(m, zdr))).toBe(
+      true
+    );
   });
 });
