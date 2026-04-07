@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import ContextCorporaTab from '../components/contexts/ContextCorporaTab';
 import ContextDocumentsTab from '../components/contexts/ContextDocumentsTab';
 import ContextUrlsTab from '../components/contexts/ContextUrlsTab';
+import ContextApiTab from '../components/contexts/ContextApiTab';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { selectContexts } from '../store/selectors/contextSelectors';
 import { fetchContexts } from '../store/slices/contextsSlice';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
 
-const RAG_TABS = ['corpora', 'documents', 'urls'] as const;
+const RAG_TABS = ['corpora', 'documents', 'urls', 'api'] as const;
 type RagTab = (typeof RAG_TABS)[number];
 
 function getTabFromHash(hash: string): RagTab | null {
@@ -103,6 +104,7 @@ export default function RagContextPage() {
             <Tab label="Corpora" value="corpora" />
             <Tab label="Documents" value="documents" />
             <Tab label="URLs" value="urls" />
+            <Tab label="API" value="api" />
           </Tabs>
 
           <Typography variant="body1" color="text.secondary" sx={{ p: 2 }}>
@@ -112,6 +114,8 @@ export default function RagContextPage() {
               && 'Documents are files that you can add to conversations directly or via a corpus.'}
             {activeTab === 'urls'
               && 'URLs are scraped to produce documents dynamically to be added to a conversation directly or via a corpus.'}
+            {activeTab === 'api'
+              && 'Source of information for calling the API directly.'}
           </Typography>
         </Paper>
 
@@ -122,6 +126,7 @@ export default function RagContextPage() {
           <ContextDocumentsTab contexts={contexts} />
         )}
         {activeTab === 'urls' && <ContextUrlsTab />}
+        {activeTab === 'api' && <ContextApiTab corpora={corpora} />}
       </Box>
     </Box>
   );

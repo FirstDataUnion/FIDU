@@ -157,7 +157,7 @@ export class FiduAuthService {
     }
   }
 
-  private async getTokens(): Promise<FiduAuthTokens | null> {
+  public async getTokens(): Promise<FiduAuthTokens | null> {
     try {
       const url = `${this.basePath}/api/auth/fidu/get-tokens?env=${this.environment}`;
       console.log(`🔄 [FiduAuth] Fetching tokens from: ${url}`);

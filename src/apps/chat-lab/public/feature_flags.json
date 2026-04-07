@@ -79,6 +79,6 @@
         "user_configurable": true,
         "default_enabled": false,
         "experimental": true,
-        "depends_on": ["context"]
+        "depends_on": ["context", "direct_openrouter"]
     }
 }
