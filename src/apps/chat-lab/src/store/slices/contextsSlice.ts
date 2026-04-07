@@ -304,10 +304,16 @@ export const updateContextCorpus = createAsyncThunk(
 
     try {
       const storageService = getUnifiedStorageService();
-      const updatedContextCorpus = await storageService.updateContextCorpus(corpus, profileId);
+      const updatedContextCorpus = await storageService.updateContextCorpus(
+        corpus,
+        profileId
+      );
       return updatedContextCorpus;
     } catch (error: any) {
-      console.error('Failed to update context corpus using unified storage:', error);
+      console.error(
+        'Failed to update context corpus using unified storage:',
+        error
+      );
       throw error;
     }
   }

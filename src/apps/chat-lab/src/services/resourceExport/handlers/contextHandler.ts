@@ -76,6 +76,11 @@ export class ContextHandler implements ResourceHandler<Context> {
     const now = new Date().toISOString();
     const imported: Context = {
       id: newId,
+      source: {
+        type: 'fidu',
+        contextId: newId,
+        mimeType: 'text/markdown',
+      },
       title: exportData.title,
       body: exportData.body,
       tokenCount: exportData.tokenCount,
