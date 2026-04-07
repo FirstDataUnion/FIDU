@@ -17,7 +17,12 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
 import NewContextCorpusDialog from './NewContextCorpusDialog';
-import type { Context, ContextCorpus } from '../../types';
+import type {
+  Context,
+  ContextCorpus,
+  ContextSource,
+  ExternalLocationType,
+} from '../../types';
 import { createRagApiClient } from '../../services/api/apiClientRag';
 import {
   deleteContextCorpus,
@@ -64,20 +69,6 @@ export default function ContextCorporaTab({
       Object.fromEntries(
         contexts
           .filter(context => context.source.type !== 'url')
-          .map(context => [context.id, context])
-      )
-    );
-    setUrls(
-      Object.fromEntries(
-        contexts
-          .filter(context => context.source.type === 'url')
-          .map(context => [context.id, context])
-      )
-    );
-    setUrls(
-      Object.fromEntries(
-        contexts
-          .filter(context => context.source.type === 'url')
           .map(context => [context.id, context])
       )
     );
@@ -147,8 +138,7 @@ export default function ContextCorporaTab({
         ...selectedCorpus.documents,
         ...selectedContextIds
           .filter(
-            id =>
-              !selectedCorpus.documents.find(document => document.id === id)
+            id => !selectedCorpus.documents.find(document => document.id === id)
           )
           .map(id => ({
             id,
@@ -158,6 +148,58 @@ export default function ContextCorporaTab({
     };
     dispatch(updateContextCorpus({ corpus, profileId: currentProfile?.id }));
   }, [currentProfile?.id, dispatch, selectedContextIds, selectedCorpus]);
+
+  const handleIngestAllToCorpus = useCallback(async () => {
+    if (!selectedCorpus) return;
+    if (selectedCorpus.database.location.type !== 'google_drive') {
+      throw new Error(
+        'Ingestion only implemented for Google-Drive-stored corpora'
+      );
+    }
+    const convert = (
+      source: ContextSource
+    ): ExternalLocationType | undefined => {
+      switch (source.type) {
+        case 'google_drive':
+          return {
+            type: 'google_drive',
+            fileId: source.fileId,
+            mimeType: source.mimeType,
+          };
+        case 'url':
+          return {
+            type: 'url',
+            url: source.url,
+            mimeType: source.mimeType,
+          };
+        default:
+          return undefined;
+      }
+    };
+    const ragApiClient = createRagApiClient();
+    const docs = selectedCorpus.documents.reduce(
+      (acc, corpusDocument) => {
+        const document = documents[corpusDocument.id];
+        const location = convert(document.source);
+        if (location) {
+          acc.push({ action: 'add_or_replace', location });
+        }
+        return acc;
+      },
+      [] as { action: 'add_or_replace'; location: ExternalLocationType }[]
+    );
+    await ragApiClient.addToIngestQueue(
+      {
+        provider: 'fidu_rag',
+        engine: selectedCorpus.database.type,
+        location: {
+          provider: 'google_drive',
+          fileId: selectedCorpus.database.location.fileId,
+        },
+      },
+      docs
+    );
+  }, [documents, selectedCorpus]);
 
   return (
     <Box>
@@ -190,37 +232,38 @@ export default function ContextCorporaTab({
             {corpora.map(corpus => {
               console.log('corpus', corpus);
               return (
-              <ListItem key={corpus.id} disablePadding sx={{ mb: 1 }}>
-                <ListItemButton
-                  selected={selectedCorpus?.id === corpus.id}
-                  onClick={() => setSelectedCorpusId(corpus.id)}
-                  sx={{
-                    borderRadius: 1,
-                    border: theme => `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  <ListItemText
-                    primary={corpus.name}
-                    secondary={
-                      <Stack spacing={0.5}>
-                        <Typography variant="caption" color="text.secondary">
-                          {`${corpus.documents?.length ?? 0} docs • ${corpus.urls?.length ?? 0} urls`}
-                        </Typography>
-                      </Stack>
-                    }
-                  />
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleAskDeleteCorpus(corpus)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </ListItemButton>
-              </ListItem>
-            );})}
+                <ListItem key={corpus.id} disablePadding sx={{ mb: 1 }}>
+                  <ListItemButton
+                    selected={selectedCorpus?.id === corpus.id}
+                    onClick={() => setSelectedCorpusId(corpus.id)}
+                    sx={{
+                      borderRadius: 1,
+                      border: theme => `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    <ListItemText
+                      primary={corpus.name}
+                      secondary={
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {`${corpus.documents?.length ?? 0} docs • ${corpus.urls?.length ?? 0} urls`}
+                          </Typography>
+                        </Stack>
+                      }
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleAskDeleteCorpus(corpus)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
           </List>
         </Paper>
 
@@ -238,14 +281,24 @@ export default function ContextCorporaTab({
                 Documents
               </Typography>
               <Stack spacing={1} sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleOpenAddDocumentDialog()}
-                  sx={{ width: 'fit-content' }}
-                >
-                  Import Documents
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleOpenAddDocumentDialog()}
+                    sx={{ width: 'fit-content' }}
+                  >
+                    Import documents
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleIngestAllToCorpus()}
+                    sx={{ width: 'fit-content' }}
+                  >
+                    Ingest all to corpus
+                  </Button>
+                </Stack>
                 {selectedCorpus.documents?.map(({ id, addedAt }) => {
                   const document = documents[id];
                   return (

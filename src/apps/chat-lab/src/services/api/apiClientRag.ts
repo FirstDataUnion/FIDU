@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios';
 import { getGatewayUrl } from '../../utils/environment';
 import { getFiduAuthService } from '../auth/FiduAuthService';
 import { getGoogleDriveAuthService } from '../auth/GoogleDriveAuth';
+import type { ExternalLocationType } from '../../types';
 
 type CorpusInfo = {
   provider: 'fidu_rag';
@@ -54,6 +55,30 @@ class RagApiClient {
           file_id: corpus.location.fileId,
         },
       },
+    });
+  }
+
+  async addToIngestQueue(
+    corpus: CorpusInfo,
+    fileActions: { action: 'add_or_replace'; location: ExternalLocationType }[]
+  ): Promise<void> {
+    const googleDriveAuthService = await getGoogleDriveAuthService();
+    const googleDriveOauthToken = await googleDriveAuthService.getAccessToken();
+    await this.client.put('/corpus/ingest_queue', {
+      provider_credentials: {
+        google_drive: {
+          oauth_token: googleDriveOauthToken,
+        },
+      },
+      corpus_location: {
+        provider: corpus.provider,
+        engine: corpus.engine,
+        database_file_location: {
+          provider: corpus.location.provider,
+          file_id: corpus.location.fileId,
+        },
+      },
+      fileActions,
     });
   }
 
