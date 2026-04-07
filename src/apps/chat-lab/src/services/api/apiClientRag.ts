@@ -64,7 +64,7 @@ class RagApiClient {
   ): Promise<void> {
     const googleDriveAuthService = await getGoogleDriveAuthService();
     const googleDriveOauthToken = await googleDriveAuthService.getAccessToken();
-    await this.client.put('/corpus/ingest_queue', {
+    await this.client.put('/corpus/ingest-queue', {
       provider_credentials: {
         google_drive: {
           oauth_token: googleDriveOauthToken,

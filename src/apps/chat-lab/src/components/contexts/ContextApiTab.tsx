@@ -15,7 +15,9 @@ export default function ContextApiTab({
 }) {
   const gatewayUrl = getGatewayUrl();
   const [selectedCorpusId, setSelectedCorpusId] = useState<string>(
-    corpora[0]?.id ?? '<MAKE A CORPUS FIRST>'
+    corpora[0]?.database.location.type === 'google_drive'
+      ? corpora[0].database.location.fileId
+      : '<MAKE A CORPUS FIRST>'
   );
   const [fiduTokens, setFiduTokens] = useState<FiduAuthTokens | null>(null);
   const [googleDriveToken, setGoogleDriveToken] = useState<string | null>(null);
@@ -164,11 +166,16 @@ export default function ContextApiTab({
             value={selectedCorpusId}
             onChange={event => setSelectedCorpusId(event.target.value)}
           >
-            {corpora.map(corpus => (
-              <MenuItem key={corpus.id} value={corpus.id}>
-                {corpus.name}
-              </MenuItem>
-            ))}
+            {corpora.map(corpus =>
+              corpus.database.location.type === 'google_drive' ? (
+                <MenuItem
+                  key={corpus.id}
+                  value={corpus.database.location.fileId}
+                >
+                  {corpus.name}
+                </MenuItem>
+              ) : null
+            )}
           </Select>
         </Typography>
         <Typography>
@@ -187,13 +194,13 @@ export default function ContextApiTab({
         </Typography>
         <Typography variant="h6">Add to ingest queue</Typography>
         <Typography>
-          POST {gatewayUrl}/api/rag/v1/corpus/ingest_queue
+          POST {gatewayUrl}/api/rag/v1/corpus/ingest-queue
         </Typography>
         <Typography>
           <code>
             curl -X POST -H "Content-Type: application/json" -d @data.json -H
             "Authorization: Bearer $(cat fidu_access.jwt)" {gatewayUrl}
-            /api/rag/v1/corpus/ingest_queue
+            /api/rag/v1/corpus/ingest-queue
           </code>
         </Typography>
         <Typography>
@@ -222,13 +229,13 @@ export default function ContextApiTab({
 
         <Typography variant="h6">Query ingest queue</Typography>
         <Typography>
-          POST {gatewayUrl}/api/rag/v1/corpus/ingest_queue/query
+          POST {gatewayUrl}/api/rag/v1/corpus/ingest-queue/query
         </Typography>
         <Typography>
           <code>
             curl -X POST -H "Content-Type: application/json" -d @data.json -H
             "Authorization: Bearer $(cat fidu_access.jwt)" {gatewayUrl}
-            /api/rag/v1/corpus/ingest_queue/query
+            /api/rag/v1/corpus/ingest-queue/query
           </code>
         </Typography>
         <Typography>
