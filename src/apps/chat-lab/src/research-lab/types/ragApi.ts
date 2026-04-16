@@ -54,3 +54,9 @@ export type SourceFileLocation =
       provider: 'url';
       url: string;
     };
+
+export type IngestQueueStatus = {
+  queue_status: 'empty' | 'running' | 'completed';
+  total_queue_size: number;
+  remaining_queue_size: number;
+};

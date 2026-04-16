@@ -94,14 +94,8 @@ export interface StorageAdapter {
   // Research Lab types
   getCorpora(profileId: string): Promise<Corpus[]>;
   getCorpusById(corpusId: string): Promise<Corpus>;
-  createCorpus(
-    corpus: Corpus,
-    profileId: string
-  ): Promise<Corpus>;
-  updateCorpus(
-    corpus: Corpus,
-    profileId: string
-  ): Promise<Corpus>;
+  createCorpus(corpus: Corpus, profileId: string): Promise<Corpus>;
+  updateCorpus(corpus: Corpus, profileId: string): Promise<Corpus>;
   deleteCorpus(corpusId: string): Promise<void>;
   getConversationsInCorpus(corpusId: string): Promise<CorpusConversation[]>;
   getCorpusConversationById(

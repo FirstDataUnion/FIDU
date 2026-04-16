@@ -26,13 +26,19 @@ export default function SourceSelectionPanel() {
           <AddSourceIcon />
         </IconButton>
       </Stack>
+      {!s.loading && s.ingestQueueSourcesRemaining > 0 && (
+        <Typography
+          sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
+        >
+          {s.ingestQueueSourcesRemaining} source
+          {s.ingestQueueSourcesRemaining === 1 ? '' : 's'} ingesting...
+        </Typography>
+      )}
       {s.loading ? (
         <Typography sx={{ p: 2 }}>Loading sources...</Typography>
       ) : (
         <Stack direction="column" spacing={1} sx={{ p: 2 }}>
-          {s.sources.length === 0 && (
-            <Typography>No sources yet</Typography>
-          )}
+          {s.sources.length === 0 && <Typography>No sources yet</Typography>}
           {s.sources.map(source => (
             <Paper key={s.sourceStringId(source)} sx={{ p: 1 }}>
               <Checkbox checked={s.sourceSelection[s.sourceStringId(source)]} />

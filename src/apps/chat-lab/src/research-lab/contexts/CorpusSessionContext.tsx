@@ -15,6 +15,8 @@ export interface CorpusSessionContextValue {
     setSourceSelection: (sourceId: string, selected: boolean) => void;
     clearSourceSelection: () => void;
     sourceStringId: (source: CorpusSource) => string;
+    pollIngestQueueStatus: () => void;
+    ingestQueueSourcesRemaining: number;
   };
 }
 

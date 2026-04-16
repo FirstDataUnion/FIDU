@@ -10,6 +10,7 @@ import type {
   Source,
   CorpusLocation,
   CorpusIdentifyingRequest,
+  IngestQueueStatus,
 } from '../types/ragApi';
 
 class RagApiClient {
@@ -56,12 +57,26 @@ class RagApiClient {
     };
   }
 
+  async getIngestQueueStatus(
+    corpus: CorpusLocation
+  ): Promise<IngestQueueStatus> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+    };
+    const response = await this.client.post<{ status: IngestQueueStatus }>(
+      '/corpus/ingest-queue/query',
+      request satisfies CorpusIdentifyingRequest
+    );
+    return response.data.status;
+  }
+
   async getSources(corpus: CorpusLocation): Promise<Source[]> {
     const request = {
       provider_credentials: await this.getProviderCredentials(),
       corpus_location: corpus,
     };
-    const response = await this.client.post<{sources: Source[]}>(
+    const response = await this.client.post<{ sources: Source[] }>(
       '/corpus/sources/query',
       request satisfies CorpusIdentifyingRequest
     );
