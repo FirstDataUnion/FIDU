@@ -2,10 +2,7 @@ import { Routes, Route, Outlet, useParams } from 'react-router-dom';
 import { FeatureFlagGuard } from '../components/common/FeatureFlagGuard';
 import ResearchLabPage from './pages/ResearchLabPage';
 import CorpusPage from './pages/CorpusPage';
-
-function CorpusIndexPanel() {
-  return <div>Select a conversation</div>;
-}
+import SelectConversationPanel from './components/SelectConversationPanel';
 
 function CorpusConversationPanel() {
   const { conversationId } = useParams();
@@ -28,7 +25,7 @@ export default function ResearchLabRoutes() {
         <Route index element={<ResearchLabPage />} />
 
         <Route path="corpora/:corpusId" element={<CorpusPage />}>
-          <Route index element={<CorpusIndexPanel />} />
+          <Route index element={<SelectConversationPanel />} />
           <Route
             path="conversations/:conversationId"
             element={<CorpusConversationPanel />}

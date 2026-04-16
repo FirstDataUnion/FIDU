@@ -92,16 +92,16 @@ export interface StorageAdapter {
   deleteSystemPrompt(systemPromptId: string): Promise<string>;
 
   // Research Lab types
-  getCorpora(profileId: string): Promise<Omit<Corpus, 'conversations'>[]>;
-  getCorpusById(corpusId: string): Promise<Omit<Corpus, 'conversations'>>;
+  getCorpora(profileId: string): Promise<Corpus[]>;
+  getCorpusById(corpusId: string): Promise<Corpus>;
   createCorpus(
     corpus: Corpus,
     profileId: string
-  ): Promise<Omit<Corpus, 'conversations'>>;
+  ): Promise<Corpus>;
   updateCorpus(
     corpus: Corpus,
     profileId: string
-  ): Promise<Omit<Corpus, 'conversations'>>;
+  ): Promise<Corpus>;
   deleteCorpus(corpusId: string): Promise<void>;
   getConversationsInCorpus(corpusId: string): Promise<CorpusConversation[]>;
   getCorpusConversationById(

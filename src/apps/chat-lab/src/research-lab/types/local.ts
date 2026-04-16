@@ -12,7 +12,6 @@ export interface Corpus {
     provider: 'google_drive';
     fileId: string;
   };
-  conversations: CorpusConversation[];
 }
 
 export interface CorpusConversation {
@@ -45,12 +44,14 @@ export interface CorpusMessageRagInfo {
 }
 
 export interface CorpusSource {
-  id: {
-    provider: 'google_drive';
-    fileId: string;
-  };
+  id : CorpusSourceId;
   name: string;
   description: string;
   addedAt: string;
   lastIngestedAt: string;
+}
+
+export interface CorpusSourceId {
+  provider: 'google_drive';
+  fileId: string;
 }

@@ -1359,7 +1359,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   async getCorpora(
     profileId: string
-  ): Promise<Omit<Corpus, 'conversations'>[]> {
+  ): Promise<Corpus[]> {
     await this.ensureAuthenticated();
     const isSharedWorkspace = this.config.workspaceType === 'shared';
     const corpusQueryParams: any = {
@@ -1384,7 +1384,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   async getCorpusById(
     corpusId: string
-  ): Promise<Omit<Corpus, 'conversations'>> {
+  ): Promise<Corpus> {
     await this.ensureAuthenticated();
     try {
       const dataPacket = await this.dbManager!.getDataPacketById(corpusId);
@@ -1398,7 +1398,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   async createCorpus(
     corpus: Corpus,
     profileId: string
-  ): Promise<Omit<Corpus, 'conversations'>> {
+  ): Promise<Corpus> {
     await this.ensureAuthenticated();
     const dataPacket = this.transformCorpusToDataPacket(corpus, profileId);
     const requestId = this.generateRequestId(
@@ -1422,7 +1422,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   async updateCorpus(
     corpus: Corpus,
     profileId: string
-  ): Promise<Omit<Corpus, 'conversations'>> {
+  ): Promise<Corpus> {
     await this.ensureAuthenticated();
     const dataPacket = this.transformCorpusToDataPacketUpdate(
       corpus,
@@ -2313,7 +2313,7 @@ export class CloudStorageAdapter implements StorageAdapter {
 
   private transformDataPacketToCorpus(
     packet: any
-  ): Omit<Corpus, 'conversations'> {
+  ): Corpus {
     return {
       id: packet.id,
       name: packet.data.name,

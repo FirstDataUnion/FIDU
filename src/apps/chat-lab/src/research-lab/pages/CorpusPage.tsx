@@ -5,11 +5,15 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import {
   CorpusSessionContext,
   type CorpusSessionContextValue,
 } from '../contexts/CorpusSessionContext';
+import { useEffect, useState } from 'react';
+import type { Corpus, CorpusConversation, CorpusSource } from '../types/local';
+import { getStorageService } from '../../services/storage/StorageService';
+import SourceSelectionPanel from '../components/SourceSelectionPanel';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -32,9 +36,49 @@ function getSidebarSections(path: string): CorpusSidebarSection[] {
   return [];
 }
 
+function sourceStringId(source: CorpusSource): string {
+  switch (source.id.provider) {
+      case 'google_drive':
+          return `${source.id.provider}::${source.id.fileId}`;
+      default:
+          throw new Error(`Unknown source provider: ${source.id.provider}`);
+  }
+}
+
 export default function CorpusPage() {
   const { corpusId } = useParams();
   const location = useLocation();
+  const [corpus, setCorpus] = useState<Corpus | undefined>();
+  const [conversations, setConversations] = useState<
+    CorpusConversation[] | undefined
+  >();
+  const [sources, setSources] = useState<CorpusSource[] | undefined>();
+
+  useEffect(() => {
+    if (!corpusId) {
+      return;
+    }
+    const storageService = getStorageService();
+    storageService.getAdapter().getCorpusById(corpusId).then(setCorpus);
+  }, [corpusId]);
+
+  useEffect(() => {
+    if (!corpusId) {
+      return;
+    }
+    const storageService = getStorageService();
+    storageService
+      .getAdapter()
+      .getConversationsInCorpus(corpusId)
+      .then(setConversations);
+  }, [corpusId]);
+
+  useEffect(() => {
+    if (!corpusId) {
+      return;
+    }
+    // TODO: get real data from API
+  }, [corpusId]);
 
   if (!corpusId) {
     return <Navigate to="/research-lab" replace />;
@@ -42,29 +86,19 @@ export default function CorpusPage() {
 
   const sidebarSections = getSidebarSections(location.pathname);
 
-  // TODO: get real data from API and storage adapter
   const sessionContext: CorpusSessionContextValue = {
-    corpus: {
-      id: corpusId,
-      name: 'My Corpus',
-      description: 'My Corpus Description',
-      createdAt: '2026-01-28T12:59:00Z',
-      lastOpenedAt: '2026-03-12T15:23:00Z',
-      tags: [],
-      databaseLocation: {
-        provider: 'google_drive',
-        fileId: '1234567890',
-      },
-      conversations: [],
+    corpus,
+    conversationInfo: conversations && {
+      conversations,
     },
-    loading: false,
-    sourceInfo: {
+    sourceInfo: sources && {
       allSourcesSelected: false,
       setAllSourcesSelected: () => {},
-      sources: [],
+      sources,
       sourceSelection: {},
       setSourceSelection: () => {},
       clearSourceSelection: () => {},
+      sourceStringId,
     },
   };
 
@@ -82,10 +116,18 @@ export default function CorpusPage() {
             gap: 1,
           }}
         >
-          <Typography variant="h5">Sidebar</Typography>
-          <Box component="pre" sx={{ m: 0, fontSize: 12, opacity: 0.8 }}>
-            {JSON.stringify(sidebarSections, null, 2)}
-          </Box>
+          {sidebarSections.map((section) => {
+            switch (section) {
+              case 'sources':
+                return <SourceSelectionPanel />;
+              case 'modelOptions':
+                return null;
+              case 'export':
+                return null;
+              default:
+                return null;
+            }
+          })}
         </Box>
 
         <Box
@@ -97,7 +139,6 @@ export default function CorpusPage() {
             gap: 2,
           }}
         >
-          <Typography variant="h5">Corpus {corpusId}</Typography>
           <Outlet />
         </Box>
       </Box>

@@ -1,17 +1,20 @@
 import { createContext } from 'react';
-import type { Corpus, CorpusSource } from '../types/local';
+import type { Corpus, CorpusConversation, CorpusSource } from '../types/local';
 import { useContext } from 'react';
 
 export interface CorpusSessionContextValue {
-  corpus: Corpus;
-  loading: boolean;
-  sourceInfo: {
+  corpus?: Corpus;
+  conversationInfo?: {
+    conversations: CorpusConversation[];
+  };
+  sourceInfo?: {
     allSourcesSelected: boolean;
     setAllSourcesSelected: (allSourcesSelected: boolean) => void;
     sources: CorpusSource[];
     sourceSelection: Record<string, boolean>;
     setSourceSelection: (sourceId: string, selected: boolean) => void;
     clearSourceSelection: () => void;
+    sourceStringId: (source: CorpusSource) => string;
   };
 }
 

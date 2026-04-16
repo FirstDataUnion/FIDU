@@ -40,7 +40,7 @@ async function createNewFolder(name: string, parentFolderId?: string) {
 
 export default function ResearchLabPage() {
   const { currentProfile } = useAppSelector(state => state.auth);
-  const [corpora, setCorpora] = useState<Omit<Corpus, 'conversations'>[]>([]);
+  const [corpora, setCorpora] = useState<Corpus[]>([]);
   const [createCorpusDialogOpen, setCreateCorpusDialogOpen] = useState(false);
   const [creatingCorpus, setCreatingCorpus] = useState(false);
   const [corpusCreationError, setCorpusCreationError] = useState<string | null>(
@@ -115,7 +115,6 @@ export default function ResearchLabPage() {
         lastOpenedAt: new Date().toISOString(),
         databaseLocation: location,
         tags: [],
-        conversations: [],
       },
       currentProfile.id
     );
