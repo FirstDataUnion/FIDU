@@ -11,9 +11,11 @@ import {
   type CorpusSessionContextValue,
 } from '../contexts/CorpusSessionContext';
 import { useEffect, useState } from 'react';
-import type { Corpus, CorpusConversation, CorpusSource } from '../types/local';
+import type { Corpus, CorpusConversation, CorpusSource, CorpusSourceId } from '../types/local';
 import { getStorageService } from '../../services/storage/StorageService';
 import SourceSelectionPanel from '../components/SourceSelectionPanel';
+import { createRagApiClient } from '../services/apiClientRag';
+import type { SourceFileLocation } from '../types/ragApi';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -74,11 +76,35 @@ export default function CorpusPage() {
   }, [corpusId]);
 
   useEffect(() => {
-    if (!corpusId) {
+    if (!corpus) {
       return;
     }
-    // TODO: get real data from API
-  }, [corpusId]);
+    function mapId(id: SourceFileLocation): CorpusSourceId {
+      switch (id.provider) {
+        case 'google_drive':
+          return { provider: 'google_drive', fileId: id.file_id };
+        default:
+          throw new Error(`Unknown source provider: ${id.provider}`);
+      }
+    }
+    const apiClient = createRagApiClient();
+    apiClient.getSources({
+      provider: 'fidu_rag',
+      engine: 'cortexdb',
+      database_file_location: {
+        provider: 'google_drive',
+        file_id: corpus.databaseLocation.fileId,
+      },
+    }).then((sources) => {
+      setSources(sources.map((source) => ({
+        id: mapId(source.id),
+        name: source.name,
+        mimeType: source.mime_type,
+        addedAt: source.added_at,
+        lastIngestedAt: source.last_ingested_at,
+      })));
+    });
+  }, [corpus]);
 
   if (!corpusId) {
     return <Navigate to="/research-lab" replace />;

@@ -44,14 +44,19 @@ export interface CorpusMessageRagInfo {
 }
 
 export interface CorpusSource {
-  id : CorpusSourceId;
+  id: CorpusSourceId;
   name: string;
-  description: string;
+  mimeType: string;
   addedAt: string;
   lastIngestedAt: string;
 }
 
-export interface CorpusSourceId {
-  provider: 'google_drive';
-  fileId: string;
-}
+export type CorpusSourceId =
+  | {
+      provider: 'google_drive';
+      fileId: string;
+    }
+  | {
+      provider: 'url';
+      url: string;
+    };

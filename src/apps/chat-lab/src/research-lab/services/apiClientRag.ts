@@ -7,6 +7,9 @@ import type {
   InitialiseCorpusLocation,
   InitialiseCorpusResponse,
   InitialiseCorpusRequest,
+  Source,
+  CorpusLocation,
+  CorpusIdentifyingRequest,
 } from '../types/ragApi';
 
 class RagApiClient {
@@ -51,6 +54,18 @@ class RagApiClient {
       provider: 'google_drive',
       fileId: response.data.location.file_id,
     };
+  }
+
+  async getSources(corpus: CorpusLocation): Promise<Source[]> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+    };
+    const response = await this.client.post<{sources: Source[]}>(
+      '/corpus/sources/query',
+      request satisfies CorpusIdentifyingRequest
+    );
+    return response.data.sources;
   }
 
   private async getProviderCredentials(): Promise<ProviderCredentials> {
