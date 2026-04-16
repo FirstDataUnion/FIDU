@@ -20,6 +20,13 @@ export interface PickerResult {
   reason?: 'cancelled' | 'mismatch';
 }
 
+export interface PickFolderResult {
+  success: boolean;
+  folderId?: string;
+  folderName?: string;
+  reason?: 'cancelled';
+}
+
 export interface PickerInstructions {
   folderName: string;
   folderId: string;
@@ -32,6 +39,79 @@ export class DrivePicker {
 
   constructor(config: DrivePickerConfig) {
     this.authService = config.authService;
+  }
+
+  /**
+   * Pick any folder from the user's Drive (returns folder id + name).
+   * This does NOT verify that the app can access the folder via API later;
+   * callers should verify access if they need to read/write within it.
+   */
+  async pickFolder(options?: {
+    title?: string;
+    query?: string;
+  }): Promise<PickFolderResult> {
+    await this.loadPickerApi();
+    const accessToken = await this.authService.getAccessToken();
+
+    if (!window.google?.picker) {
+      throw new Error('Google Picker API not loaded');
+    }
+
+    const googlePicker = window.google.picker;
+
+    return new Promise(resolve => {
+      const clientId = this.authService.getClientId();
+
+      const builder = new googlePicker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setAppId(clientId);
+
+      builder.setTitle(options?.title || 'Select a Google Drive folder');
+
+      const view = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(true)
+        .setMimeTypes('application/vnd.google-apps.folder');
+
+      if (options?.query) {
+        view.setQuery(options.query);
+      }
+
+      builder.addView(view);
+
+      let callbackFired = false;
+      builder.setCallback((data: any) => {
+        const action = data[googlePicker.Response.ACTION];
+
+        if (action === 'loaded') {
+          return;
+        }
+
+        if (callbackFired) {
+          return;
+        }
+        callbackFired = true;
+
+        if (action === googlePicker.Action.PICKED) {
+          const folder = data[googlePicker.Response.DOCUMENTS]?.[0];
+          const folderId: string | undefined = folder?.id;
+          const folderName: string | undefined =
+            folder?.name || folder?.title || folder?.documentName;
+
+          resolve({
+            success: Boolean(folderId),
+            folderId,
+            folderName,
+          });
+          return;
+        }
+
+        resolve({ success: false, reason: 'cancelled' });
+      });
+
+      const picker = builder.build();
+      picker.setVisible(true);
+    });
   }
 
   /**

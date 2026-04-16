@@ -32,6 +32,10 @@ import {
   migrateSyncSettings,
   getEffectiveSyncDelayMinutes,
 } from '../../../utils/syncSettingsMigration';
+import type {
+  Corpus,
+  CorpusConversation,
+} from '../../../research-lab/types/local';
 
 export class CloudStorageAdapter implements StorageAdapter {
   private initialized = false;
@@ -1353,6 +1357,212 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
+  async getCorpora(
+    profileId: string
+  ): Promise<Omit<Corpus, 'conversations'>[]> {
+    await this.ensureAuthenticated();
+    const isSharedWorkspace = this.config.workspaceType === 'shared';
+    const corpusQueryParams: any = {
+      tags: ['FIDU-RESEARCH-LAB-Corpus'],
+      limit: 5000,
+      offset: 0,
+      sort_order: 'desc',
+    };
+    if (!isSharedWorkspace) {
+      corpusQueryParams.profile_id = profileId;
+    }
+    try {
+      const dataPackets =
+        await this.dbManager!.listDataPackets(corpusQueryParams);
+      const corpora = dataPackets.map(this.transformDataPacketToCorpus);
+      return corpora;
+    } catch (error) {
+      console.error('Error fetching corpora:', error);
+      throw error;
+    }
+  }
+
+  async getCorpusById(
+    corpusId: string
+  ): Promise<Omit<Corpus, 'conversations'>> {
+    await this.ensureAuthenticated();
+    try {
+      const dataPacket = await this.dbManager!.getDataPacketById(corpusId);
+      return this.transformDataPacketToCorpus(dataPacket);
+    } catch (error) {
+      console.error('Error fetching corpus:', error);
+      throw error;
+    }
+  }
+
+  async createCorpus(
+    corpus: Corpus,
+    profileId: string
+  ): Promise<Omit<Corpus, 'conversations'>> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformCorpusToDataPacket(corpus, profileId);
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'create'
+    );
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToCorpus(storedPacket);
+    } catch (error) {
+      console.error('Error creating corpus:', error);
+      throw error;
+    }
+  }
+
+  async updateCorpus(
+    corpus: Corpus,
+    profileId: string
+  ): Promise<Omit<Corpus, 'conversations'>> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformCorpusToDataPacketUpdate(
+      corpus,
+      profileId
+    );
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'update'
+    );
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToCorpus(updatedPacket);
+    } catch (error) {
+      console.error('Error updating corpus:', error);
+      throw error;
+    }
+  }
+
+  async deleteCorpus(corpusId: string): Promise<void> {
+    await this.ensureAuthenticated();
+    try {
+      await this.dbManager!.deleteDataPacket(corpusId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting corpus:', error);
+      throw error;
+    }
+  }
+
+  async getConversationsInCorpus(
+    corpusId: string
+  ): Promise<CorpusConversation[]> {
+    await this.ensureAuthenticated();
+    const conversationQueryParams: any = {
+      tags: [
+        'FIDU-RESEARCH-LAB-CorpusConversation',
+        `FIDU-RESEARCH-LAB-ForCorpus-${corpusId}`,
+      ],
+      limit: 5000,
+      offset: 0,
+    };
+    try {
+      const dataPackets = await this.dbManager!.listDataPackets(
+        conversationQueryParams
+      );
+      return dataPackets.map(this.transformDataPacketToCorpusConversation);
+    } catch (error) {
+      console.error('Error fetching conversations in corpus:', error);
+      throw error;
+    }
+  }
+
+  async getCorpusConversationById(
+    conversationId: string
+  ): Promise<CorpusConversation> {
+    await this.ensureAuthenticated();
+    try {
+      const dataPacket =
+        await this.dbManager!.getDataPacketById(conversationId);
+      return this.transformDataPacketToCorpusConversation(dataPacket);
+    } catch (error) {
+      console.error('Error fetching conversation in corpus:', error);
+      throw error;
+    }
+  }
+
+  async createCorpusConversation(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): Promise<CorpusConversation> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformCorpusConversationToDataPacket(
+      corpusId,
+      conversation,
+      profileId
+    );
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'create'
+    );
+    try {
+      const storedPacket = await this.dbManager!.storeDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToCorpusConversation(storedPacket);
+    } catch (error) {
+      console.error('Error creating conversation in corpus:', error);
+      throw error;
+    }
+  }
+
+  async updateCorpusConversation(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): Promise<CorpusConversation> {
+    await this.ensureAuthenticated();
+    const dataPacket = this.transformCorpusConversationToDataPacketUpdate(
+      corpusId,
+      conversation,
+      profileId
+    );
+    const requestId = this.generateRequestId(
+      profileId,
+      dataPacket.id,
+      'update'
+    );
+    try {
+      const updatedPacket = await this.dbManager!.updateDataPacket(
+        requestId,
+        dataPacket
+      );
+      unsyncedDataManager.markAsUnsynced();
+      return this.transformDataPacketToCorpusConversation(updatedPacket);
+    } catch (error) {
+      console.error('Error updating conversation in corpus:', error);
+      throw error;
+    }
+  }
+
+  async deleteCorpusConversation(conversationId: string): Promise<void> {
+    await this.ensureAuthenticated();
+    try {
+      await this.dbManager!.deleteDataPacket(conversationId);
+      unsyncedDataManager.markAsUnsynced();
+    } catch (error) {
+      console.error('Error deleting conversation in corpus:', error);
+      throw error;
+    }
+  }
+
   // Sync operations
   async sync(): Promise<void> {
     await this.ensureAuthenticated();
@@ -2063,6 +2273,113 @@ export class CloudStorageAdapter implements StorageAdapter {
       tags: (packet.tags || []).filter(
         (t: string) => t !== 'FIDU-CHAT-LAB-Document'
       ),
+    };
+  }
+
+  private transformCorpusToDataPacket(corpus: Corpus, profileId: string): any {
+    return {
+      id: corpus.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      tags: ['FIDU-RESEARCH-LAB-Corpus', ...(corpus.tags || [])],
+      create_timestamp: corpus.createdAt || new Date().toISOString(),
+      update_timestamp: corpus.createdAt || new Date().toISOString(),
+      data: {
+        name: corpus.name,
+        description: corpus.description,
+        lastOpenedAt: corpus.lastOpenedAt,
+        databaseLocation: corpus.databaseLocation,
+      },
+    };
+  }
+
+  private transformCorpusToDataPacketUpdate(
+    corpus: Corpus,
+    profileId: string
+  ): any {
+    return {
+      id: corpus.id,
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      tags: ['FIDU-RESEARCH-LAB-Corpus', ...(corpus.tags || [])],
+      data: {
+        name: corpus.name,
+        description: corpus.description,
+        lastOpenedAt: corpus.lastOpenedAt,
+        databaseLocation: corpus.databaseLocation,
+      },
+    };
+  }
+
+  private transformDataPacketToCorpus(
+    packet: any
+  ): Omit<Corpus, 'conversations'> {
+    return {
+      id: packet.id,
+      name: packet.data.name,
+      description: packet.data.description,
+      createdAt: packet.create_timestamp,
+      lastOpenedAt: packet.data.lastOpenedAt,
+      databaseLocation: packet.data.databaseLocation,
+      tags: (packet.tags || []).filter(
+        (t: string) => t !== 'FIDU-RESEARCH-LAB-Corpus'
+      ),
+    };
+  }
+
+  private transformCorpusConversationToDataPacket(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): any {
+    return {
+      id: conversation.id || crypto.randomUUID(),
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      tags: [
+        'FIDU-RESEARCH-LAB-CorpusConversation',
+        `FIDU-RESEARCH-LAB-ForCorpus-${corpusId}`,
+      ],
+      create_timestamp: conversation.createdAt || new Date().toISOString(),
+      update_timestamp: conversation.createdAt || new Date().toISOString(),
+      data: {
+        name: conversation.name,
+        lastOpenedAt: conversation.lastOpenedAt,
+        messages: conversation.messages,
+      },
+    };
+  }
+
+  private transformCorpusConversationToDataPacketUpdate(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): any {
+    return {
+      id: conversation.id,
+      profile_id: profileId,
+      user_id: this.ensureUserId(),
+      tags: [
+        'FIDU-RESEARCH-LAB-CorpusConversation',
+        `FIDU-RESEARCH-LAB-ForCorpus-${corpusId}`,
+      ],
+      data: {
+        name: conversation.name,
+        lastOpenedAt: conversation.lastOpenedAt,
+        messages: conversation.messages,
+      },
+    };
+  }
+
+  private transformDataPacketToCorpusConversation(
+    packet: any
+  ): CorpusConversation {
+    return {
+      id: packet.id,
+      name: packet.data.name,
+      createdAt: packet.create_timestamp,
+      lastOpenedAt: packet.data.lastOpenedAt,
+      messages: packet.data.messages,
     };
   }
 

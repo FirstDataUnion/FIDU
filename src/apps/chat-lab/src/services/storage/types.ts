@@ -2,6 +2,10 @@
  * Storage types and interfaces
  */
 
+import type {
+  Corpus,
+  CorpusConversation,
+} from '../../research-lab/types/local';
 import type { Conversation, Message, FilterOptions } from '../../types';
 
 export const StorageMode = {
@@ -86,6 +90,34 @@ export interface StorageAdapter {
   createSystemPrompt(systemPrompt: any, profileId: string): Promise<any>;
   updateSystemPrompt(systemPrompt: any, profileId: string): Promise<any>;
   deleteSystemPrompt(systemPromptId: string): Promise<string>;
+
+  // Research Lab types
+  getCorpora(profileId: string): Promise<Omit<Corpus, 'conversations'>[]>;
+  getCorpusById(corpusId: string): Promise<Omit<Corpus, 'conversations'>>;
+  createCorpus(
+    corpus: Corpus,
+    profileId: string
+  ): Promise<Omit<Corpus, 'conversations'>>;
+  updateCorpus(
+    corpus: Corpus,
+    profileId: string
+  ): Promise<Omit<Corpus, 'conversations'>>;
+  deleteCorpus(corpusId: string): Promise<void>;
+  getConversationsInCorpus(corpusId: string): Promise<CorpusConversation[]>;
+  getCorpusConversationById(
+    conversationId: string
+  ): Promise<CorpusConversation>;
+  createCorpusConversation(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): Promise<CorpusConversation>;
+  updateCorpusConversation(
+    corpusId: string,
+    conversation: CorpusConversation,
+    profileId: string
+  ): Promise<CorpusConversation>;
+  deleteCorpusConversation(conversationId: string): Promise<void>;
 
   // Sync operations
   sync(): Promise<void>;

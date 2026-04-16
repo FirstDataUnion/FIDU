@@ -31,6 +31,7 @@ import {
   Description as DocumentIcon,
   Help as HelpIcon,
   Home as HomeIcon,
+  Biotech as ResearchIcon,
   // CloudUpload as MigrationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -66,12 +67,14 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   const dispatch = useAppDispatch();
   const { user, currentWorkspace } = useAppSelector(state => state.auth);
   const unifiedStorage = useUnifiedStorage();
+  const isResearchLab = location.pathname.startsWith('/research-lab');
+  const isSidebarCloseable = isMobile || isResearchLab;
 
-  // Mobile sidebar state management
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // User-controlled sidebar state management for mobile and research lab
+  const [userSidebarOpen, setUserSidebarOpen] = useState(false);
 
   // Sidebar state: always open on desktop, controlled on mobile
-  const sidebarOpen = isMobile ? mobileSidebarOpen : true;
+  const sidebarOpen = isSidebarCloseable ? userSidebarOpen : true;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -170,6 +173,12 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       path: '/documents',
       enabled: useFeatureFlag('documents'),
     },
+    {
+      text: 'Research Lab',
+      icon: <ResearchIcon />,
+      path: '/research-lab',
+      enabled: useFeatureFlag('research_lab'),
+    },
   ];
 
   const systemMenuItems = [
@@ -185,16 +194,16 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
   ];
 
   const handleDrawerToggle = () => {
-    if (isMobile) {
-      setMobileSidebarOpen(!mobileSidebarOpen);
+    if (isSidebarCloseable) {
+      setUserSidebarOpen(!userSidebarOpen);
     }
     dispatch(toggleSidebar());
   };
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    if (isMobile) {
-      setMobileSidebarOpen(false);
+    if (isSidebarCloseable) {
+      setUserSidebarOpen(false);
       dispatch(toggleSidebar());
     }
   };
@@ -371,16 +380,20 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
           backgroundColor: theme.palette.background.paper,
           color: 'primary.contrastText',
+          ...(isSidebarCloseable
+            ? {}
+            : {
+                width: `calc(100% - ${drawerWidth}px)`,
+                ml: `${drawerWidth}px`,
+              }),
         }}
       >
         <Toolbar>
-          {isMobile && (
+          {isSidebarCloseable && (
             <IconButton
-              color="inherit"
+              color="primary"
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
@@ -498,13 +511,13 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
       <Box
         component="nav"
         sx={{
-          width: { md: drawerWidth },
+          width: isSidebarCloseable ? 0 : drawerWidth,
           flexShrink: { md: 0 },
           height: '100vh',
         }}
       >
         <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
+          variant={isSidebarCloseable ? 'temporary' : 'permanent'}
           open={sidebarOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
@@ -529,13 +542,17 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: `calc(100vw - ${drawerWidth}px)` },
-          maxWidth: { md: `calc(100vw - ${drawerWidth}px)` },
           overflow: 'hidden',
           height: '100vh',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
+          ...(isSidebarCloseable
+            ? { width: '100vw', maxWidth: '100vw' }
+            : {
+                width: `calc(100vw - ${drawerWidth}px)`,
+                maxWidth: `calc(100vw - ${drawerWidth}px)`,
+              }),
         }}
       >
         <Toolbar sx={{ flexShrink: 0 }} />

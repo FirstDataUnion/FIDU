@@ -215,6 +215,54 @@ export class GoogleDriveService {
   }
 
   /**
+   * Create a new folder in Google Drive.
+   * If parentId is undefined, creates it in the root.
+   */
+  async createFolder(name: string, parentId?: string): Promise<string> {
+    return this.trackGoogleApiRequest('createFolder', async () => {
+      const accessToken = await this.authService.getAccessToken();
+
+      const metadata: { name: string; mimeType: string; parents: string[] } = {
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId ?? 'root'],
+      };
+
+      // Include supportsAllDrives=true to support shared folders and shared drives
+      const response = await fetch(
+        'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadata),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response
+          .text()
+          .catch(() => 'Unable to read error response');
+        throw new Error(
+          `Failed to create folder: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const result: { id?: string } = await response.json();
+      if (!result.id) {
+        throw new Error(
+          'Failed to create folder: missing folder id in response'
+        );
+      }
+
+      return result.id;
+    });
+  }
+
+  /**
    * Upload a file to the app data folder, replacing if it exists
    */
   async uploadFile(

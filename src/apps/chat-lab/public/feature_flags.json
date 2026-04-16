@@ -73,5 +73,12 @@
         "user_configurable": true,
         "default_enabled": true,
         "experimental": true
-    }    
+    },
+    "research_lab" : {
+        "enabled": true,
+        "user_configurable": true,
+        "default_enabled": false,
+        "experimental": true,
+        "depends_on": ["direct_openrouter"]
+    }
 }

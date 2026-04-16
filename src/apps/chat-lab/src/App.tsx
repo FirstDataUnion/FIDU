@@ -54,6 +54,7 @@ import {
 } from './utils/storageFeatureChecks';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
+import ResearchLabRoutes from './research-lab/ResearchLabRoutes';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -1111,6 +1112,10 @@ const AppContent: React.FC<AppContentProps> = () => {
                           </StorageFeatureGuard>
                         </FeatureFlagGuard>
                       }
+                    />
+                    <Route
+                      path="/research-lab/*"
+                      element={<ResearchLabRoutes />}
                     />
                     <Route path="/workspaces" element={<WorkspacesPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
