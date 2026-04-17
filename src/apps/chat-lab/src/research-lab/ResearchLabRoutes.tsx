@@ -1,14 +1,10 @@
-import { Routes, Route, Outlet, useParams } from 'react-router-dom';
+import { Routes, Route, Outlet } from 'react-router-dom';
 import { FeatureFlagGuard } from '../components/common/FeatureFlagGuard';
 import ResearchLabPage from './pages/ResearchLabPage';
 import CorpusPage from './pages/CorpusPage';
 import SelectConversationPanel from './components/SelectConversationPanel';
 import AddSourcePanel from './components/AddSourcePanel';
-
-function CorpusConversationPanel() {
-  const { conversationId } = useParams();
-  return <div>Conversation view {conversationId}</div>;
-}
+import CorpusConversationPanel from './components/CorpusConversationPanel';
 
 export default function ResearchLabRoutes() {
   return (

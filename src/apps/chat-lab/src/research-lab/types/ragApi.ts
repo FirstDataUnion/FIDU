@@ -1,3 +1,5 @@
+import type { OpenRouterStreamChunk } from '../../types/openRouter';
+
 export type ProviderCredentials = {
   google_drive?: {
     oauth_token: string;
@@ -65,4 +67,39 @@ export type IngestQueueStatus = {
   queue_status: 'empty' | 'running' | 'completed';
   total_queue_size: number;
   remaining_queue_size: number;
+};
+
+// SSE events
+export type SseEvent =
+  | StartingProcessEvent
+  | SearchResultsEvent
+  | FiduError
+  | OpenRouterStreamChunk;
+
+export type StartingProcessEvent = {
+  source: 'fidu_rag';
+  type: 'starting_process';
+  step_uuid: string;
+  description: string;
+};
+
+export type SearchResultsEvent = {
+  source: 'fidu_rag';
+  type: 'search_results';
+  step_uuid: string;
+  search_results: CortexSearchResult[];
+};
+
+export type CortexSearchResult = {
+  doc_id: string;
+  score: number;
+  content: string;
+  chunk_metadata: Record<string, string>;
+  document_metadata: Record<string, any>;
+};
+
+export type FiduError = {
+  source: 'fidu_rag';
+  type: 'error';
+  error: string;
 };

@@ -15,6 +15,7 @@ import {
   type OpenRouterZdrEndpointsResponse,
   type OpenRouterError,
 } from '../../types/openRouter';
+import { handleSSEStream } from '../../utils/sseStreamHandling';
 
 // OpenRouter API Configuration
 const OPENROUTER_API_CONFIG = {
@@ -87,28 +88,14 @@ class OpenRouterAPIClient {
   /**
    * Handle API errors with OpenRouter-specific error handling
    */
-  private async handleError(response: any): Promise<never> {
+  private async handleError(response: Response): Promise<never> {
     let errorData: OpenRouterError | any;
 
-    // Handle both fetch Response and axios response
-    const status = response.status || response.statusCode || 500;
-    const statusText = response.statusText || 'Unknown error';
+    const status = response.status;
+    const statusText = response.statusText;
 
     try {
-      // If it's an axios response, data is already parsed
-      if (response.data) {
-        errorData = response.data;
-      } else if (typeof response.json === 'function') {
-        // If it's a fetch Response, parse JSON
-        errorData = await response.json();
-      } else {
-        errorData = {
-          error: {
-            message: statusText,
-            type: 'unknown',
-          },
-        };
-      }
+      errorData = await response.json();
     } catch {
       errorData = {
         error: {
@@ -129,8 +116,9 @@ class OpenRouterAPIClient {
     }
 
     if (status === 429) {
-      const headers = response.headers || {};
-      const retryAfter = headers['retry-after'] || headers['Retry-After'];
+      const headers = response.headers;
+      const retryAfter =
+        headers.get('retry-after') || headers.get('Retry-After');
       throw new OpenRouterAPIError(
         `Rate limit exceeded. ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please try again later.'}`,
         status,
@@ -326,50 +314,6 @@ class OpenRouterAPIClient {
   }
 
   /**
-   * Get auth headers for fetch requests (used for streaming)
-   * Uses axios interceptors to get the Authorization header
-   */
-  private async getAuthHeadersForFetch(): Promise<HeadersInit> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    try {
-      // Create a dummy config and run it through axios interceptors
-      // to get the Authorization header
-      const dummyConfig: any = {
-        headers: {},
-        url: this.getBaseUrl(),
-        method: 'GET',
-      };
-
-      // Run through request interceptors to add auth
-      const handlers = this.client.interceptors.request.handlers;
-      if (handlers) {
-        for (const handler of handlers) {
-          if (handler.fulfilled) {
-            const processedConfig = await handler.fulfilled(dummyConfig);
-            if (processedConfig && processedConfig.headers?.Authorization) {
-              headers['Authorization'] = processedConfig.headers
-                .Authorization as string;
-              console.log('[OpenRouter] Got auth header for streaming request');
-              break;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(
-        '[OpenRouter] Failed to get auth headers for streaming:',
-        error
-      );
-      // Continue without auth - gateway should handle or return clear error
-    }
-
-    return headers;
-  }
-
-  /**
    * Create a streaming chat completion
    * Returns an async generator that yields stream chunks
    * Uses fetch for streaming support
@@ -379,7 +323,9 @@ class OpenRouterAPIClient {
     abortSignal?: AbortSignal
   ): AsyncGenerator<OpenRouterStreamChunk, void, unknown> {
     const url = `${this.getBaseUrl()}/chat/completions`;
-    const headers = await this.getAuthHeadersForFetch();
+    const headers = {
+      'Content-Type': 'application/json',
+    };
 
     // Ensure stream is true for streaming
     const requestBody = { ...request, stream: true };
@@ -391,7 +337,7 @@ class OpenRouterAPIClient {
     });
 
     try {
-      const response = await fetch(url, {
+      const response = await this.authService.authenticatedFetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),
@@ -411,74 +357,7 @@ class OpenRouterAPIClient {
         );
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) {
-              continue;
-            }
-
-            // OpenRouter uses Server-Sent Events format: "data: {...}"
-            if (trimmedLine.startsWith('data: ')) {
-              const dataStr = trimmedLine.slice(6); // Remove "data: " prefix
-
-              if (dataStr === '[DONE]') {
-                return; // End of stream
-              }
-
-              try {
-                const chunk: OpenRouterStreamChunk = JSON.parse(dataStr);
-                yield chunk;
-              } catch (parseError) {
-                console.warn('[OpenRouter] Failed to parse stream chunk:', {
-                  dataStr,
-                  error: parseError,
-                });
-                // Continue processing other chunks
-              }
-            }
-          }
-        }
-
-        // Process any remaining data in buffer
-        if (buffer.trim()) {
-          const trimmedLine = buffer.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            const dataStr = trimmedLine.slice(6);
-            if (dataStr !== '[DONE]') {
-              try {
-                const chunk: OpenRouterStreamChunk = JSON.parse(dataStr);
-                yield chunk;
-              } catch (parseError) {
-                console.warn(
-                  '[OpenRouter] Failed to parse final stream chunk:',
-                  {
-                    dataStr,
-                    error: parseError,
-                  }
-                );
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
+      yield* handleSSEStream<OpenRouterStreamChunk>(response.body);
     } catch (error) {
       if (error instanceof OpenRouterAPIError) {
         throw error;

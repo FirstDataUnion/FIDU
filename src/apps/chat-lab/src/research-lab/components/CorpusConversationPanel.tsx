@@ -1,0 +1,397 @@
+import {
+  IconButton,
+  Box,
+  TextField,
+  InputAdornment,
+  Paper,
+  ListItemText,
+} from '@mui/material';
+import { Send as SendIcon } from '@mui/icons-material';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
+import type {
+  CorpusMessage,
+  CorpusMessageError,
+  CorpusMessageModel,
+  CorpusMessageRagInfo,
+  CorpusMessageUser,
+} from '../types/local';
+import { EnhancedMarkdown } from '../../components/common/EnhancedMarkdown';
+import type { CorpusLocation } from '../types/ragApi';
+import { createRagApiClient } from '../services/apiClientRag';
+import type {
+  OpenRouterMessage,
+  OpenRouterStreamChunk,
+} from '../../types/openRouter';
+import { CollapsibleFragmentList } from './CollapsibleFragmentList';
+
+function BaseMessage({
+  side,
+  color,
+  children,
+}: {
+  side: 'left' | 'right';
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Paper
+      sx={{
+        mb: 2,
+        p: 2,
+        pt: 0.5,
+        maxWidth: '90%',
+        minWidth: '60%',
+        backgroundColor: color,
+        color: 'white',
+        borderRadius: 2,
+        ...(side === 'left' ? { mr: 'auto' } : { ml: 'auto' }),
+      }}
+    >
+      {children}
+    </Paper>
+  );
+}
+
+function UserMessage({ message }: { message: CorpusMessageUser }) {
+  return (
+    <BaseMessage side="right" color="primary.main">
+      <EnhancedMarkdown content={message.content} showCopyButtons={true} />
+    </BaseMessage>
+  );
+}
+
+function ModelMessage({ message }: { message: CorpusMessageModel }) {
+  return (
+    // TODO: Get model color from model info
+    <BaseMessage side="left" color="#f08c00">
+      <EnhancedMarkdown content={message.content} showCopyButtons={true} />
+    </BaseMessage>
+  );
+}
+
+function ErrorMessage({ message }: { message: CorpusMessageError }) {
+  return (
+    <BaseMessage side="left" color="error.main">
+      <EnhancedMarkdown content={message.error} showCopyButtons={true} />
+    </BaseMessage>
+  );
+}
+
+function RAGInfoMessage({
+  message,
+  processesCollapsed,
+  resultsCollapsed,
+  onToggleProcesses,
+  onToggleResults,
+}: {
+  message: CorpusMessageRagInfo;
+  processesCollapsed: boolean;
+  resultsCollapsed: boolean;
+  onToggleProcesses: () => void;
+  onToggleResults: () => void;
+}) {
+  return (
+    <BaseMessage side="left" color="secondary.main">
+      <Box sx={{ pt: 1.5 }}>
+        <CollapsibleFragmentList
+          title="Process steps"
+          collapsed={processesCollapsed}
+          onToggle={onToggleProcesses}
+        >
+          {message.processes.map((process, idx) => (
+            <ListItemText
+              key={`${idx}-${process}`}
+              primary={process}
+              slotProps={{
+                primary: {
+                  variant: 'body2',
+                  sx: { opacity: 0.95 },
+                },
+              }}
+            />
+          ))}
+        </CollapsibleFragmentList>
+      </Box>
+      <Box sx={{ pt: 1 }}>
+        <CollapsibleFragmentList
+          title="Search results"
+          collapsed={resultsCollapsed}
+          onToggle={onToggleResults}
+          collapsedVisibleCount={0}
+        >
+          {message.searchResults.map((result, idx) => (
+            <ListItemText
+              key={`${idx}-${result.documentId}`}
+              primary={`${result.documentMetadata.title} - ${result.chunkMetadata.chunk_index}`}
+              secondary={<EnhancedMarkdown content={result.content} />}
+            />
+          ))}
+        </CollapsibleFragmentList>
+      </Box>
+    </BaseMessage>
+  );
+}
+
+export default function CorpusConversationPanel() {
+  const { conversationId } = useParams();
+  const { corpus, conversationInfo, sourceInfo } = useCorpusSessionContext();
+  const conversation = useMemo(() => {
+    return conversationInfo?.conversations.find(
+      conversation => conversation.id === conversationId
+    );
+  }, [conversationInfo, conversationId]);
+
+  const [streamingMessages, setStreamingMessages] = useState<CorpusMessage[]>(
+    []
+  );
+  const [prompt, setPrompt] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const isStreamingRef = useRef(false);
+
+  const [
+    processesCollapsedByMessageIndex,
+    setProcessesCollapsedByMessageIndex,
+  ] = useState<Record<number, boolean>>({});
+  const [resultsCollapsedByMessageIndex, setResultsCollapsedByMessageIndex] =
+    useState<Record<number, boolean>>({});
+
+  const handleSendMessage = useCallback(async () => {
+    if (!conversation || !corpus || !sourceInfo) {
+      return;
+    }
+    if (isStreamingRef.current) {
+      return;
+    }
+    isStreamingRef.current = true;
+    setIsStreaming(true);
+    const promptMessage: CorpusMessageUser = {
+      type: 'user',
+      content: prompt,
+      sentAt: new Date().toISOString(),
+    };
+    await conversationInfo?.addMessages(conversation, [promptMessage]);
+    setPrompt('');
+
+    const ragApiClient = createRagApiClient();
+    const corpusLocation: CorpusLocation = {
+      provider: 'fidu_rag',
+      engine: 'cortexdb',
+      database_file_location: {
+        provider: 'google_drive',
+        file_id: corpus.databaseLocation.fileId,
+      },
+    };
+    const typeMap = {
+      user: 'user' as const,
+      model: 'assistant' as const,
+    };
+    const messages = conversation?.messages.reduce(
+      (acc, msg) => [
+        ...acc,
+        ...(msg.type === 'user' || msg.type === 'model'
+          ? [{ role: typeMap[msg.type], content: msg.content }]
+          : []),
+      ],
+      [] as OpenRouterMessage[]
+    );
+    const si = sourceInfo;
+    const sources = si.allSourcesSelected
+      ? []
+      : si.sources
+          .filter(s => si.sourceSelection[si.sourceStringId(s)])
+          .map(s => ({
+            provider: 'google_drive' as const,
+            file_id: s.id.provider === 'google_drive' ? s.id.fileId : '',
+          }));
+    const stream = ragApiClient.callChatCompletion(
+      corpusLocation,
+      {
+        model: 'openrouter/auto',
+        messages: [...messages, { role: 'user', content: prompt }],
+      },
+      prompt,
+      sources
+    );
+
+    const newMessages: CorpusMessage[] = [];
+    const newMessagesById = new Map<string, CorpusMessage>();
+    function getStepMessage(stepUuid: string): CorpusMessageRagInfo {
+      let stepMessage = newMessagesById.get(stepUuid) as
+        | CorpusMessageRagInfo
+        | undefined;
+      if (!stepMessage) {
+        stepMessage = {
+          type: 'rag-info',
+          processes: [],
+          searchResults: [],
+        };
+        newMessages.push(stepMessage);
+        newMessagesById.set(stepUuid, stepMessage);
+      }
+      return stepMessage;
+    }
+    for await (const event of stream) {
+      if ('source' in event && event.source === 'fidu_rag') {
+        switch (event.type) {
+          case 'starting_process': {
+            const stepMessage = getStepMessage(event.step_uuid);
+            stepMessage.processes = [
+              ...stepMessage.processes,
+              event.description,
+            ];
+            break;
+          }
+          case 'search_results': {
+            const stepMessage = getStepMessage(event.step_uuid);
+            stepMessage.searchResults = [
+              ...stepMessage.searchResults,
+              ...event.search_results.map(r => ({
+                documentId: r.doc_id,
+                score: r.score,
+                content: r.content,
+                chunkMetadata: r.chunk_metadata,
+                documentMetadata: r.document_metadata,
+              })),
+            ];
+            break;
+          }
+          case 'error': {
+            newMessages.push({
+              type: 'error' as const,
+              error: event.error,
+            });
+            break;
+          }
+        }
+      } else {
+        const chunk = event as OpenRouterStreamChunk;
+        let chunkMessage = newMessagesById.get(chunk.id) as
+          | CorpusMessageModel
+          | undefined;
+        if (!chunkMessage) {
+          chunkMessage = {
+            type: 'model',
+            model: chunk.model,
+            content: '',
+            finishedAt: new Date().toISOString(),
+          };
+          newMessages.push(chunkMessage);
+          newMessagesById.set(chunk.id, chunkMessage);
+        }
+        chunkMessage.content += chunk.choices[0].delta.content;
+        chunkMessage.finishedAt = new Date().toISOString();
+      }
+      setStreamingMessages([...newMessages]);
+    }
+
+    await conversationInfo?.addMessages(conversation, [
+      promptMessage,
+      ...newMessages,
+    ]);
+    setStreamingMessages([]);
+    setIsStreaming(false);
+    isStreamingRef.current = false;
+  }, [prompt, conversationInfo, conversation, corpus, setPrompt, sourceInfo]);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+      }}
+    >
+      <Box
+        sx={{
+          p: 2,
+          height: 'calc(100% - 8em)',
+          overflowY: 'scroll',
+        }}
+      >
+        {[...(conversation?.messages ?? []), ...streamingMessages].map(
+          (message, i) => {
+            switch (message.type) {
+              case 'user':
+                return <UserMessage key={i} message={message} />;
+              case 'model':
+                return <ModelMessage key={i} message={message} />;
+              case 'rag-info':
+                return (
+                  <RAGInfoMessage
+                    key={i}
+                    message={message}
+                    processesCollapsed={
+                      processesCollapsedByMessageIndex[i] ?? true
+                    }
+                    resultsCollapsed={resultsCollapsedByMessageIndex[i] ?? true}
+                    onToggleProcesses={() =>
+                      setProcessesCollapsedByMessageIndex(prev => ({
+                        ...prev,
+                        [i]: !(prev[i] ?? true),
+                      }))
+                    }
+                    onToggleResults={() =>
+                      setResultsCollapsedByMessageIndex(prev => ({
+                        ...prev,
+                        [i]: !(prev[i] ?? true),
+                      }))
+                    }
+                  />
+                );
+              case 'error':
+                return <ErrorMessage key={i} message={message} />;
+              default: {
+                const _exhaustive: never = message;
+                return _exhaustive;
+              }
+            }
+          }
+        )}
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          height: '8em',
+          width: '100%',
+          mt: 'auto',
+        }}
+      >
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          placeholder="Type your message..."
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    disabled={!prompt.trim() || isStreaming}
+                    onClick={handleSendMessage}
+                    sx={{
+                      width: '40px',
+                      minWidth: '20px',
+                      height: '40px',
+                      minHeight: '20px',
+                      borderRadius: '50%',
+                      backgroundColor: 'primary.main',
+                      color: 'primary.contrastText',
+                      '&:hover': { backgroundColor: 'primary.dark' },
+                    }}
+                  >
+                    <SendIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}

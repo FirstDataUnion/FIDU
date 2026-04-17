@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Corpus,
   CorpusConversation,
+  CorpusMessage,
   CorpusSource,
   CorpusSourceId,
 } from '../types/local';
@@ -25,6 +26,7 @@ import type {
   Source,
   SourceFileLocation,
 } from '../types/ragApi';
+import { useAppSelector } from '../../store';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -94,6 +96,16 @@ function selectAllSources(
   );
 }
 
+async function fetchConversations(
+  corpusId: string | undefined
+): Promise<CorpusConversation[]> {
+  if (!corpusId) {
+    return [];
+  }
+  const storageAdapter = getStorageService().getAdapter();
+  return await storageAdapter.getConversationsInCorpus(corpusId);
+}
+
 function useIngestQueuePolling(
   corpus: Corpus | undefined,
   enabled: boolean,
@@ -158,6 +170,7 @@ function useIngestQueuePolling(
 export default function CorpusPage() {
   const { corpusId } = useParams();
   const location = useLocation();
+  const { currentProfile } = useAppSelector(state => state.auth);
   const [corpus, setCorpus] = useState<Corpus | undefined>();
   const [conversations, setConversations] = useState<
     CorpusConversation[] | undefined
@@ -210,16 +223,12 @@ export default function CorpusPage() {
       return;
     }
     let cancelled = false;
-    const fetchConversations = async () => {
-      const storageAdapter = getStorageService().getAdapter();
-      const conversations =
-        await storageAdapter.getConversationsInCorpus(corpusId);
+    fetchConversations(corpusId).then(conversations => {
       if (cancelled) {
         return;
       }
       setConversations(conversations);
-    };
-    fetchConversations();
+    });
     return () => {
       cancelled = true;
     };
@@ -253,6 +262,28 @@ export default function CorpusPage() {
     previousSourceIds.current = new Set(sources.map(sourceStringId));
   }, [sources, sourceSelection]);
 
+  const addMessages = useCallback(
+    async (conversation: CorpusConversation, messages: CorpusMessage[]) => {
+      if (!currentProfile || !corpusId) {
+        return;
+      }
+      const update = {
+        ...conversation,
+        messages: [...conversation.messages, ...messages],
+      };
+      const adapter = getStorageService().getAdapter();
+      const newConversation = await adapter.updateCorpusConversation(
+        corpusId,
+        update,
+        currentProfile.id
+      );
+      setConversations(prev =>
+        prev?.map(c => (c.id === conversation.id ? newConversation : c))
+      );
+    },
+    [corpusId, currentProfile]
+  );
+
   const pollIngestQueueStatus = useCallback(
     () => setIngestQueuePollingEnabled(true),
     []
@@ -282,6 +313,9 @@ export default function CorpusPage() {
       corpus,
       conversationInfo: conversations && {
         conversations,
+        reloadConversations: () =>
+          fetchConversations(corpusId).then(setConversations),
+        addMessages,
       },
       sourceInfo: sources && {
         allSourcesSelected,
@@ -297,6 +331,7 @@ export default function CorpusPage() {
     [
       corpus,
       conversations,
+      addMessages,
       sources,
       allSourcesSelected,
       toggleAllSourcesSelected,
@@ -304,6 +339,7 @@ export default function CorpusPage() {
       setOneSourceSelection,
       pollIngestQueueStatus,
       ingestQueueSourcesRemaining,
+      corpusId,
     ]
   );
 

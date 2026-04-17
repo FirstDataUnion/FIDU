@@ -786,6 +786,77 @@ export class FiduAuthService {
     };
   }
 
+  async authenticatedFetch(
+    ...fetchParams: Parameters<typeof fetch>
+  ): Promise<Response> {
+    let token: string | null = null;
+    try {
+      await getFiduAuthService().ensureAccessToken({
+        onWait: () => console.log('🔐 Ensuring FIDU auth before fetch...'),
+      });
+      token = this.cachedAccessToken;
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        this.clearAllAuthTokens();
+        await this.dispatchLogout();
+        throw error;
+      }
+      if (error instanceof TokenAcquisitionTimeoutError) {
+        throw error;
+      }
+      console.warn('Failed to ensure FIDU auth token before request:', error);
+      throw new Error('Authentication required. Please log in again.');
+    }
+    const authHeader = { Authorization: `Bearer ${token}` };
+
+    function addAuthHeader(
+      fetchParams: Parameters<typeof fetch>,
+      authHeader: { Authorization: string }
+    ) {
+      if (fetchParams[1]?.headers != undefined) {
+        fetchParams[1].headers = {
+          ...fetchParams[1].headers,
+          ...authHeader,
+        };
+      } else if (fetchParams[0] instanceof Request) {
+        fetchParams[1] = fetchParams[1] ?? {};
+        fetchParams[1].headers = {
+          ...fetchParams[0].headers,
+          ...authHeader,
+        };
+      } else {
+        fetchParams[1] = fetchParams[1] ?? {};
+        fetchParams[1].headers = authHeader;
+      }
+    }
+    addAuthHeader(fetchParams, authHeader);
+
+    const response = await fetch(...fetchParams);
+    if (response.status === 401) {
+      try {
+        const newToken = await this.refreshAccessTokenWithRetry();
+        addAuthHeader(fetchParams, { Authorization: `Bearer ${newToken}` });
+        const response = await fetch(...fetchParams);
+        if (response.status === 401) {
+          this.clearAllAuthTokens();
+          await this.dispatchLogout();
+          throw new AuthenticationRequiredError(
+            'Authentication required. Please log in again.'
+          );
+        }
+        return response;
+      } catch (error) {
+        if (error instanceof AuthenticationRequiredError) {
+          this.clearAllAuthTokens();
+          await this.dispatchLogout();
+          throw error;
+        }
+        throw error;
+      }
+    }
+    return response;
+  }
+
   /**
    * Dispatch logout action to update Redux state
    * This ensures the UI properly reflects the authentication state change

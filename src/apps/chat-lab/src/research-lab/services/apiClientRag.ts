@@ -13,11 +13,15 @@ import type {
   IngestQueueStatus,
   FileLocation,
   AppendToIngestQueueRequest,
+  SseEvent,
 } from '../types/ragApi';
+import type { OpenRouterChatRequest } from '../../types/openRouter';
+import { handleSSEStream } from '../../utils/sseStreamHandling';
 
 class RagApiClient {
   private baseUrl: string;
   private client: AxiosInstance;
+  private authService: ReturnType<typeof getFiduAuthService>;
 
   constructor() {
     this.baseUrl = getGatewayUrl() + '/api/rag/v1';
@@ -27,12 +31,12 @@ class RagApiClient {
         'Content-Type': 'application/json',
       },
     });
+    this.authService = getFiduAuthService();
     this.setupInterceptors();
   }
 
   private setupInterceptors(): void {
-    const authService = getFiduAuthService();
-    const authInterceptor = authService.createAuthInterceptor();
+    const authInterceptor = this.authService.createAuthInterceptor();
     this.client.interceptors.request.use(authInterceptor.request, error =>
       Promise.reject(error)
     );
@@ -101,6 +105,43 @@ class RagApiClient {
       request satisfies CorpusIdentifyingRequest
     );
     return response.data.sources;
+  }
+
+  async *callChatCompletion(
+    corpus: CorpusLocation,
+    request: OpenRouterChatRequest,
+    searchQuery: string,
+    files: FileLocation[],
+    abortSignal?: AbortSignal
+  ): AsyncGenerator<SseEvent, void, unknown> {
+    const url = `${this.baseUrl}/corpus/completion`;
+    const requestBody = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+      files: files.map(file => ({
+        provider: 'google_drive',
+        file_id: file.file_id,
+      })),
+      search_query: searchQuery,
+      open_router_request_body: { ...request, stream: true },
+    };
+    const response = await this.authService.authenticatedFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: abortSignal || AbortSignal.timeout(20 * 60 * 1000),
+    });
+    if (!response.ok) {
+      console.error('Failed to call chat completion:', response.statusText);
+      return;
+    }
+    if (!response.body) {
+      console.error('Response body is null');
+      return;
+    }
+    yield* handleSSEStream<SseEvent>(response.body);
   }
 
   private async getProviderCredentials(): Promise<ProviderCredentials> {

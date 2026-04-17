@@ -1,11 +1,21 @@
 import { createContext } from 'react';
-import type { Corpus, CorpusConversation, CorpusSource } from '../types/local';
+import type {
+  Corpus,
+  CorpusConversation,
+  CorpusMessage,
+  CorpusSource,
+} from '../types/local';
 import { useContext } from 'react';
 
 export interface CorpusSessionContextValue {
   corpus?: Corpus;
   conversationInfo?: {
     conversations: CorpusConversation[];
+    reloadConversations: () => Promise<void>;
+    addMessages: (
+      conversation: CorpusConversation,
+      messages: CorpusMessage[]
+    ) => Promise<void>;
   };
   sourceInfo?: {
     allSourcesSelected: boolean;

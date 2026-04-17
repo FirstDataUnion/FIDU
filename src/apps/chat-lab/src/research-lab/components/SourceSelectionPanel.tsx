@@ -14,6 +14,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
 import type { CorpusSource } from '../types/local';
+import { formatDate } from '../utils';
 
 const mimeTypeColourMap: Record<string, string> = {
   'application/pdf': '#e03131',
@@ -22,14 +23,6 @@ const mimeTypeColourMap: Record<string, string> = {
 
 function getMimeTypeColour(mimeType: string): string {
   return mimeTypeColourMap[mimeType] ?? 'text.secondary';
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-GB', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 }
 
 function openExternal(source: CorpusSource): void {

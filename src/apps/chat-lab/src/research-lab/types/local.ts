@@ -26,7 +26,8 @@ export interface CorpusConversation {
 export type CorpusMessage =
   | CorpusMessageUser
   | CorpusMessageModel
-  | CorpusMessageRagInfo;
+  | CorpusMessageRagInfo
+  | CorpusMessageError;
 
 export interface CorpusMessageUser {
   type: 'user';
@@ -36,12 +37,28 @@ export interface CorpusMessageUser {
 
 export interface CorpusMessageModel {
   type: 'model';
+  model: string;
   content: string;
   finishedAt: string;
 }
 
+export interface CorpusMessageError {
+  type: 'error';
+  error: string;
+}
+
 export interface CorpusMessageRagInfo {
   type: 'rag-info';
+  processes: string[];
+  searchResults: CortexSearchResult[];
+}
+
+export interface CortexSearchResult {
+  documentId: string;
+  score: number;
+  content: string;
+  chunkMetadata: Record<string, string>;
+  documentMetadata: Record<string, any>;
 }
 
 export interface CorpusSource {
