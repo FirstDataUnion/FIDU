@@ -108,25 +108,48 @@ groups:
             Check logs: sudo journalctl -u fidu-chat-lab-{{ $labels.environment }} -n 100
           runbook_url: "https://docs.fidu.com/runbooks/high-error-rate"
 
-      # No successful requests (potential complete failure)
-      - alert: ChatLabNoSuccessfulRequests
+      # High 5xx error rate with traffic gate (prod)
+      - alert: ChatLabHigh5xxErrorRate
         expr: |
-          sum(rate(chatlab_backend_requests_total{environment="prod",status=~"2.."}[5m])) == 0
+          (
+            sum(increase(chatlab_backend_requests_total{environment="prod"}[10m])) >= 20
+          )
           and
-          sum(rate(chatlab_backend_requests_total{environment="prod"}[5m])) > 0
+          (
+            sum(increase(chatlab_backend_requests_total{environment="prod",status=~"5.."}[10m]))
+            /
+            sum(increase(chatlab_backend_requests_total{environment="prod"}[10m]))
+          ) > 0.30
         for: 5m
         labels:
           severity: critical
           service: chatlab
           environment: prod
         annotations:
-          summary: "ChatLab (prod) has no successful requests"
+          summary: "ChatLab (prod) high 5xx error rate"
           description: |
-            Receiving requests but ALL are failing.
-            This indicates a critical service issue.
+            5xx error ratio is >30% over 10m with at least 20 requests.
+            This indicates users are actively impacted.
             
-            Check logs immediately: sudo journalctl -u fidu-chat-lab-prod -n 100
-          runbook_url: "https://docs.fidu.com/runbooks/all-requests-failing"
+            Check logs: sudo journalctl -u fidu-chat-lab-prod -n 200
+          runbook_url: "https://docs.fidu.com/runbooks/high-error-rate"
+
+      - alert: ChatLabElevated5xxErrorRate
+        expr: |
+          (
+            sum(increase(chatlab_backend_requests_total{environment="prod"}[10m])) >= 20
+          )
+          and
+          (
+            sum(increase(chatlab_backend_requests_total{environment="prod",status=~"5.."}[10m]))
+            /
+            sum(increase(chatlab_backend_requests_total{environment="prod"}[10m]))
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          service: chatlab
+          environment: prod
 
       # ============================================================================
       # WARNING: Service Degradation
