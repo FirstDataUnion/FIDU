@@ -11,6 +11,8 @@ import type {
   CorpusLocation,
   CorpusIdentifyingRequest,
   IngestQueueStatus,
+  FileLocation,
+  AppendToIngestQueueRequest,
 } from '../types/ragApi';
 
 class RagApiClient {
@@ -55,6 +57,24 @@ class RagApiClient {
       provider: 'google_drive',
       fileId: response.data.location.file_id,
     };
+  }
+
+  async ingestFiles(
+    corpus: CorpusLocation,
+    files: FileLocation[]
+  ): Promise<void> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+      files: files.map(file => ({
+        action: 'add_or_replace' as const,
+        location: file,
+      })),
+    };
+    await this.client.put<void>(
+      '/corpus/ingest-queue',
+      request satisfies AppendToIngestQueueRequest
+    );
   }
 
   async getIngestQueueStatus(

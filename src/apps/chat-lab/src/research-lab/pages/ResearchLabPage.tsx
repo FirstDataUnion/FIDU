@@ -28,6 +28,24 @@ function formatDateTime(dateTime: string) {
   return new Date(dateTime).toLocaleString();
 }
 
+function withParentFolderId(
+  location: { provider: 'google_drive'; fileId: string },
+  parentFolderId: string
+): { provider: 'google_drive'; fileId: string; parentFolderId: string };
+function withParentFolderId<L extends { provider: string }>(
+  location: L,
+  _parentFolderId: string
+): L;
+function withParentFolderId<L extends { provider: string }>(
+  location: L,
+  parentFolderId: string
+) {
+  if (location.provider === 'google_drive') {
+    return { ...location, parentFolderId };
+  }
+  return location;
+}
+
 async function createNewFolder(name: string, parentFolderId?: string) {
   const googleDriveAuthService = await getGoogleDriveAuthService();
   const googleDriveService = new GoogleDriveService(googleDriveAuthService);
@@ -105,6 +123,8 @@ export default function ResearchLabPage() {
       parent,
     });
 
+    const databaseLocation = withParentFolderId(location, parent.file_id);
+
     const storageService = getStorageService();
     const corpus = await storageService.getAdapter().createCorpus(
       {
@@ -113,7 +133,7 @@ export default function ResearchLabPage() {
         description: form.description,
         createdAt: new Date().toISOString(),
         lastOpenedAt: new Date().toISOString(),
-        databaseLocation: location,
+        databaseLocation,
         tags: [],
       },
       currentProfile.id

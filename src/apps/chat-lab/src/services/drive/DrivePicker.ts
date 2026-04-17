@@ -27,6 +27,12 @@ export interface PickFolderResult {
   reason?: 'cancelled';
 }
 
+export type PickedDriveDocument = {
+  id: string;
+  name?: string;
+  mimeType?: string;
+};
+
 export interface PickerInstructions {
   folderName: string;
   folderId: string;
@@ -42,14 +48,15 @@ export class DrivePicker {
   }
 
   /**
-   * Pick any folder from the user's Drive (returns folder id + name).
-   * This does NOT verify that the app can access the folder via API later;
-   * callers should verify access if they need to read/write within it.
+   * Open the folder picker and let the user choose a folder.
+   * Returns both id and a best-effort name for UI display.
    */
-  async pickFolder(options?: {
-    title?: string;
+  private async openFolderPicker(options: {
+    title: string;
     query?: string;
-  }): Promise<PickFolderResult> {
+  }): Promise<{ folderId: string; folderName?: string } | null> {
+    const { title, query } = options;
+
     await this.loadPickerApi();
     const accessToken = await this.authService.getAccessToken();
 
@@ -64,20 +71,30 @@ export class DrivePicker {
 
       const builder = new googlePicker.PickerBuilder()
         .setOAuthToken(accessToken)
-        .setAppId(clientId);
+        .setAppId(clientId)
+        .setTitle(title);
 
-      builder.setTitle(options?.title || 'Select a Google Drive folder');
-
-      const view = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
+      const sharedView = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
         .setIncludeFolders(true)
         .setSelectFolderEnabled(true)
         .setMimeTypes('application/vnd.google-apps.folder');
 
-      if (options?.query) {
-        view.setQuery(options.query);
+      if (query) {
+        sharedView.setQuery(query);
       }
 
-      builder.addView(view);
+      builder.addView(sharedView);
+
+      const myDriveView = new googlePicker.DocsView(googlePicker.ViewId.FOLDERS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(true)
+        .setMimeTypes('application/vnd.google-apps.folder');
+
+      if (query) {
+        myDriveView.setQuery(query);
+      }
+
+      builder.addView(myDriveView);
 
       let callbackFired = false;
       builder.setCallback((data: any) => {
@@ -98,20 +115,167 @@ export class DrivePicker {
           const folderName: string | undefined =
             folder?.name || folder?.title || folder?.documentName;
 
-          resolve({
-            success: Boolean(folderId),
-            folderId,
-            folderName,
-          });
+          if (!folderId) {
+            resolve(null);
+            return;
+          }
+
+          resolve({ folderId, folderName });
           return;
         }
 
-        resolve({ success: false, reason: 'cancelled' });
+        resolve(null);
       });
 
       const picker = builder.build();
       picker.setVisible(true);
     });
+  }
+
+  /**
+   * Pick any folder from the user's Drive (returns folder id + name).
+   * This does NOT verify that the app can access the folder via API later;
+   * callers should verify access if they need to read/write within it.
+   */
+  async pickFolder(options?: {
+    title?: string;
+    query?: string;
+  }): Promise<PickFolderResult> {
+    const picked = await this.openFolderPicker({
+      title: options?.title || 'Select a Google Drive folder',
+      query: options?.query,
+    });
+
+    if (!picked) {
+      return { success: false, reason: 'cancelled' };
+    }
+
+    return {
+      success: true,
+      folderId: picked.folderId,
+      folderName: picked.folderName,
+    };
+  }
+
+  /**
+   * Generic method to pick files from a folder (or Drive root) using Google Picker.
+   *
+   * The caller provides a callback function to process the selected documents.
+   * Documents are normalized to include stable `id`, and best-effort `name`/`mimeType`.
+   */
+  async pickFilesFromFolder<T>(config: {
+    folderId?: string;
+    title: string;
+    includeFolders?: boolean;
+    enableMultiSelect?: boolean;
+    onFilesPicked: (documents: PickedDriveDocument[]) => T;
+    onCancelled?: () => T;
+    metricsName?: string;
+  }): Promise<T> {
+    const {
+      folderId,
+      title,
+      includeFolders = false,
+      enableMultiSelect = true,
+      onFilesPicked,
+      onCancelled,
+      metricsName = 'picker_files',
+    } = config;
+
+    try {
+      await this.loadPickerApi();
+      const accessToken = await this.authService.getAccessToken();
+
+      if (!window.google?.picker) {
+        throw new Error('Google Picker API not loaded');
+      }
+
+      const googlePicker = window.google.picker;
+
+      return await new Promise((resolve, reject) => {
+        const clientId = this.authService.getClientId();
+
+        const builder = new googlePicker.PickerBuilder()
+          .setOAuthToken(accessToken)
+          .setAppId(clientId);
+
+        if (enableMultiSelect) {
+          builder.enableFeature(googlePicker.Feature.MULTISELECT_ENABLED);
+        }
+
+        builder.setTitle(title);
+
+        const filesView = new googlePicker.DocsView(googlePicker.ViewId.DOCS)
+          .setIncludeFolders(includeFolders)
+          .setSelectFolderEnabled(false);
+
+        if (folderId) {
+          filesView.setParent(folderId);
+        }
+
+        builder.addView(filesView);
+
+        let callbackFired = false;
+        builder.setCallback((data: any) => {
+          const action = data[googlePicker.Response.ACTION];
+
+          if (action === 'loaded') {
+            return;
+          }
+
+          if (callbackFired) {
+            return;
+          }
+          callbackFired = true;
+
+          if (action === googlePicker.Action.PICKED) {
+            const documents = data[googlePicker.Response.DOCUMENTS] || [];
+            try {
+              const normalized: PickedDriveDocument[] = documents
+                .map((doc: any) => {
+                  const id = doc?.id as string | undefined;
+                  if (!id) {
+                    return null;
+                  }
+                  const name: string | undefined =
+                    doc?.name || doc?.title || doc?.documentName;
+                  const mimeType: string | undefined = doc?.mimeType;
+                  return { id, name, mimeType };
+                })
+                .filter(Boolean) as PickedDriveDocument[];
+
+              const result = onFilesPicked(normalized);
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'success'
+              );
+              resolve(result);
+            } catch (error) {
+              MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+              reject(error);
+            }
+          } else {
+            try {
+              const result = onCancelled
+                ? onCancelled()
+                : onFilesPicked([]);
+              resolve(result);
+            } catch (error) {
+              MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+              reject(error);
+            }
+          }
+        });
+
+        const picker = builder.build();
+        picker.setVisible(true);
+      });
+    } catch (error) {
+      MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+      console.error('Failed to pick files from folder:', error);
+      throw error;
+    }
   }
 
   /**

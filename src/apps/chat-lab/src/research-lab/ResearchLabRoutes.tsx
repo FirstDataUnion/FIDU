@@ -3,6 +3,7 @@ import { FeatureFlagGuard } from '../components/common/FeatureFlagGuard';
 import ResearchLabPage from './pages/ResearchLabPage';
 import CorpusPage from './pages/CorpusPage';
 import SelectConversationPanel from './components/SelectConversationPanel';
+import AddSourcePanel from './components/AddSourcePanel';
 
 function CorpusConversationPanel() {
   const { conversationId } = useParams();
@@ -26,6 +27,7 @@ export default function ResearchLabRoutes() {
 
         <Route path="corpora/:corpusId" element={<CorpusPage />}>
           <Route index element={<SelectConversationPanel />} />
+          <Route path="add-source" element={<AddSourcePanel />} />
           <Route
             path="conversations/:conversationId"
             element={<CorpusConversationPanel />}

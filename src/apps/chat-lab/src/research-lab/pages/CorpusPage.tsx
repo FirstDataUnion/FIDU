@@ -10,7 +10,7 @@ import {
   CorpusSessionContext,
   type CorpusSessionContextValue,
 } from '../contexts/CorpusSessionContext';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Corpus,
   CorpusConversation,
@@ -77,6 +77,21 @@ function mapSource(source: Source): CorpusSource {
     addedAt: source.added_at,
     lastIngestedAt: source.last_ingested_at,
   };
+}
+
+function selectAllSources(
+  sources: CorpusSource[],
+  setSourceSelection: (selection: Record<string, boolean>) => void
+) {
+  setSourceSelection(
+    sources.reduce(
+      (acc, source) => ({
+        ...acc,
+        [sourceStringId(source)]: true,
+      }),
+      {}
+    )
+  );
 }
 
 function useIngestQueuePolling(
@@ -148,10 +163,28 @@ export default function CorpusPage() {
     CorpusConversation[] | undefined
   >();
   const [sources, setSources] = useState<CorpusSource[] | undefined>();
+  const [sourceSelection, setSourceSelection] = useState<
+    Record<string, boolean>
+  >({});
+  const [allSourcesSelected, setAllSourcesSelected] = useState<boolean>(false);
   const [ingestQueueSourcesRemaining, setIngestQueueSourcesRemaining] =
     useState<number>(0);
   const [ingestQueuePollingEnabled, setIngestQueuePollingEnabled] =
     useState(true);
+  const previousSourceIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!sources) {
+      return;
+    }
+    if (!sourceSelection) {
+      setAllSourcesSelected(false);
+      return;
+    }
+    setAllSourcesSelected(
+      sources.every(source => sourceSelection[sourceStringId(source)])
+    );
+  }, [sources, sourceSelection]);
 
   useEffect(() => {
     if (!corpusId) {
@@ -200,11 +233,49 @@ export default function CorpusPage() {
     useCallback(() => setIngestQueuePollingEnabled(false), [])
   );
 
-  const devNoop = useCallback(() => {}, []);
+  useEffect(() => {
+    if (!sources) {
+      return;
+    }
+    const wasEmpty = previousSourceIds.current.size === 0;
+    const wasAllSelected = Array.from(previousSourceIds.current).every(
+      id => sourceSelection[id]
+    );
+    const newSourceIds = sources
+      .map(sourceStringId)
+      .filter(id => !previousSourceIds.current.has(id));
+    if (newSourceIds.length > 0 && (wasEmpty || wasAllSelected)) {
+      setSourceSelection(prev => ({
+        ...prev,
+        ...Object.fromEntries(newSourceIds.map(id => [id, true])),
+      }));
+    }
+    previousSourceIds.current = new Set(sources.map(sourceStringId));
+  }, [sources, sourceSelection]);
+
   const pollIngestQueueStatus = useCallback(
     () => setIngestQueuePollingEnabled(true),
     []
   );
+  const setOneSourceSelection = useCallback(
+    (sourceId: string, selected: boolean) => {
+      setSourceSelection(sourceSelection => ({
+        ...sourceSelection,
+        [sourceId]: selected,
+      }));
+    },
+    []
+  );
+  const toggleAllSourcesSelected = useCallback(() => {
+    if (!sources) {
+      return;
+    }
+    if (allSourcesSelected) {
+      setSourceSelection({});
+    } else {
+      selectAllSources(sources, setSourceSelection);
+    }
+  }, [allSourcesSelected, sources]);
 
   const sessionContext: CorpusSessionContextValue = useMemo(
     () => ({
@@ -213,12 +284,11 @@ export default function CorpusPage() {
         conversations,
       },
       sourceInfo: sources && {
-        allSourcesSelected: false,
-        setAllSourcesSelected: devNoop,
+        allSourcesSelected,
+        toggleAllSourcesSelected,
         sources,
-        sourceSelection: {},
-        setSourceSelection: devNoop,
-        clearSourceSelection: devNoop,
+        sourceSelection,
+        setSourceSelection: setOneSourceSelection,
         sourceStringId,
         pollIngestQueueStatus,
         ingestQueueSourcesRemaining,
@@ -228,7 +298,10 @@ export default function CorpusPage() {
       corpus,
       conversations,
       sources,
-      devNoop,
+      allSourcesSelected,
+      toggleAllSourcesSelected,
+      sourceSelection,
+      setOneSourceSelection,
       pollIngestQueueStatus,
       ingestQueueSourcesRemaining,
     ]

@@ -11,6 +11,7 @@ export interface Corpus {
   databaseLocation: {
     provider: 'google_drive';
     fileId: string;
+    parentFolderId: string;
   };
 }
 

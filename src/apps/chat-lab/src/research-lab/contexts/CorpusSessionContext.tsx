@@ -9,11 +9,10 @@ export interface CorpusSessionContextValue {
   };
   sourceInfo?: {
     allSourcesSelected: boolean;
-    setAllSourcesSelected: (allSourcesSelected: boolean) => void;
+    toggleAllSourcesSelected: () => void;
     sources: CorpusSource[];
     sourceSelection: Record<string, boolean>;
     setSourceSelection: (sourceId: string, selected: boolean) => void;
-    clearSourceSelection: () => void;
     sourceStringId: (source: CorpusSource) => string;
     pollIngestQueueStatus: () => void;
     ingestQueueSourcesRemaining: number;
