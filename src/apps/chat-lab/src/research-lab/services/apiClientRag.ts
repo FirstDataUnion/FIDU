@@ -14,6 +14,7 @@ import type {
   FileLocation,
   AppendToIngestQueueRequest,
   SseEvent,
+  DeleteCorpusRequest,
 } from '../types/ragApi';
 import type { OpenRouterChatRequest } from '../../types/openRouter';
 import { handleSSEStream } from '../../utils/sseStreamHandling';
@@ -61,6 +62,17 @@ class RagApiClient {
       provider: 'google_drive',
       fileId: response.data.location.file_id,
     };
+  }
+
+  async deleteCorpus(corpus: CorpusLocation): Promise<void> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+    };
+    await this.client.put<void>(
+      '/corpus/delete',
+      request satisfies DeleteCorpusRequest
+    );
   }
 
   async ingestFiles(

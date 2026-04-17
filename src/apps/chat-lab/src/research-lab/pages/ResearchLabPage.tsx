@@ -8,11 +8,13 @@ import {
   Stack,
   ListItemButton,
   Button,
+  IconButton,
 } from '@mui/material';
 import type { Corpus } from '../types/local';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   CreateCorpusPanel,
   type CreateCorpusFormState,
@@ -64,14 +66,39 @@ export default function ResearchLabPage() {
   const [corpusCreationError, setCorpusCreationError] = useState<string | null>(
     null
   );
-  useEffect(() => {
+  const reloadCorpora = useCallback(async () => {
     const profileId = currentProfile?.id;
     if (!profileId) {
       return;
     }
-    const storageService = getStorageService();
-    storageService.getAdapter().getCorpora(profileId).then(setCorpora);
+    const list = await getStorageService().getAdapter().getCorpora(profileId);
+    setCorpora(list);
   }, [currentProfile?.id]);
+
+  useEffect(() => {
+    void reloadCorpora();
+  }, [reloadCorpora]);
+
+  const handleDeleteCorpus = useCallback(
+    async (corpus: Corpus) => {
+      const ragApiClient = createRagApiClient();
+      await ragApiClient.deleteCorpus({
+        provider: 'fidu_rag',
+        engine: 'cortexdb',
+        database_file_location: {
+          provider: 'google_drive',
+          file_id: corpus.databaseLocation.fileId,
+        },
+      });
+      try {
+        await getStorageService().getAdapter().deleteCorpus(corpus.id);
+        await reloadCorpora();
+      } catch (error) {
+        console.error('Error deleting corpus:', error);
+      }
+    },
+    [reloadCorpora]
+  );
 
   async function createCorpus(form: CreateCorpusFormState) {
     if (!currentProfile?.id) {
@@ -182,12 +209,26 @@ export default function ResearchLabPage() {
           </Stack>
           <List>
             {corpora.map(corpus => (
-              <ListItem key={corpus.id}>
+              <ListItem
+                key={corpus.id}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    aria-label="Delete corpus"
+                    color="error"
+                    onClick={() => {
+                      void handleDeleteCorpus(corpus);
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                }
+              >
                 <ListItemButton
                   component={RouterLink}
                   to={`corpora/${corpus.id}`}
                 >
-                  <Paper sx={{ p: 2 }}>
+                  <Paper sx={{ p: 2, width: '100%' }}>
                     <Stack
                       direction="row"
                       justifyContent="space-evenly"
@@ -197,14 +238,16 @@ export default function ResearchLabPage() {
                         primary={corpus.name}
                         secondary={corpus.description}
                       />
-                      <ListItemText
-                        primary={formatDateTime(corpus.createdAt)}
-                        secondary="Created at"
-                      />
-                      <ListItemText
-                        primary={formatDateTime(corpus.lastOpenedAt)}
-                        secondary="Last opened at"
-                      />
+                      <Stack direction="row" spacing={2}>
+                        <ListItemText
+                          primary={formatDateTime(corpus.createdAt)}
+                          secondary="Created at"
+                        />
+                        <ListItemText
+                          primary={formatDateTime(corpus.lastOpenedAt)}
+                          secondary="Last opened at"
+                        />
+                      </Stack>
                     </Stack>
                   </Paper>
                 </ListItemButton>

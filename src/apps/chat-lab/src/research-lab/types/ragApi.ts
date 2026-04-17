@@ -23,6 +23,11 @@ export type InitialiseCorpusResponse = {
   location: FileLocation;
 };
 
+export type DeleteCorpusRequest = {
+  provider_credentials: ProviderCredentials;
+  corpus_location: CorpusLocation;
+};
+
 export type AppendToIngestQueueRequest = {
   provider_credentials: ProviderCredentials;
   corpus_location: CorpusLocation;
