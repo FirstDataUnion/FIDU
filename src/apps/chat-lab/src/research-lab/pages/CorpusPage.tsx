@@ -324,8 +324,11 @@ export default function CorpusPage() {
         sourceSelection,
         setSourceSelection: setOneSourceSelection,
         sourceStringId,
+      },
+      ingestQueueInfo: {
+        remaining: ingestQueueSourcesRemaining,
+        pollingEnabled: ingestQueuePollingEnabled,
         pollIngestQueueStatus,
-        ingestQueueSourcesRemaining,
       },
     }),
     [
@@ -337,8 +340,9 @@ export default function CorpusPage() {
       toggleAllSourcesSelected,
       sourceSelection,
       setOneSourceSelection,
-      pollIngestQueueStatus,
       ingestQueueSourcesRemaining,
+      ingestQueuePollingEnabled,
+      pollIngestQueueStatus,
       corpusId,
     ]
   );

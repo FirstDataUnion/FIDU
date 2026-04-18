@@ -50,11 +50,15 @@ function openExternal(source: CorpusSource): void {
 export default function SourceSelectionPanel() {
   const navigate = useNavigate();
   const { corpusId: urlCorpusId } = useParams();
-  const { sourceInfo } = useCorpusSessionContext();
+  const { sourceInfo, ingestQueueInfo } = useCorpusSessionContext();
   const s =
     sourceInfo === undefined
       ? { loading: true as const }
       : { loading: false as const, ...sourceInfo };
+  const q =
+    ingestQueueInfo === undefined
+      ? { loading: true as const }
+      : { loading: false as const, ...ingestQueueInfo };
 
   return (
     <Paper>
@@ -79,12 +83,12 @@ export default function SourceSelectionPanel() {
           <AddSourceIcon />
         </IconButton>
       </Stack>
-      {!s.loading && s.ingestQueueSourcesRemaining > 0 && (
+      {!q.loading && q.remaining > 0 && (
         <Typography
           sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
         >
-          {s.ingestQueueSourcesRemaining} source
-          {s.ingestQueueSourcesRemaining === 1 ? '' : 's'} ingesting...
+          {q.remaining} source
+          {q.remaining === 1 ? '' : 's'} ingesting...
         </Typography>
       )}
       {s.loading ? (

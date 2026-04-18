@@ -371,7 +371,9 @@ export default function CorpusConversationPanel() {
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
-                    disabled={!prompt.trim() || isStreaming}
+                    disabled={
+                      !prompt.trim() || isStreaming || sourceInfo === undefined
+                    }
                     onClick={handleSendMessage}
                     sx={{
                       width: '40px',
