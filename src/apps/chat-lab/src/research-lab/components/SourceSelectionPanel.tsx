@@ -61,7 +61,15 @@ export default function SourceSelectionPanel() {
       : { loading: false as const, ...ingestQueueInfo };
 
   return (
-    <Paper>
+    <Paper
+      sx={{
+        height: '100%',
+        overflowY: 'auto',
+        scrollbarWidth: 'thin',
+        scrollbarColor: theme =>
+          `${alpha(theme.palette.text.primary, 0.35)} ${theme.palette.background.paper}`,
+      }}
+    >
       <Stack
         direction="row"
         justifyContent="space-between"

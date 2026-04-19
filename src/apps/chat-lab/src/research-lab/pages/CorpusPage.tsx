@@ -356,12 +356,26 @@ export default function CorpusPage() {
   return (
     <CorpusSessionContext.Provider value={sessionContext}>
       <Box
-        sx={{ display: 'flex', flexDirection: 'row', gap: 2, height: '100%' }}
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          minHeight: 0,
+          minWidth: 0,
+          overflow: 'hidden',
+        }}
       >
         <Box
           sx={{
-            width: 260,
+            width: { xs: '100%', sm: 260 },
             flexShrink: 0,
+            minHeight: 0,
+            maxHeight: { xs: '42vh', sm: 'none' },
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
@@ -383,8 +397,9 @@ export default function CorpusPage() {
 
         <Box
           sx={{
-            flex: 1,
-            minWidth: 0,
+            flex: '1 1 0',
+            minWidth: { xs: 0, sm: 260 },
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
             gap: 2,

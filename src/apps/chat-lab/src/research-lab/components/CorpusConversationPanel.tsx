@@ -5,6 +5,8 @@ import {
   InputAdornment,
   Paper,
   ListItemText,
+  alpha,
+  Typography,
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -114,22 +116,29 @@ function RAGInfoMessage({
           ))}
         </CollapsibleFragmentList>
       </Box>
-      <Box sx={{ pt: 1 }}>
-        <CollapsibleFragmentList
-          title="Search results"
-          collapsed={resultsCollapsed}
-          onToggle={onToggleResults}
-          collapsedVisibleCount={0}
-        >
-          {message.searchResults.map((result, idx) => (
-            <ListItemText
-              key={`${idx}-${result.documentId}`}
-              primary={`${result.documentMetadata.title} - ${result.chunkMetadata.chunk_index}`}
-              secondary={<EnhancedMarkdown content={result.content} />}
-            />
-          ))}
-        </CollapsibleFragmentList>
-      </Box>
+      {message.searchResults !== undefined && (
+        <Box sx={{ pt: 1 }}>
+          {message.searchResults.length === 0 ? (
+            <Typography variant="body2">No search results</Typography>
+          ) : (
+            <CollapsibleFragmentList
+              title="Search results"
+              collapsed={resultsCollapsed}
+              onToggle={onToggleResults}
+              collapsedVisibleCount={0}
+            >
+              {message.searchResults.map((result, idx) => (
+                <ListItemText
+                  key={`${idx}-${result.documentId}`}
+                  primary={`${result.documentMetadata.title} - ${result.chunkMetadata.chunk_index}`}
+                  secondary={<EnhancedMarkdown content={result.content} />}
+                  slotProps={{ secondary: { component: 'div' } }}
+                />
+              ))}
+            </CollapsibleFragmentList>
+          )}
+        </Box>
+      )}
     </BaseMessage>
   );
 }
@@ -225,7 +234,7 @@ export default function CorpusConversationPanel() {
         stepMessage = {
           type: 'rag-info',
           processes: [],
-          searchResults: [],
+          searchResults: undefined,
         };
         newMessages.push(stepMessage);
         newMessagesById.set(stepUuid, stepMessage);
@@ -246,7 +255,7 @@ export default function CorpusConversationPanel() {
           case 'search_results': {
             const stepMessage = getStepMessage(event.step_uuid);
             stepMessage.searchResults = [
-              ...stepMessage.searchResults,
+              ...(stepMessage.searchResults ?? []),
               ...event.search_results.map(r => ({
                 documentId: r.doc_id,
                 score: r.score,
@@ -300,14 +309,23 @@ export default function CorpusConversationPanel() {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        overflow: 'hidden',
+        width: '100%',
       }}
     >
       <Box
         sx={{
+          flex: '1 1 0',
+          minHeight: 0,
+          minWidth: 0,
+          overflowY: 'auto',
           p: 2,
-          height: 'calc(100% - 8em)',
-          overflowY: 'scroll',
+          scrollbarWidth: 'thin',
+          scrollbarColor: theme =>
+            `${alpha(theme.palette.text.primary, 0.35)} ${theme.palette.background.paper}`,
         }}
       >
         {[...(conversation?.messages ?? []), ...streamingMessages].map(
@@ -354,9 +372,10 @@ export default function CorpusConversationPanel() {
         sx={{
           display: 'flex',
           flexDirection: 'row',
-          height: '8em',
+          flexShrink: 0,
           width: '100%',
-          mt: 'auto',
+          px: 2,
+          pb: 0,
         }}
       >
         <TextField

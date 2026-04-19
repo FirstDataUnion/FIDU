@@ -83,7 +83,7 @@ type Step =
 export default function AddSourcePanel() {
   const navigate = useNavigate();
   const { corpusId } = useParams();
-  const { corpus, sourceInfo } = useCorpusSessionContext();
+  const { corpus, ingestQueueInfo } = useCorpusSessionContext();
   const [step, setStep] = useState<Step>('source_type');
   const [googleDriveScope, setGoogleDriveScope] = useState<string | undefined>(
     undefined
@@ -148,10 +148,10 @@ export default function AddSourcePanel() {
           file_id: file.id,
         }))
       );
-      sourceInfo?.pollIngestQueueStatus();
+      ingestQueueInfo?.pollIngestQueueStatus();
       setStep('complete');
     },
-    [corpus, sourceInfo]
+    [corpus, ingestQueueInfo]
   );
 
   const handleGoogleDriveSelectFilesClick = useCallback(async () => {

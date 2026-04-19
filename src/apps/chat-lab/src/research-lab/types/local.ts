@@ -50,7 +50,7 @@ export interface CorpusMessageError {
 export interface CorpusMessageRagInfo {
   type: 'rag-info';
   processes: string[];
-  searchResults: CortexSearchResult[];
+  searchResults?: CortexSearchResult[];
 }
 
 export interface CortexSearchResult {
