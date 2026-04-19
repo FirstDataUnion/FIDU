@@ -72,6 +72,11 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import { selectConversations } from '../../store/selectors/conversationsSelectors';
 import { fetchConversations } from '../../store/slices/conversationsSlice';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import {
+  formatProviderDisplayName,
+  getProviderColor,
+  groupModelsByProvider,
+} from '../../utils/modelListUtils';
 
 interface ModelSelectionModalProps {
   open: boolean;
@@ -87,45 +92,6 @@ type OutputModalityFilter = {
   text: boolean;
   image: boolean;
 };
-
-/** Title-case words for provider labels shown in lists and accordions. */
-function formatProviderDisplayName(provider: string | undefined): string {
-  const t = provider?.trim();
-  if (!t) return 'Other';
-  return t
-    .split(/\s+/)
-    .map(w => {
-      if (!w) return w;
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
-    .join(' ');
-}
-
-type ProviderModelGroup = {
-  key: string;
-  displayLabel: string;
-  models: ModelConfig[];
-};
-
-function groupModelsByProvider(models: ModelConfig[]): ProviderModelGroup[] {
-  const map = new Map<string, ModelConfig[]>();
-  for (const m of models) {
-    const key = m.provider?.trim() || 'Other';
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(m);
-  }
-  return [...map.entries()]
-    .map(([key, models]) => ({
-      key,
-      displayLabel: formatProviderDisplayName(key),
-      models,
-    }))
-    .sort((a, b) =>
-      a.displayLabel.localeCompare(b.displayLabel, undefined, {
-        sensitivity: 'base',
-      })
-    );
-}
 
 export default function ModelSelectionModal({
   open,
@@ -480,29 +446,6 @@ export default function ModelSelectionModal({
   };
 
   const isAutoModeEnabled = selectedModel === 'auto-router';
-
-  const getProviderColor = (provider: string) => {
-    switch (provider.toLowerCase()) {
-      case 'openai':
-        return 'primary';
-      case 'anthropic':
-        return 'secondary';
-      case 'google':
-        return 'success';
-      case 'meta':
-        return 'info';
-      case 'mistral':
-        return 'warning';
-      case 'microsoft':
-        return 'error';
-      case 'xai':
-        return 'default';
-      case 'nlp workbench':
-        return 'primary';
-      default:
-        return 'default';
-    }
-  };
 
   const getSpeedIcon = (speed: ModelConfig['speed']) => {
     switch (speed) {

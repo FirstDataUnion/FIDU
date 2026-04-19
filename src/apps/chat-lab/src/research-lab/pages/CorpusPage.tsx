@@ -19,6 +19,7 @@ import type {
   CorpusSourceId,
 } from '../types/local';
 import { getStorageService } from '../../services/storage/StorageService';
+import ModelOptionsPanel from '../components/ModelOptionsPanel';
 import SourceSelectionPanel from '../components/SourceSelectionPanel';
 import { createRagApiClient } from '../services/apiClientRag';
 import type {
@@ -27,6 +28,11 @@ import type {
   SourceFileLocation,
 } from '../types/ragApi';
 import { useAppSelector } from '../../store';
+import {
+  getAllModels,
+  loadOpenRouterModels,
+  type ModelConfig,
+} from '../../data/models';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -171,6 +177,9 @@ export default function CorpusPage() {
   const { corpusId } = useParams();
   const location = useLocation();
   const { currentProfile } = useAppSelector(state => state.auth);
+  const [openSidebar, setOpenSidebar] = useState<
+    CorpusSidebarSection | undefined
+  >('sources');
   const [corpus, setCorpus] = useState<Corpus | undefined>();
   const [conversations, setConversations] = useState<
     CorpusConversation[] | undefined
@@ -185,6 +194,30 @@ export default function CorpusPage() {
   const [ingestQueuePollingEnabled, setIngestQueuePollingEnabled] =
     useState(true);
   const previousSourceIds = useRef<Set<string>>(new Set());
+  const [modelList, setModelList] = useState<ModelConfig[] | undefined>(
+    undefined
+  );
+  const [selectedModelId, setSelectedModelId] =
+    useState<string>('openrouter/auto');
+
+  useEffect(() => {
+    let cancelled = false;
+    loadOpenRouterModels()
+      .then(() => {
+        if (!cancelled) {
+          setModelList(getAllModels());
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load OpenRouter models:', error);
+        if (!cancelled) {
+          setModelList([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!sources) {
@@ -330,6 +363,14 @@ export default function CorpusPage() {
         pollingEnabled: ingestQueuePollingEnabled,
         pollIngestQueueStatus,
       },
+      modelInfo:
+        modelList === undefined
+          ? undefined
+          : {
+              models: modelList,
+              selectedModelId,
+              selectModel: setSelectedModelId,
+            },
     }),
     [
       corpus,
@@ -344,8 +385,15 @@ export default function CorpusPage() {
       ingestQueuePollingEnabled,
       pollIngestQueueStatus,
       corpusId,
+      modelList,
+      selectedModelId,
+      setSelectedModelId,
     ]
   );
+
+  const toggleSidebarSection = useCallback((section: CorpusSidebarSection) => {
+    setOpenSidebar(prev => (prev === section ? undefined : section));
+  }, []);
 
   if (!corpusId) {
     return <Navigate to="/research-lab" replace />;
@@ -376,6 +424,7 @@ export default function CorpusPage() {
             flexShrink: 0,
             minHeight: 0,
             maxHeight: { xs: '42vh', sm: 'none' },
+            height: { xs: undefined, sm: '100%' },
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
@@ -384,9 +433,21 @@ export default function CorpusPage() {
           {sidebarSections.map(section => {
             switch (section) {
               case 'sources':
-                return <SourceSelectionPanel key={section} />;
+                return (
+                  <SourceSelectionPanel
+                    key={section}
+                    open={openSidebar === section}
+                    onToggleHeader={() => toggleSidebarSection('sources')}
+                  />
+                );
               case 'modelOptions':
-                return null;
+                return (
+                  <ModelOptionsPanel
+                    key={section}
+                    open={openSidebar === section}
+                    onToggleHeader={() => toggleSidebarSection('modelOptions')}
+                  />
+                );
               case 'export':
                 return null;
               default:

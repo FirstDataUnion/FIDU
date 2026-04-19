@@ -7,6 +7,7 @@ import {
   ListItemText,
   alpha,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -27,6 +28,28 @@ import type {
   OpenRouterStreamChunk,
 } from '../../types/openRouter';
 import { CollapsibleFragmentList } from './CollapsibleFragmentList';
+import { getModelColor } from '../../utils/themeColors';
+import type { Theme } from '@mui/material/styles';
+
+function getProviderColor(model: string, mode: 'light' | 'dark') {
+  if (model === 'openrouter/auto') {
+    return getModelColor(mode, 'autoRouter');
+  }
+  const provider = model.split('/')[0]?.toLowerCase() ?? 'unknown';
+  const knownProviders = [
+    'openai',
+    'anthropic',
+    'google',
+    'meta',
+    'mistral',
+    'microsoft',
+    'xai',
+  ] as const;
+  if (knownProviders.includes(provider as any)) {
+    return getModelColor(mode, provider as (typeof knownProviders)[number]);
+  }
+  return getModelColor(mode, 'unknown');
+}
 
 function BaseMessage({
   side,
@@ -64,10 +87,29 @@ function UserMessage({ message }: { message: CorpusMessageUser }) {
   );
 }
 
-function ModelMessage({ message }: { message: CorpusMessageModel }) {
+function ModelMessage({
+  message,
+  theme,
+}: {
+  message: CorpusMessageModel;
+  theme: Theme;
+}) {
+  const providerColor = getProviderColor(message.model, theme.palette.mode);
   return (
-    // TODO: Get model color from model info
-    <BaseMessage side="left" color="#f08c00">
+    <BaseMessage side="left" color={providerColor}>
+      <Typography
+        variant="body2"
+        sx={{
+          mt: 1,
+          color: 'white',
+          borderRadius: '2em',
+          p: 1,
+          backgroundColor: 'rgba(0,0,0,0.1)',
+          width: 'fit-content',
+        }}
+      >
+        {message.model}
+      </Typography>
       <EnhancedMarkdown content={message.content} showCopyButtons={true} />
     </BaseMessage>
   );
@@ -144,8 +186,10 @@ function RAGInfoMessage({
 }
 
 export default function CorpusConversationPanel() {
+  const theme = useTheme();
   const { conversationId } = useParams();
-  const { corpus, conversationInfo, sourceInfo } = useCorpusSessionContext();
+  const { corpus, conversationInfo, sourceInfo, modelInfo } =
+    useCorpusSessionContext();
   const conversation = useMemo(() => {
     return conversationInfo?.conversations.find(
       conversation => conversation.id === conversationId
@@ -167,7 +211,7 @@ export default function CorpusConversationPanel() {
     useState<Record<number, boolean>>({});
 
   const handleSendMessage = useCallback(async () => {
-    if (!conversation || !corpus || !sourceInfo) {
+    if (!conversation || !corpus || !sourceInfo || !modelInfo) {
       return;
     }
     if (isStreamingRef.current) {
@@ -217,7 +261,7 @@ export default function CorpusConversationPanel() {
     const stream = ragApiClient.callChatCompletion(
       corpusLocation,
       {
-        model: 'openrouter/auto',
+        model: modelInfo.selectedModelId,
         messages: [...messages, { role: 'user', content: prompt }],
       },
       prompt,
@@ -302,7 +346,15 @@ export default function CorpusConversationPanel() {
     setStreamingMessages([]);
     setIsStreaming(false);
     isStreamingRef.current = false;
-  }, [prompt, conversationInfo, conversation, corpus, setPrompt, sourceInfo]);
+  }, [
+    prompt,
+    conversationInfo,
+    conversation,
+    corpus,
+    setPrompt,
+    sourceInfo,
+    modelInfo,
+  ]);
 
   return (
     <Box
@@ -334,7 +386,7 @@ export default function CorpusConversationPanel() {
               case 'user':
                 return <UserMessage key={i} message={message} />;
               case 'model':
-                return <ModelMessage key={i} message={message} />;
+                return <ModelMessage key={i} message={message} theme={theme} />;
               case 'rag-info':
                 return (
                   <RAGInfoMessage

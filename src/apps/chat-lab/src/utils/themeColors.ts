@@ -59,10 +59,10 @@ export const lightModeColors = {
 
 export const darkModeColors = {
   primary: {
-    main: '#00654C',
-    light: '#161A19',
-    dark: '#019872',
-    contrastText: '#FFFFFF',
+    main: '#2e6417', // Brand green - main color
+    light: '#4ca626', // Brand green - lighter variant
+    dark: '#1a3d0d', // Generated darker variant for hover states
+    contrastText: '#FFFFFF', // White text for good contrast on dark green
   },
   secondary: {
     main: '#3e1964', // Brand purple - secondary color

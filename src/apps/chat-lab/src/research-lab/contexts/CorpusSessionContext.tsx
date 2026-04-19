@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { ModelConfig } from '../../data/models';
 import type {
   Corpus,
   CorpusConversation,
@@ -29,6 +30,11 @@ export interface CorpusSessionContextValue {
     remaining: number;
     pollingEnabled: boolean;
     pollIngestQueueStatus: () => void;
+  };
+  modelInfo?: {
+    models: ModelConfig[];
+    selectedModelId: string;
+    selectModel: (modelId: string) => void;
   };
 }
 
