@@ -8,8 +8,14 @@ import {
   alpha,
   Typography,
   useTheme,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import {
+  ExpandMore as ExpandMoreIcon,
+  Send as SendIcon,
+} from '@mui/icons-material';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
@@ -170,12 +176,23 @@ function RAGInfoMessage({
               collapsedVisibleCount={0}
             >
               {message.searchResults.map((result, idx) => (
-                <ListItemText
+                <Accordion
                   key={`${idx}-${result.documentId}`}
-                  primary={`${result.documentMetadata.title} - ${result.chunkMetadata.chunk_index}`}
-                  secondary={<EnhancedMarkdown content={result.content} />}
-                  slotProps={{ secondary: { component: 'div' } }}
-                />
+                  sx={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ backgroundColor: 'action.hover' }}
+                  >
+                    <Typography variant="body2">
+                      {result.documentMetadata.title} -{' '}
+                      {result.chunkMetadata.chunk_index}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <EnhancedMarkdown content={result.content} />
+                  </AccordionDetails>
+                </Accordion>
               ))}
             </CollapsibleFragmentList>
           )}
