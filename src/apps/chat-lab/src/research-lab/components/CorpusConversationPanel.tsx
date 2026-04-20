@@ -178,7 +178,7 @@ function RAGInfoMessage({
               {message.searchResults.map((result, idx) => (
                 <Accordion
                   key={`${idx}-${result.documentId}`}
-                  sx={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                  sx={{ backgroundColor: 'rgba(0, 0, 0, 0.2)', width: '100%' }}
                 >
                   <AccordionSummary
                     expandIcon={<ExpandMoreIcon />}
@@ -219,6 +219,16 @@ export default function CorpusConversationPanel() {
   const [prompt, setPrompt] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
+  const isTouchscreenDevice = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const maxTouchPoints = window.navigator?.maxTouchPoints ?? 0;
+    const coarsePointer =
+      window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
+    const hasTouchEvents = 'ontouchstart' in window;
+    return maxTouchPoints > 0 || coarsePointer || hasTouchEvents;
+  }, []);
 
   const [
     processesCollapsedByMessageIndex,
@@ -229,6 +239,9 @@ export default function CorpusConversationPanel() {
 
   const handleSendMessage = useCallback(async () => {
     if (!conversation || !corpus || !sourceInfo || !modelInfo) {
+      return;
+    }
+    if (!prompt.trim()) {
       return;
     }
     if (isStreamingRef.current) {
@@ -271,10 +284,29 @@ export default function CorpusConversationPanel() {
       ? []
       : si.sources
           .filter(s => si.sourceSelection[si.sourceStringId(s)])
-          .map(s => ({
-            provider: 'google_drive' as const,
-            file_id: s.id.provider === 'google_drive' ? s.id.fileId : '',
-          }));
+          .map(s => {
+            switch (s.id.provider) {
+              case 'google_drive':
+                return {
+                  provider: 'google_drive' as const,
+                  file_id: s.id.fileId,
+                };
+              case 'fidu_context':
+                return {
+                  provider: 'fidu_context' as const,
+                  provider_id: s.id.providerId,
+                };
+              case 'url':
+                return {
+                  provider: 'url' as const,
+                  url: s.id.url,
+                };
+              default: {
+                const _exhaustive: never = s.id;
+                throw new Error(`Unknown source provider: ${_exhaustive}`);
+              }
+            }
+          });
     const stream = ragApiClient.callChatCompletion(
       corpusLocation,
       {
@@ -373,6 +405,29 @@ export default function CorpusConversationPanel() {
     modelInfo,
   ]);
 
+  const handlePromptKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (isTouchscreenDevice) {
+        return;
+      }
+      if (e.key !== 'Enter') {
+        return;
+      }
+      if (e.shiftKey) {
+        return;
+      }
+      if ((e.nativeEvent as any)?.isComposing) {
+        return;
+      }
+      if (!prompt.trim() || isStreaming || sourceInfo === undefined) {
+        return;
+      }
+      e.preventDefault();
+      handleSendMessage();
+    },
+    [handleSendMessage, isStreaming, isTouchscreenDevice, prompt, sourceInfo]
+  );
+
   return (
     <Box
       sx={{
@@ -456,6 +511,7 @@ export default function CorpusConversationPanel() {
           onChange={e => setPrompt(e.target.value)}
           slotProps={{
             input: {
+              onKeyDown: handlePromptKeyDown,
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton

@@ -77,4 +77,8 @@ export type CorpusSourceId =
   | {
       provider: 'url';
       url: string;
+    }
+  | {
+      provider: 'fidu_context';
+      providerId: string;
     };

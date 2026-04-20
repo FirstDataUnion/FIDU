@@ -18,6 +18,23 @@ import type {
 } from '../types/ragApi';
 import type { OpenRouterChatRequest } from '../../types/openRouter';
 import { handleSSEStream } from '../../utils/sseStreamHandling';
+import type { Corpus } from '../types/local';
+
+export function corpusToLocation(
+  corpus: Corpus | undefined
+): CorpusLocation | undefined {
+  if (corpus === undefined) {
+    return undefined;
+  }
+  return {
+    provider: 'fidu_rag',
+    engine: 'cortexdb',
+    database_file_location: {
+      provider: 'google_drive',
+      file_id: corpus.databaseLocation.fileId,
+    },
+  };
+}
 
 class RagApiClient {
   private baseUrl: string;
@@ -58,6 +75,11 @@ class RagApiClient {
       '/corpus/initialise',
       request satisfies InitialiseCorpusRequest
     );
+    if (response.data.location.provider !== 'google_drive') {
+      throw new Error(
+        `Initialise corpus response is not a google_drive file: ${JSON.stringify(response.data.location)}`
+      );
+    }
     return {
       provider: 'google_drive',
       fileId: response.data.location.file_id,
@@ -130,10 +152,7 @@ class RagApiClient {
     const requestBody = {
       provider_credentials: await this.getProviderCredentials(),
       corpus_location: corpus,
-      files: files.map(file => ({
-        provider: 'google_drive',
-        file_id: file.file_id,
-      })),
+      files,
       search_query: searchQuery,
       open_router_request_body: { ...request, stream: true },
     };

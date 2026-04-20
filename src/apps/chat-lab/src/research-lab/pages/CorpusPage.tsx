@@ -27,12 +27,13 @@ import type {
   Source,
   SourceFileLocation,
 } from '../types/ragApi';
-import { useAppSelector } from '../../store';
+import { useAppDispatch, useAppSelector } from '../../store';
 import {
   getAllModels,
   loadOpenRouterModels,
   type ModelConfig,
 } from '../../data/models';
+import { fetchContexts } from '../../store/slices/contextsSlice';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -59,8 +60,14 @@ function sourceStringId(source: CorpusSource): string {
   switch (source.id.provider) {
     case 'google_drive':
       return `${source.id.provider}::${source.id.fileId}`;
-    default:
-      throw new Error(`Unknown source provider: ${source.id.provider}`);
+    case 'fidu_context':
+      return `${source.id.provider}::${source.id.providerId}`;
+    case 'url':
+      return `${source.id.provider}::${source.id.url}`;
+    default: {
+      const _exhaustive: never = source.id;
+      throw new Error(`Unknown source provider: ${_exhaustive}`);
+    }
   }
 }
 
@@ -70,6 +77,8 @@ function mapId(id: SourceFileLocation): CorpusSourceId {
       return { provider: 'google_drive', fileId: id.file_id };
     case 'url':
       return { provider: 'url', url: id.url };
+    case 'fidu_context':
+      return { provider: 'fidu_context', providerId: id.provider_id };
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
@@ -176,6 +185,7 @@ function useIngestQueuePolling(
 export default function CorpusPage() {
   const { corpusId } = useParams();
   const location = useLocation();
+  const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector(state => state.auth);
   const [openSidebar, setOpenSidebar] = useState<
     CorpusSidebarSection | undefined
@@ -218,6 +228,10 @@ export default function CorpusPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    dispatch(fetchContexts());
+  }, [dispatch]);
 
   useEffect(() => {
     if (!sources) {

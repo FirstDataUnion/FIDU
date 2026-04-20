@@ -37,6 +37,8 @@ function openExternal(source: CorpusSource): void {
         '_blank'
       );
       break;
+    case 'fidu_context':
+      break;
     default: {
       const _exhaustive: never = id;
       console.error(
@@ -228,16 +230,18 @@ export default function SourceSelectionPanel({
                           >
                             {formatDate(source.addedAt)}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            color="inherit"
-                            sx={{ p: 0 }}
-                            onClick={() => {
-                              openExternal(source);
-                            }}
-                          >
-                            <OpenInNewIcon fontSize="small" />
-                          </IconButton>
+                          {source.id.provider !== 'fidu_context' && (
+                            <IconButton
+                              size="small"
+                              color="inherit"
+                              sx={{ p: 0 }}
+                              onClick={() => {
+                                openExternal(source);
+                              }}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </Stack>
                       </Stack>
                     </Stack>

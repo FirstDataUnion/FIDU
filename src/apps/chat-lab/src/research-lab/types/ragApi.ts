@@ -45,10 +45,21 @@ export type CorpusLocation = {
   database_file_location: FileLocation;
 };
 
-export type FileLocation = {
-  provider: 'google_drive';
-  file_id: string;
-};
+export type FileLocation =
+  | {
+      provider: 'google_drive';
+      file_id: string;
+    }
+  | {
+      provider: 'fidu_context';
+      provider_id: string;
+      title?: string;
+      body?: string;
+    }
+  | {
+      provider: 'url';
+      url: string;
+    };
 
 export type Source = {
   id: SourceFileLocation;
@@ -66,6 +77,10 @@ export type SourceFileLocation =
   | {
       provider: 'url';
       url: string;
+    }
+  | {
+      provider: 'fidu_context';
+      provider_id: string;
     };
 
 export type IngestQueueStatus = {

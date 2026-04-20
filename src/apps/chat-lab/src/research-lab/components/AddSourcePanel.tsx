@@ -20,8 +20,8 @@ import {
 } from '../../services/drive/DrivePicker';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
-import { createRagApiClient } from '../services/apiClientRag';
-import type { CorpusLocation } from '../types/ragApi';
+import { corpusToLocation, createRagApiClient } from '../services/apiClientRag';
+import { useAppSelector } from '../../store';
 
 function RadioButtonSelector({
   values,
@@ -77,13 +77,16 @@ type Step =
   | 'source_type'
   | 'google_drive_scope'
   | 'google_drive_file_selection'
-  | 'url_input'
+  | 'fidu_context_selection'
   | 'complete';
 
 export default function AddSourcePanel() {
   const navigate = useNavigate();
   const { corpusId } = useParams();
   const { corpus, ingestQueueInfo } = useCorpusSessionContext();
+  const { items: contexts, loading: contextsLoading } = useAppSelector(
+    state => state.contexts
+  );
   const [step, setStep] = useState<Step>('source_type');
   const [googleDriveScope, setGoogleDriveScope] = useState<string | undefined>(
     undefined
@@ -109,8 +112,8 @@ export default function AddSourcePanel() {
           }
           break;
         }
-        case 'url':
-          setStep('url_input');
+        case 'fidu_context':
+          setStep('fidu_context_selection');
           break;
         default:
           console.error(`Invalid source type: ${value}`);
@@ -128,18 +131,11 @@ export default function AddSourcePanel() {
 
   const handleGoogleDriveFilesPicked = useCallback(
     async (files: PickedDriveDocument[]) => {
-      if (corpus === undefined) {
-        console.error('Corpus is undefined');
+      const corpusLocation = corpusToLocation(corpus);
+      if (corpusLocation === undefined) {
+        console.error('Corpus location is undefined');
         return;
       }
-      const corpusLocation: CorpusLocation = {
-        provider: 'fidu_rag',
-        engine: 'cortexdb',
-        database_file_location: {
-          provider: 'google_drive',
-          file_id: corpus.databaseLocation.fileId,
-        },
-      };
       const ragApiClient = createRagApiClient();
       await ragApiClient.ingestFiles(
         corpusLocation,
@@ -169,6 +165,33 @@ export default function AddSourcePanel() {
     });
   }, [cancel, googleDriveScope, handleGoogleDriveFilesPicked]);
 
+  const handleFiduContextSelectionSubmit = useCallback(
+    async (value: string) => {
+      const corpusLocation = corpusToLocation(corpus);
+      if (corpusLocation === undefined) {
+        console.error('Corpus location is undefined');
+        return;
+      }
+      const context = contexts.find(context => context.id === value);
+      if (context === undefined) {
+        console.error(`Context not found: ${value}`);
+        return;
+      }
+      const ragApiClient = createRagApiClient();
+      await ragApiClient.ingestFiles(corpusLocation, [
+        {
+          provider: 'fidu_context',
+          provider_id: context.id,
+          title: context.title,
+          body: context.body,
+        },
+      ]);
+      ingestQueueInfo?.pollIngestQueueStatus();
+      setStep('complete');
+    },
+    [contexts, corpus, ingestQueueInfo]
+  );
+
   return (
     <Paper>
       <Stack
@@ -193,7 +216,7 @@ export default function AddSourcePanel() {
               <RadioButtonSelector
                 values={[
                   { label: 'Google Drive', value: 'google_drive' },
-                  { label: 'The web', value: 'url' },
+                  { label: 'FIDU Context', value: 'fidu_context' },
                 ]}
                 onSubmit={handleSourceTypeSubmit}
               />
@@ -230,9 +253,20 @@ export default function AddSourcePanel() {
               </Button>
             </Stack>
           )}
-          {step === 'url_input' && (
+          {step === 'fidu_context_selection' && (
             <Box sx={{ p: 2 }}>
-              <Typography>Enter a URL</Typography>
+              <Typography>Select a FIDU Context</Typography>
+              {contextsLoading ? (
+                <Typography>Loading contexts...</Typography>
+              ) : (
+                <RadioButtonSelector
+                  values={contexts.map(context => ({
+                    label: context.title,
+                    value: context.id,
+                  }))}
+                  onSubmit={handleFiduContextSelectionSubmit}
+                />
+              )}
             </Box>
           )}
           {step === 'complete' && (
