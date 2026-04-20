@@ -16,7 +16,11 @@ export interface CorpusSessionContextValue {
     addMessages: (
       conversation: CorpusConversation,
       messages: CorpusMessage[]
-    ) => Promise<void>;
+    ) => Promise<CorpusConversation>;
+    setConversationName: (
+      conversation: CorpusConversation,
+      name: string
+    ) => Promise<CorpusConversation>;
   };
   sourceInfo?: {
     allSourcesSelected: boolean;

@@ -312,7 +312,7 @@ export default function CorpusPage() {
   const addMessages = useCallback(
     async (conversation: CorpusConversation, messages: CorpusMessage[]) => {
       if (!currentProfile || !corpusId) {
-        return;
+        return conversation;
       }
       const update = {
         ...conversation,
@@ -327,6 +327,29 @@ export default function CorpusPage() {
       setConversations(prev =>
         prev?.map(c => (c.id === conversation.id ? newConversation : c))
       );
+      return newConversation;
+    },
+    [corpusId, currentProfile]
+  );
+
+  const setConversationName = useCallback(
+    async (conversation: CorpusConversation, name: string) => {
+      if (!currentProfile || !corpusId) {
+        console.log('setConversationName: no currentProfile or corpusId');
+        return conversation;
+      }
+      console.log('setConversationName', conversation.id, name);
+      const update = { ...conversation, name };
+      const adapter = getStorageService().getAdapter();
+      const newConversation = await adapter.updateCorpusConversation(
+        corpusId,
+        update,
+        currentProfile.id
+      );
+      setConversations(prev =>
+        prev?.map(c => (c.id === conversation.id ? newConversation : c))
+      );
+      return newConversation;
     },
     [corpusId, currentProfile]
   );
@@ -363,6 +386,7 @@ export default function CorpusPage() {
         reloadConversations: () =>
           fetchConversations(corpusId).then(setConversations),
         addMessages,
+        setConversationName,
       },
       sourceInfo: sources && {
         allSourcesSelected,
@@ -390,6 +414,7 @@ export default function CorpusPage() {
       corpus,
       conversations,
       addMessages,
+      setConversationName,
       sources,
       allSourcesSelected,
       toggleAllSourcesSelected,
@@ -398,10 +423,9 @@ export default function CorpusPage() {
       ingestQueueSourcesRemaining,
       ingestQueuePollingEnabled,
       pollIngestQueueStatus,
-      corpusId,
       modelList,
       selectedModelId,
-      setSelectedModelId,
+      corpusId,
     ]
   );
 

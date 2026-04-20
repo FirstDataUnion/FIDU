@@ -238,7 +238,13 @@ export default function CorpusConversationPanel() {
     useState<Record<number, boolean>>({});
 
   const handleSendMessage = useCallback(async () => {
-    if (!conversation || !corpus || !sourceInfo || !modelInfo) {
+    if (
+      !conversation
+      || !corpus
+      || !sourceInfo
+      || !modelInfo
+      || !conversationInfo
+    ) {
       return;
     }
     if (!prompt.trim()) {
@@ -247,14 +253,22 @@ export default function CorpusConversationPanel() {
     if (isStreamingRef.current) {
       return;
     }
+    let localConv = conversation; // So that we keep up to date with edits
     isStreamingRef.current = true;
     setIsStreaming(true);
+    if (localConv.messages.length === 0) {
+      const name =
+        prompt.trim().length > 64
+          ? prompt.trim().slice(0, 61) + '...'
+          : prompt.trim();
+      localConv = await conversationInfo.setConversationName(localConv, name);
+    }
     const promptMessage: CorpusMessageUser = {
       type: 'user',
       content: prompt,
       sentAt: new Date().toISOString(),
     };
-    await conversationInfo?.addMessages(conversation, [promptMessage]);
+    localConv = await conversationInfo?.addMessages(localConv, [promptMessage]);
     setPrompt('');
 
     const ragApiClient = createRagApiClient();
@@ -270,7 +284,7 @@ export default function CorpusConversationPanel() {
       user: 'user' as const,
       model: 'assistant' as const,
     };
-    const messages = conversation?.messages.reduce(
+    const messages = localConv.messages.reduce(
       (acc, msg) => [
         ...acc,
         ...(msg.type === 'user' || msg.type === 'model'
@@ -311,7 +325,7 @@ export default function CorpusConversationPanel() {
       corpusLocation,
       {
         model: modelInfo.selectedModelId,
-        messages: [...messages, { role: 'user', content: prompt }],
+        messages,
       },
       prompt,
       sources
@@ -388,10 +402,7 @@ export default function CorpusConversationPanel() {
       setStreamingMessages([...newMessages]);
     }
 
-    await conversationInfo?.addMessages(conversation, [
-      promptMessage,
-      ...newMessages,
-    ]);
+    localConv = await conversationInfo?.addMessages(localConv, newMessages);
     setStreamingMessages([]);
     setIsStreaming(false);
     isStreamingRef.current = false;
