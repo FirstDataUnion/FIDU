@@ -39,6 +39,12 @@ export type CorpusIdentifyingRequest = {
   corpus_location: CorpusLocation;
 };
 
+export type SourceContentRequest = {
+  provider_credentials: ProviderCredentials;
+  corpus_location: CorpusLocation;
+  source_file_location: SourceFileLocation;
+};
+
 export type CorpusLocation = {
   provider: 'fidu_rag';
   engine: 'cortexdb';
@@ -82,6 +88,11 @@ export type SourceFileLocation =
       provider: 'fidu_context';
       provider_id: string;
     };
+
+export type SourceContentResponse = {
+  source: Source;
+  content: string;
+};
 
 export type IngestQueueStatus = {
   queue_status: 'empty' | 'running' | 'completed';

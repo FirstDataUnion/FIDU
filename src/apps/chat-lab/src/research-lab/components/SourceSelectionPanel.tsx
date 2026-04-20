@@ -49,6 +49,22 @@ function openExternal(source: CorpusSource): void {
   }
 }
 
+function sourcePanelPath(corpusId: string, source: CorpusSource): string {
+  const id = source.id;
+  switch (id.provider) {
+    case 'google_drive':
+      return `/research-lab/corpora/${corpusId}/source/google_drive/${encodeURIComponent(id.fileId)}`;
+    case 'url':
+      return `/research-lab/corpora/${corpusId}/source/url/${encodeURIComponent(id.url)}`;
+    case 'fidu_context':
+      return `/research-lab/corpora/${corpusId}/source/fidu_context/${encodeURIComponent(id.providerId)}`;
+    default: {
+      const _exhaustive: never = id;
+      return _exhaustive;
+    }
+  }
+}
+
 export default function SourceSelectionPanel({
   open,
   onToggleHeader,
@@ -209,10 +225,17 @@ export default function SourceSelectionPanel({
                         width="100%"
                       >
                         <Typography
+                          onClick={() => {
+                            if (!urlCorpusId) {
+                              return;
+                            }
+                            navigate(sourcePanelPath(urlCorpusId, source));
+                          }}
                           sx={{
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            cursor: urlCorpusId ? 'pointer' : 'default',
                           }}
                         >
                           {source.name}

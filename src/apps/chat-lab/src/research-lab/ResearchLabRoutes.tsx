@@ -5,6 +5,7 @@ import CorpusPage from './pages/CorpusPage';
 import SelectConversationPanel from './components/SelectConversationPanel';
 import AddSourcePanel from './components/AddSourcePanel';
 import CorpusConversationPanel from './components/CorpusConversationPanel';
+import SourceContentPanel from './components/SourceContentPanel';
 
 export default function ResearchLabRoutes() {
   return (
@@ -24,6 +25,10 @@ export default function ResearchLabRoutes() {
         <Route path="corpora/:corpusId" element={<CorpusPage />}>
           <Route index element={<SelectConversationPanel />} />
           <Route path="add-source" element={<AddSourcePanel />} />
+          <Route
+            path="source/:provider/:providerSpecificId"
+            element={<SourceContentPanel />}
+          />
           <Route
             path="conversations/:conversationId"
             element={<CorpusConversationPanel />}

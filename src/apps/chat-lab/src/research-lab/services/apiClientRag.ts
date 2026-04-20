@@ -15,6 +15,9 @@ import type {
   AppendToIngestQueueRequest,
   SseEvent,
   DeleteCorpusRequest,
+  SourceContentRequest,
+  SourceContentResponse,
+  SourceFileLocation,
 } from '../types/ragApi';
 import type { OpenRouterChatRequest } from '../../types/openRouter';
 import { handleSSEStream } from '../../utils/sseStreamHandling';
@@ -139,6 +142,22 @@ class RagApiClient {
       request satisfies CorpusIdentifyingRequest
     );
     return response.data.sources;
+  }
+
+  async getSourceContent(
+    corpus: CorpusLocation,
+    sourceFileLocation: SourceFileLocation
+  ): Promise<SourceContentResponse> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+      source_file_location: sourceFileLocation,
+    };
+    const response = await this.client.post<SourceContentResponse>(
+      '/corpus/source/content/query',
+      request satisfies SourceContentRequest
+    );
+    return response.data;
   }
 
   async *callChatCompletion(
