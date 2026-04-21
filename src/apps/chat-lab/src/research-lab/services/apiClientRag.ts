@@ -118,6 +118,24 @@ class RagApiClient {
     );
   }
 
+  async deleteFiles(
+    corpus: CorpusLocation,
+    files: FileLocation[]
+  ): Promise<void> {
+    const request = {
+      provider_credentials: await this.getProviderCredentials(),
+      corpus_location: corpus,
+      files: files.map(file => ({
+        action: 'delete' as const,
+        location: file,
+      })),
+    };
+    await this.client.put<void>(
+      '/corpus/ingest-queue',
+      request satisfies AppendToIngestQueueRequest
+    );
+  }
+
   async getIngestQueueStatus(
     corpus: CorpusLocation
   ): Promise<IngestQueueStatus> {

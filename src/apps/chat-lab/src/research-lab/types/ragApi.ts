@@ -31,7 +31,7 @@ export type DeleteCorpusRequest = {
 export type AppendToIngestQueueRequest = {
   provider_credentials: ProviderCredentials;
   corpus_location: CorpusLocation;
-  files: { action: 'add_or_replace'; location: FileLocation }[];
+  files: { action: 'add_or_replace' | 'delete'; location: FileLocation }[];
 };
 
 export type CorpusIdentifyingRequest = {

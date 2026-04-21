@@ -10,11 +10,15 @@ import { alpha } from '@mui/material/styles';
 import {
   Add as AddSourceIcon,
   OpenInNew as OpenInNewIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
 import type { CorpusSource } from '../types/local';
 import { formatDate } from '../utils';
+import { useCallback } from 'react';
+import { corpusToLocation, createRagApiClient } from '../services/apiClientRag';
+import type { FileLocation } from '../types/ragApi';
 
 const mimeTypeColourMap: Record<string, string> = {
   'application/pdf': '#e03131',
@@ -74,7 +78,7 @@ export default function SourceSelectionPanel({
 }) {
   const navigate = useNavigate();
   const { corpusId: urlCorpusId } = useParams();
-  const { sourceInfo, ingestQueueInfo } = useCorpusSessionContext();
+  const { corpus, sourceInfo, ingestQueueInfo } = useCorpusSessionContext();
   const s =
     sourceInfo === undefined
       ? { loading: true as const }
@@ -83,6 +87,45 @@ export default function SourceSelectionPanel({
     ingestQueueInfo === undefined
       ? { loading: true as const }
       : { loading: false as const, ...ingestQueueInfo };
+
+  const deleteSource = useCallback(
+    async (source: CorpusSource) => {
+      const corpusLocation = corpusToLocation(corpus);
+      if (corpusLocation === undefined) {
+        return;
+      }
+      let fileLocation: FileLocation;
+      switch (source.id.provider) {
+        case 'google_drive':
+          fileLocation = {
+            provider: 'google_drive',
+            file_id: source.id.fileId,
+          };
+          break;
+        case 'url':
+          fileLocation = {
+            provider: 'url',
+            url: source.id.url,
+          };
+          break;
+        case 'fidu_context':
+          fileLocation = {
+            provider: 'fidu_context',
+            provider_id: source.id.providerId,
+          };
+          break;
+        default: {
+          const _exhaustive: never = source.id;
+          console.error(`Unknown source type when deleting: ${_exhaustive}`);
+          return;
+        }
+      }
+      const ragApiClient = createRagApiClient();
+      await ragApiClient.deleteFiles(corpusLocation, [fileLocation]);
+      ingestQueueInfo?.pollIngestQueueStatus();
+    },
+    [corpus, ingestQueueInfo]
+  );
 
   return (
     <Paper
@@ -250,21 +293,34 @@ export default function SourceSelectionPanel({
                             variant="caption"
                             color="inherit"
                             sx={{ p: 0 }}
+                            title={source.addedAt}
                           >
                             {formatDate(source.addedAt)}
                           </Typography>
-                          {source.id.provider !== 'fidu_context' && (
+                          <Stack direction="row" spacing={0.5}>
+                            {source.id.provider !== 'fidu_context' && (
+                              <IconButton
+                                size="small"
+                                color="inherit"
+                                sx={{ p: 0 }}
+                                onClick={() => {
+                                  openExternal(source);
+                                }}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            )}
                             <IconButton
                               size="small"
-                              color="inherit"
+                              color="error"
                               sx={{ p: 0 }}
                               onClick={() => {
-                                openExternal(source);
+                                deleteSource(source);
                               }}
                             >
-                              <OpenInNewIcon fontSize="small" />
+                              <DeleteIcon fontSize="small" />
                             </IconButton>
-                          )}
+                          </Stack>
                         </Stack>
                       </Stack>
                     </Stack>
