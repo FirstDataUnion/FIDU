@@ -9,20 +9,28 @@ import {
 import { alpha } from '@mui/material/styles';
 import {
   Add as AddSourceIcon,
+  Link as LinkIcon,
   OpenInNew as OpenInNewIcon,
   Delete as DeleteIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
-import type { CorpusSource } from '../types/local';
+import type { CorpusSource, UrlCollection } from '../types/local';
 import { formatDate } from '../utils';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { corpusToLocation, createRagApiClient } from '../services/apiClientRag';
 import type { FileLocation } from '../types/ragApi';
+import {
+  GoogleDriveService,
+  type DriveFile,
+} from '../../services/storage/drive/GoogleDriveService';
+import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 
 const mimeTypeColourMap: Record<string, string> = {
   'application/pdf': '#e03131',
   'text/markdown': '#1971c2',
+  'application/vnd.google-apps.spreadsheet': 'rgb(52,168,83)',
 };
 
 function getMimeTypeColour(mimeType: string): string {
@@ -79,10 +87,13 @@ export default function SourceSelectionPanel({
   const navigate = useNavigate();
   const { corpusId: urlCorpusId } = useParams();
   const { corpus, sourceInfo, ingestQueueInfo } = useCorpusSessionContext();
-  const s =
-    sourceInfo === undefined
-      ? { loading: true as const }
-      : { loading: false as const, ...sourceInfo };
+  const s = useMemo(
+    () =>
+      sourceInfo === undefined
+        ? { loading: true as const }
+        : { loading: false as const, ...sourceInfo },
+    [sourceInfo]
+  );
   const q =
     ingestQueueInfo === undefined
       ? { loading: true as const }
@@ -121,10 +132,62 @@ export default function SourceSelectionPanel({
         }
       }
       const ragApiClient = createRagApiClient();
-      await ragApiClient.deleteFiles(corpusLocation, [fileLocation]);
+      await ragApiClient.deleteFiles(corpusLocation, [
+        { location: fileLocation },
+      ]);
       ingestQueueInfo?.pollIngestQueueStatus();
     },
     [corpus, ingestQueueInfo]
+  );
+
+  const refreshUrlCollection = useCallback(
+    async (collection: UrlCollection & { fileMetadata: DriveFile }) => {
+      const corpusLocation = corpusToLocation(corpus);
+      if (!corpusLocation || s.loading) {
+        return;
+      }
+      console.log('refreshUrlCollection', { collection });
+      const authService = await getGoogleDriveAuthService();
+      const driveService = new GoogleDriveService(authService);
+      await driveService.initialize();
+
+      const collectionUrls = await driveService.getGoogleSheetColumnAValues(
+        collection.fileId
+      );
+      const existingUrls = s.sources
+        .filter(source => source.id.provider === 'url')
+        .filter(
+          source =>
+            source.metadata?.url_collection_sheets_file_id === collection.fileId
+        ) as (CorpusSource & { id: { provider: 'url' } })[];
+      const addOrReplace = collectionUrls.map(url => ({
+        location: {
+          provider: 'url' as const,
+          url,
+        },
+        metadata: {
+          url_collection_sheets_file_id: collection.fileId,
+        },
+      }));
+      const deleteSources = existingUrls
+        .filter(source => !collectionUrls.includes(source.id.url))
+        .map(source => ({
+          location: { provider: 'url' as const, url: source.id.url },
+        }));
+      console.log({
+        sources: s.sources,
+        collectionUrls,
+        existingUrls,
+        addOrReplace,
+        deleteSources,
+      });
+
+      const ragApiClient = createRagApiClient();
+      await ragApiClient.ingestFiles(corpusLocation, addOrReplace);
+      await ragApiClient.deleteFiles(corpusLocation, deleteSources);
+      ingestQueueInfo?.pollIngestQueueStatus();
+    },
+    [corpus, s, ingestQueueInfo]
   );
 
   return (
@@ -172,6 +235,13 @@ export default function SourceSelectionPanel({
           {q.remaining === 1 ? '' : 's'} ingesting...
         </Typography>
       )}
+      {!s.loading && s.reloadingSources && (
+        <Typography
+          sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
+        >
+          Reloading sources...
+        </Typography>
+      )}
       {open && (
         <Box
           sx={{
@@ -187,6 +257,84 @@ export default function SourceSelectionPanel({
             <Typography sx={{ p: 2 }}>Loading sources...</Typography>
           ) : (
             <Stack direction="column" spacing={1} sx={{ p: 2 }}>
+              {s.urlCollections.length > 0 && (
+                <Box sx={{ pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+                  {s.urlCollections.map(c => (
+                    <Paper key={c.fileId} sx={{ p: 1 }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Box
+                          sx={{
+                            position: 'relative',
+                            minWidth: 48,
+                            width: 48,
+                            height: 48 * 1.3,
+                            backgroundColor: getMimeTypeColour(
+                              c.fileMetadata.mimeType
+                            ),
+                            borderRadius: 0.75,
+                          }}
+                        >
+                          <LinkIcon
+                            fontSize="large"
+                            sx={{
+                              position: 'absolute',
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -50%) rotate(-45deg)',
+                            }}
+                          />
+                        </Box>
+                        <Stack
+                          direction="column"
+                          spacing={0.5}
+                          sx={{ minWidth: '5em' }}
+                          width="100%"
+                        >
+                          <Typography>{c.fileMetadata.name}</Typography>
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            justifyContent="space-between"
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {formatDate(c.fileMetadata.modifiedTime)}
+                            </Typography>
+                            <Box>
+                              <IconButton
+                                size="small"
+                                color="inherit"
+                                sx={{ p: 0 }}
+                                onClick={() => {
+                                  window.open(
+                                    `https://docs.google.com/spreadsheets/d/${c.fileId}/edit?gid=0#gid=0`,
+                                    '_blank'
+                                  );
+                                }}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="inherit"
+                                sx={{ p: 0 }}
+                                onClick={() => {
+                                  refreshUrlCollection(c);
+                                }}
+                              >
+                                <RefreshIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Stack>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
               {s.sources.length === 0 && (
                 <Typography>No sources yet</Typography>
               )}
@@ -310,16 +458,29 @@ export default function SourceSelectionPanel({
                                 <OpenInNewIcon fontSize="small" />
                               </IconButton>
                             )}
-                            <IconButton
-                              size="small"
-                              color="error"
-                              sx={{ p: 0 }}
-                              onClick={() => {
-                                deleteSource(source);
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            {source.metadata?.url_collection_sheets_file_id ? (
+                              // mark it as non-deletable because it comes from a URL collection
+                              <Box
+                                sx={{
+                                  backgroundColor: getMimeTypeColour(
+                                    'application/vnd.google-apps.spreadsheet'
+                                  ),
+                                  borderRadius: 0.5,
+                                  width: '0.95em',
+                                }}
+                              ></Box>
+                            ) : (
+                              <IconButton
+                                size="small"
+                                color="error"
+                                sx={{ p: 0 }}
+                                onClick={() => {
+                                  deleteSource(source);
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            )}
                           </Stack>
                         </Stack>
                       </Stack>

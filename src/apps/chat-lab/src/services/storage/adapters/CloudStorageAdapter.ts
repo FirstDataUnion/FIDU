@@ -2279,6 +2279,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         description: corpus.description,
         lastOpenedAt: corpus.lastOpenedAt,
         databaseLocation: corpus.databaseLocation,
+        urlCollections: corpus.urlCollections,
       },
     };
   }
@@ -2297,6 +2298,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         description: corpus.description,
         lastOpenedAt: corpus.lastOpenedAt,
         databaseLocation: corpus.databaseLocation,
+        urlCollections: corpus.urlCollections,
       },
     };
   }
@@ -2309,6 +2311,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       createdAt: packet.create_timestamp,
       lastOpenedAt: packet.data.lastOpenedAt,
       databaseLocation: packet.data.databaseLocation,
+      urlCollections: packet.data.urlCollections ?? [],
       tags: (packet.tags || []).filter(
         (t: string) => t !== 'FIDU-RESEARCH-LAB-Corpus'
       ),

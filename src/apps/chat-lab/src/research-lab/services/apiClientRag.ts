@@ -102,14 +102,15 @@ class RagApiClient {
 
   async ingestFiles(
     corpus: CorpusLocation,
-    files: FileLocation[]
+    files: { location: FileLocation; metadata?: Record<string, any> }[]
   ): Promise<void> {
     const request = {
       provider_credentials: await this.getProviderCredentials(),
       corpus_location: corpus,
-      files: files.map(file => ({
+      files: files.map(({ location, metadata }) => ({
         action: 'add_or_replace' as const,
-        location: file,
+        location,
+        metadata,
       })),
     };
     await this.client.put<void>(
@@ -120,14 +121,15 @@ class RagApiClient {
 
   async deleteFiles(
     corpus: CorpusLocation,
-    files: FileLocation[]
+    files: { location: FileLocation; metadata?: Record<string, any> }[]
   ): Promise<void> {
     const request = {
       provider_credentials: await this.getProviderCredentials(),
       corpus_location: corpus,
-      files: files.map(file => ({
+      files: files.map(({ location, metadata }) => ({
         action: 'delete' as const,
-        location: file,
+        location,
+        metadata,
       })),
     };
     await this.client.put<void>(

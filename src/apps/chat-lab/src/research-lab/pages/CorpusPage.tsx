@@ -17,6 +17,7 @@ import type {
   CorpusMessage,
   CorpusSource,
   CorpusSourceId,
+  UrlCollection,
 } from '../types/local';
 import { getStorageService } from '../../services/storage/StorageService';
 import ModelOptionsPanel from '../components/ModelOptionsPanel';
@@ -34,6 +35,11 @@ import {
   type ModelConfig,
 } from '../../data/models';
 import { fetchContexts } from '../../store/slices/contextsSlice';
+import {
+  GoogleDriveService,
+  type DriveFile,
+} from '../../services/storage/drive/GoogleDriveService';
+import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -93,6 +99,7 @@ function mapSource(source: Source): CorpusSource {
     mimeType: source.mime_type,
     addedAt: source.added_at,
     lastIngestedAt: source.last_ingested_at,
+    metadata: source.metadata,
   };
 }
 
@@ -125,6 +132,7 @@ function useIngestQueuePolling(
   corpus: Corpus | undefined,
   enabled: boolean,
   setRemaining: (remaining: number) => void,
+  setLoadingSources: (loading: boolean) => void,
   setSources: (sources: CorpusSource[]) => void,
   onComplete: () => void
 ) {
@@ -157,11 +165,13 @@ function useIngestQueuePolling(
         }
         setRemaining(remaining_queue_size);
         if (queue_status === 'completed' || queue_status === 'empty') {
+          setLoadingSources(true);
           const sources = await apiClient.getSources(corpusLocation);
           if (cancelled) {
             return;
           }
           setSources(sources.map(mapSource));
+          setLoadingSources(false);
           onComplete();
           return;
         }
@@ -179,7 +189,14 @@ function useIngestQueuePolling(
         clearTimeout(timeoutId);
       }
     };
-  }, [corpus, enabled, onComplete, setRemaining, setSources]);
+  }, [
+    corpus,
+    enabled,
+    onComplete,
+    setRemaining,
+    setLoadingSources,
+    setSources,
+  ]);
 }
 
 export default function CorpusPage() {
@@ -194,11 +211,15 @@ export default function CorpusPage() {
   const [conversations, setConversations] = useState<
     CorpusConversation[] | undefined
   >();
+  const [loadingSources, setLoadingSources] = useState<boolean>(false);
   const [sources, setSources] = useState<CorpusSource[] | undefined>();
   const [sourceSelection, setSourceSelection] = useState<
     Record<string, boolean>
   >({});
   const [allSourcesSelected, setAllSourcesSelected] = useState<boolean>(false);
+  const [urlCollections, setUrlCollections] = useState<
+    (UrlCollection & { fileMetadata: DriveFile })[] | undefined
+  >();
   const [ingestQueueSourcesRemaining, setIngestQueueSourcesRemaining] =
     useState<number>(0);
   const [ingestQueuePollingEnabled, setIngestQueuePollingEnabled] =
@@ -281,10 +302,41 @@ export default function CorpusPage() {
     };
   }, [corpusId]);
 
+  useEffect(() => {
+    if (!corpus?.urlCollections) {
+      return;
+    }
+    let cancelled = false;
+    getGoogleDriveAuthService().then(async authService => {
+      const driveService = new GoogleDriveService(authService);
+      await driveService.initialize();
+      const urlCollections = await Promise.all(
+        corpus.urlCollections.map(async collection => {
+          const fileMetadata = await driveService.getFileMetadata(
+            collection.fileId
+          );
+          return {
+            ...collection,
+            fileMetadata,
+          };
+        })
+      );
+      if (cancelled) {
+        return;
+      }
+      setUrlCollections(urlCollections);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [corpus?.urlCollections, setUrlCollections]);
+
   useIngestQueuePolling(
     corpus,
     ingestQueuePollingEnabled,
     setIngestQueueSourcesRemaining,
+    setLoadingSources,
     setSources,
     useCallback(() => setIngestQueuePollingEnabled(false), [])
   );
@@ -354,6 +406,23 @@ export default function CorpusPage() {
     [corpusId, currentProfile]
   );
 
+  const addUrlCollection = useCallback(
+    async (collection: UrlCollection) => {
+      if (!corpus || !currentProfile) {
+        return undefined;
+      }
+      const adapter = getStorageService().getAdapter();
+      const updated: Corpus = {
+        ...corpus,
+        urlCollections: [...(corpus.urlCollections ?? []), collection],
+      };
+      const saved = await adapter.updateCorpus(updated, currentProfile.id);
+      setCorpus(saved);
+      return saved;
+    },
+    [corpus, currentProfile]
+  );
+
   const pollIngestQueueStatus = useCallback(
     () => setIngestQueuePollingEnabled(true),
     []
@@ -381,6 +450,9 @@ export default function CorpusPage() {
   const sessionContext: CorpusSessionContextValue = useMemo(
     () => ({
       corpus,
+      corpusInfo: {
+        addUrlCollection,
+      },
       conversationInfo: conversations && {
         conversations,
         reloadConversations: () =>
@@ -388,14 +460,17 @@ export default function CorpusPage() {
         addMessages,
         setConversationName,
       },
-      sourceInfo: sources && {
-        allSourcesSelected,
-        toggleAllSourcesSelected,
-        sources,
-        sourceSelection,
-        setSourceSelection: setOneSourceSelection,
-        sourceStringId,
-      },
+      sourceInfo: sources
+        && urlCollections && {
+          allSourcesSelected,
+          toggleAllSourcesSelected,
+          sources,
+          sourceSelection,
+          reloadingSources: loadingSources,
+          setSourceSelection: setOneSourceSelection,
+          sourceStringId,
+          urlCollections,
+        },
       ingestQueueInfo: {
         remaining: ingestQueueSourcesRemaining,
         pollingEnabled: ingestQueuePollingEnabled,
@@ -412,13 +487,16 @@ export default function CorpusPage() {
     }),
     [
       corpus,
+      addUrlCollection,
       conversations,
       addMessages,
       setConversationName,
       sources,
+      urlCollections,
       allSourcesSelected,
       toggleAllSourcesSelected,
       sourceSelection,
+      loadingSources,
       setOneSourceSelection,
       ingestQueueSourcesRemaining,
       ingestQueuePollingEnabled,

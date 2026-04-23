@@ -161,6 +161,7 @@ export default function ResearchLabPage() {
         createdAt: new Date().toISOString(),
         lastOpenedAt: new Date().toISOString(),
         databaseLocation,
+        urlCollections: [],
         tags: [],
       },
       currentProfile.id

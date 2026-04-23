@@ -263,6 +263,124 @@ export class GoogleDriveService {
   }
 
   /**
+   * Create a new Google Sheets spreadsheet in a specific Drive folder.
+   */
+  async createGoogleSheet(name: string, parentFolderId: string): Promise<string> {
+    return this.trackGoogleApiRequest('createGoogleSheet', async () => {
+      const accessToken = await this.authService.getAccessToken();
+
+      const metadata: {
+        name: string;
+        mimeType: string;
+        parents: string[];
+      } = {
+        name,
+        mimeType: 'application/vnd.google-apps.spreadsheet',
+        parents: [parentFolderId],
+      };
+
+      const response = await fetch(
+        'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadata),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response
+          .text()
+          .catch(() => 'Unable to read error response');
+        throw new Error(
+          `Failed to create Google Sheet: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const result: { id?: string } = await response.json();
+      if (!result.id) {
+        throw new Error(
+          'Failed to create Google Sheet: missing file id in response'
+        );
+      }
+      return result.id;
+    });
+  }
+
+  /**
+   * Get the values in column A of a Google Sheet as a string[].
+   *
+   * Implementation note:
+   * - We currently use Drive export-to-CSV so this can work without Google Sheets API scopes.
+   * - If/when we add the Sheets scope (`https://www.googleapis.com/auth/spreadsheets`),
+   *   prefer switching this to `spreadsheets.values.get` for correctness.
+   */
+  async getGoogleSheetColumnAValues(fileId: string): Promise<string[]> {
+    return this.trackGoogleApiRequest('getGoogleSheetColumnAValues', async () => {
+      const accessToken = await this.authService.getAccessToken();
+
+      const url =
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export`
+        + `?mimeType=${encodeURIComponent('text/csv')}`
+        + `&supportsAllDrives=true`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'text/csv',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response
+          .text()
+          .catch(() => 'Unable to read error response');
+        throw new Error(
+          `Failed to read Google Sheet values: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const csv = await response.text();
+
+      function parseFirstCsvField(line: string): string {
+        const s = line.replace(/\r$/, '');
+        if (s.startsWith('"')) {
+          let out = '';
+          let i = 1;
+          while (i < s.length) {
+            const ch = s[i];
+            if (ch === '"') {
+              if (s[i + 1] === '"') {
+                out += '"';
+                i += 2;
+                continue;
+              }
+              // end quote
+              i++;
+              break;
+            }
+            out += ch;
+            i++;
+          }
+          return out;
+        }
+
+        const commaIdx = s.indexOf(',');
+        return commaIdx === -1 ? s : s.slice(0, commaIdx);
+      }
+
+      return csv
+        .split('\n')
+        .map(line => parseFirstCsvField(line).trim())
+        .filter(v => v.length > 0);
+    });
+  }
+
+  /**
    * Upload a file to the app data folder, replacing if it exists
    */
   async uploadFile(

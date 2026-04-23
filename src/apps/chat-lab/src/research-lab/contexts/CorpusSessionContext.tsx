@@ -5,11 +5,18 @@ import type {
   CorpusConversation,
   CorpusMessage,
   CorpusSource,
+  UrlCollection,
 } from '../types/local';
 import { useContext } from 'react';
+import type { DriveFile } from '../../services/storage/drive/GoogleDriveService';
 
 export interface CorpusSessionContextValue {
   corpus?: Corpus;
+  corpusInfo?: {
+    addUrlCollection: (
+      collection: UrlCollection
+    ) => Promise<Corpus | undefined>;
+  };
   conversationInfo?: {
     conversations: CorpusConversation[];
     reloadConversations: () => Promise<void>;
@@ -27,8 +34,10 @@ export interface CorpusSessionContextValue {
     toggleAllSourcesSelected: () => void;
     sources: CorpusSource[];
     sourceSelection: Record<string, boolean>;
+    reloadingSources: boolean;
     setSourceSelection: (sourceId: string, selected: boolean) => void;
     sourceStringId: (source: CorpusSource) => string;
+    urlCollections: (UrlCollection & { fileMetadata: DriveFile })[];
   };
   ingestQueueInfo?: {
     remaining: number;

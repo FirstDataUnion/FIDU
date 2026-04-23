@@ -1,6 +1,11 @@
 // These are the types as they exist in React memory
 // They may or may not require conversion for storage/API use
 
+export type UrlCollection = {
+  provider: 'google_sheets';
+  fileId: string;
+};
+
 export interface Corpus {
   id: string;
   name: string;
@@ -13,6 +18,7 @@ export interface Corpus {
     fileId: string;
     parentFolderId: string;
   };
+  urlCollections: UrlCollection[];
 }
 
 export interface CorpusConversation {
@@ -67,6 +73,7 @@ export interface CorpusSource {
   mimeType: string;
   addedAt: string;
   lastIngestedAt: string;
+  metadata?: Record<string, any>;
 }
 
 export type CorpusSourceId =

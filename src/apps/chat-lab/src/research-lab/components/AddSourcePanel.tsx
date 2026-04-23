@@ -8,6 +8,7 @@ import {
   ListItemText,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -19,9 +20,11 @@ import {
   type PickedDriveDocument,
 } from '../../services/drive/DrivePicker';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
+import { GoogleDriveService } from '../../services/storage/drive/GoogleDriveService';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
 import { corpusToLocation, createRagApiClient } from '../services/apiClientRag';
 import { useAppSelector } from '../../store';
+import type { UrlCollection } from '../types/local';
 
 function RadioButtonSelector({
   values,
@@ -78,17 +81,27 @@ type Step =
   | 'google_drive_scope'
   | 'google_drive_file_selection'
   | 'fidu_context_selection'
+  | 'url_source_location'
+  | 'url_selection'
+  | 'url_google_sheet_selection'
+  | 'url_collection_complete'
   | 'complete';
 
 export default function AddSourcePanel() {
   const navigate = useNavigate();
   const { corpusId } = useParams();
-  const { corpus, ingestQueueInfo } = useCorpusSessionContext();
+  const { corpus, ingestQueueInfo, corpusInfo } = useCorpusSessionContext();
   const { items: contexts, loading: contextsLoading } = useAppSelector(
     state => state.contexts
   );
   const [step, setStep] = useState<Step>('source_type');
   const [googleDriveScope, setGoogleDriveScope] = useState<string | undefined>(
+    undefined
+  );
+  const [url, setUrl] = useState<string>('');
+  const [googleSheetName, setGoogleSheetName] =
+    useState<string>('FIDU Source URLs');
+  const [urlCollection, setUrlCollection] = useState<UrlCollection | undefined>(
     undefined
   );
 
@@ -115,6 +128,9 @@ export default function AddSourcePanel() {
         case 'fidu_context':
           setStep('fidu_context_selection');
           break;
+        case 'url':
+          setStep('url_source_location');
+          break;
         default:
           console.error(`Invalid source type: ${value}`);
           cancel();
@@ -140,8 +156,10 @@ export default function AddSourcePanel() {
       await ragApiClient.ingestFiles(
         corpusLocation,
         files.map(file => ({
-          provider: 'google_drive',
-          file_id: file.id,
+          location: {
+            provider: 'google_drive',
+            file_id: file.id,
+          },
         }))
       );
       ingestQueueInfo?.pollIngestQueueStatus();
@@ -180,10 +198,12 @@ export default function AddSourcePanel() {
       const ragApiClient = createRagApiClient();
       await ragApiClient.ingestFiles(corpusLocation, [
         {
-          provider: 'fidu_context',
-          provider_id: context.id,
-          title: context.title,
-          body: context.body,
+          location: {
+            provider: 'fidu_context',
+            provider_id: context.id,
+            title: context.title,
+            body: context.body,
+          },
         },
       ]);
       ingestQueueInfo?.pollIngestQueueStatus();
@@ -191,6 +211,74 @@ export default function AddSourcePanel() {
     },
     [contexts, corpus, ingestQueueInfo]
   );
+
+  const handleUrlSourceLocationSubmit = useCallback(
+    (value: string) => {
+      switch (value) {
+        case 'research_lab':
+          setStep('url_selection');
+          break;
+        case 'google_sheet':
+          setStep('url_google_sheet_selection');
+          break;
+        default:
+          console.error(`Invalid URL source location: ${value}`);
+          cancel();
+          break;
+      }
+    },
+    [cancel]
+  );
+
+  const handleUrlSelectionSubmit = useCallback(async () => {
+    if (url.trim() === '') {
+      return;
+    }
+    const corpusLocation = corpusToLocation(corpus);
+    if (corpusLocation === undefined) {
+      console.error('Corpus location is undefined');
+      return;
+    }
+    const ragApiClient = createRagApiClient();
+    await ragApiClient.ingestFiles(corpusLocation, [
+      {
+        location: {
+          provider: 'url',
+          url: url.trim(),
+        },
+      },
+    ]);
+    ingestQueueInfo?.pollIngestQueueStatus();
+    setStep('complete');
+  }, [url, corpus, ingestQueueInfo]);
+
+  const handleUrlGoogleSheetSubmit = useCallback(async () => {
+    if (!googleSheetName.trim() || !corpus || !corpusInfo) {
+      return;
+    }
+
+    try {
+      const authService = await getGoogleDriveAuthService();
+      const driveService = new GoogleDriveService(authService);
+      await driveService.initialize();
+
+      const sheetFileId = await driveService.createGoogleSheet(
+        googleSheetName.trim(),
+        corpus.databaseLocation.parentFolderId
+      );
+
+      const urlCollection: UrlCollection = {
+        provider: 'google_sheets',
+        fileId: sheetFileId,
+      };
+      await corpusInfo.addUrlCollection(urlCollection);
+      setUrlCollection(urlCollection);
+
+      setStep('url_collection_complete');
+    } catch (error) {
+      console.error('Failed to create URL collection Google Sheet:', error);
+    }
+  }, [corpus, corpusInfo, googleSheetName, setUrlCollection]);
 
   return (
     <Paper>
@@ -217,6 +305,7 @@ export default function AddSourcePanel() {
                 values={[
                   { label: 'Google Drive', value: 'google_drive' },
                   { label: 'FIDU Context', value: 'fidu_context' },
+                  { label: 'URL', value: 'url' },
                 ]}
                 onSubmit={handleSourceTypeSubmit}
               />
@@ -267,6 +356,94 @@ export default function AddSourcePanel() {
                   onSubmit={handleFiduContextSelectionSubmit}
                 />
               )}
+            </Box>
+          )}
+          {step === 'url_source_location' && (
+            <Box sx={{ p: 2 }}>
+              <Typography>Where would you like to manage your URLs?</Typography>
+              <Typography variant="body2" color="text.secondary">
+                You can mix and match if you want to. Choosing one type now will
+                not prevent you from choosing the other type later.
+              </Typography>
+              <RadioButtonSelector
+                values={[
+                  { label: 'Research Lab', value: 'research_lab' },
+                  { label: 'Google Sheet', value: 'google_sheet' },
+                ]}
+                onSubmit={handleUrlSourceLocationSubmit}
+              />
+            </Box>
+          )}
+          {step === 'url_selection' && (
+            <Box sx={{ p: 2 }}>
+              <Typography>
+                Enter the URL of the source you want to add
+              </Typography>
+              <TextField
+                fullWidth
+                label="URL"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                sx={{ mt: 2 }}
+              />
+              <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleUrlSelectionSubmit}
+                  disabled={!url.trim()}
+                >
+                  Continue
+                </Button>
+              </Stack>
+            </Box>
+          )}
+          {step === 'url_google_sheet_selection' && (
+            <Box sx={{ p: 2 }}>
+              <Typography>
+                This will create a new Google Sheet in the Google Drive folder
+                of the corpus.
+              </Typography>
+              <TextField
+                fullWidth
+                label="Google Sheet Name"
+                value={googleSheetName}
+                onChange={e => setGoogleSheetName(e.target.value)}
+                sx={{ mt: 2 }}
+              />
+              <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleUrlGoogleSheetSubmit}
+                  disabled={!googleSheetName.trim()}
+                >
+                  Continue
+                </Button>
+              </Stack>
+            </Box>
+          )}
+          {step === 'url_collection_complete' && (
+            <Box sx={{ p: 2 }}>
+              <Typography>URL collection created successfully!</Typography>
+              <Typography color="text.secondary">
+                Add URLs in the A column of your new Google Sheet and refresh it
+                in the Sources panel to ingest them.
+              </Typography>
+              <Stack direction="row" justifyContent="center" sx={{ mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => {
+                    window.open(
+                      `https://docs.google.com/spreadsheets/d/${urlCollection?.fileId}/edit?gid=0#gid=0`,
+                      '_blank'
+                    );
+                  }}
+                >
+                  Open Google Sheet
+                </Button>
+              </Stack>
             </Box>
           )}
           {step === 'complete' && (
