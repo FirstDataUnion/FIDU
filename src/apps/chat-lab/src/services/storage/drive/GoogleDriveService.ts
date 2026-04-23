@@ -143,6 +143,29 @@ export class GoogleDriveService {
     return !this.driveFolderId;
   }
 
+  private async listFilesInParent(parentId: string): Promise<DriveFile[]> {
+    const accessToken = await this.authService.getAccessToken();
+    const isAppData = this.isAppDataFolder();
+    const spaces = isAppData ? 'appDataFolder' : 'drive';
+    const apiQuery = `'${parentId}' in parents and trashed=false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(apiQuery)}&fields=files(id,name,mimeType,size,createdTime,modifiedTime,parents)&spaces=${spaces}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to list files in parent ${parentId}: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data: DriveFileList = await response.json();
+    return data.files;
+  }
+
   /**
    * List files in the configured folder (AppData or custom folder)
    */
@@ -289,6 +312,84 @@ export class GoogleDriveService {
   }
 
   /**
+   * Upload a file into a specific parent folder, replacing by name if found.
+   */
+  async uploadFileToFolder(
+    parentFolderId: string,
+    fileName: string,
+    data: Uint8Array,
+    mimeType: string = 'application/octet-stream'
+  ): Promise<string> {
+    return this.trackGoogleApiRequest('uploadFileToFolder', async () => {
+      const accessToken = await this.authService.getAccessToken();
+      const existingFile = await this.findFileByNameInFolder(
+        parentFolderId,
+        fileName
+      );
+
+      if (existingFile) {
+        await this.updateFile(existingFile.id, data, mimeType);
+        return existingFile.id;
+      }
+
+      const metadata = {
+        name: fileName,
+        parents: [parentFolderId],
+      };
+
+      const boundary = '-------314159265358979323846';
+      const metadataString = JSON.stringify(metadata);
+      const metadataBytes = new TextEncoder().encode(metadataString);
+      const contentDelimiter = '\r\n--' + boundary + '\r\n';
+      const contentDelimiterBytes = new TextEncoder().encode(contentDelimiter);
+      const jsonHeaders = new TextEncoder().encode(
+        'Content-Type: application/json\r\n\r\n'
+      );
+      const binaryHeaders = new TextEncoder().encode(
+        `Content-Type: ${mimeType}\r\n\r\n`
+      );
+      const closeDelimiterBytes = new TextEncoder().encode(
+        `\r\n--${boundary}--\r\n`
+      );
+      const part1 = [
+        ...contentDelimiterBytes,
+        ...jsonHeaders,
+        ...metadataBytes,
+        ...contentDelimiterBytes,
+        ...binaryHeaders,
+      ];
+      const fullBody = new Uint8Array(
+        part1.length + data.length + closeDelimiterBytes.length
+      );
+      let offset = 0;
+      fullBody.set(part1, offset);
+      offset += part1.length;
+      fullBody.set(data, offset);
+      offset += data.length;
+      fullBody.set(closeDelimiterBytes, offset);
+
+      const response = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary="${boundary}"`,
+          },
+          body: fullBody as any,
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to upload file to folder: ${error}`);
+      }
+      const result = await response.json();
+      return result.id;
+    });
+  }
+
+  /**
    * Download a file from Google Drive
    */
   async downloadFile(fileId: string): Promise<Uint8Array> {
@@ -410,6 +511,58 @@ export class GoogleDriveService {
   async findFileByName(fileName: string): Promise<DriveFile | null> {
     const files = await this.listFiles();
     return files.find(file => file.name === fileName) || null;
+  }
+
+  /**
+   * Find a file by name in the specified folder id.
+   */
+  async findFileByNameInFolder(
+    parentFolderId: string,
+    fileName: string
+  ): Promise<DriveFile | null> {
+    const files = await this.listFilesInParent(parentFolderId);
+    return files.find(file => file.name === fileName) || null;
+  }
+
+  /**
+   * Ensure a subfolder exists in the current workspace root and return its id.
+   */
+  async ensureFolder(folderName: string): Promise<string> {
+    return this.trackGoogleApiRequest('ensureFolder', async () => {
+      const rootFolderId = this.getFolderId();
+      const existing = await this.findFileByNameInFolder(rootFolderId, folderName);
+      if (existing && existing.mimeType === 'application/vnd.google-apps.folder') {
+        return existing.id;
+      }
+
+      const accessToken = await this.authService.getAccessToken();
+      const metadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [rootFolderId],
+      };
+      const response = await fetch(
+        'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadata),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create folder '${folderName}': ${errorText}`);
+      }
+      const created = await response.json();
+      if (!created?.id) {
+        throw new Error(`Failed to create folder '${folderName}': missing id`);
+      }
+      return created.id as string;
+    });
   }
 
   // Specific methods for our use case

@@ -34,7 +34,7 @@ describe('openRouterCatalogModelAllowedByZdr', () => {
     ).toBe(true);
   });
 
-  it('allows canonical_slug when it matches a ZDR model_id', () => {
+  it('rejects canonical_slug-only match when id is not in ZDR set', () => {
     expect(
       openRouterCatalogModelAllowedByZdr(
         textChatModel('vendor/foo-2025-01-01', {
@@ -42,26 +42,16 @@ describe('openRouterCatalogModelAllowedByZdr', () => {
         }),
         zdr
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it('allows catalog id that extends ZDR id with a dated suffix (-…)', () => {
+  it('rejects id variants not explicitly present in ZDR set', () => {
     expect(
       openRouterCatalogModelAllowedByZdr(
         textChatModel('qwen/qwen3-32b-04-28'),
         zdr
       )
-    ).toBe(true);
-  });
-
-  it('allows catalog id that extends ZDR id with a variant (:…)', () => {
-    const withFree = new Set(['meta-llama/llama-3']);
-    expect(
-      openRouterCatalogModelAllowedByZdr(
-        textChatModel('meta-llama/llama-3:free'),
-        withFree
-      )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('rejects models not in the ZDR allowlist', () => {
@@ -104,9 +94,9 @@ describe('openRouterModelHasTextInputAndOutput', () => {
 });
 
 describe('applyOpenRouterZdrAllowlist', () => {
-  it('passes through all models when ZDR allowlist is empty', () => {
+  it('returns empty list when ZDR allowlist is empty', () => {
     const models = [textChatModel('a/b'), textChatModel('nope/model')];
-    expect(applyOpenRouterZdrAllowlist(models, new Set())).toEqual(models);
+    expect(applyOpenRouterZdrAllowlist(models, new Set())).toEqual([]);
   });
 
   it('filters like filterOpenRouterModelsByZdr when allowlist is non-empty', () => {
@@ -129,7 +119,7 @@ describe('filterOpenRouterModelsByZdr (display pipeline invariant)', () => {
 
     const out = filterOpenRouterModelsByZdr(afterText, zdr);
 
-    expect(out.map(m => m.id)).toEqual(['a/b', 'c/d-2025']);
+    expect(out.map(m => m.id)).toEqual(['a/b']);
     expect(out.every(m => openRouterCatalogModelAllowedByZdr(m, zdr))).toBe(
       true
     );

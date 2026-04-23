@@ -264,8 +264,15 @@ export class SmartAutoSyncService {
 
       console.log('✅ Auto-sync completed successfully');
 
-      // Mark as synced
-      unsyncedDataManager.markAsSynced();
+      // Mark as synced only when there are truly no unsynced local changes left.
+      // Some tests/mock sync services may not implement hasUnsyncedChanges.
+      const hasUnsyncedChanges =
+        typeof (this.syncService as any).hasUnsyncedChanges === 'function'
+          ? await this.syncService.hasUnsyncedChanges()
+          : false;
+      if (!hasUnsyncedChanges) {
+        unsyncedDataManager.markAsSynced();
+      }
 
       // Double-check that unsynced state was cleared
       setTimeout(() => {
@@ -400,7 +407,13 @@ export class SmartAutoSyncService {
       this.healthState.lastError = null;
       this.saveSyncHealth();
 
-      unsyncedDataManager.markAsSynced();
+      const hasUnsyncedChanges =
+        typeof (this.syncService as any).hasUnsyncedChanges === 'function'
+          ? await this.syncService.hasUnsyncedChanges()
+          : false;
+      if (!hasUnsyncedChanges) {
+        unsyncedDataManager.markAsSynced();
+      }
       console.log('✅ Force sync completed');
     } catch (error) {
       const errorMessage =

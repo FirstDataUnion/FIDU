@@ -193,6 +193,24 @@ chatlab_active_users = Gauge(
     "chatlab_active_users", "Number of active users", ["environment"]
 )
 
+chatlab_generated_images_total = Counter(
+    "chatlab_generated_images_total",
+    "Total generated images returned in Chat Lab responses",
+    ["environment", "model"],
+)
+
+chatlab_image_uploads_total = Counter(
+    "chatlab_image_uploads_total",
+    "Total image upload attempts to user drives",
+    ["environment", "status"],
+)
+
+chatlab_image_upload_failures_total = Counter(
+    "chatlab_image_upload_failures_total",
+    "Total image upload failures split by failure class and error code",
+    ["environment", "failure_class", "error_code"],
+)
+
 chatlab_health_status = Gauge(
     "chatlab_health_status",
     "Health status (1 = healthy, 0 = unhealthy)",
@@ -510,6 +528,25 @@ async def receive_metrics(request: Request):
 
                 elif metric_type == "active_users":
                     chatlab_active_users.labels(environment=ENVIRONMENT).set(value)
+
+                elif metric_type == "image_generated":
+                    chatlab_generated_images_total.labels(
+                        environment=ENVIRONMENT,
+                        model=labels.get("model", "unknown"),
+                    ).inc(value)
+
+                elif metric_type == "image_upload":
+                    chatlab_image_uploads_total.labels(
+                        environment=ENVIRONMENT,
+                        status=labels.get("status", "success"),
+                    ).inc(value)
+
+                elif metric_type == "image_upload_failure":
+                    chatlab_image_upload_failures_total.labels(
+                        environment=ENVIRONMENT,
+                        failure_class=labels.get("failure_class", "unknown"),
+                        error_code=labels.get("error_code", "unknown"),
+                    ).inc(value)
 
                 else:
                     logger.warning("Unknown metric type: %s", metric_type)

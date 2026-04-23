@@ -37,25 +37,16 @@ export function openRouterModelHasTextInputAndOutput(
 
 /**
  * True if the catalog model is routable under ZDR (zero data retention), per
- * GET /v1/endpoints/zdr `model_id` values. Matches exact id or canonical_slug,
- * or catalog ids that extend a ZDR id with `-…` / `:…` (e.g. dated or :free).
+ * GET /v1/endpoints/zdr `model_id` values.
+ *
+ * Strict policy: only keep catalog models whose `id` is explicitly present in
+ * the ZDR endpoint payload.
  */
 export function openRouterCatalogModelAllowedByZdr(
   model: OpenRouterModel,
   zdrModelIds: Set<string>
 ): boolean {
-  if (zdrModelIds.has(model.id)) {
-    return true;
-  }
-  if (model.canonical_slug && zdrModelIds.has(model.canonical_slug)) {
-    return true;
-  }
-  for (const zid of zdrModelIds) {
-    if (model.id.startsWith(`${zid}-`) || model.id.startsWith(`${zid}:`)) {
-      return true;
-    }
-  }
-  return false;
+  return zdrModelIds.has(model.id);
 }
 
 /**
@@ -72,22 +63,26 @@ export function filterOpenRouterModelsByZdr(
 }
 
 /**
- * Applies ZDR allowlist when it is non-empty. If {@link fetchZdrModelIds} yields no ids
- * (empty response, parse miss, etc.), returns `afterTextIo` unchanged so the model picker
- * stays usable; OpenRouter still blocks non-ZDR routes on chat requests.
+ * Applies strict ZDR allowlist. If {@link fetchZdrModelIds} yields no ids
+ * (empty response, parse miss, etc.), return no models so we do not present
+ * non-ZDR options in the picker.
  */
 export function applyOpenRouterZdrAllowlist(
   afterTextIo: OpenRouterModel[],
   zdrModelIds: Set<string>
 ): OpenRouterModel[] {
   if (zdrModelIds.size === 0) {
-    return afterTextIo;
+    console.warn(
+      '[OpenRouterModelService] ZDR endpoint returned no model IDs; returning empty model list'
+    );
+    return [];
   }
   return filterOpenRouterModelsByZdr(afterTextIo, zdrModelIds);
 }
 
 // Cache configuration
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MODELS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const ZDR_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const CACHE_KEY = 'openrouter_models_cache';
 const ZDR_CACHE_KEY = 'openrouter_zdr_model_ids_cache';
 
@@ -124,7 +119,7 @@ class OpenRouterModelService {
       const now = Date.now();
 
       // Check if cache is still valid
-      if (now - parsed.timestamp < CACHE_TTL_MS) {
+      if (now - parsed.timestamp < MODELS_CACHE_TTL_MS) {
         return parsed;
       }
 
@@ -158,7 +153,7 @@ class OpenRouterModelService {
         return null;
       }
       const parsed: CachedZdrModelIds = JSON.parse(cached);
-      if (Date.now() - parsed.timestamp >= CACHE_TTL_MS) {
+      if (Date.now() - parsed.timestamp >= ZDR_CACHE_TTL_MS) {
         return null;
       }
       return parsed;
@@ -359,6 +354,13 @@ class OpenRouterModelService {
     }
     capabilities.push('text-generation');
 
+    const outputModalities = openRouterModel.architecture.output_modalities
+      ? [...openRouterModel.architecture.output_modalities]
+      : undefined;
+    if (outputModalities?.includes('image')) {
+      capabilities.push('image-output');
+    }
+
     return {
       id: openRouterModel.id, // Use full OpenRouter model ID
       name: openRouterModel.name,
@@ -374,6 +376,7 @@ class OpenRouterModelService {
       speed,
       executionPath: 'openrouter',
       providerKey,
+      outputModalities,
     };
   }
 

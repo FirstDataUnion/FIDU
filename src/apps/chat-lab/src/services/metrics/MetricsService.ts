@@ -10,7 +10,10 @@ export interface Metric {
     | 'message_sent'
     | 'google_api_request'
     | 'api_latency'
-    | 'active_users';
+    | 'active_users'
+    | 'image_generated'
+    | 'image_upload'
+    | 'image_upload_failure';
   labels: Record<string, string>;
   value?: number;
   timestamp?: number;
@@ -248,6 +251,47 @@ class MetricsServiceClass {
       type: 'active_users',
       labels: {},
       value: count,
+    });
+  }
+
+  /**
+   * Record generated image count from model responses.
+   */
+  public recordImageGenerated(model: string, count: number = 1): void {
+    this.record({
+      type: 'image_generated',
+      labels: {
+        model,
+      },
+      value: count,
+    });
+  }
+
+  /**
+   * Record successful image uploads to Drive.
+   */
+  public recordImageUpload(status: 'success' | 'error' = 'success'): void {
+    this.record({
+      type: 'image_upload',
+      labels: {
+        status,
+      },
+    });
+  }
+
+  /**
+   * Record image upload failures, split by retryability.
+   */
+  public recordImageUploadFailure(
+    failureClass: 'retryable' | 'fatal',
+    errorCode: string
+  ): void {
+    this.record({
+      type: 'image_upload_failure',
+      labels: {
+        failure_class: failureClass,
+        error_code: errorCode || 'unknown',
+      },
     });
   }
 

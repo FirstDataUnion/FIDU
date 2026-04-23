@@ -7,6 +7,25 @@ import type { OpenRouterMessage } from '../../types/openRouter';
 import type { Context } from '../../types';
 import type { SystemPrompt } from '../../types';
 
+const GENERATED_IMAGE_HISTORY_PLACEHOLDER =
+  '[Image was generated as per user request]';
+
+export function formatConversationHistoryMessageContent(msg: Message): string {
+  const trimmedContent = msg.content?.trim() ?? '';
+  const hasImageAttachment =
+    msg.attachments?.some(attachment => attachment.type === 'image') ?? false;
+
+  if (!hasImageAttachment) {
+    return msg.content;
+  }
+
+  if (!trimmedContent) {
+    return GENERATED_IMAGE_HISTORY_PLACEHOLDER;
+  }
+
+  return `${msg.content}\n\n${GENERATED_IMAGE_HISTORY_PLACEHOLDER}`;
+}
+
 /**
  * Helper function to safely get context content
  */
@@ -174,7 +193,7 @@ export function convertToOpenRouterMessages(
       msg.role === 'user' ? 'user' : 'assistant';
     messages.push({
       role,
-      content: msg.content,
+      content: formatConversationHistoryMessageContent(msg),
     });
   }
 

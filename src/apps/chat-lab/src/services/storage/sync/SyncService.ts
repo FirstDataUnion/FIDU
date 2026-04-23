@@ -8,6 +8,7 @@ import {
   GoogleDriveService,
   InsufficientPermissionsError,
 } from '../drive/GoogleDriveService';
+import { DriveImageObjectStoreService } from '../drive/DriveImageObjectStoreService';
 import { GoogleDriveAuthService } from '../../auth/GoogleDriveAuth';
 import { refreshAllDataFromStorage } from '../../../store/refreshAllData';
 
@@ -15,6 +16,7 @@ export interface SyncStatus {
   lastSyncTime: Date | null;
   syncInProgress: boolean;
   error: string | null;
+  imagePendingDataPackets: number;
   filesStatus: {
     conversations: boolean;
     apiKeys: boolean;
@@ -47,6 +49,8 @@ export class SyncService {
   private isSharedWorkspace: boolean;
   private workspaceId: string;
   private lastMergeResult: MergeResult | null = null;
+  private imageObjectStore: DriveImageObjectStoreService;
+  private imagePendingDataPackets: number = 0;
 
   constructor(
     dbManager: BrowserSQLiteManager,
@@ -62,6 +66,57 @@ export class SyncService {
     this.syncInterval = syncInterval;
     this.isSharedWorkspace = isSharedWorkspace;
     this.workspaceId = workspaceId;
+    this.imageObjectStore = new DriveImageObjectStoreService(this.driveService);
+  }
+
+  private async reconcilePendingImages(
+    pendingDataPackets: any[]
+  ): Promise<Set<string>> {
+    const keepUnsynced = new Set<string>();
+
+    for (const packet of pendingDataPackets) {
+      const interactions = packet?.data?.interactions;
+      if (!Array.isArray(interactions) || interactions.length === 0) {
+        continue;
+      }
+
+      const { interactions: reconciled, changed, hasRetryablePending } =
+        await this.imageObjectStore.reconcileInteractionAttachments(interactions);
+
+      if (hasRetryablePending && packet?.id) {
+        keepUnsynced.add(packet.id);
+      }
+
+      if (!changed) {
+        continue;
+      }
+
+      try {
+        await this.dbManager.updateDataPacket(
+          `image-reconcile-${packet.id}-${Date.now()}`,
+          {
+            id: packet.id,
+            user_id: packet.user_id,
+            update_timestamp: new Date().toISOString(),
+            data: {
+              ...(packet.data || {}),
+              interactions: reconciled,
+            },
+          }
+        );
+      } catch (error) {
+        console.warn(
+          '[SyncService] Failed to persist reconciled image attachments for packet:',
+          packet.id,
+          error
+        );
+        if (packet?.id) {
+          keepUnsynced.add(packet.id);
+        }
+      }
+    }
+
+    return keepUnsynced;
   }
 
   /**
@@ -341,6 +396,12 @@ export class SyncService {
       }
 
       // STEP 2: Export and upload the merged local database
+      let pendingDataPackets = await this.dbManager.getPendingDataPackets();
+      const packetIdsToKeepUnsynced =
+        await this.reconcilePendingImages(pendingDataPackets);
+      // Refresh pending packets after reconciliation updates.
+      pendingDataPackets = await this.dbManager.getPendingDataPackets();
+
       const conversationsData = await this.dbManager.exportConversationsDB();
       if (conversationsData && conversationsData.length > 0) {
         await this.driveService.uploadConversationsDB(
@@ -362,13 +423,16 @@ export class SyncService {
       this.storeLastSyncTime();
 
       // Mark all pending changes as synced
-      const pendingDataPackets = await this.dbManager.getPendingDataPackets();
       const pendingAPIKeys = this.isSharedWorkspace
         ? []
         : await this.dbManager.getPendingAPIKeys();
 
-      if (pendingDataPackets.length > 0) {
-        const packetIds = pendingDataPackets.map(p => p.id);
+      const syncableDataPackets = pendingDataPackets.filter(
+        p => !packetIdsToKeepUnsynced.has(p.id)
+      );
+
+      if (syncableDataPackets.length > 0) {
+        const packetIds = syncableDataPackets.map(p => p.id);
         await this.dbManager.markDataPacketsAsSynced(packetIds);
       }
 
@@ -383,10 +447,12 @@ export class SyncService {
         version: version,
         conversationsSize: conversationsData ? conversationsData.length : 0,
         apiKeysSize: apiKeysData ? apiKeysData.length : 0,
-        syncedDataPackets: pendingDataPackets.length,
+        syncedDataPackets: syncableDataPackets.length,
         syncedAPIKeys: pendingAPIKeys.length,
+        imagePendingDataPackets: packetIdsToKeepUnsynced.size,
       };
       await this.driveService.uploadMetadata(metadata, version);
+      this.imagePendingDataPackets = packetIdsToKeepUnsynced.size;
 
       this.refreshReduxState();
     } catch (error) {
@@ -456,6 +522,7 @@ export class SyncService {
       lastSyncTime: this.lastSyncTime,
       syncInProgress: this.syncInProgress,
       error: this.error,
+      imagePendingDataPackets: this.imagePendingDataPackets,
       filesStatus: {
         conversations: false, // TODO: Check if files exist locally
         apiKeys: false,

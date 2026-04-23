@@ -6,12 +6,14 @@
 import { SyncService, MergeResult } from '../SyncService';
 import { BrowserSQLiteManager } from '../../database/BrowserSQLiteManager';
 import { GoogleDriveService } from '../../drive/GoogleDriveService';
+import { DriveImageObjectStoreService } from '../../drive/DriveImageObjectStoreService';
 import { GoogleDriveAuthService } from '../../../auth/GoogleDriveAuth';
 import { refreshAllDataFromStorage } from '../../../../store/refreshAllData';
 
 // Mock dependencies
 jest.mock('../../database/BrowserSQLiteManager');
 jest.mock('../../drive/GoogleDriveService');
+jest.mock('../../drive/DriveImageObjectStoreService');
 jest.mock('../../../auth/GoogleDriveAuth');
 jest.mock('../../../../store/refreshAllData');
 
@@ -21,6 +23,7 @@ const mockRefreshAllDataFromStorage = jest.mocked(refreshAllDataFromStorage);
 describe('SyncService', () => {
   let mockDbManager: jest.Mocked<BrowserSQLiteManager>;
   let mockDriveService: jest.Mocked<GoogleDriveService>;
+  let mockImageObjectStore: jest.Mocked<DriveImageObjectStoreService>;
   let mockAuthService: jest.Mocked<GoogleDriveAuthService>;
 
   // Helper to create a SyncService with specific workspace config
@@ -57,6 +60,7 @@ describe('SyncService', () => {
         .mockResolvedValue({ dataPackets: 0, apiKeys: 0 }),
       getPendingDataPackets: jest.fn().mockResolvedValue([]),
       getPendingAPIKeys: jest.fn().mockResolvedValue([]),
+      updateDataPacket: jest.fn().mockResolvedValue(undefined),
       markDataPacketsAsSynced: jest.fn().mockResolvedValue(undefined),
       markAPIKeysAsSynced: jest.fn().mockResolvedValue(undefined),
       hasUnsyncedChanges: jest.fn().mockResolvedValue(false),
@@ -79,6 +83,20 @@ describe('SyncService', () => {
       uploadAPIKeysDB: jest.fn().mockResolvedValue(undefined),
       uploadMetadata: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<GoogleDriveService>;
+
+    // Setup mock DriveImageObjectStoreService
+    mockImageObjectStore = {
+      reconcileInteractionAttachments: jest.fn().mockResolvedValue({
+        interactions: [],
+        changed: false,
+        hasRetryablePending: false,
+      }),
+    } as unknown as jest.Mocked<DriveImageObjectStoreService>;
+    (
+      DriveImageObjectStoreService as unknown as jest.MockedClass<
+        typeof DriveImageObjectStoreService
+      >
+    ).mockImplementation(() => mockImageObjectStore);
 
     // Setup mock GoogleDriveAuthService
     mockAuthService = {
@@ -502,6 +520,43 @@ describe('SyncService', () => {
       await service.syncToDrive();
 
       expect(mockDriveService.uploadConversationsDB).not.toHaveBeenCalled();
+    });
+
+    it('keeps packets unsynced when retryable pending images remain', async () => {
+      mockDbManager.getPendingChangesCount.mockResolvedValue({
+        dataPackets: 1,
+        apiKeys: 0,
+      });
+      mockDbManager.getPendingDataPackets
+        .mockResolvedValueOnce([
+          {
+            id: 'dp-1',
+            user_id: 'u-1',
+            data: { interactions: [{ attachments: [{ type: 'image' }] }] },
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'dp-1',
+            user_id: 'u-1',
+            data: { interactions: [{ attachments: [{ type: 'image' }] }] },
+          },
+        ]);
+
+      mockImageObjectStore.reconcileInteractionAttachments.mockResolvedValue({
+        interactions: [{ attachments: [{ type: 'image', status: 'pending_upload' }] }],
+        changed: true,
+        hasRetryablePending: true,
+      });
+
+      const service = createSyncService(false, 'personal');
+      await service.initialize();
+      await service.syncToDrive();
+
+      expect(mockDbManager.updateDataPacket).toHaveBeenCalled();
+      expect(mockDbManager.markDataPacketsAsSynced).not.toHaveBeenCalledWith([
+        'dp-1',
+      ]);
     });
 
     it('should upload if forceUpload is true even without pending changes', async () => {

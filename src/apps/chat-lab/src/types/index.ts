@@ -101,7 +101,7 @@ export interface BackgroundAgent {
   outputSchemaName?: 'default' | 'custom';
   customOutputSchema?: Record<string, any> | null;
   notifyChannel: 'inline' | 'toast' | 'panel' | 'all';
-  modelId?: string; // Model ID to use for evaluation (defaults to 'gpt-oss-120b')
+  modelId?: string; // Model ID to use for evaluation (defaults to 'openai/gpt-oss-20b')
   isSystem?: boolean;
   categories?: string[];
   version?: string;
@@ -277,6 +277,15 @@ export interface Attachment {
   name: string;
   type: 'image' | 'file' | 'link' | 'code';
   url?: string;
+  storage?: 'inline' | 'drive_ref';
+  imageId?: string;
+  driveFileId?: string;
+  status?: 'pending_upload' | 'ready' | 'missing';
+  uploadRetryCount?: number;
+  lastUploadErrorCode?: string;
+  lastUploadErrorAt?: string;
+  nextRetryAt?: string;
+  lastHydrationErrorCode?: string;
   content?: string;
   mimeType?: string;
   size?: number;

@@ -8,6 +8,7 @@ import {
   type JSX,
 } from 'react';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
+import { AssistantAttachmentImage } from '../components/common/AssistantAttachmentImage';
 import {
   Box,
   Typography,
@@ -84,7 +85,11 @@ import type { BackgroundAgent } from '../types';
 import { useMobile, useResponsiveSpacing } from '../hooks/useMobile';
 import { ApiError } from '../services/api/apiClients';
 import { useUnifiedStorage } from '../hooks/useStorageCompatibility';
-import { promptsApi, buildCompletePrompt } from '../services/api/prompts';
+import {
+  promptsApi,
+  buildCompletePrompt,
+  type ExecutePromptResponsesPayload,
+} from '../services/api/prompts';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 import { WizardWindow } from '../components/wizards/WizardWindow';
 import { LongRequestWarning } from '../components/common/LongRequestWarning';
@@ -105,6 +110,7 @@ import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import HistoryIcon from '../assets/HistoryIcon.png';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
 import type { WizardMessage } from '../types/wizard';
+import { OpenRouterAPIError } from '../types/openRouter';
 import {
   parseActualModelInfo,
   type ActualModelInfo,
@@ -118,6 +124,10 @@ import { MetricsService } from '../services/metrics/MetricsService';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { truncateTitle } from '../utils/stringUtils';
 import { getContextTokenCount } from '../utils/tokenEstimation';
+import {
+  openRouterImagePartsToAttachments,
+  responseHasDisplayableChatPayload,
+} from '../utils/openRouterAttachments';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { getModelConfig, loadOpenRouterModels } from '../data/models';
 
@@ -138,6 +148,25 @@ const safeRecordMessageSent = (
     console.debug('Metrics recording failed (non-blocking):', error);
   }
 };
+
+const safeRecordGeneratedImages = (model: string, count: number): void => {
+  if (count <= 0) return;
+  try {
+    if (
+      typeof MetricsService !== 'undefined'
+      && MetricsService?.recordImageGenerated
+    ) {
+      MetricsService.recordImageGenerated(model, count);
+    }
+  } catch (error) {
+    console.debug('Generated-image metrics recording failed (non-blocking):', error);
+  }
+};
+
+const SHARED_WORKSPACE_VISIBLE_IMAGE_WARNING =
+  'Image sharing in shared workspaces is not currently supported. Only you can see this image. Other members will still be able to see this image via the Google Drive Interface';
+const SHARED_WORKSPACE_MISSING_IMAGE_WARNING =
+  'Image Missing. Image sharing in shared workspaces is not currently supported. You may still view this image by visiting the shared workspace folder in your Google Drive';
 
 // LocalStorage key for background agent preferences (reuse from BackgroundAgentsPage)
 const BACKGROUND_AGENT_PREFS_KEY = 'fidu-chat-lab-backgroundAgentPrefs';
@@ -1131,6 +1160,12 @@ function BackgroundAgentDialogCard({
 }
 
 // Helper function to generate user-friendly error messages and debug info
+const USAGE_LIMIT_REACHED_MESSAGE = `Usage Limit Reached: You have reached your spending limit for the month. This will reset on the first of each month. You can check your usage limits via the FIDU dashboard at [identity.firstdataunion.org](https://identity.firstdataunion.org)
+
+To get more usage, consider swapping to a different subscription tier via the FIDU dashboard ([identity.firstdataunion.org](https://identity.firstdataunion.org)) or opt in for variable billing based on your usage (*coming soon!).
+
+If you have any questions or feedback while we work on this area of the product, please get in touch at hello@firstdataunion.org`;
+
 const getErrorMessage = (
   error: unknown,
   selectedModel?: string
@@ -1148,6 +1183,11 @@ const getErrorMessage = (
 
     // Handle specific HTTP status codes
     switch (error.status) {
+      case 402:
+        return {
+          userMessage: USAGE_LIMIT_REACHED_MESSAGE,
+          debugInfo: { ...debugInfo, cause: 'Usage limit reached' },
+        };
       case 408: {
         // Timeout error handling with detailed debug info
         const timeoutData = error.data || {};
@@ -1232,6 +1272,13 @@ const getErrorMessage = (
           debugInfo: { ...debugInfo, cause: 'API error' },
         };
     }
+  }
+
+  if (error instanceof OpenRouterAPIError && error.status === 402) {
+    return {
+      userMessage: USAGE_LIMIT_REACHED_MESSAGE,
+      debugInfo: { ...debugInfo, cause: 'Usage limit reached' },
+    };
   }
 
   if (error instanceof Error) {
@@ -2190,6 +2237,7 @@ export default function PromptLabPage() {
     'system_prompt_librarian'
   );
   const isDirectOpenRouterEnabled = useFeatureFlag('direct_openrouter');
+  const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
 
   // Load OpenRouter models when feature flag is enabled
   useEffect(() => {
@@ -2223,6 +2271,26 @@ export default function PromptLabPage() {
     }
   }, []);
 
+  /**
+   * Keep session snapshots lightweight: preserve attachment metadata/state, but
+   * strip large inline generated-image data URLs to avoid sessionStorage quotas.
+   */
+  const sanitizeMessagesForSession = useCallback((input: Message[]): Message[] => {
+    return input.map(message => ({
+      ...message,
+      attachments: message.attachments?.map(att => {
+        if (att.type !== 'image') return att;
+        if (typeof att.url !== 'string') return att;
+        const trimmed = att.url.trim();
+        if (!trimmed.startsWith('data:image/')) return att;
+        return {
+          ...att,
+          url: undefined,
+        };
+      }),
+    }));
+  }, []);
+
   const loadFromSession = useCallback((key: string) => {
     try {
       const data = sessionStorage.getItem(key);
@@ -2252,6 +2320,7 @@ export default function PromptLabPage() {
   );
   const selectedModelRef = useRef(selectedModel);
   selectedModelRef.current = selectedModel;
+  const lastSessionHydratedConversationIdRef = useRef<string | null>(null);
 
   const [selectedContexts, setSelectedContexts] = useState<Context[]>(() => {
     const STORAGE_KEYS_TEMP = {
@@ -2277,6 +2346,8 @@ export default function PromptLabPage() {
     SystemPrompt[]
   >(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHydratingSessionImages, setIsHydratingSessionImages] = useState(false);
+  const [isRetryingImageLoads, setIsRetryingImageLoads] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ghostMessages, setGhostMessages] = useState<Record<string, Message[]>>(
     {}
@@ -3307,9 +3378,9 @@ export default function PromptLabPage() {
   // Persist conversation state to sessionStorage
   useEffect(() => {
     if (messages.length > 0) {
-      saveToSession(STORAGE_KEYS.messages, messages);
+      saveToSession(STORAGE_KEYS.messages, sanitizeMessagesForSession(messages));
     }
-  }, [messages, saveToSession, STORAGE_KEYS.messages]);
+  }, [messages, saveToSession, sanitizeMessagesForSession, STORAGE_KEYS.messages]);
 
   useEffect(() => {
     if (currentConversation) {
@@ -3403,6 +3474,34 @@ export default function PromptLabPage() {
     }
   }, [location.state, navigate, restoreConversationSettings]);
 
+  // On hard refresh/navigation, state can be restored from sessionStorage.
+  // Re-load canonical messages from local storage once per conversation so we
+  // recover persisted attachment state (including inline image fallbacks that
+  // were intentionally stripped from sessionStorage snapshots).
+  useEffect(() => {
+    if (!currentConversation?.id) return;
+    if (location.state?.loadConversation) return;
+    if (lastSessionHydratedConversationIdRef.current === currentConversation.id) {
+      return;
+    }
+    lastSessionHydratedConversationIdRef.current = currentConversation.id;
+    (async () => {
+      setIsHydratingSessionImages(true);
+      try {
+        const storage = getUnifiedStorageService();
+        const hydrated = await storage.getMessages(currentConversation.id);
+        setMessages(hydrated);
+      } catch (error) {
+        console.warn(
+          'Failed to hydrate session-restored drive_ref images after refresh:',
+          error
+        );
+      } finally {
+        setIsHydratingSessionImages(false);
+      }
+    })();
+  }, [currentConversation?.id, location.state?.loadConversation]);
+
   // Handle system prompt application from navigation
   useEffect(() => {
     if (
@@ -3451,6 +3550,84 @@ export default function PromptLabPage() {
       navigate('/prompt-lab', { replace: true });
     }
   }, [location.state, navigate, clearSession, dispatch]);
+
+  // Keep image upload/hydration status fresh while viewing a conversation.
+  // Sync reconciliation can update attachment status in storage after the bubble
+  // has already rendered, so we periodically re-read messages to surface warnings.
+  useEffect(() => {
+    if (!currentConversation?.id) return;
+    if (isLoading || isSavingConversation || isRetryingImageLoads) return;
+    const hasDriveRefImages = messages.some(message =>
+      (message.attachments ?? []).some(
+        att => att.type === 'image' && att.storage === 'drive_ref'
+      )
+    );
+    if (!hasDriveRefImages) return;
+
+    let cancelled = false;
+    const intervalId = window.setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const storage = getUnifiedStorageService();
+        const refreshed = await storage.getMessages(currentConversation.id);
+        if (!cancelled) {
+          setMessages(prev => {
+            const prevSig = JSON.stringify(
+              prev.map(m => ({
+                id: m.id,
+                attachments: m.attachments,
+              }))
+            );
+            const nextSig = JSON.stringify(
+              refreshed.map(m => ({
+                id: m.id,
+                attachments: m.attachments,
+              }))
+            );
+            return prevSig === nextSig ? prev : refreshed;
+          });
+        }
+      } catch {
+        // Non-blocking background refresh.
+      }
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    currentConversation?.id,
+    isLoading,
+    isSavingConversation,
+    isRetryingImageLoads,
+    messages,
+  ]);
+
+  // Refresh visible conversation immediately after manual sync completes so
+  // image upload status warnings update without requiring navigation.
+  useEffect(() => {
+    const onSyncComplete = async () => {
+      if (!currentConversation?.id) return;
+      const hasDriveRefImages = messages.some(message =>
+        (message.attachments ?? []).some(
+          att => att.type === 'image' && att.storage === 'drive_ref'
+        )
+      );
+      if (!hasDriveRefImages) return;
+      try {
+        const storage = getUnifiedStorageService();
+        const refreshed = await storage.getMessages(currentConversation.id);
+        setMessages(refreshed);
+      } catch {
+        // Non-blocking refresh after sync completion.
+      }
+    };
+    window.addEventListener('chatlab-sync-complete', onSyncComplete);
+    return () => {
+      window.removeEventListener('chatlab-sync-complete', onSyncComplete);
+    };
+  }, [currentConversation?.id, messages]);
 
   // Handle librarian wizard opening from navigation
   useEffect(() => {
@@ -3763,11 +3940,12 @@ export default function PromptLabPage() {
         [],
         promptAbortController.current.signal,
         useStreaming
-          ? (delta: string) => {
+          ? update => {
+              if (!update.textDelta) return;
               setMessages(prev =>
                 prev.map(m =>
                   m.id === assistantMessageId
-                    ? { ...m, content: m.content + delta }
+                    ? { ...m, content: m.content + update.textDelta }
                     : m
                 )
               );
@@ -3778,11 +3956,20 @@ export default function PromptLabPage() {
       // Track successful message sent to model (safely handle if MetricsService unavailable)
       safeRecordMessageSent(selectedModel, 'success');
 
-      if (response.status === 'completed' && response.responses?.content) {
-        const content = response.responses.content;
-        const actualModelInfo = parseActualModelInfo(
-          response.responses?.actualModel
+      if (
+        response.status === 'completed'
+        && response.responses
+        && responseHasDisplayableChatPayload(response.responses)
+      ) {
+        const resPayload =
+          response.responses as ExecutePromptResponsesPayload;
+        const content = resPayload.content;
+        const actualModelInfo = parseActualModelInfo(resPayload.actualModel);
+        const imageAttachments = openRouterImagePartsToAttachments(
+          resPayload.images,
+          assistantMessageId
         );
+        safeRecordGeneratedImages(selectedModel, resPayload.images?.length ?? 0);
 
         const aiMessage: Message = {
           id: assistantMessageId,
@@ -3801,6 +3988,7 @@ export default function PromptLabPage() {
                 actualModelNameDisplay: actualModelInfo.modelDisplay,
               }
             : undefined,
+          ...(imageAttachments && { attachments: imageAttachments }),
         };
 
         if (useStreaming) {
@@ -3956,8 +4144,10 @@ export default function PromptLabPage() {
         console.log(
           'AI response failed - Status:',
           response.status,
-          'Content present:',
-          !!response.responses?.content,
+          'Displayable payload:',
+          response.responses
+            ? responseHasDisplayableChatPayload(response.responses)
+            : false,
           'Full response:',
           response
         );
@@ -3991,8 +4181,6 @@ export default function PromptLabPage() {
       if (error instanceof ApiError && error.status === 408 && error.data) {
         console.log('Detailed Timeout Analysis:', error.data);
       }
-
-      setError(errorUserMessage);
 
       // Remove partial streaming message before adding error message
       const errorMessage: Message = {
@@ -4164,11 +4352,12 @@ export default function PromptLabPage() {
         [],
         undefined,
         useStreaming
-          ? (delta: string) => {
+          ? update => {
+              if (!update.textDelta) return;
               setWizardMessages(prev =>
                 prev.map(wm =>
                   wm.id === assistantWizardId
-                    ? { ...wm, content: wm.content + delta }
+                    ? { ...wm, content: wm.content + update.textDelta }
                     : wm
                 )
               );
@@ -4341,11 +4530,12 @@ export default function PromptLabPage() {
         [],
         undefined,
         useStreamingSuggestor
-          ? (delta: string) => {
+          ? update => {
+              if (!update.textDelta) return;
               setSystemPromptSuggestorMessages(prev =>
                 prev.map(wm =>
                   wm.id === assistantSuggestorId
-                    ? { ...wm, content: wm.content + delta }
+                    ? { ...wm, content: wm.content + update.textDelta }
                     : wm
                 )
               );
@@ -4704,11 +4894,12 @@ export default function PromptLabPage() {
           [],
           promptAbortController.current.signal,
           useStreaming
-            ? (delta: string) => {
+            ? update => {
+                if (!update.textDelta) return;
                 setMessages(prev =>
                   prev.map(m =>
                     m.id === assistantMessageId
-                      ? { ...m, content: m.content + delta }
+                      ? { ...m, content: m.content + update.textDelta }
                       : m
                   )
                 );
@@ -4716,11 +4907,20 @@ export default function PromptLabPage() {
             : undefined
         );
 
-        if (response.status === 'completed' && response.responses?.content) {
-          const content = response.responses.content;
-          const actualModelInfo = parseActualModelInfo(
-            response.responses?.actualModel
+        if (
+          response.status === 'completed'
+          && response.responses
+          && responseHasDisplayableChatPayload(response.responses)
+        ) {
+          const resPayload =
+            response.responses as ExecutePromptResponsesPayload;
+          const content = resPayload.content;
+          const actualModelInfo = parseActualModelInfo(resPayload.actualModel);
+          const imageAttachments = openRouterImagePartsToAttachments(
+            resPayload.images,
+            assistantMessageId
           );
+          safeRecordGeneratedImages(selectedModel, resPayload.images?.length ?? 0);
 
           const aiMessage: Message = {
             id: useStreaming ? assistantMessageId : `msg-${Date.now()}-ai`,
@@ -4739,6 +4939,7 @@ export default function PromptLabPage() {
                   actualModelNameDisplay: actualModelInfo.modelDisplay,
                 }
               : undefined,
+            ...(imageAttachments && { attachments: imageAttachments }),
           };
 
           if (useStreaming) {
@@ -4765,8 +4966,10 @@ export default function PromptLabPage() {
           console.log(
             'AI retry response failed - Status:',
             response.status,
-            'Content present:',
-            !!response.responses?.content,
+            'Displayable payload:',
+            response.responses
+              ? responseHasDisplayableChatPayload(response.responses)
+              : false,
             'Full response:',
             response
           );
@@ -4795,8 +4998,6 @@ export default function PromptLabPage() {
         if (error instanceof ApiError && error.status === 408 && error.data) {
           console.log('Detailed Timeout Analysis (Retry):', error.data);
         }
-
-        setError(errorUserMessage);
 
         // Add error message to chat
         const errorMessage: Message = {
@@ -4856,6 +5057,29 @@ export default function PromptLabPage() {
           : '')
     );
   }, [selectedSystemPrompts, selectedContexts, messages, currentPrompt]);
+
+  const handleRetryImageLoads = useCallback(async () => {
+    if (isRetryingImageLoads) {
+      return;
+    }
+    if (!currentConversation?.id) {
+      showToast('Retry is available after this conversation is saved.');
+      return;
+    }
+
+    try {
+      setIsRetryingImageLoads(true);
+      const storage = getUnifiedStorageService();
+      const refreshedMessages = await storage.getMessages(currentConversation.id);
+      setMessages(refreshedMessages);
+      showToast('Retried loading generated images.');
+    } catch (error) {
+      console.error('Failed to retry image loading:', error);
+      showToast('Failed to retry image loading.');
+    } finally {
+      setIsRetryingImageLoads(false);
+    }
+  }, [currentConversation?.id, showToast, isRetryingImageLoads]);
 
   const renderMessage = useCallback(
     (
@@ -4921,6 +5145,43 @@ export default function PromptLabPage() {
       }
 
       const modelInfo = getModelInfo(message.platform, actualModelInfo);
+      const imageAttachments = (message.attachments ?? []).filter(
+        a => a.type === 'image'
+      );
+      const renderableImageAttachments = imageAttachments.filter(
+        (a): a is typeof a & { url: string } => !!a.url
+      );
+      const riskyRenderableImages = renderableImageAttachments.filter(
+        a => a.status === 'pending_upload' || a.status === 'missing'
+      );
+      const unresolvedDriveImages = imageAttachments.filter(
+        a => a.storage === 'drive_ref' && !a.url
+      );
+      const pendingUploadImages = imageAttachments.filter(
+        a =>
+          a.status === 'pending_upload'
+          && (typeof a.url === 'string' || !!a.imageId || !!a.driveFileId)
+      );
+      const stalledPendingImages = imageAttachments.filter(
+        a =>
+          a.status === 'pending_upload'
+          && !(typeof a.url === 'string' || !!a.imageId || !!a.driveFileId)
+      );
+      const missingImages = unresolvedDriveImages.filter(
+        a => a.status === 'missing'
+      );
+      const retryableFetchFailedImages = missingImages.filter(
+        a => a.lastHydrationErrorCode === 'display_fetch_failed'
+      );
+      const permanentMissingImages = missingImages.filter(
+        a => a.lastHydrationErrorCode !== 'display_fetch_failed'
+      );
+      const isStreamingAssistantMessage =
+        !isGhost
+        && isLoading
+        && message.role === 'assistant'
+        && !message.content.startsWith('Error:')
+        && messageIndex === messages.length - 1;
       return (
         <Fragment key={message.id}>
           <Box
@@ -5139,6 +5400,190 @@ export default function PromptLabPage() {
                   showCopyButtons={true}
                   preprocess={true}
                 />
+                {message.role === 'assistant' && imageAttachments.length > 0 && (
+                  <Box
+                    sx={{
+                      mt: message.content.trim() ? 1.5 : 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                      maxWidth: '100%',
+                    }}
+                  >
+                    {riskyRenderableImages.length > 0 && (
+                      <Alert
+                        severity="warning"
+                        variant="outlined"
+                        sx={{
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        {riskyRenderableImages.length === 1
+                          ? 'This generated image may not be safely persisted yet. Download a copy to keep it. Saving will be retried automatically on the next sync.'
+                          : `${riskyRenderableImages.length} generated images may not be safely persisted yet. Download copies to keep them. Saving will be retried automatically on the next sync.`}
+                      </Alert>
+                    )}
+                    {renderableImageAttachments.map(att => (
+                      <Box key={att.id}>
+                        <AssistantAttachmentImage attachment={att} />
+                      </Box>
+                    ))}
+                    {isSharedWorkspace && renderableImageAttachments.length > 0 && (
+                      <Alert
+                        severity="warning"
+                        variant="outlined"
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        {SHARED_WORKSPACE_VISIBLE_IMAGE_WARNING}
+                      </Alert>
+                    )}
+                    {stalledPendingImages.length > 0 && (
+                      <Alert
+                        severity="error"
+                        variant="outlined"
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        {stalledPendingImages.length === 1
+                          ? 'A generated image is unavailable because its upload did not complete.'
+                          : `${stalledPendingImages.length} generated images are unavailable because their uploads did not complete.`}
+                      </Alert>
+                    )}
+                    {isHydratingSessionImages
+                      && unresolvedDriveImages.length > 0 && (
+                      <Alert
+                        severity="info"
+                        variant="outlined"
+                        icon={<CircularProgress size={14} />}
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        Loading generated images...
+                      </Alert>
+                    )}
+                    {!isSharedWorkspace && retryableFetchFailedImages.length > 0 && (
+                      <Alert
+                        severity="warning"
+                        variant="outlined"
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 1,
+                            width: '100%',
+                          },
+                        }}
+                      >
+                        <Typography variant="caption">
+                          {retryableFetchFailedImages.length === 1
+                            ? 'A generated image could not be loaded. You can retry loading it.'
+                            : `${retryableFetchFailedImages.length} generated images could not be loaded. You can retry loading them.`}
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={handleRetryImageLoads}
+                          disabled={isRetryingImageLoads}
+                          startIcon={
+                            isRetryingImageLoads ? (
+                              <CircularProgress size={14} color="inherit" />
+                            ) : undefined
+                          }
+                        >
+                          {isRetryingImageLoads
+                            ? 'Retrying...'
+                            : 'Retry loading images'}
+                        </Button>
+                      </Alert>
+                    )}
+                    {!isSharedWorkspace && permanentMissingImages.length > 0 && (
+                      <Alert
+                        severity="error"
+                        variant="outlined"
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        {permanentMissingImages.length === 1
+                          ? 'A generated image is unavailable and cannot be recovered automatically.'
+                          : `${permanentMissingImages.length} generated images are unavailable and cannot be recovered automatically.`}
+                      </Alert>
+                    )}
+                    {isSharedWorkspace && missingImages.length > 0 && (
+                      <Alert
+                        severity="error"
+                        variant="outlined"
+                        sx={{
+                          mt: 0.5,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            padding: 0,
+                            fontSize: '0.75rem',
+                            lineHeight: 1.45,
+                          },
+                        }}
+                      >
+                        {SHARED_WORKSPACE_MISSING_IMAGE_WARNING}
+                      </Alert>
+                    )}
+                  </Box>
+                )}
+                {isStreamingAssistantMessage && (
+                  <Box
+                    sx={{
+                      mt: 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.75,
+                      px: 1,
+                      py: 0.5,
+                      borderRadius: 2,
+                      bgcolor:
+                        theme.palette.mode === 'light'
+                          ? 'rgba(0,0,0,0.08)'
+                          : 'rgba(255,255,255,0.14)',
+                    }}
+                  >
+                    <CircularProgress size={12} thickness={6} />
+                    <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                      Streaming response...
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {/* Rewind Button for User Messages */}
@@ -5319,9 +5764,13 @@ export default function PromptLabPage() {
     [
       ghostMessages,
       handleRetryMessage,
+      handleRetryImageLoads,
       handleRewindToMessage,
+      isHydratingSessionImages,
+      isRetryingImageLoads,
       isLoading,
       isMobile,
+      messages.length,
       showToast,
       getModelInfo,
       theme.palette.mode,

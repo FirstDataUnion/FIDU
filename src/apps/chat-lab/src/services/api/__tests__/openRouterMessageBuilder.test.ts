@@ -89,4 +89,34 @@ describe('convertToOpenRouterMessages', () => {
     ).toBeUndefined();
     expect(messages.filter(m => m.role === 'user')[0].content).toBe('hello');
   });
+
+  it('adds generated-image placeholder for history messages with image attachments', () => {
+    const messages = convertToOpenRouterMessages(
+      [],
+      [],
+      [],
+      [
+        {
+          ...baseUser,
+          id: 'a-image',
+          role: 'assistant',
+          content: '',
+          attachments: [
+            {
+              id: 'att-1',
+              name: 'Generated image',
+              type: 'image',
+              url: 'data:image/png;base64,AAA',
+            },
+          ],
+        },
+      ],
+      'Next'
+    );
+
+    expect(messages[1]).toEqual({
+      role: 'assistant',
+      content: '[Image was generated as per user request]',
+    });
+  });
 });

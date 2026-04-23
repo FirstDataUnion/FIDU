@@ -50,6 +50,7 @@ interface SyncStatusData {
 
   // Unsynced Data
   hasUnsyncedData: boolean;
+  imagePendingDataPackets: number;
 
   // Auto-sync Countdown
   countdownSeconds: number;
@@ -90,6 +91,7 @@ export const UnifiedSyncStatus: React.FC = () => {
       let consecutiveFailures = 0;
       let lastError: string | null = null;
       let hasUnsyncedData = false;
+      let imagePendingDataPackets = 0;
       let countdownSeconds = 0;
       let autoSyncEnabled = false;
 
@@ -100,6 +102,7 @@ export const UnifiedSyncStatus: React.FC = () => {
       ) {
         const syncStatus = await (adapter as any).getSyncStatus();
         const smartStatus = syncStatus?.smartAutoSync;
+        imagePendingDataPackets = syncStatus?.imagePendingDataPackets || 0;
 
         if (smartStatus) {
           syncHealth = smartStatus.syncHealth || 'healthy';
@@ -131,6 +134,7 @@ export const UnifiedSyncStatus: React.FC = () => {
         consecutiveFailures,
         lastError,
         hasUnsyncedData: hasUnsynced || hasUnsyncedData,
+        imagePendingDataPackets,
         countdownSeconds,
         autoSyncEnabled,
         isAuthenticated: isAuthenticated || false,
@@ -227,6 +231,7 @@ export const UnifiedSyncStatus: React.FC = () => {
       const storageService = getUnifiedStorageService();
       await storageService.sync();
       console.log('Manual sync completed successfully');
+      window.dispatchEvent(new Event('chatlab-sync-complete'));
       // Refresh status after sync
       updateStatus();
     } catch (error) {
@@ -315,6 +320,10 @@ export const UnifiedSyncStatus: React.FC = () => {
       return 'Not Connected';
     }
 
+    if ((status.imagePendingDataPackets || 0) > 0) {
+      return `Partial sync (${status.imagePendingDataPackets} image upload${status.imagePendingDataPackets === 1 ? '' : 's'} pending)`;
+    }
+
     // If connected but no last sync time, show "Synced"
     if (!status.lastSuccessfulSync) {
       return 'Synced';
@@ -325,6 +334,7 @@ export const UnifiedSyncStatus: React.FC = () => {
   }, [
     isSyncInProgress,
     status?.isAuthenticated,
+    status?.imagePendingDataPackets,
     status?.lastSuccessfulSync,
     formatTimeSince,
   ]);
@@ -335,6 +345,7 @@ export const UnifiedSyncStatus: React.FC = () => {
     if (isSyncInProgress) return 'primary.main';
     // If not connected, use error color
     if (!status?.isAuthenticated) return 'error.main';
+    if ((status.imagePendingDataPackets || 0) > 0) return 'warning.main';
     if (status.hasUnsyncedData) return 'warning.main';
     if (status.syncHealth === 'failing') return 'error.main';
     if (status.syncHealth === 'degraded') return 'warning.main';
@@ -342,6 +353,7 @@ export const UnifiedSyncStatus: React.FC = () => {
   }, [
     isSyncInProgress,
     status?.isAuthenticated,
+    status?.imagePendingDataPackets,
     status?.hasUnsyncedData,
     status?.syncHealth,
   ]);
@@ -368,10 +380,14 @@ export const UnifiedSyncStatus: React.FC = () => {
     if (!status?.isAuthenticated) {
       return <CloudOffIcon sx={{ fontSize: 16, color: 'error.main' }} />;
     }
+    if ((status.imagePendingDataPackets || 0) > 0) {
+      return <WarningIcon sx={{ fontSize: 16, color: 'warning.main' }} />;
+    }
     return getHealthIcon(status.syncHealth);
   }, [
     isSyncInProgress,
     status?.isAuthenticated,
+    status?.imagePendingDataPackets,
     status?.syncHealth,
     getHealthIcon,
   ]);
@@ -380,10 +396,12 @@ export const UnifiedSyncStatus: React.FC = () => {
   const textColor = useMemo((): string => {
     if (isSyncInProgress) return 'primary.main';
     if (!status?.isAuthenticated) return 'error.main';
+    if ((status?.imagePendingDataPackets || 0) > 0) return 'warning.main';
     return getHealthColor(status?.syncHealth || 'healthy');
   }, [
     isSyncInProgress,
     status?.isAuthenticated,
+    status?.imagePendingDataPackets,
     status?.syncHealth,
     getHealthColor,
   ]);
@@ -646,6 +664,26 @@ export const UnifiedSyncStatus: React.FC = () => {
               ),
 
               <Divider key="divider-2" />,
+
+              safeStatus.imagePendingDataPackets > 0 && (
+                <MenuItem key="image-pending" disabled>
+                  <ListItemIcon>
+                    <WarningIcon color="warning" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Image uploads pending"
+                    secondary={`${safeStatus.imagePendingDataPackets} conversation packet(s) still waiting on image upload retries`}
+                    secondaryTypographyProps={{
+                      sx: {
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        lineHeight: 1.35,
+                      },
+                    }}
+                  />
+                </MenuItem>
+              ),
 
               /* Sync Now Button */
               <MenuItem

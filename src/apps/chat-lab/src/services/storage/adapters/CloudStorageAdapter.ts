@@ -20,6 +20,7 @@ import {
   getGoogleDriveAuthService,
 } from '../../auth/GoogleDriveAuth';
 import { GoogleDriveService } from '../drive/GoogleDriveService';
+import { DriveImageObjectStoreService } from '../drive/DriveImageObjectStoreService';
 import { SyncService } from '../sync/SyncService';
 import { SmartAutoSyncService } from '../sync/SmartAutoSyncService';
 import { unsyncedDataManager } from '../UnsyncedDataManager';
@@ -39,6 +40,7 @@ export class CloudStorageAdapter implements StorageAdapter {
   private driveService: GoogleDriveService | null = null;
   private syncService: SyncService | null = null;
   private smartAutoSyncService: SmartAutoSyncService | null = null;
+  private imageObjectStore: DriveImageObjectStoreService | null = null;
   private userId: string | null = null;
   private config: StorageConfig;
 
@@ -106,6 +108,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       driveFolderId
     );
     await this.driveService.initialize();
+    this.imageObjectStore = new DriveImageObjectStoreService(this.driveService);
 
     // Initialize sync service
     // Pass isSharedWorkspace flag to skip API keys sync for shared workspaces
@@ -273,11 +276,15 @@ export class CloudStorageAdapter implements StorageAdapter {
       ? `workspace-${this.config.workspaceId}-default`
       : profileId;
 
+    const preparedMessages = this.imageObjectStore
+      ? await this.imageObjectStore.prepareMessagesForPersistence(messages)
+      : messages;
+
     // Transform conversation to data packet format (similar to local adapter)
     const dataPacket = this.transformConversationToDataPacket(
       effectiveProfileId,
       conversation,
-      messages,
+      preparedMessages,
       originalPrompt
     );
 
@@ -315,10 +322,14 @@ export class CloudStorageAdapter implements StorageAdapter {
       throw new Error('Conversation ID is required to update conversation');
     }
 
+    const preparedMessages = this.imageObjectStore
+      ? await this.imageObjectStore.prepareMessagesForPersistence(messages)
+      : messages;
+
     // Transform conversation to data packet update format
     const dataPacket = this.transformConversationToDataPacketUpdate(
       conversation,
-      messages,
+      preparedMessages,
       originalPrompt
     );
 
@@ -474,20 +485,99 @@ export class CloudStorageAdapter implements StorageAdapter {
             },
             attachments:
               interaction.attachments?.map(
-                (attachment: string, attIndex: number) => ({
-                  id: `${conversationId}-${index}-${attIndex}`,
-                  name: attachment,
-                  type: 'file' as const,
-                  url: attachment,
-                })
+                (attachment: any, attIndex: number) => {
+                  if (typeof attachment === 'string') {
+                    return {
+                      id: `${conversationId}-${index}-${attIndex}`,
+                      name: attachment,
+                      type: 'file' as const,
+                      url: attachment,
+                    };
+                  }
+                  if (
+                    attachment
+                    && typeof attachment === 'object'
+                    && attachment.type === 'image'
+                    && attachment.storage === 'drive_ref'
+                  ) {
+                    return {
+                      id:
+                        typeof attachment.id === 'string'
+                          ? attachment.id
+                          : `${conversationId}-${index}-${attIndex}`,
+                      name:
+                        typeof attachment.name === 'string'
+                          ? attachment.name
+                          : `Generated image ${attIndex + 1}`,
+                      type: 'image' as const,
+                      storage: 'drive_ref' as const,
+                      url:
+                        typeof attachment.url === 'string'
+                          ? attachment.url
+                          : undefined,
+                      imageId:
+                        typeof attachment.imageId === 'string'
+                          ? attachment.imageId
+                          : undefined,
+                      driveFileId:
+                        typeof attachment.driveFileId === 'string'
+                          ? attachment.driveFileId
+                          : undefined,
+                      status:
+                        attachment.status === 'pending_upload'
+                        || attachment.status === 'ready'
+                        || attachment.status === 'missing'
+                          ? attachment.status
+                          : undefined,
+                      uploadRetryCount:
+                        typeof attachment.uploadRetryCount === 'number'
+                          ? attachment.uploadRetryCount
+                          : undefined,
+                      lastUploadErrorCode:
+                        typeof attachment.lastUploadErrorCode === 'string'
+                          ? attachment.lastUploadErrorCode
+                          : undefined,
+                      lastUploadErrorAt:
+                        typeof attachment.lastUploadErrorAt === 'string'
+                          ? attachment.lastUploadErrorAt
+                          : undefined,
+                      nextRetryAt:
+                        typeof attachment.nextRetryAt === 'string'
+                          ? attachment.nextRetryAt
+                          : undefined,
+                      lastHydrationErrorCode:
+                        typeof attachment.lastHydrationErrorCode === 'string'
+                          ? attachment.lastHydrationErrorCode
+                          : undefined,
+                      mimeType:
+                        typeof attachment.mimeType === 'string'
+                          ? attachment.mimeType
+                          : undefined,
+                      size:
+                        typeof attachment.size === 'number'
+                          ? attachment.size
+                          : undefined,
+                    };
+                  }
+                  return {
+                    id: `${conversationId}-${index}-${attIndex}`,
+                    name: String(attachment),
+                    type: 'file' as const,
+                    url: String(attachment),
+                  };
+                }
               ) || [],
             isEdited: false,
           };
         }
       );
 
+      const hydratedMessages = this.imageObjectStore
+        ? await this.imageObjectStore.hydrateMessagesForDisplay(messages)
+        : messages;
+
       // Debug: Log alerts found in loaded messages
-      const messagesWithAlerts = messages.filter(
+      const messagesWithAlerts = hydratedMessages.filter(
         (m: Message) => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0
       );
       if (messagesWithAlerts.length > 0) {
@@ -518,7 +608,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         );
       }
 
-      return messages;
+      return hydratedMessages;
     } catch (error) {
       console.error('Error fetching conversation messages:', error);
       throw error;
@@ -1349,6 +1439,7 @@ export class CloudStorageAdapter implements StorageAdapter {
         lastSyncTime: null,
         syncInProgress: false,
         error: null,
+        imagePendingDataPackets: 0,
         filesStatus: { conversations: false, apiKeys: false, metadata: false },
       };
 
@@ -1364,6 +1455,7 @@ export class CloudStorageAdapter implements StorageAdapter {
       lastSyncTime: null,
       syncInProgress: false,
       error: null,
+      imagePendingDataPackets: 0,
       filesStatus: { conversations: false, apiKeys: false, metadata: false },
       autoSyncEnabled: false,
     };
@@ -1498,7 +1590,28 @@ export class CloudStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp.toString(),
           content: message.content,
           attachments:
-            message.attachments?.map(att => att.url || att.toString()) || [],
+            message.attachments?.map(att => {
+              if (att.type === 'image' && att.storage === 'drive_ref') {
+                return {
+                  id: att.id,
+                  name: att.name,
+                  type: att.type,
+                  storage: att.storage,
+                  url: att.url,
+                  imageId: att.imageId,
+                  driveFileId: att.driveFileId,
+                  status: att.status,
+                  uploadRetryCount: att.uploadRetryCount,
+                  lastUploadErrorCode: att.lastUploadErrorCode,
+                  lastUploadErrorAt: att.lastUploadErrorAt,
+                  nextRetryAt: att.nextRetryAt,
+                  lastHydrationErrorCode: att.lastHydrationErrorCode,
+                  mimeType: att.mimeType,
+                  size: att.size,
+                };
+              }
+              return att.url || att.toString();
+            }) || [],
           model: message.platform || conversation.platform || 'unknown',
           // Store metadata including background agent alerts and original message ID
           metadata: {
@@ -1569,7 +1682,28 @@ export class CloudStorageAdapter implements StorageAdapter {
           timestamp: message.timestamp.toString(),
           content: message.content,
           attachments:
-            message.attachments?.map(att => att.url || att.toString()) || [],
+            message.attachments?.map(att => {
+              if (att.type === 'image' && att.storage === 'drive_ref') {
+                return {
+                  id: att.id,
+                  name: att.name,
+                  type: att.type,
+                  storage: att.storage,
+                  url: att.url,
+                  imageId: att.imageId,
+                  driveFileId: att.driveFileId,
+                  status: att.status,
+                  uploadRetryCount: att.uploadRetryCount,
+                  lastUploadErrorCode: att.lastUploadErrorCode,
+                  lastUploadErrorAt: att.lastUploadErrorAt,
+                  nextRetryAt: att.nextRetryAt,
+                  lastHydrationErrorCode: att.lastHydrationErrorCode,
+                  mimeType: att.mimeType,
+                  size: att.size,
+                };
+              }
+              return att.url || att.toString();
+            }) || [],
           model: message.platform || conversation.platform || 'unknown',
           // Store metadata including background agent alerts and original message ID
           metadata: {

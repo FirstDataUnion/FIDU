@@ -5,6 +5,7 @@
 import type { BackgroundAgent } from '../../types';
 import type { AllAgentPreferences } from './agentPreferences';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../../data/backgroundAgents';
+import { normalizeBackgroundAgentModelId } from './agentModelUtils';
 
 /**
  * Transform built-in agent templates to BackgroundAgent format,
@@ -39,7 +40,9 @@ export function transformBuiltInAgentsWithPreferences(
       outputSchemaName: template.outputSchemaName,
       customOutputSchema: template.customOutputSchema,
       notifyChannel: template.notifyChannel,
-      modelId: userPrefs?.modelId ?? template.modelId ?? 'gpt-oss-120b', // Use preference, then template default, then fallback
+      modelId: normalizeBackgroundAgentModelId(
+        userPrefs?.modelId ?? template.modelId
+      ), // Use preference, then template default, then fallback
       isSystem: true,
       categories: template.categories || [],
       version: template.version,

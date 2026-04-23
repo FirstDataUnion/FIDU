@@ -222,7 +222,7 @@ Act next only after verifying each step against official policy. If needed, prep
     outputSchemaName: 'default',
     customOutputSchema: null,
     notifyChannel: 'inline',
-    modelId: 'gpt-oss-120b', // Default model for ethics agent
+    modelId: 'openai/gpt-oss-20b', // Default model for ethics agent
     isSystem: true,
     categories: ['built-in', 'ethics'],
     version: 'v0',

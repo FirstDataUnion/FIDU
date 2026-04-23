@@ -1,11 +1,30 @@
 import { createNLPWorkbenchAPIClientWithSettings } from './apiClientNLPWorkbench';
 import { openRouterAPIClient } from './apiClientOpenRouter';
-import { convertToOpenRouterMessages } from './openRouterMessageBuilder';
+import {
+  convertToOpenRouterMessages,
+  formatConversationHistoryMessageContent,
+} from './openRouterMessageBuilder';
 import { getOpenRouterParams } from './openRouterParams';
 import type { Message } from '../../types';
-import type { OpenRouterChatRequest } from '../../types/openRouter';
+import type {
+  OpenRouterChatRequest,
+  OpenRouterImageUrlPart,
+  OpenRouterStreamUpdate,
+} from '../../types/openRouter';
+import {
+  getModalitiesForOpenRouterModel,
+  mergeOpenRouterStreamImages,
+} from './openRouterModalities';
 import { store } from '../../store';
 import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
+
+/** Normalized `responses` shape for both OpenRouter and NLP execute paths. */
+export type ExecutePromptResponsesPayload = {
+  modelId: string;
+  content: string;
+  actualModel?: string;
+  images?: OpenRouterImageUrlPart[];
+};
 
 // Unified function to build the complete prompt
 export const buildCompletePrompt = (
@@ -91,7 +110,8 @@ export const buildCompletePrompt = (
       .filter(msg => msg.role !== 'system')
       .map(msg => {
         const role = msg.role === 'user' ? 'User' : 'Assistant';
-        return `${role}: ${msg.content}`;
+        const content = formatConversationHistoryMessageContent(msg);
+        return `${role}: ${content}`;
       })
       .join('\n\n');
 
@@ -147,7 +167,7 @@ export const createPromptsApi = () => {
       systemPrompts?: any[], // Changed to array to support multiple system prompts
       embellishments?: any[],
       abortSignal?: AbortSignal,
-      onStreamChunk?: (delta: string) => void
+      onStreamChunk?: (update: OpenRouterStreamUpdate) => void
     ) => {
       if (!profileId) {
         throw new Error('Profile ID is required to execute a prompt');
@@ -180,6 +200,7 @@ export const createPromptsApi = () => {
 
         // Build OpenRouter request with user-configured params
         const params = getOpenRouterParams();
+        const modalities = getModalitiesForOpenRouterModel(selectedModel);
         const openRouterRequest: OpenRouterChatRequest = {
           model: openRouterModelId, // Use OpenRouter model ID (mapped if auto-router)
           messages,
@@ -192,10 +213,12 @@ export const createPromptsApi = () => {
           max_tokens: params.max_tokens,
           ...(params.min_tokens > 0 && { min_tokens: params.min_tokens }),
           ...(params.seed != null && { seed: params.seed }),
+          ...(modalities && { modalities }),
         };
 
         // Use streaming for direct OpenRouter - yields incremental content to UI
         let accumulatedContent = '';
+        let accumulatedImages: OpenRouterImageUrlPart[] = [];
         let lastChunkId = `exec-${Date.now()}`;
         let lastChunkCreated = Math.floor(Date.now() / 1000);
         let lastChunkModel = openRouterModelId;
@@ -210,21 +233,42 @@ export const createPromptsApi = () => {
           lastChunkCreated = chunk.created;
           lastChunkModel = chunk.model;
 
-          const delta = chunk.choices?.[0]?.delta?.content ?? '';
-          if (delta) {
-            accumulatedContent += delta;
-            onStreamChunk?.(delta);
+          const choiceDelta = chunk.choices?.[0]?.delta;
+          const textDelta = choiceDelta?.content ?? '';
+          const deltaImages = choiceDelta?.images;
+
+          if (deltaImages?.length) {
+            accumulatedImages = mergeOpenRouterStreamImages(
+              accumulatedImages,
+              deltaImages
+            );
+          }
+
+          if (textDelta) {
+            accumulatedContent += textDelta;
+          }
+
+          if (textDelta || deltaImages?.length) {
+            onStreamChunk?.({
+              ...(textDelta ? { textDelta } : {}),
+              ...(deltaImages?.length ? { images: deltaImages } : {}),
+            });
           }
         }
+
+        const responses: ExecutePromptResponsesPayload = {
+          modelId: selectedModel,
+          content:
+            accumulatedContent
+            || (accumulatedImages.length > 0 ? '' : 'No response received'),
+          actualModel: lastChunkModel,
+          ...(accumulatedImages.length > 0 && { images: accumulatedImages }),
+        };
 
         return {
           id: lastChunkId,
           status: 'completed',
-          responses: {
-            modelId: selectedModel,
-            content: accumulatedContent || 'No response received',
-            actualModel: lastChunkModel,
-          },
+          responses,
           timestamp: new Date(lastChunkCreated * 1000).toISOString(),
         };
       }
@@ -262,14 +306,23 @@ export const createPromptsApi = () => {
           ? resultBlock.actualModel
           : undefined;
 
+      const nlpContent =
+        typeof chatResponse === 'string'
+          ? chatResponse
+          : chatResponse != null
+            ? String(chatResponse)
+            : '';
+
+      const responses: ExecutePromptResponsesPayload = {
+        modelId: selectedModel,
+        content: nlpContent,
+        actualModel,
+      };
+
       return {
         id: `exec-${Date.now()}`,
         status: response.status,
-        responses: {
-          modelId: selectedModel,
-          content: chatResponse,
-          actualModel,
-        },
+        responses,
         timestamp: new Date().toISOString(),
       };
     },

@@ -211,6 +211,30 @@ describe('buildCompletePrompt', () => {
       expect(index1).toBeLessThan(index2);
       expect(index2).toBeLessThan(index3);
     });
+
+    it('should include generated-image placeholder in conversation history when image attachments exist', () => {
+      const messages: Message[] = [
+        {
+          ...mockMessage,
+          id: 'msg-image',
+          role: 'assistant',
+          content: '',
+          attachments: [
+            {
+              id: 'att-1',
+              name: 'Generated image 1',
+              type: 'image',
+              url: 'data:image/png;base64,AAA',
+            },
+          ],
+        },
+      ];
+
+      const result = buildCompletePrompt([], [], [], messages, 'Tell me a joke');
+      expect(result).toContain(
+        'Assistant: [Image was generated as per user request]'
+      );
+    });
   });
 
   describe('Edge Cases', () => {

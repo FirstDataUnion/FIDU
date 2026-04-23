@@ -9,12 +9,25 @@
 export type OpenRouterMessageRole = 'system' | 'user' | 'assistant';
 
 /**
+ * One generated image in a chat completion (streaming delta or final message).
+ * @see https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+ */
+export interface OpenRouterImageUrlPart {
+  type?: 'image_url';
+  image_url: {
+    url: string;
+  };
+}
+
+/**
  * OpenRouter message format
  */
 export interface OpenRouterMessage {
   role: OpenRouterMessageRole;
   content: string;
   name?: string; // Optional name for the message
+  /** Present on assistant completions when the model returns generated images. */
+  images?: OpenRouterImageUrlPart[];
 }
 
 /**
@@ -162,6 +175,8 @@ export interface OpenRouterChatRequest {
     application?: string; // Application name
     user?: string; // User identifier
   };
+  /** When set, requests image output from image-capable models (e.g. `["text", "image"]` or `["image"]`). */
+  modalities?: string[];
 }
 
 /**
@@ -212,6 +227,8 @@ export interface OpenRouterStreamDelta {
   role?: OpenRouterMessageRole;
   content?: string;
   tool_calls?: any[];
+  /** Streaming image generation; may include multiple images per chunk. */
+  images?: OpenRouterImageUrlPart[];
 }
 
 /**
@@ -237,6 +254,12 @@ export interface OpenRouterStreamChunk {
     context_length: number;
   };
 }
+
+/** Incremental payload for direct OpenRouter streaming (text and/or images). */
+export type OpenRouterStreamUpdate = {
+  textDelta?: string;
+  images?: OpenRouterImageUrlPart[];
+};
 
 /**
  * OpenRouter error response

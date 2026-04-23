@@ -23,6 +23,7 @@ import {
   Select,
   MenuItem,
   Switch,
+  Checkbox,
   FormControlLabel,
   Paper,
   Stack,
@@ -44,6 +45,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   Settings as SettingsIcon,
   HelpOutline as HelpOutlineIcon,
+  Image as ImageGenIcon,
 } from '@mui/icons-material';
 import {
   getAllModels,
@@ -51,6 +53,7 @@ import {
   getCachedOpenRouterModels,
   getCachedOpenRouterZdrAllowlistAvailable,
   loadOpenRouterModels,
+  modelSupportsImageOutput,
   type ModelConfig,
   type ProviderKey,
 } from '../../data/models';
@@ -77,6 +80,10 @@ interface ModelSelectionModalProps {
 
 type SortOption = 'name' | 'provider' | 'speed' | 'category';
 type FilterOption = 'all' | 'fast' | 'medium' | 'slow';
+type OutputModalityFilter = {
+  text: boolean;
+  image: boolean;
+};
 
 /** Title-case words for provider labels shown in lists and accordions. */
 function formatProviderDisplayName(provider: string | undefined): string {
@@ -128,6 +135,12 @@ export default function ModelSelectionModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  /** Direct OpenRouter only: toggle visibility by output modality. */
+  const [outputModalityFilter, setOutputModalityFilter] =
+    useState<OutputModalityFilter>({
+      text: true,
+      image: true,
+    });
   const [providerFilter, setProviderFilter] = useState<string>('all');
   const [useBYOK, setUseBYOK] = useState(() => {
     try {
@@ -167,7 +180,7 @@ export default function ModelSelectionModal({
       return;
     }
     setOpenRouterListFetch({ status: 'loading' });
-    loadOpenRouterModels()
+    loadOpenRouterModels(true)
       .then(() => setOpenRouterListFetch({ status: 'ready' }))
       .catch((err: unknown) => {
         setOpenRouterListFetch({
@@ -277,6 +290,15 @@ export default function ModelSelectionModal({
   }, [useBYOK]);
 
   React.useEffect(() => {
+    if (!open) {
+      setOutputModalityFilter({
+        text: true,
+        image: true,
+      });
+    }
+  }, [open]);
+
+  React.useEffect(() => {
     const usedModels = conversations
       .map(conversation => conversation.modelsUsed)
       .flat()
@@ -355,7 +377,36 @@ export default function ModelSelectionModal({
         }
       }
 
-      return matchesSearch && matchesProvider && matchesFilter;
+      // As most image models support text and images, we filter them in such a way that 
+      // only selecting "text" will hide and models with image capabilities (even if they also 
+      // support text) and selecting "image" will hide and models without image capabilities.
+      const matchesImageGen =
+        !isDirectOpenRouterEnabled
+        || (() => {
+          const outputModalities = model.outputModalities?.length
+            ? model.outputModalities
+            : ['text'];
+          const hasTextOutput = outputModalities.includes('text');
+          const hasImageOutput = outputModalities.includes('image');
+          const wantsText = outputModalityFilter.text;
+          const wantsImage = outputModalityFilter.image;
+
+          if (!wantsText && !wantsImage) {
+            return false;
+          }
+
+          if (wantsText && wantsImage) {
+            return true;
+          }
+
+          if (wantsText) {
+            return hasTextOutput && !hasImageOutput;
+          }
+
+          return hasImageOutput;
+        })();
+
+      return matchesSearch && matchesProvider && matchesFilter && matchesImageGen;
     });
 
     // Sort models
@@ -392,6 +443,7 @@ export default function ModelSelectionModal({
     usedModels,
     isMostUsedModelsEnabled,
     isDirectOpenRouterEnabled,
+    outputModalityFilter,
   ]);
 
   const handleModelSelect = (modelId: string) => {
@@ -618,6 +670,16 @@ export default function ModelSelectionModal({
                     size="small"
                     variant="outlined"
                   />
+                  {isDirectOpenRouterEnabled
+                    && modelSupportsImageOutput(model) && (
+                    <Chip
+                      icon={<ImageGenIcon sx={{ fontSize: '14px !important' }} />}
+                      label="Image output"
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
               </Box>
             }
@@ -1236,6 +1298,55 @@ export default function ModelSelectionModal({
                   ))}
                 </Select>
               </FormControl>
+
+              {isDirectOpenRouterEnabled && (
+                <Box
+                  sx={{
+                    flex: '1 1 320px',
+                    minWidth: 0,
+                    m: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                  }}
+                >
+                  <Typography variant="body2" component="span">
+                    Modalities:
+                  </Typography>
+                  <FormControlLabel
+                    sx={{ m: 0 }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={outputModalityFilter.text}
+                        onChange={(_, checked) =>
+                          setOutputModalityFilter(prev => ({
+                            ...prev,
+                            text: checked,
+                          }))
+                        }
+                      />
+                    }
+                    label={<Typography variant="body2">Text</Typography>}
+                  />
+                  <FormControlLabel
+                    sx={{ m: 0 }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={outputModalityFilter.image}
+                        onChange={(_, checked) =>
+                          setOutputModalityFilter(prev => ({
+                            ...prev,
+                            image: checked,
+                          }))
+                        }
+                      />
+                    }
+                    label={<Typography variant="body2">Image</Typography>}
+                  />
+                </Box>
+              )}
             </Box>
           </Stack>
         </Box>
@@ -1400,8 +1511,8 @@ export default function ModelSelectionModal({
               ) : (
                 <>
                   The ZDR (Zero Data Retention) route list is unavailable, so
-                  every catalog model is shown. OpenRouter will block chat
-                  requests to models that are not on a ZDR route.
+                  no direct OpenRouter models are shown. Retry shortly once the
+                  route list becomes available.
                 </>
               )}
             </Typography>

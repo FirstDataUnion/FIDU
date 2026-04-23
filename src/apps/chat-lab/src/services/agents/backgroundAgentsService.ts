@@ -1,5 +1,14 @@
 import type { BackgroundAgent } from '../../types';
 import { createNLPWorkbenchAPIClientWithSettings } from '../api/apiClientNLPWorkbench';
+import { openRouterAPIClient } from '../api/apiClientOpenRouter';
+import { getOpenRouterParams } from '../api/openRouterParams';
+import { store } from '../../store';
+import { selectIsFeatureFlagEnabled } from '../../store/selectors/featureFlagsSelectors';
+import {
+  DEFAULT_BACKGROUND_AGENT_MODEL_ID,
+  resolveNlpWorkbenchModelId,
+  resolveOpenRouterModelId,
+} from './agentModelUtils';
 
 export interface ConversationSliceMessage {
   role: 'user' | 'assistant' | 'system';
@@ -487,7 +496,7 @@ function validateAndNormalizeUpdateDocumentResult(
  *
  * This function:
  * 1. Builds a structured prompt with agent instructions and conversation context
- * 2. Sends the prompt to the configured model (defaults to gpt-oss-120b)
+ * 2. Sends the prompt to the configured model (defaults to openai/gpt-oss-20b)
  * 3. Parses and validates the JSON response
  * 4. Returns normalized evaluation results
  *
@@ -509,9 +518,12 @@ export async function evaluateBackgroundAgent(
     `🤖 [BackgroundAgents] Conversation slice: ${slice.messages.length} messages, Conversation ID: ${slice.conversationId}`
   );
 
-  const nlpWorkbenchAPIClient = createNLPWorkbenchAPIClientWithSettings();
   const schema = buildOutputSchema(agent);
   const prompt = buildAgentPrompt(agent, slice.messages, schema);
+  const useDirectOpenRouter = selectIsFeatureFlagEnabled(
+    store.getState(),
+    'direct_openrouter'
+  );
 
   console.log(
     `🤖 [BackgroundAgents] Agent "${agent.name}" - Prompt length: ${prompt.length} chars`
@@ -520,31 +532,56 @@ export async function evaluateBackgroundAgent(
     `🤖 [BackgroundAgents] Agent "${agent.name}" - Prompt template preview: ${(agent.promptTemplate || '').substring(0, 100)}...`
   );
 
-  // Model selection - use agent's configured modelId, defaulting to gpt-oss-120b
-  const selectedModel = agent.modelId ?? 'gpt-oss-120b';
+  // Model selection - use agent's configured modelId, defaulting to openai/gpt-oss-20b
+  const selectedModel = agent.modelId ?? DEFAULT_BACKGROUND_AGENT_MODEL_ID;
   let execStatus;
+  let rawModelOutput = '{}';
   try {
     const apiCallStartTime = Date.now();
     console.log(
-      `🤖 [BackgroundAgents] Agent "${agent.name}" - Executing model: ${selectedModel}`
+      `🤖 [BackgroundAgents] Agent "${agent.name}" - Executing model: ${selectedModel}${useDirectOpenRouter ? ' (direct OpenRouter)' : ' (NLP Workbench)'}`
     );
 
-    execStatus = await nlpWorkbenchAPIClient.executeAgentAndWait(
-      prompt,
-      (input: string) =>
-        nlpWorkbenchAPIClient.executeModelAgent(selectedModel, input)
-    );
+    if (useDirectOpenRouter) {
+      const params = getOpenRouterParams();
+      const openRouterModelId = resolveOpenRouterModelId(selectedModel);
+      const openRouterResponse = await openRouterAPIClient.createChatCompletion({
+        model: openRouterModelId,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: params.temperature,
+        top_p: params.top_p,
+        ...(params.top_k > 0 && { top_k: params.top_k }),
+        frequency_penalty: params.frequency_penalty,
+        presence_penalty: params.presence_penalty,
+        repetition_penalty: params.repetition_penalty,
+        max_tokens: params.max_tokens,
+        ...(params.min_tokens > 0 && { min_tokens: params.min_tokens }),
+        ...(params.seed != null && { seed: params.seed }),
+        response_format: { type: 'json_object' },
+      });
+      rawModelOutput =
+        openRouterResponse.choices?.[0]?.message?.content?.trim() || '{}';
+    } else {
+      const nlpWorkbenchAPIClient = createNLPWorkbenchAPIClientWithSettings();
+      const nlpWorkbenchModelId = resolveNlpWorkbenchModelId(selectedModel);
+      execStatus = await nlpWorkbenchAPIClient.executeAgentAndWait(
+        prompt,
+        (input: string) =>
+          nlpWorkbenchAPIClient.executeModelAgent(nlpWorkbenchModelId, input)
+      );
+
+      if (execStatus?.status !== 'completed') {
+        throw new Error(
+          `Model execution failed with status: ${execStatus?.status}`
+        );
+      }
+      rawModelOutput = extractModelOutput(execStatus, agent.name);
+    }
 
     const apiCallTime = Date.now() - apiCallStartTime;
     console.log(
-      `🤖 [BackgroundAgents] Agent "${agent.name}" - API call completed in ${apiCallTime}ms, status: ${execStatus?.status}`
+      `🤖 [BackgroundAgents] Agent "${agent.name}" - API call completed in ${apiCallTime}ms`
     );
-
-    if (execStatus?.status !== 'completed') {
-      throw new Error(
-        `Model execution failed with status: ${execStatus?.status}`
-      );
-    }
   } catch (error: any) {
     console.error(
       `🤖 [BackgroundAgents] Agent "${agent.name}" - API call failed:`,
@@ -554,7 +591,9 @@ export async function evaluateBackgroundAgent(
 
     // Handle API key/auth errors gracefully - return a neutral result that won't trigger alerts
     if (
-      error?.status === 403
+      error?.status === 401
+      || error?.status === 402
+      || error?.status === 403
       || error?.message?.includes('Paid membership')
       || error?.message?.includes('API key')
     ) {
@@ -582,8 +621,7 @@ export async function evaluateBackgroundAgent(
     throw error;
   }
 
-  // Extract and parse model output
-  const rawModelOutput = extractModelOutput(execStatus, agent.name);
+  // Parse model output
   console.log(
     `🤖 [BackgroundAgents] Agent "${agent.name}" - Raw model output (${rawModelOutput.length} chars):`,
     rawModelOutput.substring(0, 200)

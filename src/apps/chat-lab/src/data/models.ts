@@ -5,6 +5,7 @@ import { getGatewayUrl, isDevEnvironment } from '../utils/environment';
 import { store } from '../store';
 import { selectIsFeatureFlagEnabled } from '../store/selectors/featureFlagsSelectors';
 import { openRouterModelService } from '../services/models/openRouterModelService';
+import type { OpenRouterOutputModality } from '../types/openRouter';
 
 export interface ModelConfig {
   id: string;
@@ -20,6 +21,13 @@ export interface ModelConfig {
   // New metadata to support BYOK and routing visibility
   executionPath: ExecutionPath;
   providerKey?: ProviderKey;
+  /** Set for OpenRouter API–sourced models: `architecture.output_modalities`. Used for image request `modalities`. */
+  outputModalities?: OpenRouterOutputModality[];
+}
+
+/** True when the catalog declares image in this model's output modalities (direct OpenRouter / API list). */
+export function modelSupportsImageOutput(model: ModelConfig): boolean {
+  return (model.outputModalities ?? []).includes('image');
 }
 
 export type ExecutionPath = 'openrouter' | 'direct';
@@ -2350,22 +2358,29 @@ export const clearLastOpenRouterModelsLoadError = (): void => {
  * Load OpenRouter models and cache them
  * This is called asynchronously to populate the cache
  */
-export const loadOpenRouterModels = async (): Promise<ModelConfig[]> => {
+export const loadOpenRouterModels = async (
+  forceRefresh = false
+): Promise<ModelConfig[]> => {
   // If already loading, return the existing promise
-  if (openRouterModelsLoadPromise) {
+  if (!forceRefresh && openRouterModelsLoadPromise) {
     return openRouterModelsLoadPromise;
   }
 
   // If already loaded, return cached models
-  if (cachedOpenRouterModels.length > 0) {
+  if (!forceRefresh && cachedOpenRouterModels.length > 0) {
     lastOpenRouterModelsLoadError = null;
     return cachedOpenRouterModels;
   }
 
   // Start loading
+  if (forceRefresh) {
+    cachedOpenRouterModels = [];
+    cachedOpenRouterZdrAllowlistAvailable = null;
+    openRouterModelsLoadPromise = null;
+  }
   lastOpenRouterModelsLoadError = null;
   openRouterModelsLoadPromise = openRouterModelService
-    .getModelsAsConfig(false)
+    .getModelsAsConfig(forceRefresh)
     .then(({ models, zdrAllowlistAvailable }) => {
       cachedOpenRouterModels = models;
       cachedOpenRouterZdrAllowlistAvailable = zdrAllowlistAvailable;

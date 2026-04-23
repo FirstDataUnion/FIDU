@@ -61,6 +61,11 @@ import {
   DEFAULT_AGENT_CONFIG,
   THRESHOLD_PRESETS,
 } from '../services/agents/agentConstants';
+import {
+  DEFAULT_BACKGROUND_AGENT_MODEL_ID,
+  getBackgroundAgentCompatibleModels,
+  normalizeBackgroundAgentModelId,
+} from '../services/agents/agentModelUtils';
 import { getAllModels } from '../data/models';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { fetchDocuments } from '../store/slices/documentsSlice';
@@ -1049,7 +1054,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages',
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
-    modelId: 'gpt-oss-120b',
+    modelId: DEFAULT_BACKGROUND_AGENT_MODEL_ID,
   });
 
   // Fetch documents when profile or auth state changes
@@ -1087,9 +1092,12 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         profileId
       );
       // Only store custom agents (never store built-in ones)
-      const customAgents = (backgroundAgents || []).filter(
-        (a: BackgroundAgent) => !a.isSystem
-      );
+      const customAgents = (backgroundAgents || [])
+        .filter((a: BackgroundAgent) => !a.isSystem)
+        .map((agent: BackgroundAgent) => ({
+          ...agent,
+          modelId: normalizeBackgroundAgentModelId(agent.modelId),
+        }));
       setAgents(customAgents);
     } catch (e: any) {
       setError(e?.message || 'Failed to load background agents');
@@ -1163,6 +1171,10 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     return filtered;
   }, [currentTabAgents, debouncedSearchQuery]);
 
+  const availableBackgroundAgentModels = getBackgroundAgentCompatibleModels(
+    getAllModels()
+  );
+
   // Dialog states for creating new agents
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState<{
@@ -1194,7 +1206,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     contextWindowStrategy: 'lastNMessages',
     contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
     notifyChannel: 'inline',
-    modelId: 'gpt-oss-120b',
+    modelId: DEFAULT_BACKGROUND_AGENT_MODEL_ID,
   });
 
   const handleCreateAgent = useCallback(() => {
@@ -1209,7 +1221,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       contextWindowStrategy: 'lastNMessages',
       contextParams: { lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES },
       notifyChannel: 'inline',
-      modelId: 'gpt-oss-120b',
+      modelId: DEFAULT_BACKGROUND_AGENT_MODEL_ID,
     });
     setCreateDialogOpen(true);
   }, []);
@@ -1328,7 +1340,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         outputSchemaName: 'default',
         customOutputSchema: null,
         notifyChannel: createForm.notifyChannel,
-        modelId: createForm.modelId,
+        modelId: normalizeBackgroundAgentModelId(createForm.modelId),
         isSystem: false,
         categories: [],
         createdAt: new Date().toISOString(),
@@ -1454,7 +1466,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         lastN: DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES,
       },
       notifyChannel: agent.notifyChannel,
-      modelId: agent.modelId ?? 'gpt-oss-120b',
+      modelId: normalizeBackgroundAgentModelId(agent.modelId),
     });
     setViewEditDialogOpen(true);
   }, []);
@@ -1543,7 +1555,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
               ? viewEditForm.contextParams.lastN
               : undefined,
           enabled: viewEditForm.enabled,
-          modelId: viewEditForm.modelId,
+          modelId: normalizeBackgroundAgentModelId(viewEditForm.modelId),
         });
         // Trigger re-computation of built-in agents with new preferences
         setPrefsVersion(prev => prev + 1);
@@ -1587,7 +1599,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
         ...selectedAgent,
         ...viewEditForm,
         actionType: actionType, // Override with validated actionType
-        modelId: viewEditForm.modelId,
+        modelId: normalizeBackgroundAgentModelId(viewEditForm.modelId),
         updatedAt: new Date().toISOString(),
       };
       const saved = await storage.updateBackgroundAgent(
@@ -2032,7 +2044,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     },
                   }}
                 >
-                  {getAllModels().map(model => (
+                  {availableBackgroundAgentModels.map(model => (
                     <MenuItem key={model.id} value={model.id}>
                       <Box>
                         <Typography variant="body1">{model.name}</Typography>
@@ -2510,7 +2522,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                     },
                   }}
                 >
-                  {getAllModels().map(model => (
+                  {availableBackgroundAgentModels.map(model => (
                     <MenuItem key={model.id} value={model.id}>
                       <Box>
                         <Typography variant="body1">{model.name}</Typography>
@@ -2825,9 +2837,12 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   20,
                   currentProfile.id
                 );
-                const customAgents = (backgroundAgents || []).filter(
-                  (a: BackgroundAgent) => !a.isSystem
-                );
+                const customAgents = (backgroundAgents || [])
+                  .filter((a: BackgroundAgent) => !a.isSystem)
+                  .map((agent: BackgroundAgent) => ({
+                    ...agent,
+                    modelId: normalizeBackgroundAgentModelId(agent.modelId),
+                  }));
                 setAgents(customAgents);
               } catch (e: any) {
                 setError(e?.message || 'Failed to load background agents');
