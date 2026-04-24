@@ -16,7 +16,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   Send as SendIcon,
 } from '@mui/icons-material';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
 import type {
@@ -36,7 +36,7 @@ import type {
 import { CollapsibleFragmentList } from './CollapsibleFragmentList';
 import { getModelColor } from '../../utils/themeColors';
 import type { Theme } from '@mui/material/styles';
-import { fromUrlId } from '../utils';
+import { fromUrlId, toUrlId } from '../utils';
 
 function getProviderColor(model: string, mode: 'light' | 'dark') {
   if (model === 'openrouter/auto') {
@@ -216,8 +216,19 @@ export default function CorpusConversationPanel() {
       return undefined;
     }
   }, [conversationUrlId]);
-  const { corpus, conversationInfo, sourceInfo, modelInfo } =
+  const { corpus, conversationInfo, sourceInfo, modelInfo, navigation } =
     useCorpusSessionContext();
+
+  useEffect(() => {
+    if (!corpus) {
+      return;
+    }
+    navigation.showUpButton(`/research-lab/corpus/${toUrlId(corpus.id)}`);
+    return () => {
+      navigation.clearActions();
+    };
+  }, [corpus, navigation]);
+
   const conversation = useMemo(() => {
     return conversationInfo?.conversations.find(
       conversation => conversation.id === conversationId

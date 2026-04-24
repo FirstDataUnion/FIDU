@@ -12,7 +12,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useCorpusSessionContext } from '../contexts/CorpusSessionContext';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { CorpusConversation } from '../types/local';
 import { getStorageService } from '../../services/storage/StorageService';
 import { useAppSelector } from '../../store';
@@ -21,8 +21,15 @@ import { formatDate, toUrlId } from '../utils';
 
 export default function SelectConversationPanel() {
   const navigate = useNavigate();
-  const { conversationInfo, corpus } = useCorpusSessionContext();
+  const { conversationInfo, corpus, navigation } = useCorpusSessionContext();
   const { currentProfile } = useAppSelector(state => state.auth);
+
+  useEffect(() => {
+    navigation.clearActions();
+    return () => {
+      navigation.clearActions();
+    };
+  }, [navigation]);
 
   const c = useMemo(
     () =>

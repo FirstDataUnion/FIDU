@@ -1,14 +1,6 @@
-import {
-  Alert,
-  Box,
-  IconButton,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material';
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Alert, alpha, Box, Paper, Stack, Typography } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { EnhancedMarkdown } from '../../components/common/EnhancedMarkdown';
 import { createRagApiClient, corpusToLocation } from '../services/apiClientRag';
 import type {
@@ -41,9 +33,8 @@ function toSourceFileLocation(
 }
 
 export default function SourceContentPanel() {
-  const navigate = useNavigate();
   const params = useParams<RouteParams>();
-  const { corpus } = useCorpusSessionContext();
+  const { corpus, navigation } = useCorpusSessionContext();
 
   const corpusLocation = useMemo(() => corpusToLocation(corpus), [corpus]);
 
@@ -57,6 +48,13 @@ export default function SourceContentPanel() {
   const [data, setData] = useState<SourceContentResponse | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  useEffect(() => {
+    navigation.showBackButton();
+    return () => {
+      navigation.clearActions();
+    };
+  }, [navigation]);
 
   useEffect(() => {
     if (!corpusLocation || !sourceFileLocation) {
@@ -89,10 +87,6 @@ export default function SourceContentPanel() {
     };
   }, [corpusLocation, sourceFileLocation]);
 
-  const handleBack = useCallback(() => {
-    navigate(-1);
-  }, [navigate]);
-
   if (!sourceFileLocation) {
     return (
       <Paper sx={{ p: 2 }}>
@@ -116,26 +110,15 @@ export default function SourceContentPanel() {
         width: '100%',
       }}
     >
-      <Paper sx={{ p: 2, flexShrink: 0 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <IconButton onClick={handleBack} aria-label="Back">
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ flex: 1, minWidth: 0 }}>
-            Source
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {data?.source.name}
-          </Typography>
-        </Stack>
-      </Paper>
-
       <Box
         sx={{
           flex: '1 1 0',
           minHeight: 0,
           overflowY: 'auto',
-          p: 2,
+          scrollbarWidth: 'thin',
+          scrollbarColor: theme =>
+            `${alpha(theme.palette.text.primary, 0.35)} ${theme.palette.background.paper}`,
+          px: 2,
         }}
       >
         {loading && <Typography>Loading source content...</Typography>}

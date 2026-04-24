@@ -1,7 +1,6 @@
 import {
   Box,
   Button,
-  IconButton,
   List,
   ListItem,
   ListItemButton,
@@ -12,9 +11,9 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Close as CloseIcon, Folder as FolderIcon } from '@mui/icons-material';
-import { useCallback, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Folder as FolderIcon } from '@mui/icons-material';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DrivePicker,
   type PickedDriveDocument,
@@ -89,8 +88,8 @@ type Step =
 
 export default function AddSourcePanel() {
   const navigate = useNavigate();
-  const { corpusId } = useParams();
-  const { corpus, ingestQueueInfo, corpusInfo } = useCorpusSessionContext();
+  const { corpus, ingestQueueInfo, corpusInfo, navigation } =
+    useCorpusSessionContext();
   const { items: contexts, loading: contextsLoading } = useAppSelector(
     state => state.contexts
   );
@@ -105,9 +104,16 @@ export default function AddSourcePanel() {
     undefined
   );
 
+  useEffect(() => {
+    navigation.showBackButton();
+    return () => {
+      navigation.clearActions();
+    };
+  }, [navigation]);
+
   const cancel = useCallback(() => {
-    navigate(`/research-lab/corpus/${corpusId}`);
-  }, [navigate, corpusId]);
+    navigate(-1);
+  }, [navigate]);
 
   const handleSourceTypeSubmit = useCallback(
     (value: string) => {
@@ -281,19 +287,7 @@ export default function AddSourcePanel() {
   }, [corpus, corpusInfo, googleSheetName, setUrlCollection]);
 
   return (
-    <Paper>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ borderBottom: 1, borderColor: 'divider', m: 1 }}
-      >
-        <Typography variant="h6">Add Source</Typography>
-        <IconButton onClick={cancel}>
-          <CloseIcon />
-        </IconButton>
-      </Stack>
-
+    <Paper sx={{ pt: 1 }}>
       {corpus === undefined ? (
         <div>Loading corpus...</div>
       ) : (

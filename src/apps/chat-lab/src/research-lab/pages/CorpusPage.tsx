@@ -41,8 +41,13 @@ import {
 } from '../../services/storage/drive/GoogleDriveService';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
 import { fromUrlId } from '../utils';
+import NavigationPanel from '../components/NavigationPanel';
 
-type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
+type CorpusSidebarSection =
+  | 'navigation'
+  | 'sources'
+  | 'modelOptions'
+  | 'export';
 
 function getSidebarSections(path: string): CorpusSidebarSection[] {
   // If we were using a data router, we would use useMatches() to get the sidebar sections from the route handle.
@@ -50,9 +55,9 @@ function getSidebarSections(path: string): CorpusSidebarSection[] {
     [
       '/research-lab/corpus/:corpusId/conversations/:conversationId',
       true,
-      ['sources', 'modelOptions', 'export'],
+      ['navigation', 'sources', 'modelOptions', 'export'],
     ],
-    ['/research-lab/corpus/:corpusId', false, ['sources']],
+    ['/research-lab/corpus/:corpusId', false, ['navigation', 'sources']],
   ];
   for (const [routePath, end, sections] of routeSidebarSections) {
     if (matchPath({ path: routePath, end }, path)) {
@@ -220,6 +225,8 @@ export default function CorpusPage() {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector(state => state.auth);
+  const [upUrl, setUpUrl] = useState<string | undefined>(undefined);
+  const [showBack, setShowBack] = useState<boolean>(false);
   const [openSidebar, setOpenSidebar] = useState<
     CorpusSidebarSection | undefined
   >('sources');
@@ -505,6 +512,20 @@ export default function CorpusPage() {
               selectedModelId,
               selectModel: setSelectedModelId,
             },
+      navigation: {
+        showUpButton: url => {
+          setUpUrl(url);
+          setShowBack(false);
+        },
+        showBackButton: () => {
+          setShowBack(true);
+          setUpUrl(undefined);
+        },
+        clearActions: () => {
+          setUpUrl(undefined);
+          setShowBack(false);
+        },
+      },
     }),
     [
       corpus,
@@ -570,6 +591,14 @@ export default function CorpusPage() {
         >
           {sidebarSections.map(section => {
             switch (section) {
+              case 'navigation':
+                return (
+                  <NavigationPanel
+                    key={section}
+                    upUrl={upUrl}
+                    showBack={showBack}
+                  />
+                );
               case 'sources':
                 return (
                   <SourceSelectionPanel

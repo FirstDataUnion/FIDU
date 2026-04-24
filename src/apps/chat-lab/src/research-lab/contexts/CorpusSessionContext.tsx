@@ -50,6 +50,11 @@ export interface CorpusSessionContextValue {
     selectedModelId: string;
     selectModel: (modelId: string) => void;
   };
+  navigation: {
+    showUpButton: (url: string) => void;
+    showBackButton: () => void;
+    clearActions: () => void;
+  };
 }
 
 export const CorpusSessionContext =
