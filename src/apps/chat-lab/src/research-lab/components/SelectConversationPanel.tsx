@@ -17,7 +17,7 @@ import type { CorpusConversation } from '../types/local';
 import { getStorageService } from '../../services/storage/StorageService';
 import { useAppSelector } from '../../store';
 import { useNavigate } from 'react-router-dom';
-import { formatDate } from '../utils';
+import { formatDate, toUrlId } from '../utils';
 
 export default function SelectConversationPanel() {
   const navigate = useNavigate();
@@ -55,7 +55,9 @@ export default function SelectConversationPanel() {
 
     conversationInfo?.reloadConversations();
 
-    navigate(`/research-lab/corpora/${corpus.id}/conversations/${uuid}`);
+    navigate(
+      `/research-lab/corpus/${toUrlId(corpus.id)}/conversations/${toUrlId(uuid)}`
+    );
   }, [corpus, currentProfile, navigate, conversationInfo]);
 
   const handleDeleteConversation = useCallback(
@@ -118,8 +120,11 @@ export default function SelectConversationPanel() {
                   <ListItemButton
                     sx={{ width: '100%', p: 1 }}
                     onClick={() => {
+                      if (!corpus?.id) {
+                        return;
+                      }
                       navigate(
-                        `/research-lab/corpora/${corpus?.id}/conversations/${conversation.id}`
+                        `/research-lab/corpus/${toUrlId(corpus.id)}/conversations/${toUrlId(conversation.id)}`
                       );
                     }}
                   >

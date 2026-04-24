@@ -36,6 +36,7 @@ import type {
 import { CollapsibleFragmentList } from './CollapsibleFragmentList';
 import { getModelColor } from '../../utils/themeColors';
 import type { Theme } from '@mui/material/styles';
+import { fromUrlId } from '../utils';
 
 function getProviderColor(model: string, mode: 'light' | 'dark') {
   if (model === 'openrouter/auto') {
@@ -204,7 +205,17 @@ function RAGInfoMessage({
 
 export default function CorpusConversationPanel() {
   const theme = useTheme();
-  const { conversationId } = useParams();
+  const { conversationId: conversationUrlId } = useParams();
+  const conversationId = useMemo(() => {
+    if (!conversationUrlId) {
+      return undefined;
+    }
+    try {
+      return fromUrlId(conversationUrlId);
+    } catch {
+      return undefined;
+    }
+  }, [conversationUrlId]);
   const { corpus, conversationInfo, sourceInfo, modelInfo } =
     useCorpusSessionContext();
   const conversation = useMemo(() => {

@@ -25,6 +25,7 @@ import { getStorageService } from '../../services/storage/StorageService';
 import { useAppSelector } from '../../store';
 import { GoogleDriveService } from '../../services/storage/drive/GoogleDriveService';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
+import { toUrlId } from '../utils';
 
 function formatDateTime(dateTime: string) {
   return new Date(dateTime).toLocaleString();
@@ -227,7 +228,7 @@ export default function ResearchLabPage() {
               >
                 <ListItemButton
                   component={RouterLink}
-                  to={`corpora/${corpus.id}`}
+                  to={`corpus/${toUrlId(corpus.id)}`}
                 >
                   <Paper sx={{ p: 2, width: '100%' }}>
                     <Stack

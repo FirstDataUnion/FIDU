@@ -40,6 +40,7 @@ import {
   type DriveFile,
 } from '../../services/storage/drive/GoogleDriveService';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
+import { fromUrlId } from '../utils';
 
 type CorpusSidebarSection = 'sources' | 'modelOptions' | 'export';
 
@@ -47,11 +48,11 @@ function getSidebarSections(path: string): CorpusSidebarSection[] {
   // If we were using a data router, we would use useMatches() to get the sidebar sections from the route handle.
   const routeSidebarSections: [string, boolean, CorpusSidebarSection[]][] = [
     [
-      '/research-lab/corpora/:corpusId/conversations/:conversationId',
+      '/research-lab/corpus/:corpusId/conversations/:conversationId',
       true,
       ['sources', 'modelOptions', 'export'],
     ],
-    ['/research-lab/corpora/:corpusId', false, ['sources']],
+    ['/research-lab/corpus/:corpusId', false, ['sources']],
   ];
   for (const [routePath, end, sections] of routeSidebarSections) {
     if (matchPath({ path: routePath, end }, path)) {
@@ -205,7 +206,17 @@ function useIngestQueuePolling(
 }
 
 export default function CorpusPage() {
-  const { corpusId } = useParams();
+  const { corpusId: corpusUrlId } = useParams();
+  const corpusId = useMemo(() => {
+    if (!corpusUrlId) {
+      return undefined;
+    }
+    try {
+      return fromUrlId(corpusUrlId);
+    } catch {
+      return undefined;
+    }
+  }, [corpusUrlId]);
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { currentProfile } = useAppSelector(state => state.auth);

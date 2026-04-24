@@ -106,7 +106,7 @@ export default function AddSourcePanel() {
   );
 
   const cancel = useCallback(() => {
-    navigate(`/research-lab/corpora/${corpusId}`);
+    navigate(`/research-lab/corpus/${corpusId}`);
   }, [navigate, corpusId]);
 
   const handleSourceTypeSubmit = useCallback(

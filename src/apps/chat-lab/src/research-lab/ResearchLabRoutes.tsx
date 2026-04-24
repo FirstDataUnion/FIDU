@@ -22,7 +22,7 @@ export default function ResearchLabRoutes() {
       >
         <Route index element={<ResearchLabPage />} />
 
-        <Route path="corpora/:corpusId" element={<CorpusPage />}>
+        <Route path="corpus/:corpusId" element={<CorpusPage />}>
           <Route index element={<SelectConversationPanel />} />
           <Route path="add-source" element={<AddSourcePanel />} />
           <Route

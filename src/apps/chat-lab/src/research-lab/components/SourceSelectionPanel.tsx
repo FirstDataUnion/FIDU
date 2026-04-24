@@ -65,11 +65,11 @@ function sourcePanelPath(corpusId: string, source: CorpusSource): string {
   const id = source.id;
   switch (id.provider) {
     case 'google_drive':
-      return `/research-lab/corpora/${corpusId}/source/google_drive/${encodeURIComponent(id.fileId)}`;
+      return `/research-lab/corpus/${corpusId}/source/google_drive/${encodeURIComponent(id.fileId)}`;
     case 'url':
-      return `/research-lab/corpora/${corpusId}/source/url/${encodeURIComponent(id.url)}`;
+      return `/research-lab/corpus/${corpusId}/source/url/${encodeURIComponent(id.url)}`;
     case 'fidu_context':
-      return `/research-lab/corpora/${corpusId}/source/fidu_context/${encodeURIComponent(id.providerId)}`;
+      return `/research-lab/corpus/${corpusId}/source/fidu_context/${encodeURIComponent(id.providerId)}`;
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
@@ -222,7 +222,7 @@ export default function SourceSelectionPanel({
         <IconButton
           disabled={s.loading || !urlCorpusId}
           onClick={() =>
-            navigate(`/research-lab/corpora/${urlCorpusId}/add-source`)
+            navigate(`/research-lab/corpus/${urlCorpusId}/add-source`)
           }
         >
           <AddSourceIcon />
