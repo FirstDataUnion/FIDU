@@ -530,8 +530,14 @@ export class GoogleDriveService {
   async ensureFolder(folderName: string): Promise<string> {
     return this.trackGoogleApiRequest('ensureFolder', async () => {
       const rootFolderId = this.getFolderId();
-      const existing = await this.findFileByNameInFolder(rootFolderId, folderName);
-      if (existing && existing.mimeType === 'application/vnd.google-apps.folder') {
+      const existing = await this.findFileByNameInFolder(
+        rootFolderId,
+        folderName
+      );
+      if (
+        existing
+        && existing.mimeType === 'application/vnd.google-apps.folder'
+      ) {
         return existing.id;
       }
 
@@ -555,7 +561,9 @@ export class GoogleDriveService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to create folder '${folderName}': ${errorText}`);
+        throw new Error(
+          `Failed to create folder '${folderName}': ${errorText}`
+        );
       }
       const created = await response.json();
       if (!created?.id) {

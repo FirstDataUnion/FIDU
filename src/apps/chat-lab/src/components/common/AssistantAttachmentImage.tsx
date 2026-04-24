@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { Download as DownloadIcon } from '@mui/icons-material';
 import type { Attachment } from '../../types';
 

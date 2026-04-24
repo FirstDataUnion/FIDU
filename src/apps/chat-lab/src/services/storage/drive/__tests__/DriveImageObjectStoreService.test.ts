@@ -68,9 +68,7 @@ describe('DriveImageObjectStoreService', () => {
         timestamp: new Date().toISOString(),
         platform: 'model',
         isEdited: false,
-        attachments: [
-          { id: 'a1', name: 'i1', type: 'image', url: dataUrlPng },
-        ],
+        attachments: [{ id: 'a1', name: 'i1', type: 'image', url: dataUrlPng }],
       },
       {
         id: 'm2',
@@ -80,9 +78,7 @@ describe('DriveImageObjectStoreService', () => {
         timestamp: new Date().toISOString(),
         platform: 'model',
         isEdited: false,
-        attachments: [
-          { id: 'a2', name: 'i2', type: 'image', url: dataUrlPng },
-        ],
+        attachments: [{ id: 'a2', name: 'i2', type: 'image', url: dataUrlPng }],
       },
     ];
 
@@ -190,14 +186,20 @@ describe('DriveImageObjectStoreService', () => {
     ];
 
     const hydrated = await service.hydrateMessagesForDisplay(messages);
-    expect(hydrated[0].attachments?.[0].url).toMatch(/^data:image\/png;base64,/);
-    expect(hydrated[1].attachments?.[0].url).toMatch(/^data:image\/png;base64,/);
+    expect(hydrated[0].attachments?.[0].url).toMatch(
+      /^data:image\/png;base64,/
+    );
+    expect(hydrated[1].attachments?.[0].url).toMatch(
+      /^data:image\/png;base64,/
+    );
     expect(mockDriveService.downloadFile).toHaveBeenCalledTimes(1);
   });
 
   it('marks unresolved drive_ref hydration failures as missing and retryable fetch-failed', async () => {
     const { service, mockDriveService } = buildService();
-    mockDriveService.downloadFile.mockRejectedValue(new Error('network timeout'));
+    mockDriveService.downloadFile.mockRejectedValue(
+      new Error('network timeout')
+    );
 
     const messages: Message[] = [
       {

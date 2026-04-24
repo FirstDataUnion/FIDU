@@ -1171,9 +1171,8 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     return filtered;
   }, [currentTabAgents, debouncedSearchQuery]);
 
-  const availableBackgroundAgentModels = getBackgroundAgentCompatibleModels(
-    getAllModels()
-  );
+  const availableBackgroundAgentModels =
+    getBackgroundAgentCompatibleModels(getAllModels());
 
   // Dialog states for creating new agents
   const [createDialogOpen, setCreateDialogOpen] = useState(false);

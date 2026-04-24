@@ -544,7 +544,9 @@ describe('SyncService', () => {
         ]);
 
       mockImageObjectStore.reconcileInteractionAttachments.mockResolvedValue({
-        interactions: [{ attachments: [{ type: 'image', status: 'pending_upload' }] }],
+        interactions: [
+          { attachments: [{ type: 'image', status: 'pending_upload' }] },
+        ],
         changed: true,
         hasRetryablePending: true,
       });

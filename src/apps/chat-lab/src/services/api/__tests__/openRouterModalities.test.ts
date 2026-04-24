@@ -28,7 +28,10 @@ describe('mergeOpenRouterStreamImages', () => {
     const b = img('data:image/png;base64,BBB');
     const one = mergeOpenRouterStreamImages([], [a, b]);
     expect(one).toEqual([a, b]);
-    const dup = mergeOpenRouterStreamImages(one, [a, img('data:image/png;base64,CCC')]);
+    const dup = mergeOpenRouterStreamImages(one, [
+      a,
+      img('data:image/png;base64,CCC'),
+    ]);
     expect(dup).toEqual([a, b, img('data:image/png;base64,CCC')]);
   });
 });

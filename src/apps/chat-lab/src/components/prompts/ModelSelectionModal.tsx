@@ -377,8 +377,8 @@ export default function ModelSelectionModal({
         }
       }
 
-      // As most image models support text and images, we filter them in such a way that 
-      // only selecting "text" will hide and models with image capabilities (even if they also 
+      // As most image models support text and images, we filter them in such a way that
+      // only selecting "text" will hide and models with image capabilities (even if they also
       // support text) and selecting "image" will hide and models without image capabilities.
       const matchesImageGen =
         !isDirectOpenRouterEnabled
@@ -406,7 +406,9 @@ export default function ModelSelectionModal({
           return hasImageOutput;
         })();
 
-      return matchesSearch && matchesProvider && matchesFilter && matchesImageGen;
+      return (
+        matchesSearch && matchesProvider && matchesFilter && matchesImageGen
+      );
     });
 
     // Sort models
@@ -672,14 +674,16 @@ export default function ModelSelectionModal({
                   />
                   {isDirectOpenRouterEnabled
                     && modelSupportsImageOutput(model) && (
-                    <Chip
-                      icon={<ImageGenIcon sx={{ fontSize: '14px !important' }} />}
-                      label="Image output"
-                      size="small"
-                      color="secondary"
-                      variant="outlined"
-                    />
-                  )}
+                      <Chip
+                        icon={
+                          <ImageGenIcon sx={{ fontSize: '14px !important' }} />
+                        }
+                        label="Image output"
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    )}
                 </Box>
               </Box>
             }
@@ -1510,8 +1514,8 @@ export default function ModelSelectionModal({
                 </>
               ) : (
                 <>
-                  The ZDR (Zero Data Retention) route list is unavailable, so
-                  no direct OpenRouter models are shown. Retry shortly once the
+                  The ZDR (Zero Data Retention) route list is unavailable, so no
+                  direct OpenRouter models are shown. Retry shortly once the
                   route list becomes available.
                 </>
               )}

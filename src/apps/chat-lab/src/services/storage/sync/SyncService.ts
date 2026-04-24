@@ -80,8 +80,13 @@ export class SyncService {
         continue;
       }
 
-      const { interactions: reconciled, changed, hasRetryablePending } =
-        await this.imageObjectStore.reconcileInteractionAttachments(interactions);
+      const {
+        interactions: reconciled,
+        changed,
+        hasRetryablePending,
+      } = await this.imageObjectStore.reconcileInteractionAttachments(
+        interactions
+      );
 
       if (hasRetryablePending && packet?.id) {
         keepUnsynced.add(packet.id);

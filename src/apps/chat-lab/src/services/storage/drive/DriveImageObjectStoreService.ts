@@ -35,9 +35,10 @@ function normalizeIndex(raw: any): ImageIndex {
   return {
     version: 1,
     updatedAt:
-      typeof raw?.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
-    images:
-      raw?.images && typeof raw.images === 'object' ? raw.images : {},
+      typeof raw?.updatedAt === 'string'
+        ? raw.updatedAt
+        : new Date().toISOString(),
+    images: raw?.images && typeof raw.images === 'object' ? raw.images : {},
   };
 }
 
@@ -83,11 +84,17 @@ function classifyUploadError(error: unknown): {
 
 function safeRecordImageUploadMetric(status: 'success' | 'error'): void {
   try {
-    if (typeof MetricsService !== 'undefined' && MetricsService?.recordImageUpload) {
+    if (
+      typeof MetricsService !== 'undefined'
+      && MetricsService?.recordImageUpload
+    ) {
       MetricsService.recordImageUpload(status);
     }
   } catch (error) {
-    console.debug('Image upload metrics recording failed (non-blocking):', error);
+    console.debug(
+      'Image upload metrics recording failed (non-blocking):',
+      error
+    );
   }
 }
 
@@ -125,7 +132,8 @@ export class DriveImageObjectStoreService {
 
   private async ensureImagesFolderId(): Promise<string> {
     if (this.imagesFolderId) return this.imagesFolderId;
-    this.imagesFolderId = await this.driveService.ensureFolder(IMAGES_FOLDER_NAME);
+    this.imagesFolderId =
+      await this.driveService.ensureFolder(IMAGES_FOLDER_NAME);
     return this.imagesFolderId;
   }
 
@@ -220,7 +228,10 @@ export class DriveImageObjectStoreService {
     }
   }
 
-  private parseDataUrl(dataUrl: string): { mimeType: string; bytes: Uint8Array } {
+  private parseDataUrl(dataUrl: string): {
+    mimeType: string;
+    bytes: Uint8Array;
+  } {
     const match = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
     if (!match) {
       throw new Error('Invalid data URL for generated image');
@@ -246,7 +257,9 @@ export class DriveImageObjectStoreService {
       .join('');
   }
 
-  private async persistGeneratedImageDataUrl(dataUrl: string): Promise<ImageIndexEntry> {
+  private async persistGeneratedImageDataUrl(
+    dataUrl: string
+  ): Promise<ImageIndexEntry> {
     await this.ensureIndexLoaded();
     const { mimeType, bytes } = this.parseDataUrl(dataUrl);
     if (bytes.byteLength > MAX_GENERATED_IMAGE_BYTES) {
@@ -262,10 +275,18 @@ export class DriveImageObjectStoreService {
 
     const folderId = await this.ensureImagesFolderId();
     const fileName = `img_${imageId}.${extensionForMime(mimeType)}`;
-    const existing = await this.driveService.findFileByNameInFolder(folderId, fileName);
+    const existing = await this.driveService.findFileByNameInFolder(
+      folderId,
+      fileName
+    );
     const driveFileId = existing
       ? existing.id
-      : await this.driveService.uploadFileToFolder(folderId, fileName, bytes, mimeType);
+      : await this.driveService.uploadFileToFolder(
+          folderId,
+          fileName,
+          bytes,
+          mimeType
+        );
     if (!existing) {
       safeRecordImageUploadMetric('success');
     }
@@ -316,14 +337,17 @@ export class DriveImageObjectStoreService {
     return btoa(binary);
   }
 
-  private async resolveDisplayUrlForDriveRef(att: Attachment): Promise<string | undefined> {
+  private async resolveDisplayUrlForDriveRef(
+    att: Attachment
+  ): Promise<string | undefined> {
     const cacheKey = att.imageId || att.driveFileId || att.id;
     const cached = this.displayUrlCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const driveFileId = typeof att.driveFileId === 'string' ? att.driveFileId : undefined;
+    const driveFileId =
+      typeof att.driveFileId === 'string' ? att.driveFileId : undefined;
     let resolvedDriveFileId = driveFileId;
     let mimeType = att.mimeType || 'image/png';
 
@@ -372,7 +396,8 @@ export class DriveImageObjectStoreService {
             continue;
           }
           try {
-            const persisted = await this.persistGeneratedImageDataUrl(maybeDataUrl);
+            const persisted =
+              await this.persistGeneratedImageDataUrl(maybeDataUrl);
             mapped.push({
               id: att.id,
               name: att.name,
@@ -411,7 +436,9 @@ export class DriveImageObjectStoreService {
               uploadRetryCount: retries,
               lastUploadErrorCode: classified.code,
               lastUploadErrorAt: new Date().toISOString(),
-              nextRetryAt: canRetry ? this.computeNextRetryAt(retries) : undefined,
+              nextRetryAt: canRetry
+                ? this.computeNextRetryAt(retries)
+                : undefined,
               url: keepInlineUrl ? maybeDataUrl : undefined,
             });
           }
@@ -457,7 +484,9 @@ export class DriveImageObjectStoreService {
             && !att.imageId
           ) {
             try {
-              const persisted = await this.persistGeneratedImageDataUrl(att.url);
+              const persisted = await this.persistGeneratedImageDataUrl(
+                att.url
+              );
               mapped.push({
                 ...att,
                 imageId: persisted.imageId,

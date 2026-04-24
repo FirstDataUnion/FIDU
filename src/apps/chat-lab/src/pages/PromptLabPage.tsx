@@ -92,7 +92,6 @@ import {
 } from '../services/api/prompts';
 import ModelSelectionModal from '../components/prompts/ModelSelectionModal';
 import { WizardWindow } from '../components/wizards/WizardWindow';
-import { LongRequestWarning } from '../components/common/LongRequestWarning';
 import ContextHelpModal from '../components/help/ContextHelpModal';
 import SystemPromptHelpModal from '../components/help/SystemPromptHelpModal';
 import {
@@ -102,10 +101,6 @@ import {
 } from '../services/agents/agentAlerts';
 import { getFilteredAlerts } from '../services/agents/agentAlertHistory';
 import AlertTimelineModal from '../components/alerts/AlertTimelineModal';
-import {
-  analyzeRequestDuration,
-  type LongRequestAnalysis,
-} from '../utils/longRequestDetection';
 import { wizardSystemPrompts } from '../data/prompts/wizardSystemPrompts';
 import HistoryIcon from '../assets/HistoryIcon.png';
 import type { Conversation, Message, Context, SystemPrompt } from '../types';
@@ -130,6 +125,7 @@ import {
 } from '../utils/openRouterAttachments';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { getModelConfig, loadOpenRouterModels } from '../data/models';
+import { usePromptLabScrollBehavior } from '../hooks/usePromptLabScrollBehavior';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (
@@ -159,7 +155,10 @@ const safeRecordGeneratedImages = (model: string, count: number): void => {
       MetricsService.recordImageGenerated(model, count);
     }
   } catch (error) {
-    console.debug('Generated-image metrics recording failed (non-blocking):', error);
+    console.debug(
+      'Generated-image metrics recording failed (non-blocking):',
+      error
+    );
   }
 };
 
@@ -2275,21 +2274,24 @@ export default function PromptLabPage() {
    * Keep session snapshots lightweight: preserve attachment metadata/state, but
    * strip large inline generated-image data URLs to avoid sessionStorage quotas.
    */
-  const sanitizeMessagesForSession = useCallback((input: Message[]): Message[] => {
-    return input.map(message => ({
-      ...message,
-      attachments: message.attachments?.map(att => {
-        if (att.type !== 'image') return att;
-        if (typeof att.url !== 'string') return att;
-        const trimmed = att.url.trim();
-        if (!trimmed.startsWith('data:image/')) return att;
-        return {
-          ...att,
-          url: undefined,
-        };
-      }),
-    }));
-  }, []);
+  const sanitizeMessagesForSession = useCallback(
+    (input: Message[]): Message[] => {
+      return input.map(message => ({
+        ...message,
+        attachments: message.attachments?.map(att => {
+          if (att.type !== 'image') return att;
+          if (typeof att.url !== 'string') return att;
+          const trimmed = att.url.trim();
+          if (!trimmed.startsWith('data:image/')) return att;
+          return {
+            ...att,
+            url: undefined,
+          };
+        }),
+      }));
+    },
+    []
+  );
 
   const loadFromSession = useCallback((key: string) => {
     try {
@@ -2346,7 +2348,8 @@ export default function PromptLabPage() {
     SystemPrompt[]
   >(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
-  const [isHydratingSessionImages, setIsHydratingSessionImages] = useState(false);
+  const [isHydratingSessionImages, setIsHydratingSessionImages] =
+    useState(false);
   const [isRetryingImageLoads, setIsRetryingImageLoads] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ghostMessages, setGhostMessages] = useState<Record<string, Message[]>>(
@@ -2757,36 +2760,21 @@ export default function PromptLabPage() {
   }, [systemPromptDrawerOpen, selectedSystemPrompts]);
 
   // Ref for auto-scrolling to bottom
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom when messages change
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
-  // Check if user has scrolled up
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-
-  const handleScroll = useCallback(() => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        messagesContainerRef.current;
-      const isScrolledUp = scrollTop + clientHeight < scrollHeight - 100; // Show button if scrolled up more than 100px
-      const atBottom = scrollTop + clientHeight >= scrollHeight - 10; // Consider at bottom if within 10px
-
-      setShowScrollToBottom(isScrolledUp);
-      setIsAtBottom(atBottom);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Only auto-scroll if user is already at the bottom
-    if (isAtBottom) {
-      scrollToBottom();
-    }
-  }, [messages, scrollToBottom, isAtBottom]);
+  const {
+    showScrollToBottom,
+    temporaryStreamBottomSpacerPx,
+    handleScroll,
+    handleJumpToLatest,
+    setTemporaryStreamBottomSpacer,
+    focusAssistantResponse,
+  } = usePromptLabScrollBehavior({
+    messages,
+    isLoading,
+    currentConversationId: currentConversation?.id,
+    isMobile,
+    messagesContainerRef,
+  });
 
   // Helper function to get provider key from model ID
   const getProviderKey = (
@@ -3265,14 +3253,6 @@ export default function PromptLabPage() {
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-
-  // Long request detection state
-  const [longRequestAnalysis, setLongRequestAnalysis] =
-    useState<LongRequestAnalysis | null>(null);
-  const [showLongRequestWarning, setShowLongRequestWarning] = useState(false);
-  const [_requestStartTime, setRequestStartTime] = useState<number | null>(
-    null
-  );
   const promptAbortController = useRef<AbortController | null>(null);
 
   // Show toast message
@@ -3378,9 +3358,17 @@ export default function PromptLabPage() {
   // Persist conversation state to sessionStorage
   useEffect(() => {
     if (messages.length > 0) {
-      saveToSession(STORAGE_KEYS.messages, sanitizeMessagesForSession(messages));
+      saveToSession(
+        STORAGE_KEYS.messages,
+        sanitizeMessagesForSession(messages)
+      );
     }
-  }, [messages, saveToSession, sanitizeMessagesForSession, STORAGE_KEYS.messages]);
+  }, [
+    messages,
+    saveToSession,
+    sanitizeMessagesForSession,
+    STORAGE_KEYS.messages,
+  ]);
 
   useEffect(() => {
     if (currentConversation) {
@@ -3481,7 +3469,9 @@ export default function PromptLabPage() {
   useEffect(() => {
     if (!currentConversation?.id) return;
     if (location.state?.loadConversation) return;
-    if (lastSessionHydratedConversationIdRef.current === currentConversation.id) {
+    if (
+      lastSessionHydratedConversationIdRef.current === currentConversation.id
+    ) {
       return;
     }
     lastSessionHydratedConversationIdRef.current = currentConversation.id;
@@ -3902,30 +3892,13 @@ export default function PromptLabPage() {
         isEdited: false,
       };
       setMessages(prev => [...prev, optimisticMessage]);
-    }
-
-    // Analyze request for potential long duration
-    const contextLength = selectedContexts.reduce(
-      (total, ctx) => total + JSON.stringify(ctx).length,
-      0
-    );
-    const conversationLength = messages.reduce(
-      (total, msg) => total + msg.content.length,
-      0
-    );
-    const analysis = analyzeRequestDuration(
-      currentPrompt,
-      selectedModel,
-      contextLength,
-      conversationLength
-    );
-
-    setLongRequestAnalysis(analysis);
-    setRequestStartTime(Date.now());
-
-    // Show warning if request is likely to be long-running
-    if (analysis.isLikelyLongRunning) {
-      setShowLongRequestWarning(true);
+      setTemporaryStreamBottomSpacer(true);
+      focusAssistantResponse(assistantMessageId, {
+        smooth: true,
+        mode: 'bottom',
+      });
+    } else {
+      setTemporaryStreamBottomSpacer(false);
     }
 
     try {
@@ -3961,15 +3934,17 @@ export default function PromptLabPage() {
         && response.responses
         && responseHasDisplayableChatPayload(response.responses)
       ) {
-        const resPayload =
-          response.responses as ExecutePromptResponsesPayload;
+        const resPayload = response.responses as ExecutePromptResponsesPayload;
         const content = resPayload.content;
         const actualModelInfo = parseActualModelInfo(resPayload.actualModel);
         const imageAttachments = openRouterImagePartsToAttachments(
           resPayload.images,
           assistantMessageId
         );
-        safeRecordGeneratedImages(selectedModel, resPayload.images?.length ?? 0);
+        safeRecordGeneratedImages(
+          selectedModel,
+          resPayload.images?.length ?? 0
+        );
 
         const aiMessage: Message = {
           id: assistantMessageId,
@@ -4000,6 +3975,10 @@ export default function PromptLabPage() {
           );
         } else {
           setMessages(prev => [...prev, aiMessage]);
+          focusAssistantResponse(aiMessage.id, {
+            smooth: true,
+            mode: 'none',
+          });
         }
 
         // Save conversation after AI response, then trigger background agents
@@ -4205,9 +4184,7 @@ export default function PromptLabPage() {
       }, 100);
     } finally {
       setIsLoading(false);
-      setShowLongRequestWarning(false);
-      setLongRequestAnalysis(null);
-      setRequestStartTime(null);
+      setTemporaryStreamBottomSpacer(false);
       promptAbortController.current = null;
     }
   };
@@ -4216,9 +4193,7 @@ export default function PromptLabPage() {
   const handleCancelRequest = useCallback(() => {
     promptAbortController.current?.abort('Request cancelled by user');
     setIsLoading(false);
-    setShowLongRequestWarning(false);
-    setLongRequestAnalysis(null);
-    setRequestStartTime(null);
+    setTemporaryStreamBottomSpacer(false);
 
     // Add a cancellation message to the chat
     const cancelMessage: Message = {
@@ -4233,7 +4208,12 @@ export default function PromptLabPage() {
     setMessages(prev => [...prev, cancelMessage]);
 
     showToast('Request cancelled');
-  }, [selectedModel, showToast, currentConversation?.id]);
+  }, [
+    selectedModel,
+    showToast,
+    currentConversation?.id,
+    setTemporaryStreamBottomSpacer,
+  ]);
 
   // Wizard handlers
   const handleOpenWizard = () => {
@@ -4823,7 +4803,7 @@ export default function PromptLabPage() {
           // Clear any errors
           setError(null);
           // Scroll to bottom to show the rewinded state
-          setTimeout(() => scrollToBottom(), 100);
+          setTimeout(() => handleJumpToLatest(), 100);
           // Show success toast
           showToast('Conversation rewound successfully!');
         }
@@ -4831,7 +4811,7 @@ export default function PromptLabPage() {
     },
     [
       messages,
-      scrollToBottom,
+      handleJumpToLatest,
       showToast,
       dispatch,
       handleCancelRequest,
@@ -4880,6 +4860,13 @@ export default function PromptLabPage() {
             isEdited: false,
           },
         ]);
+        setTemporaryStreamBottomSpacer(true);
+        focusAssistantResponse(assistantMessageId, {
+          smooth: true,
+          mode: 'bottom',
+        });
+      } else {
+        setTemporaryStreamBottomSpacer(false);
       }
 
       try {
@@ -4920,7 +4907,10 @@ export default function PromptLabPage() {
             resPayload.images,
             assistantMessageId
           );
-          safeRecordGeneratedImages(selectedModel, resPayload.images?.length ?? 0);
+          safeRecordGeneratedImages(
+            selectedModel,
+            resPayload.images?.length ?? 0
+          );
 
           const aiMessage: Message = {
             id: useStreaming ? assistantMessageId : `msg-${Date.now()}-ai`,
@@ -4950,6 +4940,10 @@ export default function PromptLabPage() {
             );
           } else {
             setMessages(prev => [...prev, aiMessage]);
+            focusAssistantResponse(aiMessage.id, {
+              smooth: true,
+              mode: 'none',
+            });
           }
 
           // Save conversation after AI response
@@ -5026,6 +5020,7 @@ export default function PromptLabPage() {
         }, 100);
       } finally {
         setIsLoading(false);
+        setTemporaryStreamBottomSpacer(false);
         dispatch(clearCurrentPrompt()); // Clear the input after retry
       }
     },
@@ -5040,6 +5035,8 @@ export default function PromptLabPage() {
       currentConversation?.id,
       dispatch,
       isDirectOpenRouterEnabled,
+      focusAssistantResponse,
+      setTemporaryStreamBottomSpacer,
     ]
   );
 
@@ -5070,7 +5067,9 @@ export default function PromptLabPage() {
     try {
       setIsRetryingImageLoads(true);
       const storage = getUnifiedStorageService();
-      const refreshedMessages = await storage.getMessages(currentConversation.id);
+      const refreshedMessages = await storage.getMessages(
+        currentConversation.id
+      );
       setMessages(refreshedMessages);
       showToast('Retried loading generated images.');
     } catch (error) {
@@ -5156,11 +5155,6 @@ export default function PromptLabPage() {
       );
       const unresolvedDriveImages = imageAttachments.filter(
         a => a.storage === 'drive_ref' && !a.url
-      );
-      const pendingUploadImages = imageAttachments.filter(
-        a =>
-          a.status === 'pending_upload'
-          && (typeof a.url === 'string' || !!a.imageId || !!a.driveFileId)
       );
       const stalledPendingImages = imageAttachments.filter(
         a =>
@@ -5400,168 +5394,172 @@ export default function PromptLabPage() {
                   showCopyButtons={true}
                   preprocess={true}
                 />
-                {message.role === 'assistant' && imageAttachments.length > 0 && (
-                  <Box
-                    sx={{
-                      mt: message.content.trim() ? 1.5 : 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 1.5,
-                      maxWidth: '100%',
-                    }}
-                  >
-                    {riskyRenderableImages.length > 0 && (
-                      <Alert
-                        severity="warning"
-                        variant="outlined"
-                        sx={{
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        {riskyRenderableImages.length === 1
-                          ? 'This generated image may not be safely persisted yet. Download a copy to keep it. Saving will be retried automatically on the next sync.'
-                          : `${riskyRenderableImages.length} generated images may not be safely persisted yet. Download copies to keep them. Saving will be retried automatically on the next sync.`}
-                      </Alert>
-                    )}
-                    {renderableImageAttachments.map(att => (
-                      <Box key={att.id}>
-                        <AssistantAttachmentImage attachment={att} />
-                      </Box>
-                    ))}
-                    {isSharedWorkspace && renderableImageAttachments.length > 0 && (
-                      <Alert
-                        severity="warning"
-                        variant="outlined"
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        {SHARED_WORKSPACE_VISIBLE_IMAGE_WARNING}
-                      </Alert>
-                    )}
-                    {stalledPendingImages.length > 0 && (
-                      <Alert
-                        severity="error"
-                        variant="outlined"
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        {stalledPendingImages.length === 1
-                          ? 'A generated image is unavailable because its upload did not complete.'
-                          : `${stalledPendingImages.length} generated images are unavailable because their uploads did not complete.`}
-                      </Alert>
-                    )}
-                    {isHydratingSessionImages
-                      && unresolvedDriveImages.length > 0 && (
-                      <Alert
-                        severity="info"
-                        variant="outlined"
-                        icon={<CircularProgress size={14} />}
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        Loading generated images...
-                      </Alert>
-                    )}
-                    {!isSharedWorkspace && retryableFetchFailedImages.length > 0 && (
-                      <Alert
-                        severity="warning"
-                        variant="outlined"
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 1,
-                            width: '100%',
-                          },
-                        }}
-                      >
-                        <Typography variant="caption">
-                          {retryableFetchFailedImages.length === 1
-                            ? 'A generated image could not be loaded. You can retry loading it.'
-                            : `${retryableFetchFailedImages.length} generated images could not be loaded. You can retry loading them.`}
-                        </Typography>
-                        <Button
-                          size="small"
-                          onClick={handleRetryImageLoads}
-                          disabled={isRetryingImageLoads}
-                          startIcon={
-                            isRetryingImageLoads ? (
-                              <CircularProgress size={14} color="inherit" />
-                            ) : undefined
-                          }
+                {message.role === 'assistant'
+                  && imageAttachments.length > 0 && (
+                    <Box
+                      sx={{
+                        mt: message.content.trim() ? 1.5 : 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                        maxWidth: '100%',
+                      }}
+                    >
+                      {riskyRenderableImages.length > 0 && (
+                        <Alert
+                          severity="warning"
+                          variant="outlined"
+                          sx={{
+                            '& .MuiAlert-message': {
+                              width: '100%',
+                              padding: 0,
+                              fontSize: '0.75rem',
+                              lineHeight: 1.45,
+                            },
+                          }}
                         >
-                          {isRetryingImageLoads
-                            ? 'Retrying...'
-                            : 'Retry loading images'}
-                        </Button>
-                      </Alert>
-                    )}
-                    {!isSharedWorkspace && permanentMissingImages.length > 0 && (
-                      <Alert
-                        severity="error"
-                        variant="outlined"
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        {permanentMissingImages.length === 1
-                          ? 'A generated image is unavailable and cannot be recovered automatically.'
-                          : `${permanentMissingImages.length} generated images are unavailable and cannot be recovered automatically.`}
-                      </Alert>
-                    )}
-                    {isSharedWorkspace && missingImages.length > 0 && (
-                      <Alert
-                        severity="error"
-                        variant="outlined"
-                        sx={{
-                          mt: 0.5,
-                          '& .MuiAlert-message': {
-                            width: '100%',
-                            padding: 0,
-                            fontSize: '0.75rem',
-                            lineHeight: 1.45,
-                          },
-                        }}
-                      >
-                        {SHARED_WORKSPACE_MISSING_IMAGE_WARNING}
-                      </Alert>
-                    )}
-                  </Box>
-                )}
+                          {riskyRenderableImages.length === 1
+                            ? 'This generated image may not be safely persisted yet. Download a copy to keep it. Saving will be retried automatically on the next sync.'
+                            : `${riskyRenderableImages.length} generated images may not be safely persisted yet. Download copies to keep them. Saving will be retried automatically on the next sync.`}
+                        </Alert>
+                      )}
+                      {renderableImageAttachments.map(att => (
+                        <Box key={att.id}>
+                          <AssistantAttachmentImage attachment={att} />
+                        </Box>
+                      ))}
+                      {isSharedWorkspace
+                        && renderableImageAttachments.length > 0 && (
+                          <Alert
+                            severity="warning"
+                            variant="outlined"
+                            sx={{
+                              mt: 0.5,
+                              '& .MuiAlert-message': {
+                                width: '100%',
+                                padding: 0,
+                                fontSize: '0.75rem',
+                                lineHeight: 1.45,
+                              },
+                            }}
+                          >
+                            {SHARED_WORKSPACE_VISIBLE_IMAGE_WARNING}
+                          </Alert>
+                        )}
+                      {stalledPendingImages.length > 0 && (
+                        <Alert
+                          severity="error"
+                          variant="outlined"
+                          sx={{
+                            mt: 0.5,
+                            '& .MuiAlert-message': {
+                              width: '100%',
+                              padding: 0,
+                              fontSize: '0.75rem',
+                              lineHeight: 1.45,
+                            },
+                          }}
+                        >
+                          {stalledPendingImages.length === 1
+                            ? 'A generated image is unavailable because its upload did not complete.'
+                            : `${stalledPendingImages.length} generated images are unavailable because their uploads did not complete.`}
+                        </Alert>
+                      )}
+                      {isHydratingSessionImages
+                        && unresolvedDriveImages.length > 0 && (
+                          <Alert
+                            severity="info"
+                            variant="outlined"
+                            icon={<CircularProgress size={14} />}
+                            sx={{
+                              mt: 0.5,
+                              '& .MuiAlert-message': {
+                                width: '100%',
+                                padding: 0,
+                                fontSize: '0.75rem',
+                                lineHeight: 1.45,
+                              },
+                            }}
+                          >
+                            Loading generated images...
+                          </Alert>
+                        )}
+                      {!isSharedWorkspace
+                        && retryableFetchFailedImages.length > 0 && (
+                          <Alert
+                            severity="warning"
+                            variant="outlined"
+                            sx={{
+                              mt: 0.5,
+                              '& .MuiAlert-message': {
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 1,
+                                width: '100%',
+                              },
+                            }}
+                          >
+                            <Typography variant="caption">
+                              {retryableFetchFailedImages.length === 1
+                                ? 'A generated image could not be loaded. You can retry loading it.'
+                                : `${retryableFetchFailedImages.length} generated images could not be loaded. You can retry loading them.`}
+                            </Typography>
+                            <Button
+                              size="small"
+                              onClick={handleRetryImageLoads}
+                              disabled={isRetryingImageLoads}
+                              startIcon={
+                                isRetryingImageLoads ? (
+                                  <CircularProgress size={14} color="inherit" />
+                                ) : undefined
+                              }
+                            >
+                              {isRetryingImageLoads
+                                ? 'Retrying...'
+                                : 'Retry loading images'}
+                            </Button>
+                          </Alert>
+                        )}
+                      {!isSharedWorkspace
+                        && permanentMissingImages.length > 0 && (
+                          <Alert
+                            severity="error"
+                            variant="outlined"
+                            sx={{
+                              mt: 0.5,
+                              '& .MuiAlert-message': {
+                                width: '100%',
+                                padding: 0,
+                                fontSize: '0.75rem',
+                                lineHeight: 1.45,
+                              },
+                            }}
+                          >
+                            {permanentMissingImages.length === 1
+                              ? 'A generated image is unavailable and cannot be recovered automatically.'
+                              : `${permanentMissingImages.length} generated images are unavailable and cannot be recovered automatically.`}
+                          </Alert>
+                        )}
+                      {isSharedWorkspace && missingImages.length > 0 && (
+                        <Alert
+                          severity="error"
+                          variant="outlined"
+                          sx={{
+                            mt: 0.5,
+                            '& .MuiAlert-message': {
+                              width: '100%',
+                              padding: 0,
+                              fontSize: '0.75rem',
+                              lineHeight: 1.45,
+                            },
+                          }}
+                        >
+                          {SHARED_WORKSPACE_MISSING_IMAGE_WARNING}
+                        </Alert>
+                      )}
+                    </Box>
+                  )}
                 {isStreamingAssistantMessage && (
                   <Box
                     sx={{
@@ -5769,6 +5767,7 @@ export default function PromptLabPage() {
       isHydratingSessionImages,
       isRetryingImageLoads,
       isLoading,
+      isSharedWorkspace,
       isMobile,
       messages.length,
       showToast,
@@ -5982,15 +5981,6 @@ export default function PromptLabPage() {
                   renderMessage(message, messageIndex)
                 )}
 
-              {/* Long request warning */}
-              {longRequestAnalysis && (
-                <LongRequestWarning
-                  analysis={longRequestAnalysis}
-                  isVisible={showLongRequestWarning}
-                  onCancel={handleCancelRequest}
-                />
-              )}
-
               {/* Loading indicator - hide when streaming has begun (assistant message has content) */}
               {isLoading
                 && !(
@@ -6040,8 +6030,17 @@ export default function PromptLabPage() {
                   </Box>
                 )}
 
-              {/* Scroll anchor for auto-scrolling */}
-              <div ref={messagesEndRef} />
+              {temporaryStreamBottomSpacerPx > 0 && (
+                <Box
+                  sx={{
+                    height: `${temporaryStreamBottomSpacerPx}px`,
+                    flexShrink: 0,
+                    transition: 'height 220ms ease-out',
+                  }}
+                />
+              )}
+
+              {/* Scroll anchor removed: container scrollHeight is authoritative */}
             </>
           )}
         </Box>
@@ -6060,7 +6059,7 @@ export default function PromptLabPage() {
         >
           <Button
             variant="contained"
-            onClick={scrollToBottom}
+            onClick={handleJumpToLatest}
             sx={{
               borderRadius: '50%',
               minWidth: 48,

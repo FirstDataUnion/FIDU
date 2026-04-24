@@ -230,7 +230,13 @@ describe('buildCompletePrompt', () => {
         },
       ];
 
-      const result = buildCompletePrompt([], [], [], messages, 'Tell me a joke');
+      const result = buildCompletePrompt(
+        [],
+        [],
+        [],
+        messages,
+        'Tell me a joke'
+      );
       expect(result).toContain(
         'Assistant: [Image was generated as per user request]'
       );

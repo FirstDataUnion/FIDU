@@ -476,7 +476,7 @@ DIST_DIR = SCRIPT_DIR.parent / "dist"
 
 
 @app.post(f"{BASE_PATH}/api/metrics")
-async def receive_metrics(request: Request):
+async def receive_metrics(request: Request):  # pylint: disable=too-many-branches
     """Receive batched metrics from frontend."""
     try:
         data = await request.json()

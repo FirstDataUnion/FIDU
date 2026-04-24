@@ -545,20 +545,22 @@ export async function evaluateBackgroundAgent(
     if (useDirectOpenRouter) {
       const params = getOpenRouterParams();
       const openRouterModelId = resolveOpenRouterModelId(selectedModel);
-      const openRouterResponse = await openRouterAPIClient.createChatCompletion({
-        model: openRouterModelId,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: params.temperature,
-        top_p: params.top_p,
-        ...(params.top_k > 0 && { top_k: params.top_k }),
-        frequency_penalty: params.frequency_penalty,
-        presence_penalty: params.presence_penalty,
-        repetition_penalty: params.repetition_penalty,
-        max_tokens: params.max_tokens,
-        ...(params.min_tokens > 0 && { min_tokens: params.min_tokens }),
-        ...(params.seed != null && { seed: params.seed }),
-        response_format: { type: 'json_object' },
-      });
+      const openRouterResponse = await openRouterAPIClient.createChatCompletion(
+        {
+          model: openRouterModelId,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: params.temperature,
+          top_p: params.top_p,
+          ...(params.top_k > 0 && { top_k: params.top_k }),
+          frequency_penalty: params.frequency_penalty,
+          presence_penalty: params.presence_penalty,
+          repetition_penalty: params.repetition_penalty,
+          max_tokens: params.max_tokens,
+          ...(params.min_tokens > 0 && { min_tokens: params.min_tokens }),
+          ...(params.seed != null && { seed: params.seed }),
+          response_format: { type: 'json_object' },
+        }
+      );
       rawModelOutput =
         openRouterResponse.choices?.[0]?.message?.content?.trim() || '{}';
     } else {
