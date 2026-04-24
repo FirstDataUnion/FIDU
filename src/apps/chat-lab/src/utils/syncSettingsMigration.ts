@@ -63,7 +63,8 @@ function migrateToV1(settings: HistoricalSyncSettings): SyncSettingsAbove0 {
         settings.autoSyncDelayMinutes ?? DEFAULT_SYNC_DELAY_MINUTES,
     };
   }
-  return settings;
+  // Always return a fresh plain object to avoid leaking Immer draft proxies.
+  return { ...settings };
 }
 
 function migrateToV2(settings: SyncSettingsAbove0): SyncSettingsAbove1 {
@@ -78,7 +79,8 @@ function migrateToV2(settings: SyncSettingsAbove0): SyncSettingsAbove1 {
       return { ...settings, syncDefaultVersion: 2 };
     }
   }
-  return settings;
+  // Always return a fresh plain object to avoid leaking Immer draft proxies.
+  return { ...settings };
 }
 
 /**
