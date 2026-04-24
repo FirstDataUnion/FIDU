@@ -71,7 +71,7 @@
     "direct_openrouter": {
         "enabled": true,
         "user_configurable": true,
-        "default_enabled": false,
+        "default_enabled": true,
         "experimental": true
     }    
 }
