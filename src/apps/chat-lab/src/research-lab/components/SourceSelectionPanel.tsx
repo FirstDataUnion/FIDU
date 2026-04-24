@@ -86,7 +86,8 @@ export default function SourceSelectionPanel({
 }) {
   const navigate = useNavigate();
   const { corpusId: urlCorpusId } = useParams();
-  const { corpus, sourceInfo, ingestQueueInfo } = useCorpusSessionContext();
+  const { corpus, sourceInfo, ingestQueueInfo, sourceFetchError } =
+    useCorpusSessionContext();
   const s = useMemo(
     () =>
       sourceInfo === undefined
@@ -227,20 +228,38 @@ export default function SourceSelectionPanel({
           <AddSourceIcon />
         </IconButton>
       </Stack>
-      {!q.loading && q.remaining > 0 && (
-        <Typography
+      {sourceFetchError ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
           sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
         >
-          {q.remaining} source
-          {q.remaining === 1 ? '' : 's'} ingesting...
-        </Typography>
-      )}
-      {!s.loading && s.reloadingSources && (
-        <Typography
-          sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
-        >
-          Reloading sources...
-        </Typography>
+          <Typography>Error fetching queue/sources</Typography>
+          {!q.loading && (
+            <IconButton onClick={q.pollIngestQueueStatus}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Stack>
+      ) : (
+        <>
+          {!q.loading && q.remaining > 0 && (
+            <Typography
+              sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
+            >
+              {q.remaining} source
+              {q.remaining === 1 ? '' : 's'} ingesting...
+            </Typography>
+          )}
+          {!s.loading && s.reloadingSources && (
+            <Typography
+              sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}
+            >
+              Reloading sources...
+            </Typography>
+          )}
+        </>
       )}
       {open && (
         <Box

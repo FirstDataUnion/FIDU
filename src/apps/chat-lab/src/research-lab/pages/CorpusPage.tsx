@@ -134,12 +134,14 @@ function useIngestQueuePolling(
   setRemaining: (remaining: number) => void,
   setLoadingSources: (loading: boolean) => void,
   setSources: (sources: CorpusSource[]) => void,
+  setError: (error: string | undefined) => void,
   onComplete: () => void
 ) {
   useEffect(() => {
     if (!enabled || !corpus) {
       return;
     }
+    setError(undefined);
     const apiClient = createRagApiClient();
     let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
     let cancelled = false;
@@ -178,6 +180,8 @@ function useIngestQueuePolling(
         timeoutId = setTimeout(tick, 1000);
       } catch (error) {
         console.error('Error polling ingest queue status:', error);
+        setError('Error polling queue status or fetching sources');
+        onComplete();
       }
     };
 
@@ -196,6 +200,7 @@ function useIngestQueuePolling(
     setRemaining,
     setLoadingSources,
     setSources,
+    setError,
   ]);
 }
 
@@ -212,6 +217,9 @@ export default function CorpusPage() {
     CorpusConversation[] | undefined
   >();
   const [loadingSources, setLoadingSources] = useState<boolean>(false);
+  const [sourceFetchError, setSourceFetchError] = useState<
+    string | undefined
+  >();
   const [sources, setSources] = useState<CorpusSource[] | undefined>();
   const [sourceSelection, setSourceSelection] = useState<
     Record<string, boolean>
@@ -338,6 +346,7 @@ export default function CorpusPage() {
     setIngestQueueSourcesRemaining,
     setLoadingSources,
     setSources,
+    setSourceFetchError,
     useCallback(() => setIngestQueuePollingEnabled(false), [])
   );
 
@@ -460,6 +469,7 @@ export default function CorpusPage() {
         addMessages,
         setConversationName,
       },
+      sourceFetchError,
       sourceInfo: sources
         && urlCollections && {
           allSourcesSelected,
@@ -491,6 +501,7 @@ export default function CorpusPage() {
       conversations,
       addMessages,
       setConversationName,
+      sourceFetchError,
       sources,
       urlCollections,
       allSourcesSelected,

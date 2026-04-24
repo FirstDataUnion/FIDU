@@ -29,6 +29,7 @@ export interface CorpusSessionContextValue {
       name: string
     ) => Promise<CorpusConversation>;
   };
+  sourceFetchError?: string;
   sourceInfo?: {
     allSourcesSelected: boolean;
     toggleAllSourcesSelected: () => void;
