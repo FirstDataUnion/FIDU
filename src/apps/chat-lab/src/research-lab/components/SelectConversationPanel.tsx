@@ -106,26 +106,26 @@ export default function SelectConversationPanel() {
           )}
           <List>
             {c.conversations.map(conversation => (
-              <ListItem
-                key={conversation.id}
-                sx={{ width: '100%' }}
-                secondaryAction={
-                  <IconButton
-                    edge="end"
-                    aria-label="Delete conversation"
-                    disabled={c.loading}
-                    color="error"
-                    onClick={() => {
-                      void handleDeleteConversation(conversation.id);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                }
-              >
-                <Paper sx={{ width: '100%' }}>
+              <Paper sx={{ width: '100%', mb: 2 }} key={conversation.id}>
+                <ListItem
+                  sx={{ width: '100%' }}
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      aria-label="Delete conversation"
+                      disabled={c.loading}
+                      color="error"
+                      onClick={() => {
+                        void handleDeleteConversation(conversation.id);
+                      }}
+                      sx={{ borderRadius: 1 }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  }
+                >
                   <ListItemButton
-                    sx={{ width: '100%', p: 1 }}
+                    sx={{ width: '100%', p: 1, borderRadius: 1 }}
                     onClick={() => {
                       if (!corpus?.id) {
                         return;
@@ -162,8 +162,8 @@ export default function SelectConversationPanel() {
                       </Stack>
                     </Stack>
                   </ListItemButton>
-                </Paper>
-              </ListItem>
+                </ListItem>
+              </Paper>
             ))}
           </List>
         </Stack>

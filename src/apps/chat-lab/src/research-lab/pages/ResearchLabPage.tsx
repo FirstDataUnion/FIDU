@@ -211,49 +211,73 @@ export default function ResearchLabPage() {
           </Stack>
           <List>
             {corpora.map(corpus => (
-              <ListItem
-                key={corpus.id}
-                secondaryAction={
-                  <IconButton
-                    edge="end"
-                    aria-label="Delete corpus"
-                    color="error"
-                    onClick={() => {
-                      void handleDeleteCorpus(corpus);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                }
-              >
-                <ListItemButton
-                  component={RouterLink}
-                  to={`corpus/${toUrlId(corpus.id)}`}
+              <Paper sx={{ width: '100%', mb: 2 }} key={corpus.id}>
+                <ListItem
+                  sx={{ width: '100%' }}
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      aria-label="Delete corpus"
+                      color="error"
+                      onClick={() => {
+                        void handleDeleteCorpus(corpus);
+                      }}
+                      sx={{ borderRadius: 1 }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  }
+                  slotProps={{
+                    root: { style: { paddingRight: 0 } },
+                  }}
                 >
-                  <Paper sx={{ p: 2, width: '100%' }}>
+                  <ListItemButton
+                    sx={{ width: '100%', p: 0, borderRadius: 1 }}
+                    component={RouterLink}
+                    to={`corpus/${toUrlId(corpus.id)}`}
+                  >
                     <Stack
                       direction="row"
-                      justifyContent="space-evenly"
-                      spacing={2}
+                      sx={{
+                        width: '100%',
+                        p: 1,
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 2,
+                        alignItems: 'center',
+                      }}
                     >
                       <ListItemText
+                        sx={{ minWidth: 160, flex: '1 1 360px' }}
                         primary={corpus.name}
                         secondary={corpus.description}
                       />
-                      <Stack direction="row" spacing={2}>
+                      <Stack
+                        direction="row"
+                        sx={{
+                          gap: 2,
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          marginLeft: 'auto',
+                          minWidth: 180,
+                        }}
+                      >
                         <ListItemText
                           primary={formatDateTime(corpus.createdAt)}
                           secondary="Created at"
+                          sx={{ minWidth: 180 }}
                         />
                         <ListItemText
                           primary={formatDateTime(corpus.lastOpenedAt)}
                           secondary="Last opened at"
+                          sx={{ minWidth: 180 }}
                         />
                       </Stack>
                     </Stack>
-                  </Paper>
-                </ListItemButton>
-              </ListItem>
+                  </ListItemButton>
+                </ListItem>
+              </Paper>
             ))}
           </List>
         </Box>
