@@ -384,7 +384,23 @@ const Layout: React.FC<LayoutProps> = ({ children, banner }) => {
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
+              sx={{
+                mr: 2,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? theme.palette.grey[900]
+                    : theme.palette.text.primary,
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? 'rgba(0, 0, 0, 0.08)'
+                    : 'transparent',
+                '&:hover': {
+                  bgcolor: theme =>
+                    theme.palette.mode === 'light'
+                      ? 'rgba(0, 0, 0, 0.14)'
+                      : 'action.hover',
+                },
+              }}
             >
               <MenuIcon />
             </IconButton>

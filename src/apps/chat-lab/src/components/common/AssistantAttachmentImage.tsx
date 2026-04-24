@@ -3,6 +3,7 @@ import {
   Box,
   CircularProgress,
   IconButton,
+  Modal,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -47,6 +48,7 @@ export function AssistantAttachmentImage({
 }: AssistantAttachmentImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   return (
     <Box
@@ -92,6 +94,7 @@ export function AssistantAttachmentImage({
               href={attachment.url}
               download={buildDownloadFileName(attachment)}
               size="small"
+              onClick={event => event.stopPropagation()}
               sx={{
                 bgcolor: 'rgba(0,0,0,0.55)',
                 color: 'white',
@@ -107,10 +110,12 @@ export function AssistantAttachmentImage({
       {!failed ? (
         <Box
           component="img"
+          data-testid="assistant-attachment-inline-image"
           src={attachment.url}
           alt={attachment.name}
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
+          onClick={() => setIsFullscreen(true)}
           sx={{
             maxWidth: '100%',
             height: 'auto',
@@ -118,6 +123,7 @@ export function AssistantAttachmentImage({
             display: 'block',
             opacity: loaded ? 1 : 0,
             transition: 'opacity 0.2s ease',
+            cursor: 'zoom-in',
           }}
         />
       ) : (
@@ -125,6 +131,38 @@ export function AssistantAttachmentImage({
           Image failed to load
         </Typography>
       )}
+
+      <Modal open={isFullscreen} onClose={() => setIsFullscreen(false)}>
+        <Box
+          data-testid="assistant-attachment-fullscreen-overlay"
+          onClick={() => setIsFullscreen(false)}
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1300,
+            bgcolor: 'rgba(0, 0, 0, 0.92)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+            cursor: 'zoom-out',
+          }}
+        >
+          <Box
+            component="img"
+            data-testid="assistant-attachment-fullscreen-image"
+            src={attachment.url}
+            alt={attachment.name}
+            sx={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              borderRadius: 1,
+              display: 'block',
+            }}
+          />
+        </Box>
+      </Modal>
     </Box>
   );
 }

@@ -24,6 +24,8 @@ import {
   FormControlLabel,
   Checkbox,
   TextField,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -67,6 +69,8 @@ import {
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const WorkspacesPage: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
   const unifiedStorage = useAppSelector(state => state.unifiedStorage);
   const { personalWorkspaces, currentWorkspace } = useAppSelector(
@@ -563,7 +567,13 @@ const WorkspacesPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 3 },
+        maxWidth: 1200,
+        mx: 'auto',
+      }}
+    >
       <Box
         sx={{
           mb: 3,
@@ -572,8 +582,8 @@ const WorkspacesPage: React.FC = () => {
           alignItems: 'center',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h4" component="h1">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant={isMobile ? 'h3' : 'h4'} component="h1">
             Workspaces
           </Typography>
           {isSharedWorkspacesEnabled && filteredInvitations.length > 0 && (
@@ -717,7 +727,9 @@ const WorkspacesPage: React.FC = () => {
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              flexWrap: 'wrap',
+              gap: 1,
               mb: 2,
             }}
           >
@@ -728,6 +740,12 @@ const WorkspacesPage: React.FC = () => {
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={() => setShowCreatePersonalDialog(true)}
+              size={isMobile ? 'small' : 'medium'}
+              sx={{
+                whiteSpace: 'normal',
+                textAlign: 'left',
+                lineHeight: 1.2,
+              }}
             >
               Create Personal Workspace
             </Button>
@@ -755,25 +773,35 @@ const WorkspacesPage: React.FC = () => {
                       borderColor: isActive ? 'primary.main' : 'divider',
                     }}
                   >
-                    <CardContent>
+                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                       <Box
                         sx={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'flex-start',
+                          flexWrap: 'wrap',
+                          gap: 1,
                         }}
                       >
-                        <Box sx={{ flex: 1 }}>
+                        <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
                           <Box
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: 1,
                               mb: 1,
+                              flexWrap: 'wrap',
                             }}
                           >
                             <AccountIcon sx={{ mr: 0.5 }} />
-                            <Typography variant="h6" component="h3">
+                            <Typography
+                              variant={isMobile ? 'h6' : 'h6'}
+                              component="h3"
+                              sx={{
+                                wordBreak: 'break-word',
+                                minWidth: 0,
+                              }}
+                            >
                               {workspace.name}
                             </Typography>
                             {isActive && (
@@ -825,8 +853,10 @@ const WorkspacesPage: React.FC = () => {
                         <Box
                           sx={{
                             display: 'flex',
-                            gap: 1,
+                            gap: 0.5,
                             alignItems: 'flex-start',
+                            flexShrink: 0,
+                            ml: 'auto',
                           }}
                         >
                           <IconButton
@@ -870,7 +900,9 @@ const WorkspacesPage: React.FC = () => {
               sx={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              flexWrap: 'wrap',
+              gap: 1,
                 mb: 2,
               }}
             >
@@ -884,6 +916,12 @@ const WorkspacesPage: React.FC = () => {
                 disabled={
                   unifiedStorage.mode !== 'cloud' || hasDriveFileScope === false
                 }
+                size={isMobile ? 'small' : 'medium'}
+                sx={{
+                  whiteSpace: 'normal',
+                  textAlign: 'left',
+                  lineHeight: 1.2,
+                }}
               >
                 Create Shared Workspace
               </Button>
@@ -922,24 +960,31 @@ const WorkspacesPage: React.FC = () => {
                           borderColor: isActive ? 'primary.main' : 'divider',
                         }}
                       >
-                        <CardContent>
+                        <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                           <Box
                             sx={{
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'flex-start',
+                          flexWrap: 'wrap',
+                          gap: 1,
                             }}
                           >
-                            <Box sx={{ flex: 1 }}>
+                            <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
                               <Box
                                 sx={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 1,
                                   mb: 1,
+                                  flexWrap: 'wrap',
                                 }}
                               >
-                                <Typography variant="h6" component="h2">
+                                <Typography
+                                  variant="h6"
+                                  component="h2"
+                                  sx={{ wordBreak: 'break-word', minWidth: 0 }}
+                                >
                                   {workspace.name}
                                 </Typography>
                                 {isActive && (
@@ -973,6 +1018,7 @@ const WorkspacesPage: React.FC = () => {
                                   display: 'flex',
                                   flexDirection: 'column',
                                   gap: 0.5,
+                                  minWidth: 0,
                                 }}
                               >
                                 {workspace.driveFolderId && (
@@ -981,6 +1027,7 @@ const WorkspacesPage: React.FC = () => {
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: 0.5,
+                                      minWidth: 0,
                                     }}
                                   >
                                     <FolderIcon
@@ -990,6 +1037,11 @@ const WorkspacesPage: React.FC = () => {
                                     <Typography
                                       variant="body2"
                                       color="text.secondary"
+                                      sx={{
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
                                     >
                                       Folder ID:{' '}
                                       {workspace.driveFolderId.substring(0, 20)}
@@ -1060,8 +1112,10 @@ const WorkspacesPage: React.FC = () => {
                             <Box
                               sx={{
                                 display: 'flex',
-                                gap: 1,
+                                gap: 0.5,
                                 alignItems: 'flex-start',
+                                flexShrink: 0,
+                                ml: 'auto',
                               }}
                             >
                               {/* Only show management buttons for workspace owners - members should never see these */}

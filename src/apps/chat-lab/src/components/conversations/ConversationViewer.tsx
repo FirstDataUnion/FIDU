@@ -471,18 +471,28 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
                       sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
+                        flexWrap: 'wrap',
+                        rowGap: 0.75,
                         mb: 1,
                       }}
                     >
                       <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          minWidth: 0,
+                          flex: '1 1 auto',
+                          flexWrap: 'wrap',
+                        }}
                       >
                         <Typography
                           variant="subtitle2"
                           sx={{
                             fontWeight: 'bold',
                             textTransform: 'capitalize',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           {message.role}
@@ -490,23 +500,39 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
 
                         {/* Show platform chip for assistant messages */}
                         {message.role === 'assistant' && messagePlatform && (
-                          <Chip
-                            label={getPlatformDisplayName(messagePlatform)}
-                            size="small"
-                            sx={{
-                              backgroundColor:
-                                getPlatformColor(messagePlatform),
-                              color: 'white',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              height: '20px',
-                            }}
-                          />
+                          <Tooltip title={getPlatformDisplayName(messagePlatform)}>
+                            <Chip
+                              label={getPlatformDisplayName(messagePlatform)}
+                              size="small"
+                              sx={{
+                                backgroundColor:
+                                  getPlatformColor(messagePlatform),
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem',
+                                height: '20px',
+                                maxWidth: 'min(100%, 240px)',
+                                '& .MuiChip-label': {
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  display: 'block',
+                                },
+                              }}
+                            />
+                          </Tooltip>
                         )}
                       </Box>
 
                       <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flex: '0 1 auto',
+                          minWidth: 0,
+                          ml: 'auto',
+                        }}
                       >
                         <Typography variant="caption" color="text.secondary">
                           {formatTimestamp(message.timestamp)}

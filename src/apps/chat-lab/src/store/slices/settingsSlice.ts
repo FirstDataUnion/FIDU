@@ -116,32 +116,56 @@ const loadSettingsFromStorage = async (): Promise<UserSettings> => {
  * Must be called synchronously within the reducer to avoid proxy revocation
  */
 const createPlainSettingsCopy = (settings: UserSettings): UserSettings => {
-  try {
-    // Use structuredClone if available (modern browsers) - works with Immer proxies
-    if (typeof structuredClone !== 'undefined') {
-      return structuredClone(settings);
-    }
-    // Fallback: manual deep copy for older browsers
-    // This reads all properties synchronously before the proxy is revoked
-    return {
-      ...settings,
-      apiKeys: { ...settings.apiKeys },
-      privacySettings: { ...settings.privacySettings },
-      displaySettings: { ...settings.displaySettings },
-      syncSettings: { ...settings.syncSettings },
-    };
-  } catch (error) {
-    console.warn('structuredClone failed, attempting JSON fallback:', error);
-    // If structuredClone fails, try JSON fallback as last resort
-    // This should work if current() provides a readable snapshot
-    try {
-      return JSON.parse(JSON.stringify(settings));
-    } catch (jsonError) {
-      console.error('Failed to create plain settings copy:', jsonError);
-      // Return a safe fallback
-      return { ...defaultSettings };
-    }
-  }
+  // Build a schema-based copy rather than cloning the full object.
+  // This avoids DataCloneError from unexpected non-serializable values.
+  return {
+    id: settings.id ?? defaultSettings.id,
+    theme: settings.theme ?? defaultSettings.theme,
+    language: settings.language ?? defaultSettings.language,
+    autoExtractMemories:
+      settings.autoExtractMemories ?? defaultSettings.autoExtractMemories,
+    notificationsEnabled:
+      settings.notificationsEnabled ?? defaultSettings.notificationsEnabled,
+    defaultPlatform:
+      settings.defaultPlatform ?? defaultSettings.defaultPlatform,
+    exportFormat: settings.exportFormat ?? defaultSettings.exportFormat,
+    lastUsedModel: settings.lastUsedModel ?? defaultSettings.lastUsedModel,
+    storageMode: settings.storageMode ?? defaultSettings.storageMode,
+    storageConfigured:
+      settings.storageConfigured ?? defaultSettings.storageConfigured,
+    userSelectedStorageMode:
+      settings.userSelectedStorageMode ?? defaultSettings.userSelectedStorageMode,
+    apiKeys: {
+      nlpWorkbench:
+        settings.apiKeys?.nlpWorkbench ?? defaultSettings.apiKeys.nlpWorkbench,
+    },
+    privacySettings: {
+      shareAnalytics:
+        settings.privacySettings?.shareAnalytics
+        ?? defaultSettings.privacySettings.shareAnalytics,
+      autoBackup:
+        settings.privacySettings?.autoBackup
+        ?? defaultSettings.privacySettings.autoBackup,
+      dataRetentionDays:
+        settings.privacySettings?.dataRetentionDays
+        ?? defaultSettings.privacySettings.dataRetentionDays,
+    },
+    displaySettings: {
+      itemsPerPage:
+        settings.displaySettings?.itemsPerPage
+        ?? defaultSettings.displaySettings.itemsPerPage,
+      showTimestamps:
+        settings.displaySettings?.showTimestamps
+        ?? defaultSettings.displaySettings.showTimestamps,
+      compactView:
+        settings.displaySettings?.compactView
+        ?? defaultSettings.displaySettings.compactView,
+      groupByDate:
+        settings.displaySettings?.groupByDate
+        ?? defaultSettings.displaySettings.groupByDate,
+    },
+    syncSettings: migrateSyncSettings(settings.syncSettings),
+  };
 };
 
 // Save settings to both cookies (primary) and localStorage (fallback)

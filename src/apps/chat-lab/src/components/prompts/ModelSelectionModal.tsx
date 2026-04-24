@@ -33,6 +33,9 @@ import {
   AccordionDetails,
   CircularProgress,
   Alert,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   SmartToy as SmartToyIcon,
@@ -131,6 +134,8 @@ export default function ModelSelectionModal({
   onSelectModel,
   onAutoModeToggle,
 }: ModelSelectionModalProps) {
+  const theme = useTheme();
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
@@ -737,7 +742,8 @@ export default function ModelSelectionModal({
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          overflowY: isMobileView ? 'auto' : 'hidden',
+          WebkitOverflowScrolling: isMobileView ? 'touch' : undefined,
         }}
       >
         {/* Auto Router Toggle */}
@@ -746,7 +752,7 @@ export default function ModelSelectionModal({
             <Paper
               elevation={1}
               sx={{
-                p: 1.5,
+                p: isMobileView ? 1 : 1.5,
                 backgroundColor: isAutoModeEnabled
                   ? 'primary.light'
                   : 'background.paper',
@@ -760,27 +766,55 @@ export default function ModelSelectionModal({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: 1,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                  <Avatar
+                    sx={{
+                      bgcolor: 'primary.main',
+                      width: isMobileView ? 30 : 40,
+                      height: isMobileView ? 30 : 40,
+                    }}
+                  >
                     <AutoIcon />
                   </Avatar>
                   <Box>
                     <Typography
-                      variant="h6"
+                      variant={isMobileView ? 'subtitle1' : 'h6'}
                       sx={{
                         fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
                         color: isAutoModeEnabled
                           ? 'primary.main'
                           : 'text.primary',
                       }}
                     >
                       {autoRouterModel.name}
+                      {isMobileView && (
+                        <Tooltip
+                          title={autoRouterModel.description}
+                          arrow
+                          enterTouchDelay={0}
+                          leaveTouchDelay={2500}
+                        >
+                          <IconButton
+                            size="small"
+                            aria-label="Auto router description"
+                            sx={{ p: 0.25 }}
+                          >
+                            <HelpOutlineIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {autoRouterModel.description}
-                    </Typography>
+                    {!isMobileView && (
+                      <Typography variant="body2" color="text.secondary">
+                        {autoRouterModel.description}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
                 <FormControlLabel
@@ -791,8 +825,14 @@ export default function ModelSelectionModal({
                       color="primary"
                     />
                   }
-                  label="Enable Auto Mode"
-                  sx={{ ml: 0 }}
+                  label={isMobileView ? 'Auto' : 'Enable Auto Mode'}
+                  sx={{
+                    ml: 0,
+                    mr: 0,
+                    '& .MuiFormControlLabel-label': {
+                      fontSize: isMobileView ? '0.8rem' : undefined,
+                    },
+                  }}
                 />
               </Box>
             </Paper>
@@ -1362,7 +1402,7 @@ export default function ModelSelectionModal({
           sx={{
             flex: '1 1 auto',
             minHeight: 0,
-            overflow: 'auto',
+            overflow: isMobileView ? 'visible' : 'auto',
             py: 0,
           }}
         >
@@ -1504,9 +1544,36 @@ export default function ModelSelectionModal({
                 minWidth: 0,
                 lineHeight: 1.5,
                 textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
               }}
             >
-              {getCachedOpenRouterZdrAllowlistAvailable() ? (
+              {isMobileView ? (
+                <>
+                  {getCachedOpenRouterZdrAllowlistAvailable()
+                    ? 'ZDR enabled for listed models'
+                    : 'ZDR route list unavailable'}
+                  <Tooltip
+                    title={
+                      getCachedOpenRouterZdrAllowlistAvailable()
+                        ? 'All models provided have a ZDR (Zero Data Retention) policy, meaning none of your data is stored on the provider servers for any period of time.'
+                        : 'The ZDR (Zero Data Retention) route list is unavailable, so no direct OpenRouter models are shown. Retry shortly once the route list becomes available.'
+                    }
+                    arrow
+                    enterTouchDelay={0}
+                    leaveTouchDelay={2500}
+                  >
+                    <IconButton
+                      size="small"
+                      aria-label="ZDR information"
+                      sx={{ p: 0.25 }}
+                    >
+                      <HelpOutlineIcon sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              ) : getCachedOpenRouterZdrAllowlistAvailable() ? (
                 <>
                   All models provided have a ZDR (Zero Data Retention) policy,
                   meaning none of your data is stored on the provider&apos;s

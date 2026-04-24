@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AssistantAttachmentImage } from '../AssistantAttachmentImage';
 
@@ -49,5 +49,36 @@ describe('AssistantAttachmentImage', () => {
     const downloadLink = screen.getByRole('link', { name: 'Download image' });
     expect(downloadLink).toHaveAttribute('href', tinyPng);
     expect(downloadLink).toHaveAttribute('download', 'Generated-image-2.png');
+  });
+
+  it('opens image in fullscreen and closes on click', async () => {
+    renderWithTheme(
+      <AssistantAttachmentImage
+        attachment={{
+          id: 'a3',
+          name: 'Generated image 3',
+          type: 'image',
+          url: tinyPng,
+          mimeType: 'image/png',
+        }}
+      />
+    );
+
+    const inlineImage = screen.getByTestId('assistant-attachment-inline-image');
+    fireEvent.click(inlineImage);
+
+    expect(
+      screen.getByTestId('assistant-attachment-fullscreen-overlay')
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByTestId('assistant-attachment-fullscreen-image')
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('assistant-attachment-fullscreen-overlay')
+      ).not.toBeInTheDocument();
+    });
   });
 });
