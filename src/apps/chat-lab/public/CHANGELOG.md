@@ -5,7 +5,7 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### [0.2.3] - UNRELEASED
+### [0.3.0] - 2026-04-27
 
 ### Changed
 - **Model selection modal redesign**: Redesigned the model selection window to be larger and easier to navigate, with smaller filter options and grouping of models by provider to reduce the size of the inital list. 

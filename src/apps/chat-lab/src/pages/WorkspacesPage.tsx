@@ -900,9 +900,9 @@ const WorkspacesPage: React.FC = () => {
               sx={{
                 display: 'flex',
                 justifyContent: 'space-between',
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              flexWrap: 'wrap',
-              gap: 1,
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                flexWrap: 'wrap',
+                gap: 1,
                 mb: 2,
               }}
             >
@@ -966,8 +966,8 @@ const WorkspacesPage: React.FC = () => {
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'flex-start',
-                          flexWrap: 'wrap',
-                          gap: 1,
+                              flexWrap: 'wrap',
+                              gap: 1,
                             }}
                           >
                             <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>

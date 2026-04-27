@@ -31,6 +31,7 @@ export default {
     '<rootDir>/dist/',
     '<rootDir>/src/__tests__/utils/',
     '<rootDir>/src/__tests__/pageObjects/',
+    '/backup/',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

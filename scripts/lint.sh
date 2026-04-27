@@ -27,7 +27,7 @@ black .
 
 # Run pylint
 echo "🔎 Running pylint..."
-if ! pylint src/ --output-format=colorized --ignore-paths=".*node_modules.*"; then
+if ! pylint src/ --output-format=colorized --ignore-paths=".*(node_modules|backup).*"; then
     echo "❌ Pylint found issues in your code. Please fix them before committing."
     echo "NOTE: make sure you are running this within your virtual environment."
     exit 1
@@ -35,11 +35,11 @@ fi
 
 # Run mypy type checker
 echo "📊 Running mypy type checker..."
-mypy src/
+mypy src/ --exclude '(^|/)backup(/|$)'
 
 # Run pytest with coverage
 echo "🧪 Running pytest with coverage..."
-pytest --cov=src
+pytest --cov=src --ignore=backup --ignore-glob='*/backup/*'
 
 
 # Run npm install in chat-lab to ensure installed dependencies match package.json

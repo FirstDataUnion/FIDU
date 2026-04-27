@@ -134,7 +134,8 @@ const createPlainSettingsCopy = (settings: UserSettings): UserSettings => {
     storageConfigured:
       settings.storageConfigured ?? defaultSettings.storageConfigured,
     userSelectedStorageMode:
-      settings.userSelectedStorageMode ?? defaultSettings.userSelectedStorageMode,
+      settings.userSelectedStorageMode
+      ?? defaultSettings.userSelectedStorageMode,
     apiKeys: {
       nlpWorkbench:
         settings.apiKeys?.nlpWorkbench ?? defaultSettings.apiKeys.nlpWorkbench,

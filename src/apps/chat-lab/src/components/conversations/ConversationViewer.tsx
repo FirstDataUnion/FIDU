@@ -500,7 +500,9 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
 
                         {/* Show platform chip for assistant messages */}
                         {message.role === 'assistant' && messagePlatform && (
-                          <Tooltip title={getPlatformDisplayName(messagePlatform)}>
+                          <Tooltip
+                            title={getPlatformDisplayName(messagePlatform)}
+                          >
                             <Chip
                               label={getPlatformDisplayName(messagePlatform)}
                               size="small"
