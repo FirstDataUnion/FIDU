@@ -198,33 +198,81 @@ echo -e "${BLUE}📄 Copying requirements.txt...${NC}"
 cp requirements.txt "$LOCAL_BUILD_DIR/"
 
 # Create systemd service file
-cat > "$LOCAL_BUILD_DIR/${SERVICE_NAME}.service" << EOF
+if [ "$ENVIRONMENT" = "prod" ]; then
+    cat > "$LOCAL_BUILD_DIR/${SERVICE_NAME}.service" << EOF
 [Unit]
 Description=FIDU Chat Lab (${ENVIRONMENT})
-After=network.target
-
+After=network.target openbao-agent-chat-lab-prod.service
+Requires=openbao-agent-chat-lab-prod.service
 [Service]
 Type=simple
 User=fidu-chat-lab-${ENVIRONMENT}
 Group=fidu-chat-lab-${ENVIRONMENT}
 WorkingDirectory=${DEPLOY_PATH}
-ExecStart=${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/backend/server.py
+ExecStart=${DEPLOY_PATH}/start.sh
 Restart=always
 RestartSec=5
 Environment=PORT=${PORT}
 Environment=ENVIRONMENT=${ENVIRONMENT}
 EnvironmentFile=${DEPLOY_PATH}/.env
-
 # Security settings
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=${DEPLOY_PATH}
-
 [Install]
 WantedBy=multi-user.target
 EOF
+else
+    cat > "$LOCAL_BUILD_DIR/${SERVICE_NAME}.service" << EOF
+[Unit]
+Description=FIDU Chat Lab (${ENVIRONMENT})
+After=network.target
+[Service]
+Type=simple
+User=fidu-chat-lab-${ENVIRONMENT}
+Group=fidu-chat-lab-${ENVIRONMENT}
+WorkingDirectory=${DEPLOY_PATH}
+ExecStart=${DEPLOY_PATH}/start.sh
+Restart=always
+RestartSec=5
+Environment=PORT=${PORT}
+Environment=ENVIRONMENT=${ENVIRONMENT}
+EnvironmentFile=${DEPLOY_PATH}/.env
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=${DEPLOY_PATH}
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+# Create startup script
+if [ "$ENVIRONMENT" = "prod" ]; then
+cat > "$LOCAL_BUILD_DIR/start.sh" << EOF
+#!/bin/bash
+set -e
+cd ${DEPLOY_PATH}
+TOKEN_FILE="/run/openbao-agent-chatlab/chat-lab-prod.token"
+if [ ! -s "\$TOKEN_FILE" ]; then
+    echo "❌ OpenBao token file missing or empty: \$TOKEN_FILE"
+    exit 1
+fi
+export OPENBAO_TOKEN=\$(tr -d '\r\n' < "\$TOKEN_FILE")
+exec ${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/backend/server.py
+EOF
+else
+cat > "$LOCAL_BUILD_DIR/start.sh" << EOF
+#!/bin/bash
+set -e
+cd ${DEPLOY_PATH}
+exec ${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/backend/server.py
+EOF
+fi
+chmod +x "$LOCAL_BUILD_DIR/start.sh"
 
 # Create installation script for the server
 cat > "$LOCAL_BUILD_DIR/install.sh" << EOF
@@ -262,6 +310,7 @@ pip install -r requirements.txt
 # Set permissions
 chown -R fidu-chat-lab-${ENVIRONMENT}:fidu-chat-lab-${ENVIRONMENT} ${DEPLOY_PATH}
 chmod +x ${DEPLOY_PATH}/backend/server.py
+chmod +x ${DEPLOY_PATH}/start.sh
 
 # Install systemd service
 if [ -f ${DEPLOY_PATH}/${SERVICE_NAME}.service ]; then
@@ -360,7 +409,7 @@ These are set at build time from ${ENV_FILE}:
 These are read from server environment or .env file:
 - OPENBAO_ENABLED - Enable OpenBao integration
 - OPENBAO_ADDRESS - OpenBao server URL
-- OPENBAO_TOKEN - OpenBao access token
+- OPENBAO_TOKEN - OpenBao access token (prod: injected at startup from /run/openbao-agent-chatlab/chat-lab-prod.token)
 - OPENBAO_SECRET_PATH - Path to secrets in OpenBao
 - GOOGLE_CLIENT_ID - Fallback client ID
 - GOOGLE_CLIENT_SECRET - Fallback client secret
