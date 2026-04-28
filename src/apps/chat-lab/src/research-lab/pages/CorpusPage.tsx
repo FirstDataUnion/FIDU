@@ -25,6 +25,7 @@ import SourceSelectionPanel from '../components/SourceSelectionPanel';
 import { createRagApiClient } from '../services/apiClientRag';
 import type {
   CorpusLocation,
+  IngestQueueError,
   Source,
   SourceFileLocation,
 } from '../types/ragApi';
@@ -140,6 +141,7 @@ function useIngestQueuePolling(
   setRemaining: (remaining: number) => void,
   setLoadingSources: (loading: boolean) => void,
   setSources: (sources: CorpusSource[]) => void,
+  setIngestQueueErrors: (errors: IngestQueueError[]) => void,
   setError: (error: string | undefined) => void,
   onComplete: () => void
 ) {
@@ -166,12 +168,16 @@ function useIngestQueuePolling(
         return;
       }
       try {
-        const { remaining_queue_size, queue_status } =
-          await apiClient.getIngestQueueStatus(corpusLocation);
+        const {
+          remaining_queue_size,
+          queue_status,
+          errors: ingestionErrors,
+        } = await apiClient.getIngestQueueStatus(corpusLocation);
         if (cancelled) {
           return;
         }
         setRemaining(remaining_queue_size);
+        setIngestQueueErrors(ingestionErrors);
         if (queue_status === 'completed' || queue_status === 'empty') {
           setLoadingSources(true);
           const sources = await apiClient.getSources(corpusLocation);
@@ -207,6 +213,7 @@ function useIngestQueuePolling(
     setLoadingSources,
     setSources,
     setError,
+    setIngestQueueErrors,
   ]);
 }
 
@@ -250,6 +257,9 @@ export default function CorpusPage() {
     useState<number>(0);
   const [ingestQueuePollingEnabled, setIngestQueuePollingEnabled] =
     useState(true);
+  const [ingestionErrors, setIngestionErrors] = useState<IngestQueueError[]>(
+    []
+  );
   const previousSourceIds = useRef<Set<string>>(new Set());
   const [modelList, setModelList] = useState<ModelConfig[] | undefined>(
     undefined
@@ -364,6 +374,7 @@ export default function CorpusPage() {
     setIngestQueueSourcesRemaining,
     setLoadingSources,
     setSources,
+    setIngestionErrors,
     setSourceFetchError,
     useCallback(() => setIngestQueuePollingEnabled(false), [])
   );
@@ -502,6 +513,7 @@ export default function CorpusPage() {
       ingestQueueInfo: {
         remaining: ingestQueueSourcesRemaining,
         pollingEnabled: ingestQueuePollingEnabled,
+        ingestionErrors: ingestionErrors,
         pollIngestQueueStatus,
       },
       modelInfo:
@@ -543,6 +555,7 @@ export default function CorpusPage() {
       setOneSourceSelection,
       ingestQueueSourcesRemaining,
       ingestQueuePollingEnabled,
+      ingestionErrors,
       pollIngestQueueStatus,
       modelList,
       selectedModelId,

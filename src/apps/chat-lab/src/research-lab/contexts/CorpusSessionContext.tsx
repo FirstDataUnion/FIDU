@@ -9,6 +9,7 @@ import type {
 } from '../types/local';
 import { useContext } from 'react';
 import type { DriveFile } from '../../services/storage/drive/GoogleDriveService';
+import type { IngestQueueError } from '../types/ragApi';
 
 export interface CorpusSessionContextValue {
   corpus?: Corpus;
@@ -43,6 +44,7 @@ export interface CorpusSessionContextValue {
   ingestQueueInfo?: {
     remaining: number;
     pollingEnabled: boolean;
+    ingestionErrors: IngestQueueError[];
     pollIngestQueueStatus: () => void;
   };
   modelInfo?: {

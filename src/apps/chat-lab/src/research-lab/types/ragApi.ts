@@ -103,6 +103,15 @@ export type IngestQueueStatus = {
   queue_status: 'empty' | 'running' | 'completed';
   total_queue_size: number;
   remaining_queue_size: number;
+  errors: IngestQueueError[];
+};
+
+export type IngestQueueError = {
+  file: {
+    action: 'add_or_replace' | 'delete';
+    location: FileLocation;
+  };
+  message: string;
 };
 
 // SSE events

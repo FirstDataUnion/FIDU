@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Checkbox,
   IconButton,
   Paper,
@@ -258,6 +259,23 @@ export default function SourceSelectionPanel({
             >
               Reloading sources...
             </Typography>
+          )}
+          {!q.loading && q.ingestionErrors && q.ingestionErrors.length > 0 && (
+            <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', m: 1 }}>
+              <Button
+                variant="contained"
+                color="error"
+                fullWidth
+                sx={{ p: 1 }}
+                onClick={() => {
+                  navigate(
+                    `/research-lab/corpus/${urlCorpusId}/ingestion-errors`
+                  );
+                }}
+              >
+                {q.ingestionErrors.length} ingestion error
+              </Button>
+            </Box>
           )}
         </>
       )}
