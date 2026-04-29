@@ -252,17 +252,23 @@ export class DrivePicker {
               );
               resolve(result);
             } catch (error) {
-              MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'error'
+              );
               reject(error);
             }
           } else {
             try {
-              const result = onCancelled
-                ? onCancelled()
-                : onFilesPicked([]);
+              const result = onCancelled ? onCancelled() : onFilesPicked([]);
               resolve(result);
             } catch (error) {
-              MetricsService.recordGoogleApiRequest('drive', metricsName, 'error');
+              MetricsService.recordGoogleApiRequest(
+                'drive',
+                metricsName,
+                'error'
+              );
               reject(error);
             }
           }
