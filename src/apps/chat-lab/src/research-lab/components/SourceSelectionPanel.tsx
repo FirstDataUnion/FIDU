@@ -223,7 +223,9 @@ export default function SourceSelectionPanel({
         <IconButton
           disabled={s.loading || !urlCorpusId}
           onClick={() =>
-            navigate(`/research-lab/corpus/${urlCorpusId}/add-source`)
+            navigate(`/research-lab/corpus/${urlCorpusId}/add-source`, {
+              state: { timestamp: Date.now() },
+            })
           }
         >
           <AddSourceIcon />
@@ -274,6 +276,7 @@ export default function SourceSelectionPanel({
                 }}
               >
                 {q.ingestionErrors.length} ingestion error
+                {q.ingestionErrors.length === 1 ? '' : 's'}
               </Button>
             </Box>
           )}

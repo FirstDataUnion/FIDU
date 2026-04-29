@@ -13,7 +13,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import { Folder as FolderIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   DrivePicker,
   type PickedDriveDocument,
@@ -87,6 +87,8 @@ type Step =
   | 'complete';
 
 export default function AddSourcePanel() {
+  const location = useLocation();
+  const resetTimestamp = location.state?.timestamp;
   const navigate = useNavigate();
   const { corpus, ingestQueueInfo, corpusInfo, navigation } =
     useCorpusSessionContext();
@@ -103,6 +105,17 @@ export default function AddSourcePanel() {
   const [urlCollection, setUrlCollection] = useState<UrlCollection | undefined>(
     undefined
   );
+
+  useEffect(() => {
+    if (!resetTimestamp) {
+      return;
+    }
+    setStep('source_type');
+    setGoogleDriveScope(undefined);
+    setUrl('');
+    setGoogleSheetName('FIDU Source URLs');
+    setUrlCollection(undefined);
+  }, [resetTimestamp]);
 
   useEffect(() => {
     navigation.showBackButton();
