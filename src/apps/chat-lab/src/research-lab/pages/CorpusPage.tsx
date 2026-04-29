@@ -41,7 +41,7 @@ import {
   type DriveFile,
 } from '../../services/storage/drive/GoogleDriveService';
 import { getGoogleDriveAuthService } from '../../services/auth/GoogleDriveAuth';
-import { fromUrlId } from '../utils';
+import { fromUrlId, toUrlId } from '../utils';
 import NavigationPanel from '../components/NavigationPanel';
 
 type CorpusSidebarSection =
@@ -530,8 +530,15 @@ export default function CorpusPage() {
           setShowBack(false);
         },
         showBackButton: () => {
-          setShowBack(true);
-          setUpUrl(undefined);
+          // The back navigation is confusing when adding multiple sources and
+          // possibly when looking at source content.
+          // For now, just go back to the corpus page.
+          if (corpusId) {
+            setUpUrl(`/research-lab/corpus/${toUrlId(corpusId)}`);
+          } else {
+            setUpUrl(undefined);
+          }
+          setShowBack(false);
         },
         clearActions: () => {
           setUpUrl(undefined);
