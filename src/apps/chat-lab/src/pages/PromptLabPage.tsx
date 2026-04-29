@@ -6,6 +6,7 @@ import {
   useRef,
   useMemo,
   type JSX,
+  type MouseEvent,
 } from 'react';
 import { EnhancedMarkdown } from '../components/common/EnhancedMarkdown';
 import { AssistantAttachmentImage } from '../components/common/AssistantAttachmentImage';
@@ -37,6 +38,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
+  RadioGroup,
+  Radio,
+  FormControlLabel,
+  Checkbox,
   Collapse,
   Link,
   Badge,
@@ -45,7 +51,6 @@ import {
 } from '@mui/material';
 import { CategoryFilter } from '../components/common/CategoryFilter';
 import {
-  ContentCopy as ContentCopyIcon,
   Add as AddIcon,
   Chat as ChatIcon,
   SmartToy as ModelIcon,
@@ -60,6 +65,7 @@ import {
   HelpOutline as HelpOutlineIcon,
   AutoFixHigh as WizardIcon,
   MenuBook as MenuBookIcon,
+  ContentCopy as ContentCopyIcon,
   CheckCircle as CheckCircleIcon,
   SmartToy as SmartToyIcon,
   ArrowUpward as ArrowUpwardIcon,
@@ -68,7 +74,10 @@ import {
 import { useAppSelector, useAppDispatch } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchContexts, createContext } from '../store/slices/contextsSlice';
-import { updateLastUsedModel } from '../store/slices/settingsSlice';
+import {
+  updateLastUsedModel,
+  updateMessageDownloadPreferences,
+} from '../store/slices/settingsSlice';
 import { fetchSystemPrompts } from '../store/slices/systemPromptsSlice';
 import {
   deleteConversation,
@@ -126,6 +135,16 @@ import {
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { getModelConfig, loadOpenRouterModels } from '../data/models';
 import { usePromptLabScrollBehavior } from '../hooks/usePromptLabScrollBehavior';
+import ConversationCopyExportDialog from '../components/conversations/ConversationCopyExportDialog';
+import {
+  buildConversationExportFilename,
+  buildConversationExportText,
+  collectImageAttachments,
+  copyTextToClipboard,
+  downloadImageByUrl,
+  downloadTextFile,
+  type ConversationExportFormat,
+} from '../utils/conversationExport';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (
@@ -2132,68 +2151,6 @@ function SystemPromptSelectionModal({
   );
 }
 
-interface FullPromptModalProps {
-  open: boolean;
-  onClose: () => void;
-  fullPrompt: string;
-}
-
-function FullPromptModal({ open, onClose, fullPrompt }: FullPromptModalProps) {
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(fullPrompt);
-      // You could add a success toast here
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = fullPrompt;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-  }, [fullPrompt]);
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Full Prompt</DialogTitle>
-      <DialogContent>
-        <TextField
-          fullWidth
-          multiline
-          rows={10}
-          variant="outlined"
-          value={fullPrompt}
-          InputProps={{
-            readOnly: true,
-            startAdornment: (
-              <InputAdornment position="start">
-                <ChatIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              backgroundColor: 'background.paper',
-              boxShadow: 1,
-            },
-          }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleCopy} color="primary">
-          Copy
-        </Button>
-        <Button onClick={onClose} color="primary">
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function PromptLabPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -2223,7 +2180,6 @@ export default function PromptLabPage() {
   const isSystemPromptsEnabled = useFeatureFlag('system_prompts');
   const isModelSelectionEnabled = useFeatureFlag('model_selection');
   const isContextsEnabled = useFeatureFlag('context');
-  const isViewCopyFullPromptEnabled = useFeatureFlag('view_copy_full_prompt');
   const isRecentConversationsInChatPageEnabled = useFeatureFlag(
     'recent_conversations_in_chat_page'
   );
@@ -3235,8 +3191,24 @@ export default function PromptLabPage() {
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
-  const [fullPromptModalOpen, setFullPromptModalOpen] = useState(false);
   const [createContextModalOpen, setCreateContextModalOpen] = useState(false);
+  const [conversationExportDialogOpen, setConversationExportDialogOpen] =
+    useState(false);
+  const [messageDownloadFormatDialogOpen, setMessageDownloadFormatDialogOpen] =
+    useState(false);
+  const [messageDownloadSelection, setMessageDownloadSelection] =
+    useState<ConversationExportFormat>('markdown');
+  const [rememberMessageDownloadChoice, setRememberMessageDownloadChoice] =
+    useState(false);
+  const [pendingMessageDownloadAction, setPendingMessageDownloadAction] =
+    useState<{ messageIndex: number; mode: 'single' | 'from-here' } | null>(
+      null
+    );
+  const [messageActionsAnchorEl, setMessageActionsAnchorEl] =
+    useState<null | HTMLElement>(null);
+  const [messageActionsIndex, setMessageActionsIndex] = useState<number | null>(
+    null
+  );
 
   // System prompt change state
   const [changingSystemPrompt, setChangingSystemPrompt] =
@@ -3253,6 +3225,8 @@ export default function PromptLabPage() {
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [isSelectionDragging, setIsSelectionDragging] = useState(false);
+  const [selectionHintOpen, setSelectionHintOpen] = useState(false);
   const promptAbortController = useRef<AbortController | null>(null);
 
   // Show toast message
@@ -3261,8 +3235,249 @@ export default function PromptLabPage() {
     setToastOpen(true);
   }, []);
 
+  const handleMessagesMouseDown = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (isMobile || event.button !== 0) return;
+      setIsSelectionDragging(true);
+    },
+    [isMobile]
+  );
+
+  const handleMessagesMouseMove = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!isSelectionDragging || isMobile) return;
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const container = messagesContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const thresholdPx = 48;
+      const maxStep = 22;
+      const cursorY = event.clientY;
+
+      if (cursorY < rect.top + thresholdPx) {
+        const ratio = Math.max(0, (rect.top + thresholdPx - cursorY) / thresholdPx);
+        container.scrollBy({ top: -Math.ceil(ratio * maxStep) });
+      } else if (cursorY > rect.bottom - thresholdPx) {
+        const ratio = Math.max(
+          0,
+          (cursorY - (rect.bottom - thresholdPx)) / thresholdPx
+        );
+        container.scrollBy({ top: Math.ceil(ratio * maxStep) });
+      }
+    },
+    [isSelectionDragging, isMobile]
+  );
+
+  const handleMessagesMouseUp = useCallback(() => {
+    setIsSelectionDragging(false);
+    const selectionText = window.getSelection()?.toString().trim() || '';
+    if (selectionText.length === 0) return;
+    setSelectionHintOpen(true);
+  }, []);
+
+  const closeMessageActionsMenu = useCallback(() => {
+    setMessageActionsAnchorEl(null);
+    setMessageActionsIndex(null);
+  }, []);
+
+  const downloadConversationRange = useCallback(
+    async (
+      startIndex: number,
+      format: ConversationExportFormat = 'markdown',
+      includeImages: boolean = false
+    ) => {
+      const content = buildConversationExportText(messages, {
+        format,
+        title: currentConversation?.title,
+        startIndex,
+        includeTimestamps: false,
+      });
+      const filename = buildConversationExportFilename(
+        currentConversation?.title,
+        format
+      );
+      downloadTextFile(content, filename, format);
+
+      if (!includeImages) {
+        showToast('Conversation downloaded.');
+        return;
+      }
+
+      const images = collectImageAttachments(messages, startIndex);
+      let successCount = 0;
+      let failedCount = 0;
+      for (const [index, image] of images.entries()) {
+        const extension = image.fileName.includes('.') ? '' : '.png';
+        const imageFilename = `${image.fileName || `image-${index + 1}`}${extension}`;
+        try {
+          await downloadImageByUrl(image.url, imageFilename);
+          successCount += 1;
+        } catch (_err) {
+          failedCount += 1;
+        }
+      }
+
+      if (images.length === 0) {
+        showToast('Conversation downloaded. No downloadable images found.');
+        return;
+      }
+      showToast(
+        `Conversation downloaded. Images downloaded: ${successCount}${failedCount > 0 ? ` (${failedCount} unavailable)` : ''}.`
+      );
+    },
+    [messages, currentConversation?.title, showToast]
+  );
+
+  const copyConversationRange = useCallback(
+    async (startIndex: number) => {
+      const content = buildConversationExportText(messages, {
+        format: 'txt',
+        title: currentConversation?.title,
+        startIndex,
+        includeTimestamps: false,
+      });
+      await copyTextToClipboard(content);
+      showToast('Message copied to clipboard!');
+    },
+    [messages, currentConversation?.title, showToast]
+  );
+
+  const copySingleMessage = useCallback(
+    async (messageIndex: number) => {
+      const message = messages[messageIndex];
+      if (!message) return;
+      await copyTextToClipboard(message.content);
+      showToast('Message copied to clipboard!');
+    },
+    [messages, showToast]
+  );
+
+  const downloadSingleMessage = useCallback(
+    async (messageIndex: number, format: ConversationExportFormat) => {
+      const singleMessage = messages.slice(messageIndex, messageIndex + 1);
+      const content = buildConversationExportText(singleMessage, {
+        format,
+        title: currentConversation?.title,
+        includeTimestamps: false,
+      });
+      const filename = buildConversationExportFilename(
+        currentConversation?.title,
+        format
+      );
+      downloadTextFile(content, filename, format);
+      showToast('Message downloaded.');
+    },
+    [messages, currentConversation?.title, showToast]
+  );
+
+  const executeMessageDownload = useCallback(
+    async (
+      messageIndex: number,
+      mode: 'single' | 'from-here',
+      format: ConversationExportFormat
+    ) => {
+      if (mode === 'single') {
+        await downloadSingleMessage(messageIndex, format);
+        return;
+      }
+      await downloadConversationRange(messageIndex, format, false);
+    },
+    [downloadConversationRange, downloadSingleMessage]
+  );
+
+  const requestMessageDownloadFormat = useCallback(
+    (messageIndex: number, mode: 'single' | 'from-here') => {
+      const askEachTime = settings.askMessageDownloadFormatEachTime ?? true;
+      const preferredFormat =
+        settings.messageDownloadFormatPreference || 'markdown';
+
+      if (!askEachTime) {
+        executeMessageDownload(messageIndex, mode, preferredFormat);
+        return;
+      }
+
+      setPendingMessageDownloadAction({ messageIndex, mode });
+      setMessageDownloadSelection(preferredFormat);
+      setRememberMessageDownloadChoice(false);
+      setMessageDownloadFormatDialogOpen(true);
+    },
+    [
+      settings.askMessageDownloadFormatEachTime,
+      settings.messageDownloadFormatPreference,
+      executeMessageDownload,
+    ]
+  );
+
+  const handleConfirmMessageDownloadFormat = useCallback(async () => {
+    if (!pendingMessageDownloadAction) {
+      setMessageDownloadFormatDialogOpen(false);
+      return;
+    }
+
+    if (rememberMessageDownloadChoice) {
+      dispatch(
+        updateMessageDownloadPreferences({
+          format: messageDownloadSelection,
+          askEachTime: false,
+        })
+      );
+    }
+
+    setMessageDownloadFormatDialogOpen(false);
+    const { messageIndex, mode } = pendingMessageDownloadAction;
+    setPendingMessageDownloadAction(null);
+    await executeMessageDownload(messageIndex, mode, messageDownloadSelection);
+  }, [
+    pendingMessageDownloadAction,
+    rememberMessageDownloadChoice,
+    dispatch,
+    messageDownloadSelection,
+    executeMessageDownload,
+  ]);
+
+  const handleMessageActionMenuOpen = useCallback(
+    (event: MouseEvent<HTMLElement>, messageIndex: number) => {
+      setMessageActionsAnchorEl(event.currentTarget);
+      setMessageActionsIndex(messageIndex);
+    },
+    []
+  );
+
   // Get conversation ID for filtering alerts
   const currentConversationId = currentConversation?.id;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isShortcut =
+        (event.metaKey || event.ctrlKey)
+        && event.shiftKey
+        && event.key.toLowerCase() === 'c';
+      if (!isShortcut) return;
+
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target?.tagName === 'INPUT'
+        || target?.tagName === 'TEXTAREA'
+        || target?.isContentEditable;
+      if (isTypingTarget) {
+        return;
+      }
+
+      event.preventDefault();
+      setConversationExportDialogOpen(true);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const clearSelectionDrag = () => setIsSelectionDragging(false);
+    document.addEventListener('mouseup', clearSelectionDrag);
+    return () => document.removeEventListener('mouseup', clearSelectionDrag);
+  }, []);
 
   // Update unread count whenever conversation changes
   useEffect(() => {
@@ -5648,65 +5863,60 @@ export default function PromptLabPage() {
               )}
 
               {/* Copy Button for Assistant Messages */}
-              {message.role === 'assistant'
+              {!isGhost
+                && message.role === 'assistant'
                 && !message.content.startsWith('Error:') && (
-                  <IconButton
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(message.content);
-                        showToast('Message copied to clipboard!');
-                      } catch (err) {
-                        console.error('Failed to copy text: ', err);
-                        // Fallback for older browsers
-                        const textArea = document.createElement('textarea');
-                        textArea.value = message.content;
-                        document.body.appendChild(textArea);
-                        textArea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                      }
-                    }}
-                    sx={{
-                      position: 'absolute',
-                      bottom: isMobile ? 6 : 8,
-                      right: isMobile ? 6 : 8,
-                      width: isMobile ? 32 : 28,
-                      height: isMobile ? 32 : 28,
-                      borderRadius: '50%',
-                      backgroundColor:
-                        theme.palette.mode === 'light'
-                          ? 'rgba(0,0,0,0.1)'
-                          : 'rgba(255,255,255,0.2)',
-                      color:
-                        theme.palette.mode === 'light'
-                          ? 'text.primary'
-                          : 'white',
-                      opacity: 0.8,
-                      zIndex: 10,
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      '&:hover': {
+                  <Tooltip
+                    title="Copy / Download message"
+                    placement="top"
+                    arrow
+                  >
+                    <IconButton
+                      onClick={event =>
+                        handleMessageActionMenuOpen(event, messageIndex)}
+                      sx={{
+                        position: 'absolute',
+                        top: isMobile ? 6 : 8,
+                        right: isMobile ? 6 : 8,
+                        width: isMobile ? 40 : 36,
+                        height: isMobile ? 40 : 36,
+                        borderRadius: '50%',
                         backgroundColor:
                           theme.palette.mode === 'light'
-                            ? 'rgba(0,0,0,0.15)'
-                            : 'rgba(255,255,255,0.3)',
-                        opacity: 1,
-                        transform: 'scale(1.1)',
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                      },
-                      '&:active': isMobile
-                        ? {
-                            transform: 'scale(0.95)',
-                            backgroundColor:
-                              theme.palette.mode === 'light'
-                                ? 'rgba(0,0,0,0.2)'
-                                : 'rgba(255,255,255,0.4)',
-                          }
-                        : {},
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <ContentCopyIcon sx={{ fontSize: isMobile ? 16 : 14 }} />
-                  </IconButton>
+                            ? 'rgba(0,0,0,0.14)'
+                            : 'rgba(255,255,255,0.24)',
+                        color:
+                          theme.palette.mode === 'light'
+                            ? 'text.primary'
+                            : 'white',
+                        opacity: 0.9,
+                        zIndex: 10,
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.24)',
+                        '&:hover': {
+                          backgroundColor:
+                            theme.palette.mode === 'light'
+                              ? 'rgba(0,0,0,0.22)'
+                              : 'rgba(255,255,255,0.36)',
+                          opacity: 1,
+                          transform: 'scale(1.1)',
+                          boxShadow: '0 5px 10px rgba(0,0,0,0.34)',
+                        },
+                        '&:active': isMobile
+                          ? {
+                              transform: 'scale(0.95)',
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? 'rgba(0,0,0,0.28)'
+                                  : 'rgba(255,255,255,0.44)',
+                            }
+                          : {},
+                        transition: 'all 0.2s ease',
+                      }}
+                      aria-label="Copy / Download message"
+                    >
+                      <ContentCopyIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                    </IconButton>
+                  </Tooltip>
                 )}
 
               {/* Retry Button for Error Messages */}
@@ -5770,7 +5980,7 @@ export default function PromptLabPage() {
       isSharedWorkspace,
       isMobile,
       messages.length,
-      showToast,
+      handleMessageActionMenuOpen,
       getModelInfo,
       theme.palette.mode,
     ]
@@ -5822,6 +6032,9 @@ export default function PromptLabPage() {
         <Box
           ref={messagesContainerRef}
           onScroll={handleScroll}
+          onMouseDown={handleMessagesMouseDown}
+          onMouseMove={handleMessagesMouseMove}
+          onMouseUp={handleMessagesMouseUp}
           sx={{
             height: '100%',
             overflowY: 'auto',
@@ -6651,29 +6864,27 @@ export default function PromptLabPage() {
                     ▾
                   </Button>
                 )}
-                {isViewCopyFullPromptEnabled && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setFullPromptModalOpen(true)}
-                    sx={{
-                      minWidth: 150,
-                      borderRadius: 4,
-                      backgroundColor: 'background.paper',
-                      color: 'primary.dark',
-                      borderColor: 'primary.dark',
-                      boxShadow: 1,
-                      fontSize: '0.75rem',
-                      '&:hover': {
-                        backgroundColor: 'primary.light',
-                        borderColor: 'primary.main',
-                        boxShadow: 2,
-                      },
-                    }}
-                  >
-                    View/Copy Full Prompt
-                  </Button>
-                )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setConversationExportDialogOpen(true)}
+                  sx={{
+                    minWidth: 170,
+                    borderRadius: 4,
+                    backgroundColor: 'background.paper',
+                    color: 'primary.dark',
+                    borderColor: 'primary.dark',
+                    boxShadow: 1,
+                    fontSize: '0.75rem',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      borderColor: 'primary.main',
+                      boxShadow: 2,
+                    },
+                  }}
+                >
+                  Copy / Export Conversation
+                </Button>
               </Box>
             ) : (
               // Mobile controls - Collapsible
@@ -6762,29 +6973,27 @@ export default function PromptLabPage() {
                       System Prompts ({selectedSystemPrompts.length}) ▾
                     </Button>
                   )}
-                  {isViewCopyFullPromptEnabled && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => setFullPromptModalOpen(true)}
-                      sx={{
-                        borderRadius: 3,
-                        backgroundColor: 'background.paper',
-                        color: 'primary.dark',
-                        borderColor: 'primary.dark',
-                        boxShadow: 1,
-                        fontSize: '0.8rem',
-                        py: 1,
-                        '&:hover': {
-                          backgroundColor: 'primary.light',
-                          borderColor: 'primary.main',
-                          boxShadow: 2,
-                        },
-                      }}
-                    >
-                      View Full Prompt
-                    </Button>
-                  )}
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setConversationExportDialogOpen(true)}
+                    sx={{
+                      borderRadius: 3,
+                      backgroundColor: 'background.paper',
+                      color: 'primary.dark',
+                      borderColor: 'primary.dark',
+                      boxShadow: 1,
+                      fontSize: '0.8rem',
+                      py: 1,
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        borderColor: 'primary.main',
+                        boxShadow: 2,
+                      },
+                    }}
+                  >
+                    Copy / Export
+                  </Button>
                   {isRecentConversationsInChatPageEnabled && (
                     <Button
                       variant="outlined"
@@ -7339,11 +7548,147 @@ export default function PromptLabPage() {
         }
       />
 
-      <FullPromptModal
-        open={fullPromptModalOpen}
-        onClose={() => setFullPromptModalOpen(false)}
-        fullPrompt={constructFullPrompt()}
+      <ConversationCopyExportDialog
+        open={conversationExportDialogOpen}
+        onClose={() => setConversationExportDialogOpen(false)}
+        messages={messages}
+        conversationTitle={currentConversation?.title}
+        fullPromptText={constructFullPrompt()}
+        onToast={showToast}
+        initialDownloadFormat={
+          settings.conversationDownloadFormatPreference || 'markdown'
+        }
+        onDownloadFormatChange={format => {
+          dispatch(
+            updateMessageDownloadPreferences({
+              conversationFormat: format,
+            })
+          );
+        }}
       />
+
+      <Dialog
+        open={messageDownloadFormatDialogOpen}
+        onClose={() => {
+          setMessageDownloadFormatDialogOpen(false);
+          setPendingMessageDownloadAction(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Choose download format</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select the file format for this download.
+          </Typography>
+          <RadioGroup
+            value={messageDownloadSelection}
+            onChange={e =>
+              setMessageDownloadSelection(
+                e.target.value as ConversationExportFormat
+              )
+            }
+          >
+            <FormControlLabel
+              value="markdown"
+              control={<Radio />}
+              label="Markdown (.md)"
+            />
+            <FormControlLabel value="txt" control={<Radio />} label="Text (.txt)" />
+          </RadioGroup>
+          <FormControlLabel
+            sx={{ mt: 1 }}
+            control={
+              <Checkbox
+                checked={rememberMessageDownloadChoice}
+                onChange={e => setRememberMessageDownloadChoice(e.target.checked)}
+              />
+            }
+            label="Remember my choice"
+          />
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 2,
+            gap: 1,
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Button
+            onClick={() => {
+              setMessageDownloadFormatDialogOpen(false);
+              setPendingMessageDownloadAction(null);
+            }}
+            variant="outlined"
+            sx={{
+              color: 'text.primary',
+              borderColor: 'divider',
+              '&:hover': {
+                borderColor: 'text.primary',
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmMessageDownloadFormat}
+            variant="contained"
+            sx={{ fontWeight: 600 }}
+          >
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Menu
+        anchorEl={messageActionsAnchorEl}
+        open={Boolean(messageActionsAnchorEl)}
+        onClose={closeMessageActionsMenu}
+      >
+        <MenuItem
+          onClick={async () => {
+            const index = messageActionsIndex;
+            closeMessageActionsMenu();
+            if (index === null) return;
+            await copySingleMessage(index);
+          }}
+        >
+          Copy this message to clipboard
+        </MenuItem>
+        <MenuItem
+          onClick={async () => {
+            const index = messageActionsIndex;
+            closeMessageActionsMenu();
+            if (index === null) return;
+            await copyConversationRange(index);
+          }}
+        >
+          Copy this message and all below to clipboard
+        </MenuItem>
+        <MenuItem
+          onClick={async () => {
+            const index = messageActionsIndex;
+            closeMessageActionsMenu();
+            if (index === null) return;
+            requestMessageDownloadFormat(index, 'single');
+          }}
+        >
+          Download this message as file
+        </MenuItem>
+        <MenuItem
+          onClick={async () => {
+            const index = messageActionsIndex;
+            closeMessageActionsMenu();
+            if (index === null) return;
+            requestMessageDownloadFormat(index, 'from-here');
+          }}
+        >
+          Download this message and all below
+        </MenuItem>
+      </Menu>
 
       {/* Wizard Window */}
       <WizardWindow
@@ -7399,6 +7744,33 @@ export default function PromptLabPage() {
           sx={{ width: '100%' }}
         >
           {toastMessage}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={selectionHintOpen}
+        autoHideDuration={7000}
+        onClose={() => setSelectionHintOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSelectionHintOpen(false)}
+          severity="info"
+          sx={{ width: '100%' }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setSelectionHintOpen(false);
+                setConversationExportDialogOpen(true);
+              }}
+            >
+              Open
+            </Button>
+          }
+        >
+          Tip: use Copy / Export Conversation for full transcript copy or download.
         </Alert>
       </Snackbar>
 

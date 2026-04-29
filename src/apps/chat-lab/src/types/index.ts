@@ -321,6 +321,9 @@ export interface UserSettings {
   defaultPlatform?: string;
   exportFormat: 'json' | 'markdown' | 'csv';
   lastUsedModel?: string; // Store the last used model for persistence across tab switches
+  messageDownloadFormatPreference?: 'markdown' | 'txt';
+  askMessageDownloadFormatEachTime?: boolean;
+  conversationDownloadFormatPreference?: 'markdown' | 'txt';
   storageMode: 'local' | 'cloud'; // Storage mode preference
   storageConfigured: boolean; // Whether user has completed initial storage setup
   userSelectedStorageMode: boolean; // Whether user has made a selection from settings page

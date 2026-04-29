@@ -24,6 +24,9 @@ const defaultSettings: UserSettings = {
   defaultPlatform: 'chatgpt',
   exportFormat: 'json',
   lastUsedModel: 'auto-router', // Default to Auto Router
+  messageDownloadFormatPreference: 'markdown',
+  askMessageDownloadFormatEachTime: true,
+  conversationDownloadFormatPreference: 'markdown',
   storageMode: getDefaultStorageMode(), // Default based on environment
   storageConfigured: false, // Default to false for new users
   userSelectedStorageMode: false, // Track if user has made a selection from settings
@@ -130,6 +133,15 @@ const createPlainSettingsCopy = (settings: UserSettings): UserSettings => {
       settings.defaultPlatform ?? defaultSettings.defaultPlatform,
     exportFormat: settings.exportFormat ?? defaultSettings.exportFormat,
     lastUsedModel: settings.lastUsedModel ?? defaultSettings.lastUsedModel,
+    messageDownloadFormatPreference:
+      settings.messageDownloadFormatPreference
+      ?? defaultSettings.messageDownloadFormatPreference,
+    askMessageDownloadFormatEachTime:
+      settings.askMessageDownloadFormatEachTime
+      ?? defaultSettings.askMessageDownloadFormatEachTime,
+    conversationDownloadFormatPreference:
+      settings.conversationDownloadFormatPreference
+      ?? defaultSettings.conversationDownloadFormatPreference,
     storageMode: settings.storageMode ?? defaultSettings.storageMode,
     storageConfigured:
       settings.storageConfigured ?? defaultSettings.storageConfigured,
@@ -260,6 +272,35 @@ const settingsSlice = createSlice({
         console.warn('Failed to save settings after model update:', error)
       );
     },
+    updateMessageDownloadPreferences: (
+      state,
+      action: {
+        payload: {
+          format?: 'markdown' | 'txt';
+          askEachTime?: boolean;
+          conversationFormat?: 'markdown' | 'txt';
+        };
+      }
+    ) => {
+      if (action.payload.format) {
+        state.settings.messageDownloadFormatPreference = action.payload.format;
+      }
+      if (typeof action.payload.askEachTime === 'boolean') {
+        state.settings.askMessageDownloadFormatEachTime =
+          action.payload.askEachTime;
+      }
+      if (action.payload.conversationFormat) {
+        state.settings.conversationDownloadFormatPreference =
+          action.payload.conversationFormat;
+      }
+      const plainSettings = createPlainSettingsCopy(state.settings);
+      saveSettingsToStorage(plainSettings).catch(error =>
+        console.warn(
+          'Failed to save settings after message download preference update:',
+          error
+        )
+      );
+    },
     updateStorageMode: (state, action) => {
       state.settings.storageMode = action.payload;
       state.settings.userSelectedStorageMode = true; // Mark that user has made a selection
@@ -362,6 +403,7 @@ export const {
   updateSettingsLocally,
   updateTheme,
   updateLastUsedModel,
+  updateMessageDownloadPreferences,
   updateStorageMode,
   markStorageConfigured,
   resetStorageConfiguration,

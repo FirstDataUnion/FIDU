@@ -238,6 +238,27 @@ const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({
           },
         },
       },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            gap: theme.spacing(1),
+            paddingInline: theme.spacing(3),
+            paddingBottom: theme.spacing(2),
+            borderTop: `1px solid ${theme.palette.divider}`,
+            '& .MuiButton-text': {
+              color: theme.palette.text.primary,
+              border: `1px solid ${theme.palette.divider}`,
+              '&:hover': {
+                borderColor: theme.palette.text.primary,
+                backgroundColor: theme.palette.action.hover,
+              },
+            },
+            '& .MuiButton-contained': {
+              fontWeight: 600,
+            },
+          }),
+        },
+      },
     },
   });
 
