@@ -54,6 +54,11 @@ import {
 } from './utils/storageFeatureChecks';
 import { fetchSystemFeatureFlags } from './store/slices/systemFeatureFlagsSlice';
 import { FEATURE_FLAGS_REFRESH_INTERVAL_MS } from './services/featureFlags/FeatureFlagsService';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  startPerfMark,
+} from './utils/perfMarks';
 
 // Lazy load page components for code splitting
 const ConversationsPage = React.lazy(() => import('./pages/ConversationsPage'));
@@ -286,6 +291,16 @@ const AppContent: React.FC<AppContentProps> = () => {
   const [earlyNoAuthDetected, setEarlyNoAuthDetected] = useState(false);
   const [earlyAuthCheckComplete, setEarlyAuthCheckComplete] = useState(false);
   const [workspaceRestored, setWorkspaceRestored] = useState(false);
+  const [workspaceRestoreWaitExceeded, setWorkspaceRestoreWaitExceeded] =
+    useState(false);
+  const visibilityRestoreInFlightRef = useRef(false);
+  const lastFullVisibilityRestoreAtRef = useRef(0);
+  const lastAuthOnlyRestoreAtRef = useRef(0);
+  const visibilityRestoreTimeoutRef = useRef<number | null>(null);
+  const appWasHiddenRef = useRef(false);
+  const cloudFinalizeStartedRef = useRef(false);
+  const appStartupMarkRef = useRef<string | null>(startPerfMark('app_open_total_ms'));
+  const loadingScreenVisibleMarkRef = useRef<string | null>(null);
 
   // Sync user ID with storage service when auth state changes
   useStorageUserId();
@@ -412,9 +427,22 @@ const AppContent: React.FC<AppContentProps> = () => {
         updateLoadingStep('settings', 'in_progress');
         updateLoadingStep('auth', 'in_progress');
 
+        const settingsMark = startPerfMark('app_open_settings_init_ms');
+        const authMark = startPerfMark('app_open_auth_init_ms');
         const [settingsResult, authResult] = await Promise.allSettled([
-          dispatch(fetchSettings()).unwrap(),
-          dispatch(initializeAuth()).unwrap(),
+          dispatch(fetchSettings())
+            .unwrap()
+            .finally(() => {
+              recordPerfMetric(
+                'app_open_settings_init_ms',
+                endPerfMark(settingsMark)
+              );
+            }),
+          dispatch(initializeAuth())
+            .unwrap()
+            .finally(() => {
+              recordPerfMetric('app_open_auth_init_ms', endPerfMark(authMark));
+            }),
         ]);
 
         // Update settings step status
@@ -444,7 +472,12 @@ const AppContent: React.FC<AppContentProps> = () => {
           // This ensures the active workspace is set in Redux state
           // IMPORTANT: Await this to ensure workspace restoration happens after workspaces are loaded
           try {
+            const workspacesMark = startPerfMark('app_open_load_workspaces_ms');
             await dispatch(loadWorkspaces()).unwrap();
+            recordPerfMetric(
+              'app_open_load_workspaces_ms',
+              endPerfMark(workspacesMark)
+            );
           } catch (error) {
             console.warn('Failed to load workspaces on initialization:', error);
           }
@@ -472,7 +505,12 @@ const AppContent: React.FC<AppContentProps> = () => {
           // Still try to load workspaces even if auth failed (workspace registry might have data)
           // IMPORTANT: Await this to ensure workspace restoration happens after workspaces are loaded
           try {
+            const workspacesMark = startPerfMark('app_open_load_workspaces_ms');
             await dispatch(loadWorkspaces()).unwrap();
+            recordPerfMetric(
+              'app_open_load_workspaces_ms',
+              endPerfMark(workspacesMark)
+            );
           } catch (error) {
             console.warn('Failed to load workspaces on initialization:', error);
           }
@@ -654,7 +692,12 @@ const AppContent: React.FC<AppContentProps> = () => {
 
         // Initialize storage service (for cloud mode, this will also initialize Google Drive auth)
         const storageService = getUnifiedStorageService();
+        const storageInitMark = startPerfMark('app_open_storage_initialize_ms');
         await storageService.initialize();
+        recordPerfMetric(
+          'app_open_storage_initialize_ms',
+          endPerfMark(storageInitMark)
+        );
         updateLoadingStep('storage', 'completed');
 
         // For cloud mode, initialize AuthManager with the Google Drive auth service
@@ -667,7 +710,14 @@ const AppContent: React.FC<AppContentProps> = () => {
           authManager.setGoogleDriveAuthService(googleDriveAuthService);
 
           // Initialize authentication through the AuthManager
+          const authManagerInitMark = startPerfMark(
+            'app_open_auth_manager_initialize_ms'
+          );
           await authManager.initialize();
+          recordPerfMetric(
+            'app_open_auth_manager_initialize_ms',
+            endPerfMark(authManagerInitMark)
+          );
           console.log('✅ AuthManager initialization complete');
 
           // Quick Win #1: Trust AuthManager state instead of probing
@@ -760,13 +810,47 @@ const AppContent: React.FC<AppContentProps> = () => {
           const isFullyInitialized = adapter.isFullyInitialized();
 
           if (!isFullyInitialized) {
-            updateLoadingStep('google-drive', 'in_progress');
-            await (adapter as any).initialize();
-            updateLoadingStep('google-drive', 'completed');
-            updateLoadingStep('data-sync', 'completed');
+            // Don't block app render on full cloud adapter finalization.
+            // This can involve a large Drive sync; we run it in background instead.
+            if (!cloudFinalizeStartedRef.current) {
+              cloudFinalizeStartedRef.current = true;
+              updateLoadingStep('google-drive', 'in_progress');
+              const cloudAdapterMark = startPerfMark(
+                'app_open_cloud_adapter_finalize_ms'
+              );
+              void (adapter as any)
+                .initialize()
+                .then(() => {
+                  recordPerfMetric(
+                    'app_open_cloud_adapter_finalize_ms',
+                    endPerfMark(cloudAdapterMark)
+                  );
+                  updateLoadingStep('google-drive', 'completed');
+                  updateLoadingStep('data-sync', 'completed');
+                })
+                .catch((error: any) => {
+                  console.warn(
+                    'Background CloudStorageAdapter initialization failed:',
+                    error
+                  );
+                  recordPerfMetric(
+                    'app_open_cloud_adapter_finalize_ms',
+                    endPerfMark(cloudAdapterMark)
+                  );
+                  updateLoadingStep(
+                    'google-drive',
+                    'error',
+                    'Background sync failed'
+                  );
+                })
+                .finally(() => {
+                  cloudFinalizeStartedRef.current = false;
+                });
+            }
           }
 
-          // Set flag regardless - either was already initialized or just completed
+          // Set ready flag immediately: page data loading can proceed and
+          // adapter finalization continues in background if needed.
           setCloudAdapterFullyInitialized(true);
         } else {
           // Not a CloudStorageAdapter - set as initialized
@@ -810,6 +894,7 @@ const AppContent: React.FC<AppContentProps> = () => {
       }
 
       try {
+        const restoreMark = startPerfMark('app_open_workspace_restore_ms');
         const storageService = getStorageService();
         const currentWorkspaceId = storageService.getCurrentWorkspaceId();
         const activeWorkspaceId = unifiedStorage.activeWorkspace.id;
@@ -824,6 +909,10 @@ const AppContent: React.FC<AppContentProps> = () => {
         // If they match, no need to switch - mark as restored
         if (currentIsPersonal && activeIsPersonal) {
           setWorkspaceRestored(true);
+          recordPerfMetric(
+            'app_open_workspace_restore_ms',
+            endPerfMark(restoreMark)
+          );
           return;
         }
         if (
@@ -832,6 +921,10 @@ const AppContent: React.FC<AppContentProps> = () => {
           && currentWorkspaceId === activeWorkspaceId
         ) {
           setWorkspaceRestored(true);
+          recordPerfMetric(
+            'app_open_workspace_restore_ms',
+            endPerfMark(restoreMark)
+          );
           return;
         }
 
@@ -839,6 +932,10 @@ const AppContent: React.FC<AppContentProps> = () => {
         // This happens when storage initialized with default (personal) but active workspace is shared
         await dispatch(switchWorkspace(activeWorkspaceId)).unwrap();
         setWorkspaceRestored(true);
+        recordPerfMetric(
+          'app_open_workspace_restore_ms',
+          endPerfMark(restoreMark)
+        );
       } catch (error) {
         console.warn(
           'Failed to restore active workspace on initialization:',
@@ -860,6 +957,24 @@ const AppContent: React.FC<AppContentProps> = () => {
   ]);
 
   useEffect(() => {
+    if (!storageInitialized || !cloudAdapterFullyInitialized || workspaceRestored) {
+      setWorkspaceRestoreWaitExceeded(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setWorkspaceRestoreWaitExceeded(true);
+      if (import.meta.env.DEV) {
+        console.info(
+          '[App Startup] Workspace restore exceeded wait budget; continuing render'
+        );
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [storageInitialized, cloudAdapterFullyInitialized, workspaceRestored]);
+
+  useEffect(() => {
     const envInfo = getEnvironmentInfo();
     if (envInfo.storageMode !== 'cloud') {
       return;
@@ -871,46 +986,75 @@ const AppContent: React.FC<AppContentProps> = () => {
       await authManager.checkAndRestore();
     }, 60000); // Check every 60 seconds instead of 30
 
-    const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        console.log(
-          '🔄 App became visible, restoring settings and authentication...'
-        );
+    const performVisibilityRestore = async (
+      reason: string,
+      options?: { includeSettings?: boolean }
+    ) => {
+      if (document.hidden) return;
+      if (visibilityRestoreInFlightRef.current) return;
+      const includeSettings = options?.includeSettings ?? true;
 
-        // First restore settings from cookies
+      const now = Date.now();
+      if (includeSettings) {
+        // Heavy full restore: keep this sparse to avoid UI jank.
+        if (now - lastFullVisibilityRestoreAtRef.current < 30000) {
+          return;
+        }
+      } else {
+        // Auth-only focus restore: lightweight but still coalesce quick bursts.
+        if (now - lastAuthOnlyRestoreAtRef.current < 15000) {
+          return;
+        }
+      }
+
+      visibilityRestoreInFlightRef.current = true;
+      if (includeSettings) {
+        lastFullVisibilityRestoreAtRef.current = now;
+      } else {
+        lastAuthOnlyRestoreAtRef.current = now;
+      }
+      console.log(
+        `🔄 App visible (${reason}); restoring ${includeSettings ? 'settings + authentication' : 'authentication'}`
+      );
+
+      if (includeSettings) {
         try {
-          console.log('🔄 Restoring settings from cookies...');
           await dispatch(fetchSettings()).unwrap();
-          console.log('✅ Settings restored from cookies');
         } catch (error) {
-          console.warn(
-            'Failed to restore settings on visibility change:',
-            error
-          );
+          console.warn('Failed to restore settings on app visibility:', error);
         }
+      }
 
-        // Use AuthManager to check and restore authentication
-        try {
-          const authManager = getAuthManager(dispatch);
-          await authManager.checkAndRestore();
-        } catch (error) {
-          console.warn(
-            'Failed to check/restore authentication on visibility change:',
-            error
-          );
-        }
+      try {
+        const authManager = getAuthManager(dispatch);
+        await authManager.checkAndRestore();
+      } catch (error) {
+        console.warn('Failed to restore authentication on app visibility:', error);
+      } finally {
+        visibilityRestoreInFlightRef.current = false;
       }
     };
 
+    const scheduleVisibilityRestore = (
+      reason: string,
+      delayMs: number,
+      options?: { includeSettings?: boolean }
+    ) => {
+      if (visibilityRestoreTimeoutRef.current !== null) {
+        window.clearTimeout(visibilityRestoreTimeoutRef.current);
+      }
+      visibilityRestoreTimeoutRef.current = window.setTimeout(() => {
+        visibilityRestoreTimeoutRef.current = null;
+        void performVisibilityRestore(reason, options);
+      }, delayMs);
+    };
+
     // Mobile-specific handling for app state changes
-    const handlePageShow = async (event: PageTransitionEvent) => {
+    const handlePageShow = (event: PageTransitionEvent) => {
       console.log('🔄 Page show event (mobile app restoration)', {
         persisted: event.persisted,
       });
-      // Small delay to ensure the app is fully restored
-      setTimeout(() => {
-        handleVisibilityChange();
-      }, 100);
+      scheduleVisibilityRestore('pageshow', 100);
     };
 
     const handlePageHide = () => {
@@ -919,12 +1063,16 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
 
     // Additional mobile-specific events
-    const handleFocus = async () => {
+    const handleFocus = () => {
       console.log('🔄 Window focus event (mobile app focused)');
-      // Handle focus restoration - common on mobile when returning from other apps
-      setTimeout(() => {
-        handleVisibilityChange();
-      }, 50);
+      if (!appWasHiddenRef.current) {
+        return;
+      }
+      appWasHiddenRef.current = false;
+      // Focus after hidden often occurs right before user input. Keep this auth-only.
+      scheduleVisibilityRestore('focus-after-hidden', 50, {
+        includeSettings: false,
+      });
     };
 
     const handleBlur = () => {
@@ -932,12 +1080,9 @@ const AppContent: React.FC<AppContentProps> = () => {
       // App lost focus - could be minimized or switched to another app
     };
 
-    const handleOnline = async () => {
+    const handleOnline = () => {
       console.log('🔄 Network online event (mobile network restored)');
-      // Network came back online - good time to check authentication
-      setTimeout(() => {
-        handleVisibilityChange();
-      }, 200);
+      scheduleVisibilityRestore('online', 200);
     };
 
     const handleBeforeUnload = () => {
@@ -946,6 +1091,19 @@ const AppContent: React.FC<AppContentProps> = () => {
     };
 
     // Add comprehensive mobile-specific event listeners
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        appWasHiddenRef.current = true;
+        return;
+      }
+      if (!document.hidden) {
+        appWasHiddenRef.current = false;
+        scheduleVisibilityRestore('visibilitychange', 0, {
+          includeSettings: true,
+        });
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('pagehide', handlePageHide);
@@ -964,6 +1122,10 @@ const AppContent: React.FC<AppContentProps> = () => {
 
     return () => {
       clearInterval(interval);
+      if (visibilityRestoreTimeoutRef.current !== null) {
+        window.clearTimeout(visibilityRestoreTimeoutRef.current);
+        visibilityRestoreTimeoutRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('pagehide', handlePageHide);
@@ -977,6 +1139,9 @@ const AppContent: React.FC<AppContentProps> = () => {
 
   // In cloud mode, wait for Google Drive authentication AND CloudStorageAdapter initialization before rendering pages
   // BUT: if auth failed (has error) or storage is not configured, let the app render to show login
+  const isOAuthCallbackRoute =
+    typeof window !== 'undefined'
+    && window.location.pathname.includes('/oauth-callback');
   const isCloudMode = unifiedStorage.mode === 'cloud';
   const authFailed = unifiedStorage.googleDrive.error !== null;
   const needsConfiguration = unifiedStorage.status !== 'configured';
@@ -991,18 +1156,43 @@ const AppContent: React.FC<AppContentProps> = () => {
   const waitingForCloudAdapter = isCloudMode && !cloudAdapterFullyInitialized;
 
   // Wait for workspace restoration to complete (ensures active workspace is loaded on page reload)
-  const waitingForWorkspaceRestore =
-    !workspaceRestored && storageInitialized && cloudAdapterFullyInitialized;
+  const waitingForWorkspaceRestoreCritical =
+    isCloudMode
+    && hasFIDUAuth
+    && unifiedStorage.googleDrive.isAuthenticated
+    && !workspaceRestoreWaitExceeded
+    && !workspaceRestored
+    && storageInitialized
+    && cloudAdapterFullyInitialized;
 
   // Skip loading screen if early check detected no FIDU auth in cloud mode
   const shouldShowLoadingScreen =
-    !earlyNoAuthDetected
+    !isOAuthCallbackRoute
+    && !earlyNoAuthDetected
     && (authLoading
       || !storageInitialized
-      || unifiedStorage.googleDrive.isLoading
       || waitingForCloudAuth
       || waitingForCloudAdapter
-      || waitingForWorkspaceRestore);
+      || waitingForWorkspaceRestoreCritical);
+
+  useEffect(() => {
+    if (shouldShowLoadingScreen) {
+      if (!loadingScreenVisibleMarkRef.current) {
+        loadingScreenVisibleMarkRef.current = startPerfMark(
+          'app_open_loading_screen_visible_ms'
+        );
+      }
+      return;
+    }
+
+    recordPerfMetric(
+      'app_open_loading_screen_visible_ms',
+      endPerfMark(loadingScreenVisibleMarkRef.current)
+    );
+    loadingScreenVisibleMarkRef.current = null;
+    recordPerfMetric('app_open_total_ms', endPerfMark(appStartupMarkRef.current));
+    appStartupMarkRef.current = null;
+  }, [shouldShowLoadingScreen]);
 
   if (shouldShowLoadingScreen) {
     // Use the new unified loading progress component
@@ -1021,7 +1211,7 @@ const AppContent: React.FC<AppContentProps> = () => {
     );
   }
 
-  if (!authInitialized) {
+  if (!authInitialized && !isOAuthCallbackRoute) {
     return (
       <Box
         display="flex"

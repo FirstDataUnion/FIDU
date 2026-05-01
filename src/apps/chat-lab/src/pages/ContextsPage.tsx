@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -55,13 +55,28 @@ import type {
   Conversation,
 } from '../types/contexts';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  runAfterNextFrame,
+  startPerfMark,
+} from '../utils/perfMarks';
 
 export default function ContextsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const dispatch = useAppDispatch();
-  const { currentProfile, user } = useAppSelector(state => state.auth);
+  const openToFirstPaintMarkRef = useRef<string | null>(
+    startPerfMark('contexts_open_to_first_paint_ms')
+  );
+  const openToDataReadyMarkRef = useRef<string | null>(
+    startPerfMark('contexts_open_to_initial_data_ready_ms')
+  );
+  const hasRecordedOpenDataReadyRef = useRef(false);
+  const { currentProfile, user, isAuthenticated } = useAppSelector(
+    state => state.auth
+  );
   const {
     items: contexts,
     loading,
@@ -108,22 +123,74 @@ export default function ContextsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isViewEditing, setIsViewEditing] = useState(false);
+  const [initialLoadCompleted, setInitialLoadCompleted] = useState(false);
+  const [showCloudWarmupLoading, setShowCloudWarmupLoading] = useState(false);
 
   useEffect(() => {
-    if (currentProfile?.id) {
-      dispatch(fetchContexts(currentProfile.id)).catch(error => {
-        console.log(
-          'Initial fetch failed, will retry when auth completes:',
-          error
-        );
-      });
-    }
+    const firstPaintMark = openToFirstPaintMarkRef.current;
+    runAfterNextFrame(() => {
+      recordPerfMetric('contexts_open_to_first_paint_ms', endPerfMark(firstPaintMark));
+      openToFirstPaintMarkRef.current = null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentProfile?.id) return;
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+    setInitialLoadCompleted(false);
+
+    const runFetch = () => {
+      if (cancelled) return;
+      const fetchMark = startPerfMark('contexts_open_contexts_fetch_ms');
+      dispatch(fetchContexts(currentProfile.id))
+        .catch(error => {
+          console.log(
+            'Initial fetch failed, will retry when auth completes:',
+            error
+          );
+        })
+        .finally(() => {
+          recordPerfMetric(
+            'contexts_open_contexts_fetch_ms',
+            endPerfMark(fetchMark)
+          );
+          if (!cancelled) {
+            setInitialLoadCompleted(true);
+          }
+        });
+    };
+
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(runFetch, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, [
     dispatch,
     currentProfile?.id,
     unifiedStorage.googleDrive.isAuthenticated,
     unifiedStorage.activeWorkspace?.id,
   ]);
+
+  useEffect(() => {
+    if (hasRecordedOpenDataReadyRef.current) return;
+    if (!initialLoadCompleted || loading) return;
+    hasRecordedOpenDataReadyRef.current = true;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'contexts_open_to_initial_data_ready_ms',
+        endPerfMark(openToDataReadyMarkRef.current)
+      );
+      openToDataReadyMarkRef.current = null;
+    });
+  }, [initialLoadCompleted, loading]);
 
   // Memoize filtered contexts to prevent recalculation on every render
   const filteredContexts = useMemo(() => {
@@ -142,6 +209,28 @@ export default function ContextsPage() {
       );
     });
   }, [contexts, searchQuery]);
+
+  const shouldStartCloudWarmupWindow =
+    unifiedStorage.mode === 'cloud'
+    && isAuthenticated
+    && unifiedStorage.googleDrive.isAuthenticated
+    && unifiedStorage.status === 'configured'
+    && !loading
+    && !error
+    && !searchQuery
+    && filteredContexts.length === 0;
+
+  useEffect(() => {
+    if (!shouldStartCloudWarmupWindow) {
+      setShowCloudWarmupLoading(false);
+      return;
+    }
+    setShowCloudWarmupLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowCloudWarmupLoading(false);
+    }, 12000);
+    return () => window.clearTimeout(timeoutId);
+  }, [shouldStartCloudWarmupWindow]);
 
   const handleContextMenuClose = useCallback(() => {
     setContextMenuPosition(null);
@@ -641,24 +730,46 @@ export default function ContextsPage() {
           && filteredContexts.length === 0
           && !loading && (
             <Box sx={{ textAlign: 'center', py: 8 }}>
-              <FolderIcon
-                sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
-              />
-              <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                No contexts found
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                {searchQuery
-                  ? 'Try adjusting your search'
-                  : 'Create your first context to get started'}
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateContext}
-              >
-                Add Context
-              </Button>
+              {showCloudWarmupLoading ? (
+                <>
+                  <CircularProgress size={44} sx={{ mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                    Loading contexts from cloud...
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 3 }}
+                  >
+                    We are downloading your contexts. They should appear shortly.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <FolderIcon
+                    sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
+                  />
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                    No contexts found
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 3 }}
+                  >
+                    {searchQuery
+                      ? 'Try adjusting your search'
+                      : 'Create your first context to get started'}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleCreateContext}
+                  >
+                    Add Context
+                  </Button>
+                </>
+              )}
             </Box>
           )}
       </Box>
@@ -690,6 +801,7 @@ export default function ContextsPage() {
       </Menu>
 
       {/* Create Context Dialog */}
+      {createDialogOpen && (
       <Dialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
@@ -757,8 +869,10 @@ export default function ContextsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Edit Context Dialog */}
+      {editDialogOpen && (
       <Dialog
         open={editDialogOpen}
         onClose={() => setEditDialogOpen(false)}
@@ -810,8 +924,10 @@ export default function ContextsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* View/Edit Context Dialog */}
+      {viewEditDialogOpen && (
       <Dialog
         open={viewEditDialogOpen}
         onClose={() => setViewEditDialogOpen(false)}
@@ -908,8 +1024,10 @@ export default function ContextsPage() {
           </Box>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Delete Context Dialog */}
+      {deleteDialogOpen && (
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -939,8 +1057,10 @@ export default function ContextsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Conversation Selection Dialog */}
+      {conversationSelectionDialogOpen && (
       <Dialog
         open={conversationSelectionDialogOpen}
         onClose={() => setConversationSelectionDialogOpen(false)}
@@ -960,8 +1080,10 @@ export default function ContextsPage() {
           />
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Create Conversation Selection Dialog */}
+      {createConversationSelectionDialogOpen && (
       <Dialog
         open={createConversationSelectionDialogOpen}
         onClose={() => setCreateConversationSelectionDialogOpen(false)}
@@ -982,12 +1104,15 @@ export default function ContextsPage() {
           />
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Help Modal */}
+      {helpModalOpen && (
       <ContextHelpModal
         open={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
       />
+      )}
 
       {/* Floating Export Actions */}
       {multiSelect.isSelectionMode && (
@@ -1000,6 +1125,7 @@ export default function ContextsPage() {
       )}
 
       {/* Resource Import Dialog */}
+      {showImportDialog && (
       <ResourceImportDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
@@ -1010,6 +1136,7 @@ export default function ContextsPage() {
           }
         }}
       />
+      )}
     </Box>
   );
 }

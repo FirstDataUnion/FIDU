@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -64,6 +64,12 @@ import { getResourceExportService } from '../services/resourceExport/resourceExp
 import ResourceImportDialog from '../components/resourceExport/ResourceImportDialog';
 import type { ExportSelection } from '../services/resourceExport/types';
 import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  runAfterNextFrame,
+  startPerfMark,
+} from '../utils/perfMarks';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{
@@ -395,6 +401,7 @@ const OptimizedSystemPromptsGrid = React.memo<{
   prompts: any[];
   onViewEdit: (systemPrompt: any) => void;
   onTryPrompt: (systemPrompt: any) => void;
+  showCloudWarmupCard?: boolean;
   isSelectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
@@ -404,6 +411,7 @@ const OptimizedSystemPromptsGrid = React.memo<{
     prompts,
     onViewEdit,
     onTryPrompt,
+    showCloudWarmupCard = false,
     isSelectionMode = false,
     selectedIds = new Set(),
     onToggleSelection,
@@ -477,6 +485,25 @@ const OptimizedSystemPromptsGrid = React.memo<{
               />
             </Box>
           ))}
+          {showCloudWarmupCard && (
+            <Card
+              sx={{
+                minHeight: 220,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1.5,
+                borderStyle: 'dashed',
+                borderColor: 'divider',
+              }}
+            >
+              <CircularProgress size={28} />
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                Loading more prompts from cloud...
+              </Typography>
+            </Card>
+          )}
         </Box>
 
         {/* Loading indicator */}
@@ -507,8 +534,17 @@ OptimizedSystemPromptsGrid.displayName = 'OptimizedSystemPromptsGrid';
 
 const SystemPromptsPage = React.memo(() => {
   const dispatch = useAppDispatch();
+  const openToFirstPaintMarkRef = useRef<string | null>(
+    startPerfMark('system_prompts_open_to_first_paint_ms')
+  );
+  const openToDataReadyMarkRef = useRef<string | null>(
+    startPerfMark('system_prompts_open_to_initial_data_ready_ms')
+  );
+  const hasRecordedOpenDataReadyRef = useRef(false);
   const navigate = useNavigate();
-  const { currentProfile, user } = useAppSelector(state => state.auth);
+  const { currentProfile, currentWorkspace, user, isAuthenticated } = useAppSelector(
+    state => state.auth
+  );
   const { items: systemPrompts, loading } = useAppSelector(
     state => state.systemPrompts
   );
@@ -578,21 +614,111 @@ const SystemPromptsPage = React.memo(() => {
   const multiSelect = useMultiSelect();
   const [isExporting, setIsExporting] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [initialLoadCompleted, setInitialLoadCompleted] = useState(false);
+  const [showCloudWarmupLoading, setShowCloudWarmupLoading] = useState(false);
+  const effectiveProfileId =
+    currentWorkspace?.type === 'shared'
+      ? `workspace-${currentWorkspace.id}-default`
+      : currentWorkspace?.profileId || currentProfile?.id;
 
   useEffect(() => {
-    if (currentProfile?.id) {
-      dispatch(fetchSystemPrompts(currentProfile.id)).catch(error => {
-        console.log(
-          'Initial fetch failed, will retry when auth completes:',
-          error
-        );
-      });
-    }
+    const firstPaintMark = openToFirstPaintMarkRef.current;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'system_prompts_open_to_first_paint_ms',
+        endPerfMark(firstPaintMark)
+      );
+      openToFirstPaintMarkRef.current = null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!effectiveProfileId) return;
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+    setInitialLoadCompleted(false);
+
+    const runFetch = () => {
+      if (cancelled) return;
+      const fetchMark = startPerfMark('system_prompts_open_fetch_ms');
+      dispatch(fetchSystemPrompts(effectiveProfileId))
+        .catch(error => {
+          console.log(
+            'Initial fetch failed, will retry when auth completes:',
+            error
+          );
+        })
+        .finally(() => {
+          recordPerfMetric(
+            'system_prompts_open_fetch_ms',
+            endPerfMark(fetchMark)
+          );
+          if (!cancelled) {
+            setInitialLoadCompleted(true);
+          }
+        });
+    };
+
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(runFetch, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, [
     dispatch,
-    currentProfile?.id,
+    effectiveProfileId,
     unifiedStorage.googleDrive.isAuthenticated,
     unifiedStorage.activeWorkspace?.id,
+  ]);
+
+  useEffect(() => {
+    if (hasRecordedOpenDataReadyRef.current) return;
+    if (!initialLoadCompleted || loading) return;
+    hasRecordedOpenDataReadyRef.current = true;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'system_prompts_open_to_initial_data_ready_ms',
+        endPerfMark(openToDataReadyMarkRef.current)
+      );
+      openToDataReadyMarkRef.current = null;
+    });
+  }, [initialLoadCompleted, loading]);
+
+  useEffect(() => {
+    if (!effectiveProfileId) return;
+    if (unifiedStorage.mode !== 'cloud') return;
+    if (!unifiedStorage.googleDrive.isAuthenticated) return;
+
+    // After fast app startup, cloud sync can finish shortly after page mount.
+    // Retry a few times so custom prompts appear without requiring navigation.
+    let attempts = 0;
+    const maxAttempts = 6;
+    const intervalId = window.setInterval(() => {
+      if (attempts >= maxAttempts) {
+        window.clearInterval(intervalId);
+        return;
+      }
+      attempts += 1;
+      if (!loading) {
+        void dispatch(fetchSystemPrompts(effectiveProfileId));
+      }
+    }, 2000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    dispatch,
+    effectiveProfileId,
+    unifiedStorage.mode,
+    unifiedStorage.googleDrive.isAuthenticated,
+    loading,
   ]);
 
   // Memoize expensive calculations to prevent recalculation on every render
@@ -676,6 +802,28 @@ const SystemPromptsPage = React.memo(() => {
     return filtered;
   }, [currentTabPrompts, debouncedSearchQuery, selectedCategories]);
 
+  const shouldStartCloudWarmupWindow =
+    unifiedStorage.mode === 'cloud'
+    && isAuthenticated
+    && unifiedStorage.googleDrive.isAuthenticated
+    && unifiedStorage.status === 'configured'
+    && !loading
+    && !debouncedSearchQuery
+    && selectedCategories.length === 0
+    && filteredPrompts.length === 0;
+
+  useEffect(() => {
+    if (!shouldStartCloudWarmupWindow) {
+      setShowCloudWarmupLoading(false);
+      return;
+    }
+    setShowCloudWarmupLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowCloudWarmupLoading(false);
+    }, 12000);
+    return () => window.clearTimeout(timeoutId);
+  }, [shouldStartCloudWarmupWindow]);
+
   // Memoize event handlers to prevent unnecessary re-renders
   const handleContextMenuClose = useCallback(() => {
     setContextMenuAnchor(null);
@@ -709,7 +857,7 @@ const SystemPromptsPage = React.memo(() => {
 
   const handleCreateSystemPromptSubmit = useCallback(async () => {
     if (
-      !currentProfile?.id
+      !effectiveProfileId
       || !systemPromptForm.name.trim()
       || !systemPromptForm.content.trim()
     )
@@ -730,7 +878,7 @@ const SystemPromptsPage = React.memo(() => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
-          profileId: currentProfile.id,
+          profileId: effectiveProfileId,
         })
       ).unwrap();
 
@@ -750,11 +898,11 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsCreating(false);
     }
-  }, [dispatch, currentProfile?.id, systemPromptForm]);
+  }, [dispatch, effectiveProfileId, systemPromptForm]);
 
   const handleUpdateSystemPromptSubmit = useCallback(async () => {
     if (
-      !currentProfile?.id
+      !effectiveProfileId
       || !selectedSystemPrompt
       || !systemPromptForm.name.trim()
       || !systemPromptForm.content.trim()
@@ -774,7 +922,7 @@ const SystemPromptsPage = React.memo(() => {
             tokenCount: Math.ceil(systemPromptForm.content.length / 4), // Approximate token count
             updatedAt: new Date().toISOString(),
           },
-          profileId: currentProfile.id,
+          profileId: effectiveProfileId,
         })
       ).unwrap();
 
@@ -795,7 +943,7 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsUpdating(false);
     }
-  }, [dispatch, selectedSystemPrompt, currentProfile?.id, systemPromptForm]);
+  }, [dispatch, selectedSystemPrompt, effectiveProfileId, systemPromptForm]);
 
   const handleDeleteSystemPrompt = useCallback(async () => {
     if (!selectedSystemPrompt) return;
@@ -855,7 +1003,7 @@ const SystemPromptsPage = React.memo(() => {
 
   // Export handlers
   const handleExportSelected = useCallback(async () => {
-    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+    if (!effectiveProfileId || multiSelect.selectionCount === 0) return;
 
     setIsExporting(true);
     try {
@@ -866,7 +1014,7 @@ const SystemPromptsPage = React.memo(() => {
 
       const exportData = await exportService.exportResources(
         selection,
-        currentProfile.id,
+        effectiveProfileId,
         user?.email
       );
 
@@ -881,7 +1029,7 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsExporting(false);
     }
-  }, [currentProfile?.id, multiSelect, user?.email]);
+  }, [effectiveProfileId, multiSelect, user?.email]);
 
   const handleCancelExport = useCallback(() => {
     multiSelect.exitSelectionMode();
@@ -932,6 +1080,7 @@ const SystemPromptsPage = React.memo(() => {
   const handleViewEditSubmit = useCallback(async () => {
     if (
       !currentProfile?.id
+      || !effectiveProfileId
       || !selectedSystemPrompt
       || !viewEditForm.name.trim()
       || !viewEditForm.content.trim()
@@ -949,7 +1098,7 @@ const SystemPromptsPage = React.memo(() => {
             content: viewEditForm.content.trim(),
             categories: normalizeCategories(viewEditForm.categories),
           },
-          profileId: currentProfile.id,
+          profileId: effectiveProfileId,
         })
       ).unwrap();
 
@@ -970,7 +1119,7 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsUpdating(false); // Changed from isViewEditing to isUpdating
     }
-  }, [dispatch, selectedSystemPrompt, currentProfile?.id, viewEditForm]);
+  }, [dispatch, selectedSystemPrompt, effectiveProfileId, viewEditForm]);
 
   // Memoize search query change handler with performance optimization
   const handleSearchQueryChange = useCallback(
@@ -1345,11 +1494,22 @@ const SystemPromptsPage = React.memo(() => {
               prompts={filteredPrompts}
               onViewEdit={handleViewEditSystemPrompt}
               onTryPrompt={handleTryPrompt}
+              showCloudWarmupCard={showCloudWarmupLoading && activeTab === 0}
               isSelectionMode={multiSelect.isSelectionMode}
               selectedIds={multiSelect.selectedIds}
               onToggleSelection={multiSelect.toggleSelection}
               onEnterSelectionMode={multiSelect.enterSelectionMode}
             />
+          </Box>
+        ) : showCloudWarmupLoading ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <CircularProgress size={44} sx={{ mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              Loading system prompts from cloud...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              We are downloading your system prompts. They should appear shortly.
+            </Typography>
           </Box>
         ) : (
           <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -1417,6 +1577,7 @@ const SystemPromptsPage = React.memo(() => {
       </Menu>
 
       {/* Create System Prompt Dialog */}
+      {createDialogOpen && (
       <Dialog
         open={createDialogOpen}
         onClose={handleCloseCreateDialog}
@@ -1546,8 +1707,10 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Edit System Prompt Dialog */}
+      {editDialogOpen && (
       <Dialog
         open={editDialogOpen}
         onClose={handleCloseEditDialog}
@@ -1676,8 +1839,10 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* View/Edit System Prompt Dialog */}
+      {viewEditDialogOpen && (
       <Dialog
         open={viewEditDialogOpen}
         onClose={() => setViewEditDialogOpen(false)}
@@ -1841,8 +2006,10 @@ const SystemPromptsPage = React.memo(() => {
           </Box>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && (
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -1893,8 +2060,10 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Try Prompt Confirmation Dialog */}
+      {showTryPromptDialog && (
       <Dialog
         open={showTryPromptDialog}
         onClose={handleCancelTryPrompt}
@@ -2018,14 +2187,18 @@ const SystemPromptsPage = React.memo(() => {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Help Modal */}
+      {helpModalOpen && (
       <SystemPromptHelpModal
         open={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
       />
+      )}
 
       {/* Error Notification Snackbar */}
+      {errorSnackbar.open && (
       <Snackbar
         open={errorSnackbar.open}
         autoHideDuration={6000}
@@ -2041,6 +2214,7 @@ const SystemPromptsPage = React.memo(() => {
           {errorSnackbar.message}
         </Alert>
       </Snackbar>
+      )}
 
       {/* Floating Export Actions */}
       {multiSelect.isSelectionMode && (
@@ -2053,16 +2227,18 @@ const SystemPromptsPage = React.memo(() => {
       )}
 
       {/* Resource Import Dialog */}
+      {showImportDialog && (
       <ResourceImportDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={() => {
           // Refresh system prompts after import
-          if (currentProfile?.id) {
-            dispatch(fetchSystemPrompts(currentProfile.id));
+          if (effectiveProfileId) {
+            dispatch(fetchSystemPrompts(effectiveProfileId));
           }
         }}
       />
+      )}
     </Box>
   );
 });

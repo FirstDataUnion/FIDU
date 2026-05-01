@@ -53,7 +53,10 @@ export interface StorageAdapter {
   ): Promise<ConversationsResponse>;
 
   getConversationById(id: string): Promise<Conversation>;
-  getMessages(conversationId: string): Promise<Message[]>;
+  getMessages(
+    conversationId: string,
+    options?: { hydrateImages?: boolean }
+  ): Promise<Message[]>;
   deleteConversation(conversationId: string): Promise<void>;
 
   // API Key operations

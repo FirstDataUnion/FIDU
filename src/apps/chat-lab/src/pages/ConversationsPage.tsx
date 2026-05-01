@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -67,12 +67,26 @@ import {
   selectSortedConversations,
 } from '../store/selectors/conversationsSelectors';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  runAfterNextFrame,
+  startPerfMark,
+} from '../utils/perfMarks';
 
 const ConversationsPage: React.FC = React.memo(() => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const dispatch = useAppDispatch();
+  const openToFirstPaintMarkRef = useRef<string | null>(
+    startPerfMark('conversations_open_to_first_paint_ms')
+  );
+  const openToDataReadyMarkRef = useRef<string | null>(
+    startPerfMark('conversations_open_to_initial_data_ready_ms')
+  );
+  const hasRecordedOpenDataReadyRef = useRef(false);
+  const [initialLoadCompleted, setInitialLoadCompleted] = useState(false);
 
   // Use memoized selectors for better performance
   const loading = useAppSelector(state => selectConversationsLoading(state));
@@ -121,6 +135,8 @@ const ConversationsPage: React.FC = React.memo(() => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] =
     useState<Conversation | null>(null);
+  const [showCloudListWarmupLoading, setShowCloudListWarmupLoading] =
+    useState(false);
 
   // Memoized search handler to prevent infinite loops
   const handleSearch = useCallback(
@@ -189,6 +205,21 @@ const ConversationsPage: React.FC = React.memo(() => {
   );
 
   const isContextsEnabled = useFeatureFlag('context');
+  const isAdapterInitializingError =
+    !!error
+    && (error.includes('Cloud storage adapter not initialized')
+      || error.includes('Cloud storage adapter not fully initialized'));
+
+  useEffect(() => {
+    const firstPaintMark = openToFirstPaintMarkRef.current;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'conversations_open_to_first_paint_ms',
+        endPerfMark(firstPaintMark)
+      );
+      openToFirstPaintMarkRef.current = null;
+    });
+  }, []);
 
   useEffect(() => {
     // Don't fetch while workspace is switching - wait for it to complete
@@ -197,10 +228,14 @@ const ConversationsPage: React.FC = React.memo(() => {
     }
 
     let isMounted = true;
+    setInitialLoadCompleted(false);
 
     const fetchData = async () => {
       if (isMounted) {
         try {
+          const conversationsLoadMark = startPerfMark(
+            'conversations_open_conversations_fetch_ms'
+          );
           await dispatch(
             fetchConversations({
               filters: {
@@ -211,21 +246,41 @@ const ConversationsPage: React.FC = React.memo(() => {
               limit: 20,
             })
           );
+          recordPerfMetric(
+            'conversations_open_conversations_fetch_ms',
+            endPerfMark(conversationsLoadMark)
+          );
 
           if (currentProfile?.id && isMounted) {
+            const contextsLoadMark = startPerfMark(
+              'conversations_open_contexts_fetch_ms'
+            );
             await dispatch(fetchContexts(currentProfile.id));
+            recordPerfMetric(
+              'conversations_open_contexts_fetch_ms',
+              endPerfMark(contextsLoadMark)
+            );
           }
         } catch {
           // If fetch fails due to auth not ready, the error will be handled by the slice
           console.log('Initial fetch failed, will retry when auth completes');
+        } finally {
+          if (isMounted) {
+            setInitialLoadCompleted(true);
+          }
         }
       }
     };
 
-    fetchData();
+    const rafId = window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        void fetchData();
+      }, 0);
+    });
 
     return () => {
       isMounted = false;
+      window.cancelAnimationFrame(rafId);
     };
   }, [
     dispatch,
@@ -236,6 +291,45 @@ const ConversationsPage: React.FC = React.memo(() => {
     unifiedStorage.activeWorkspace?.id,
     unifiedStorage.isSwitchingWorkspace, // Wait for switch to complete
   ]);
+
+  useEffect(() => {
+    if (hasRecordedOpenDataReadyRef.current) return;
+    if (!initialLoadCompleted || loading) return;
+    hasRecordedOpenDataReadyRef.current = true;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'conversations_open_to_initial_data_ready_ms',
+        endPerfMark(openToDataReadyMarkRef.current)
+      );
+      openToDataReadyMarkRef.current = null;
+    });
+  }, [initialLoadCompleted, loading]);
+
+  const shouldStartCloudListWarmupWindow =
+    unifiedStorage.mode === 'cloud'
+    && isAuthenticated
+    && unifiedStorage.googleDrive.isAuthenticated
+    && !loading
+    && !error
+    && !searchQuery
+    && selectedTags.length === 0
+    && sortedConversations.length === 0;
+
+  useEffect(() => {
+    if (!shouldStartCloudListWarmupWindow) {
+      setShowCloudListWarmupLoading(false);
+      return;
+    }
+
+    setShowCloudListWarmupLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowCloudListWarmupLoading(false);
+    }, 12000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [shouldStartCloudListWarmupWindow]);
 
   // Memoized event handlers
   const handleRefresh = useCallback(() => {
@@ -256,11 +350,24 @@ const ConversationsPage: React.FC = React.memo(() => {
     }
   }, [dispatch]);
 
+  useEffect(() => {
+    if (!isAdapterInitializingError || loading) return;
+    const retryId = window.setTimeout(() => {
+      handleRefresh();
+    }, 1200);
+    return () => window.clearTimeout(retryId);
+  }, [isAdapterInitializingError, loading, handleRefresh]);
+
   // Handle conversation selection for viewing
   const handleConversationSelect = useCallback(
     (conversation: Conversation) => {
       try {
-        dispatch(fetchConversationMessages(conversation.id));
+        dispatch(
+          fetchConversationMessages({
+            conversationId: conversation.id,
+            hydrateImages: false,
+          })
+        );
         setSelectedConversationId(conversation.id);
         if (isMobile) {
           setMobileView('detail');
@@ -319,7 +426,10 @@ const ConversationsPage: React.FC = React.memo(() => {
     try {
       // Fetch conversation messages to get the full content
       const messages = await dispatch(
-        fetchConversationMessages(selectedConversationForContext.id)
+        fetchConversationMessages({
+          conversationId: selectedConversationForContext.id,
+          hydrateImages: false,
+        })
       ).unwrap();
 
       // Prepare conversation data
@@ -554,6 +664,38 @@ const ConversationsPage: React.FC = React.memo(() => {
   }
 
   if (error) {
+    if (isAdapterInitializingError) {
+      return (
+        <Box
+          sx={{
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 3,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.5,
+              textAlign: 'center',
+              maxWidth: 420,
+            }}
+          >
+            <CircularProgress size={28} />
+            <Typography variant="h6">Downloading conversations...</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your cloud data is still syncing. Conversations will be ready in a
+              moment.
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
+
     // Check if this is a Google Drive authentication error or storage not configured
     const isGoogleDriveAuthError =
       error.includes('User must authenticate with Google Drive first')
@@ -714,23 +856,42 @@ const ConversationsPage: React.FC = React.memo(() => {
             <Box sx={{ flex: 1, overflow: 'auto', px: 2, pb: 2 }}>
               {sortedConversations.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <ChatIcon
-                    sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
-                  />
-                  <Typography variant="h6" gutterBottom>
-                    {searchQuery || selectedTags.length > 0
-                      ? 'No conversations match your filters'
-                      : 'No conversations found'}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    {searchQuery || selectedTags.length > 0
-                      ? 'Try adjusting your search terms or filters'
-                      : 'Your AI conversations will appear here once you have some data.'}
-                  </Typography>
+                  {showCloudListWarmupLoading ? (
+                    <>
+                      <CircularProgress size={44} sx={{ mb: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Loading conversations from cloud...
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 2 }}
+                      >
+                        We are downloading your conversations. They should appear
+                        shortly.
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <ChatIcon
+                        sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
+                      />
+                      <Typography variant="h6" gutterBottom>
+                        {searchQuery || selectedTags.length > 0
+                          ? 'No conversations match your filters'
+                          : 'No conversations found'}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 2 }}
+                      >
+                        {searchQuery || selectedTags.length > 0
+                          ? 'Try adjusting your search terms or filters'
+                          : 'Your AI conversations will appear here once you have some data.'}
+                      </Typography>
+                    </>
+                  )}
                   {(searchQuery || selectedTags.length > 0) && (
                     <Button
                       variant="outlined"
@@ -831,37 +992,41 @@ const ConversationsPage: React.FC = React.memo(() => {
           onContextPreviewChange={setContextPreview}
         />
 
-        <AddToContextDialog
-          open={showAddToContextDialog}
-          onClose={() => {
-            setShowAddToContextDialog(false);
-            setSelectedConversationForContext(null);
-            setSelectedContextId('');
-            setNewContextTitle('');
-            setIsAddingToContext(false);
-          }}
-          selectedConversation={selectedConversationForContext}
-          selectedContextId={selectedContextId}
-          newContextTitle={newContextTitle}
-          contexts={contexts}
-          isAdding={isAddingToContext}
-          onContextIdChange={setSelectedContextId}
-          onNewContextTitleChange={setNewContextTitle}
-          onSubmit={handleAddToContextSubmit}
-        />
+        {showAddToContextDialog && (
+          <AddToContextDialog
+            open={showAddToContextDialog}
+            onClose={() => {
+              setShowAddToContextDialog(false);
+              setSelectedConversationForContext(null);
+              setSelectedContextId('');
+              setNewContextTitle('');
+              setIsAddingToContext(false);
+            }}
+            selectedConversation={selectedConversationForContext}
+            selectedContextId={selectedContextId}
+            newContextTitle={newContextTitle}
+            contexts={contexts}
+            isAdding={isAddingToContext}
+            onContextIdChange={setSelectedContextId}
+            onNewContextTitleChange={setNewContextTitle}
+            onSubmit={handleAddToContextSubmit}
+          />
+        )}
 
-        <TagManager
-          open={showTagDialog}
-          onClose={() => {
-            setShowTagDialog(false);
-            setSelectedConversationId(null);
-            setEditedTags([]);
-          }}
-          editedTags={editedTags}
-          allTags={allTags}
-          onTagsChange={setEditedTags}
-          onSave={handleSaveTags}
-        />
+        {showTagDialog && (
+          <TagManager
+            open={showTagDialog}
+            onClose={() => {
+              setShowTagDialog(false);
+              setSelectedConversationId(null);
+              setEditedTags([]);
+            }}
+            editedTags={editedTags}
+            allTags={allTags}
+            onTagsChange={setEditedTags}
+            onSave={handleSaveTags}
+          />
+        )}
 
         {/* Floating Export Actions */}
         {multiSelect.isSelectionMode && (
@@ -874,16 +1039,18 @@ const ConversationsPage: React.FC = React.memo(() => {
         )}
 
         {/* Resource Import Dialog */}
-        <ResourceImportDialog
-          open={showImportDialog}
-          onClose={() => setShowImportDialog(false)}
-          onImportComplete={() => {
-            // Refresh conversations after import
-            if (currentProfile?.id) {
-              dispatch(fetchConversations({}));
-            }
-          }}
-        />
+        {showImportDialog && (
+          <ResourceImportDialog
+            open={showImportDialog}
+            onClose={() => setShowImportDialog(false)}
+            onImportComplete={() => {
+              // Refresh conversations after import
+              if (currentProfile?.id) {
+                dispatch(fetchConversations({}));
+              }
+            }}
+          />
+        )}
       </Box>
     );
   }
@@ -1127,23 +1294,42 @@ const ConversationsPage: React.FC = React.memo(() => {
           >
             {sortedConversations.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6 }}>
-                <ChatIcon
-                  sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
-                />
-                <Typography variant="h6" gutterBottom>
-                  {searchQuery || selectedTags.length > 0
-                    ? 'No conversations match your filters'
-                    : 'No conversations found'}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  {searchQuery || selectedTags.length > 0
-                    ? 'Try adjusting your search terms or filters'
-                    : 'Your AI conversations will appear here once you have some data.'}
-                </Typography>
+                {showCloudListWarmupLoading ? (
+                  <>
+                    <CircularProgress size={44} sx={{ mb: 2 }} />
+                    <Typography variant="h6" gutterBottom>
+                      Loading conversations from cloud...
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      We are downloading your conversations. They should appear
+                      shortly.
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <ChatIcon
+                      sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
+                    />
+                    <Typography variant="h6" gutterBottom>
+                      {searchQuery || selectedTags.length > 0
+                        ? 'No conversations match your filters'
+                        : 'No conversations found'}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      {searchQuery || selectedTags.length > 0
+                        ? 'Try adjusting your search terms or filters'
+                        : 'Your AI conversations will appear here once you have some data.'}
+                    </Typography>
+                  </>
+                )}
                 <Stack direction="row" spacing={2} justifyContent="center">
                   {(searchQuery || selectedTags.length > 0) && (
                     <Button
@@ -1344,37 +1530,41 @@ const ConversationsPage: React.FC = React.memo(() => {
         onContextPreviewChange={setContextPreview}
       />
 
-      <AddToContextDialog
-        open={showAddToContextDialog}
-        onClose={() => {
-          setShowAddToContextDialog(false);
-          setSelectedConversationForContext(null);
-          setSelectedContextId('');
-          setNewContextTitle('');
-          setIsAddingToContext(false);
-        }}
-        selectedConversation={selectedConversationForContext}
-        selectedContextId={selectedContextId}
-        newContextTitle={newContextTitle}
-        contexts={contexts}
-        isAdding={isAddingToContext}
-        onContextIdChange={setSelectedContextId}
-        onNewContextTitleChange={setNewContextTitle}
-        onSubmit={handleAddToContextSubmit}
-      />
+      {showAddToContextDialog && (
+        <AddToContextDialog
+          open={showAddToContextDialog}
+          onClose={() => {
+            setShowAddToContextDialog(false);
+            setSelectedConversationForContext(null);
+            setSelectedContextId('');
+            setNewContextTitle('');
+            setIsAddingToContext(false);
+          }}
+          selectedConversation={selectedConversationForContext}
+          selectedContextId={selectedContextId}
+          newContextTitle={newContextTitle}
+          contexts={contexts}
+          isAdding={isAddingToContext}
+          onContextIdChange={setSelectedContextId}
+          onNewContextTitleChange={setNewContextTitle}
+          onSubmit={handleAddToContextSubmit}
+        />
+      )}
 
-      <TagManager
-        open={showTagDialog}
-        onClose={() => {
-          setShowTagDialog(false);
-          setSelectedConversationId(null);
-          setEditedTags([]);
-        }}
-        editedTags={editedTags}
-        allTags={allTags}
-        onTagsChange={setEditedTags}
-        onSave={handleSaveTags}
-      />
+      {showTagDialog && (
+        <TagManager
+          open={showTagDialog}
+          onClose={() => {
+            setShowTagDialog(false);
+            setSelectedConversationId(null);
+            setEditedTags([]);
+          }}
+          editedTags={editedTags}
+          allTags={allTags}
+          onTagsChange={setEditedTags}
+          onSave={handleSaveTags}
+        />
+      )}
 
       {/* Floating Export Actions */}
       {multiSelect.isSelectionMode && (
@@ -1387,44 +1577,48 @@ const ConversationsPage: React.FC = React.memo(() => {
       )}
 
       {/* Resource Import Dialog */}
-      <ResourceImportDialog
-        open={showImportDialog}
-        onClose={() => setShowImportDialog(false)}
-        onImportComplete={() => {
-          // Refresh conversations after import
-          if (currentProfile?.id) {
-            dispatch(fetchConversations({}));
-          }
-        }}
-      />
+      {showImportDialog && (
+        <ResourceImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            // Refresh conversations after import
+            if (currentProfile?.id) {
+              dispatch(fetchConversations({}));
+            }
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Confirm Deletion</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete the conversation "
-            {conversationToDelete?.title}"? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {deleteDialogOpen && (
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleDeleteCancel}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete the conversation "
+              {conversationToDelete?.title}"? This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel} color="primary">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 });

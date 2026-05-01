@@ -69,10 +69,6 @@ export const fetchContexts = createAsyncThunk(
         error.message?.includes('Cloud storage adapter not initialized')
         || error.message?.includes('Cloud storage not fully initialized')
       ) {
-        console.warn(
-          'Storage adapter not ready yet, will retry later:',
-          error.message
-        );
         return rejectWithValue('Storage not ready, retrying...');
       }
       console.error('Failed to fetch contexts using unified storage:', error);

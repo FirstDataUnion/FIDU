@@ -118,11 +118,19 @@ function safeRecordImageUploadFailureMetric(
 }
 
 export class DriveImageObjectStoreService {
+  private static readonly sharedDisplayUrlCache = new Map<string, string>();
+  private static readonly sharedInFlightDisplayUrlLoads = new Map<
+    string,
+    Promise<string | undefined>
+  >();
   private readonly driveService: GoogleDriveService;
   private imagesFolderId: string | null = null;
   private index: ImageIndex = createEmptyIndex();
   private indexLoaded = false;
-  private readonly displayUrlCache = new Map<string, string>();
+  private readonly displayUrlCache =
+    DriveImageObjectStoreService.sharedDisplayUrlCache;
+  private readonly inFlightDisplayUrlLoads =
+    DriveImageObjectStoreService.sharedInFlightDisplayUrlLoads;
   private indexWriteBatchDepth = 0;
   private indexDirty = false;
 
@@ -345,30 +353,42 @@ export class DriveImageObjectStoreService {
     if (cached) {
       return cached;
     }
+    const inFlight = this.inFlightDisplayUrlLoads.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+    const loadPromise = (async () => {
+      const driveFileId =
+        typeof att.driveFileId === 'string' ? att.driveFileId : undefined;
+      let resolvedDriveFileId = driveFileId;
+      let mimeType = att.mimeType || 'image/png';
 
-    const driveFileId =
-      typeof att.driveFileId === 'string' ? att.driveFileId : undefined;
-    let resolvedDriveFileId = driveFileId;
-    let mimeType = att.mimeType || 'image/png';
-
-    if (!resolvedDriveFileId && att.imageId) {
-      await this.ensureIndexLoaded();
-      const indexed = this.index.images[att.imageId];
-      if (indexed) {
-        resolvedDriveFileId = indexed.driveFileId;
-        mimeType = indexed.mimeType || mimeType;
+      if (!resolvedDriveFileId && att.imageId) {
+        await this.ensureIndexLoaded();
+        const indexed = this.index.images[att.imageId];
+        if (indexed) {
+          resolvedDriveFileId = indexed.driveFileId;
+          mimeType = indexed.mimeType || mimeType;
+        }
       }
-    }
 
-    if (!resolvedDriveFileId) {
-      return undefined;
-    }
+      if (!resolvedDriveFileId) {
+        return undefined;
+      }
 
-    const bytes = await this.driveService.downloadFile(resolvedDriveFileId);
-    const base64 = this.bytesToBase64(bytes);
-    const url = `data:${mimeType};base64,${base64}`;
-    this.displayUrlCache.set(cacheKey, url);
-    return url;
+      const bytes = await this.driveService.downloadFile(resolvedDriveFileId);
+      const base64 = this.bytesToBase64(bytes);
+      const url = `data:${mimeType};base64,${base64}`;
+      this.displayUrlCache.set(cacheKey, url);
+      return url;
+    })();
+
+    this.inFlightDisplayUrlLoads.set(cacheKey, loadPromise);
+    try {
+      return await loadPromise;
+    } finally {
+      this.inFlightDisplayUrlLoads.delete(cacheKey);
+    }
   }
 
   /**

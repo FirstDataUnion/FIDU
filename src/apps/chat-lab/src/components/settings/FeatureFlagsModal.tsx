@@ -331,7 +331,10 @@ export const FeatureFlagsModal: React.FC<FeatureFlagsModalProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {configurableFlags
               && flagsToDisplay
-                .filter(([_, value]) => value.experimental === true)
+                .filter(
+                  ([key, value]) =>
+                    value.experimental === true && key !== 'direct_openrouter'
+                )
                 .map(([mapKey, mapValue]) =>
                   displayFeatureFlagToggles(mapKey, mapValue)
                 )}

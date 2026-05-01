@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -71,6 +71,12 @@ import { RESOURCE_TITLE_MAX_LENGTH } from '../constants/resourceLimits';
 import { fetchDocuments } from '../store/slices/documentsSlice';
 import type { MarkdownDocument } from '../types';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  runAfterNextFrame,
+  startPerfMark,
+} from '../utils/perfMarks';
 
 // Extracted BackgroundAgentCard component for better performance
 const BackgroundAgentCard = React.memo<{
@@ -934,6 +940,7 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
   documents: MarkdownDocument[];
   onViewEdit: (agent: BackgroundAgent) => void;
   onToggleEnabled: (agent: BackgroundAgent) => void;
+  showCloudWarmupCard?: boolean;
   onUpdatePreferences?: (
     agentId: string,
     prefs: {
@@ -954,6 +961,7 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
     documents,
     onViewEdit,
     onToggleEnabled,
+    showCloudWarmupCard = false,
     onUpdatePreferences,
     onUpdateAgent,
     isSelectionMode = false,
@@ -991,6 +999,25 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
             onEnterSelectionMode={onEnterSelectionMode}
           />
         ))}
+        {showCloudWarmupCard && (
+          <Card
+            sx={{
+              minHeight: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1.5,
+              borderStyle: 'dashed',
+              borderColor: 'divider',
+            }}
+          >
+            <CircularProgress size={28} />
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              Loading more agents from cloud...
+            </Typography>
+          </Card>
+        )}
       </Box>
     );
   }
@@ -999,6 +1026,15 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
 OptimizedBackgroundAgentsGrid.displayName = 'OptimizedBackgroundAgentsGrid';
 
 export default function BackgroundAgentsPage(): React.JSX.Element {
+  const openToFirstPaintMarkRef = useRef<string | null>(
+    startPerfMark('background_agents_open_to_first_paint_ms')
+  );
+  const openToDataReadyMarkRef = useRef<string | null>(
+    startPerfMark('background_agents_open_to_initial_data_ready_ms')
+  );
+  const hasRecordedOpenDataReadyRef = useRef(false);
+  const hasCompletedInitialDocumentsLoadRef = useRef(false);
+  const hasCompletedInitialAgentsLoadRef = useRef(false);
   const [agents, setAgents] = useState<BackgroundAgent[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1006,9 +1042,12 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState(0); // 0: All, 1: Built-in, 2: Custom
   const [prefsVersion, setPrefsVersion] = useState(0); // Track preference changes to trigger re-renders
   const currentProfile = useAppSelector(state => state.auth.currentProfile);
+  const currentWorkspace = useAppSelector(state => state.auth.currentWorkspace);
   const { user } = useAppSelectorFull(state => state.auth);
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const unifiedStorage = useUnifiedStorage();
   const documents = useAppSelector(state => state.documents.items);
+  const documentsLoading = useAppSelector(state => state.documents.loading);
   const dispatch = useAppDispatch();
   const isOutputToDocumentEnabled = useFeatureFlag(
     'background_agent_to_document'
@@ -1019,6 +1058,12 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const multiSelect = useMultiSelect();
   const [isExporting, setIsExporting] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [initialLoadCompleted, setInitialLoadCompleted] = useState(false);
+  const [showCloudWarmupLoading, setShowCloudWarmupLoading] = useState(false);
+  const effectiveProfileId =
+    currentWorkspace?.type === 'shared'
+      ? `workspace-${currentWorkspace.id}-default`
+      : currentWorkspace?.profileId || currentProfile?.id;
 
   // Dialog states
   const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
@@ -1057,19 +1102,62 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     modelId: DEFAULT_BACKGROUND_AGENT_MODEL_ID,
   });
 
+  useEffect(() => {
+    const firstPaintMark = openToFirstPaintMarkRef.current;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'background_agents_open_to_first_paint_ms',
+        endPerfMark(firstPaintMark)
+      );
+      openToFirstPaintMarkRef.current = null;
+    });
+  }, []);
+
   // Fetch documents when profile or auth state changes
   useEffect(() => {
-    if (currentProfile?.id) {
-      dispatch(fetchDocuments(currentProfile.id)).catch(error => {
-        console.log(
-          'Initial fetch failed, will retry when auth completes:',
-          error
-        );
-      });
-    }
+    if (!effectiveProfileId) return;
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+
+    hasCompletedInitialDocumentsLoadRef.current = false;
+    hasRecordedOpenDataReadyRef.current = false;
+    setInitialLoadCompleted(false);
+
+    const runFetch = () => {
+      if (cancelled) return;
+      const fetchMark = startPerfMark('background_agents_open_documents_fetch_ms');
+      dispatch(fetchDocuments(effectiveProfileId))
+        .catch(error => {
+          console.log(
+            'Initial fetch failed, will retry when auth completes:',
+            error
+          );
+        })
+        .finally(() => {
+          recordPerfMetric(
+            'background_agents_open_documents_fetch_ms',
+            endPerfMark(fetchMark)
+          );
+          if (!cancelled) {
+            hasCompletedInitialDocumentsLoadRef.current = true;
+          }
+        });
+    };
+
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(runFetch, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, [
     dispatch,
-    currentProfile?.id,
+    effectiveProfileId,
     unifiedStorage.googleDrive.isAuthenticated,
   ]);
 
@@ -1079,7 +1167,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     setError(null);
     try {
       const storage = getUnifiedStorageService();
-      const profileId = currentProfile?.id;
+      const profileId = effectiveProfileId;
       if (!profileId) {
         throw new Error(
           'No active profile. Please select or create a profile.'
@@ -1104,11 +1192,94 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [currentProfile?.id]);
+  }, [effectiveProfileId]);
 
   useEffect(() => {
-    void loadAgents();
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+
+    hasCompletedInitialAgentsLoadRef.current = false;
+    hasRecordedOpenDataReadyRef.current = false;
+    setInitialLoadCompleted(false);
+
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        const fetchMark = startPerfMark('background_agents_open_agents_fetch_ms');
+        void loadAgents().finally(() => {
+          recordPerfMetric(
+            'background_agents_open_agents_fetch_ms',
+            endPerfMark(fetchMark)
+          );
+          if (!cancelled) {
+            hasCompletedInitialAgentsLoadRef.current = true;
+          }
+        });
+      }, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
   }, [loadAgents, unifiedStorage.activeWorkspace?.id]);
+
+  useEffect(() => {
+    if (
+      hasCompletedInitialAgentsLoadRef.current
+      && hasCompletedInitialDocumentsLoadRef.current
+      && !loading
+      && !documentsLoading
+    ) {
+      setInitialLoadCompleted(true);
+    }
+  }, [loading, documentsLoading]);
+
+  useEffect(() => {
+    if (hasRecordedOpenDataReadyRef.current) return;
+    if (!initialLoadCompleted) return;
+    hasRecordedOpenDataReadyRef.current = true;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'background_agents_open_to_initial_data_ready_ms',
+        endPerfMark(openToDataReadyMarkRef.current)
+      );
+      openToDataReadyMarkRef.current = null;
+    });
+  }, [initialLoadCompleted]);
+
+  useEffect(() => {
+    if (!effectiveProfileId) return;
+    if (unifiedStorage.mode !== 'cloud') return;
+    if (!unifiedStorage.googleDrive.isAuthenticated) return;
+
+    // Background agents use local component state (not Redux list state),
+    // so re-poll briefly after mount to pick up data once cloud sync completes.
+    let attempts = 0;
+    const maxAttempts = 6;
+    const intervalId = window.setInterval(() => {
+      if (attempts >= maxAttempts) {
+        window.clearInterval(intervalId);
+        return;
+      }
+      attempts += 1;
+      if (!loading) {
+        void loadAgents();
+      }
+    }, 2000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    effectiveProfileId,
+    unifiedStorage.mode,
+    unifiedStorage.googleDrive.isAuthenticated,
+    loading,
+    loadAgents,
+  ]);
 
   // Transform built-in agents from data file to BackgroundAgent format, merging stored preferences
   const transformedBuiltInAgents = useMemo(() => {
@@ -1171,6 +1342,28 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     return filtered;
   }, [currentTabAgents, debouncedSearchQuery]);
 
+  const shouldStartCloudWarmupWindow =
+    unifiedStorage.mode === 'cloud'
+    && isAuthenticated
+    && unifiedStorage.googleDrive.isAuthenticated
+    && unifiedStorage.status === 'configured'
+    && !loading
+    && !error
+    && !debouncedSearchQuery
+    && activeTab === 0;
+
+  useEffect(() => {
+    if (!shouldStartCloudWarmupWindow) {
+      setShowCloudWarmupLoading(false);
+      return;
+    }
+    setShowCloudWarmupLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowCloudWarmupLoading(false);
+    }, 12000);
+    return () => window.clearTimeout(timeoutId);
+  }, [shouldStartCloudWarmupWindow]);
+
   const availableBackgroundAgentModels =
     getBackgroundAgentCompatibleModels(getAllModels());
 
@@ -1227,7 +1420,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
 
   const handleCreateAgentSubmit = useCallback(async () => {
     // Validate required fields
-    if (!currentProfile?.id) {
+    if (!effectiveProfileId) {
       setError('No active profile. Please select or create a profile.');
       return;
     }
@@ -1296,7 +1489,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     try {
       setError(null);
       const storage = getUnifiedStorageService();
-      const profileId = currentProfile?.id;
+      const profileId = effectiveProfileId;
       if (!profileId) throw new Error('No active profile.');
 
       let outputDocumentId = createForm.outputDocumentId;
@@ -1351,7 +1544,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to create agent');
     }
-  }, [createForm, currentProfile?.id, isDocumentsEnabled]);
+  }, [createForm, effectiveProfileId, isDocumentsEnabled]);
 
   const handleToggleEnabled = async (agent: BackgroundAgent) => {
     // For built-in agents, save enabled state to localStorage
@@ -1373,7 +1566,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     // For custom agents, update in storage
     try {
       const storage = getUnifiedStorageService();
-      const profileId = currentProfile?.id;
+      const profileId = effectiveProfileId;
       if (!profileId) throw new Error('No active profile.');
       const updated = {
         ...agent,
@@ -1390,7 +1583,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   const handleUpdateAgent = async (updatedAgent: BackgroundAgent) => {
     try {
       const storage = getUnifiedStorageService();
-      const profileId = currentProfile?.id;
+      const profileId = effectiveProfileId;
       if (!profileId) throw new Error('No active profile.');
       const saved = await storage.updateBackgroundAgent(
         updatedAgent,
@@ -1423,7 +1616,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
   );
 
   const handleExportSelected = useCallback(async () => {
-    if (!currentProfile?.id || multiSelect.selectionCount === 0) return;
+    if (!effectiveProfileId || multiSelect.selectionCount === 0) return;
     setIsExporting(true);
     try {
       const exportService = getResourceExportService();
@@ -1432,7 +1625,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       };
       const exportData = await exportService.exportResources(
         selection,
-        currentProfile.id,
+        effectiveProfileId,
         user?.email
       );
       exportService.downloadExport(exportData);
@@ -1443,7 +1636,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } finally {
       setIsExporting(false);
     }
-  }, [currentProfile?.id, multiSelect, user?.email]);
+  }, [effectiveProfileId, multiSelect, user?.email]);
 
   const handleCancelExport = useCallback(() => {
     multiSelect.exitSelectionMode();
@@ -1564,7 +1757,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       }
 
       // For custom agents, update in storage
-      if (!currentProfile?.id) {
+      if (!effectiveProfileId) {
         setError('No active profile. Please select or create a profile.');
         return;
       }
@@ -1586,7 +1779,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
             title: viewEditForm.newOutputDocumentTitle,
             content: '',
           },
-          currentProfile.id
+          effectiveProfileId
         );
         viewEditForm.outputDocumentId = created.id;
       }
@@ -1603,7 +1796,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       };
       const saved = await storage.updateBackgroundAgent(
         updated,
-        currentProfile.id
+        effectiveProfileId
       );
       setAgents(prev => prev.map(a => (a.id === saved.id ? saved : a)));
       setViewEditDialogOpen(false);
@@ -1611,7 +1804,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     } catch (e: any) {
       setError(e?.message || 'Failed to update agent');
     }
-  }, [selectedAgent, viewEditForm, currentProfile?.id, isDocumentsEnabled]);
+  }, [selectedAgent, viewEditForm, effectiveProfileId, isDocumentsEnabled]);
 
   const handleDeleteAgent = useCallback(async () => {
     if (!selectedAgent || selectedAgent.isSystem) return;
@@ -1865,6 +2058,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
             documents={documents}
             onViewEdit={handleViewEditAgent}
             onToggleEnabled={handleToggleEnabled}
+            showCloudWarmupCard={showCloudWarmupLoading && activeTab === 0}
             onUpdatePreferences={handleUpdatePreferences}
             onUpdateAgent={handleUpdateAgent}
             isSelectionMode={multiSelect.isSelectionMode}
@@ -1872,6 +2066,17 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
             onToggleSelection={multiSelect.toggleSelection}
             onEnterSelectionMode={multiSelect.enterSelectionMode}
           />
+        ) : showCloudWarmupLoading ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <CircularProgress size={44} sx={{ mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              Loading background agents from cloud...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              We are downloading your background agents. They should appear
+              shortly.
+            </Typography>
+          </Box>
         ) : (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <SmartToyIcon
@@ -1906,6 +2111,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       </Box>
 
       {/* View/Edit Dialog */}
+      {viewEditDialogOpen && (
       <Dialog
         open={viewEditDialogOpen}
         onClose={() => setViewEditDialogOpen(false)}
@@ -2353,8 +2559,10 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           </Box>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && (
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -2405,8 +2613,10 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Create New Agent Dialog */}
+      {createDialogOpen && (
       <Dialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
@@ -2809,6 +3019,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           </Box>
         </DialogActions>
       </Dialog>
+      )}
 
       {/* Floating Export Actions */}
       {multiSelect.isSelectionMode && (
@@ -2821,12 +3032,13 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
       )}
 
       {/* Resource Import Dialog */}
+      {showImportDialog && (
       <ResourceImportDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={() => {
           // Refresh background agents after import
-          if (currentProfile?.id) {
+          if (effectiveProfileId) {
             const load = async () => {
               try {
                 const storage = getUnifiedStorageService();
@@ -2834,7 +3046,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                   undefined,
                   1,
                   20,
-                  currentProfile.id
+                  effectiveProfileId
                 );
                 const customAgents = (backgroundAgents || [])
                   .filter((a: BackgroundAgent) => !a.isSystem)
@@ -2851,6 +3063,7 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
           }
         }}
       />
+      )}
     </Box>
   );
 }

@@ -71,9 +71,12 @@ export const conversationsService = {
   /**
    * Get messages for a conversation
    */
-  async getMessages(conversationId: string): Promise<Message[]> {
+  async getMessages(
+    conversationId: string,
+    options?: { hydrateImages?: boolean }
+  ): Promise<Message[]> {
     const storage = getUnifiedStorageService();
-    return await storage.getMessages(conversationId);
+    return await storage.getMessages(conversationId, options);
   },
 
   /**

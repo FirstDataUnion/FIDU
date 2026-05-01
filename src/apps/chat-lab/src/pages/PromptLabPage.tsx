@@ -5,6 +5,7 @@ import {
   useCallback,
   useRef,
   useMemo,
+  memo,
   type JSX,
   type MouseEvent,
 } from 'react';
@@ -83,10 +84,6 @@ import {
   deleteConversation,
   updateConversationWithMessages,
 } from '../store/slices/conversationsSlice';
-import {
-  setCurrentPrompt,
-  clearCurrentPrompt,
-} from '../store/slices/promptLabSlice';
 import { conversationsService } from '../services/conversationsService';
 import { getUnifiedStorageService } from '../services/storage/UnifiedStorageService';
 import { BUILT_IN_BACKGROUND_AGENTS } from '../data/backgroundAgents';
@@ -145,6 +142,12 @@ import {
   downloadTextFile,
   type ConversationExportFormat,
 } from '../utils/conversationExport';
+import {
+  endPerfMark,
+  recordPerfMetric,
+  runAfterNextFrame,
+  startPerfMark,
+} from '../utils/perfMarks';
 
 // Helper function to safely record metrics - gracefully handles if MetricsService is unavailable
 const safeRecordMessageSent = (
@@ -200,6 +203,113 @@ interface BackgroundAgentPreferences {
 interface AllAgentPreferences {
   [agentId: string]: BackgroundAgentPreferences;
 }
+
+interface MessageActionsButtonProps {
+  messageIndex: number;
+  isMobile: boolean;
+  themeMode: 'light' | 'dark';
+  onCopySingleMessage: (messageIndex: number) => Promise<void>;
+  onCopyConversationRange: (messageIndex: number) => Promise<void>;
+  onRequestDownload: (
+    messageIndex: number,
+    mode: 'single' | 'from-here'
+  ) => void;
+}
+
+const MessageActionsButton = memo(function MessageActionsButton({
+  messageIndex,
+  isMobile,
+  themeMode,
+  onCopySingleMessage,
+  onCopyConversationRange,
+  onRequestDownload,
+}: MessageActionsButtonProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+  const openMenu = useCallback((event: MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setAnchorEl(null);
+  }, []);
+
+  return (
+    <>
+      <Tooltip title="Copy / Download message" placement="top" arrow>
+        <IconButton
+          onClick={openMenu}
+          sx={{
+            position: 'absolute',
+            top: isMobile ? 6 : 8,
+            right: isMobile ? 6 : 8,
+            width: isMobile ? 40 : 36,
+            height: isMobile ? 40 : 36,
+            borderRadius: '50%',
+            backgroundColor:
+              themeMode === 'light' ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.24)',
+            color: themeMode === 'light' ? 'text.primary' : 'white',
+            opacity: 0.9,
+            zIndex: 10,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.24)',
+            '&:hover': {
+              backgroundColor:
+                themeMode === 'light' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.36)',
+              opacity: 1,
+              transform: 'scale(1.1)',
+              boxShadow: '0 5px 10px rgba(0,0,0,0.34)',
+            },
+            '&:active': isMobile
+              ? {
+                  transform: 'scale(0.95)',
+                  backgroundColor:
+                    themeMode === 'light' ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.44)',
+                }
+              : {},
+            transition: 'all 0.2s ease',
+          }}
+          aria-label="Copy / Download message"
+        >
+          <ContentCopyIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
+        <MenuItem
+          onClick={async () => {
+            closeMenu();
+            await onCopySingleMessage(messageIndex);
+          }}
+        >
+          Copy this message to clipboard
+        </MenuItem>
+        <MenuItem
+          onClick={async () => {
+            closeMenu();
+            await onCopyConversationRange(messageIndex);
+          }}
+        >
+          Copy this message and all below to clipboard
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            closeMenu();
+            onRequestDownload(messageIndex, 'single');
+          }}
+        >
+          Download this message as file
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            closeMenu();
+            onRequestDownload(messageIndex, 'from-here');
+          }}
+        >
+          Download this message and all below
+        </MenuItem>
+      </Menu>
+    </>
+  );
+});
 
 // Helper functions for localStorage preferences
 const loadAgentPreferences = (): AllAgentPreferences => {
@@ -1180,7 +1290,7 @@ function BackgroundAgentDialogCard({
 // Helper function to generate user-friendly error messages and debug info
 const USAGE_LIMIT_REACHED_MESSAGE = `Usage Limit Reached: You have reached your spending limit for the month. This will reset on the first of each month. You can check your usage limits via the FIDU dashboard at [identity.firstdataunion.org](https://identity.firstdataunion.org)
 
-To get more usage, consider swapping to a different subscription tier via the FIDU dashboard ([identity.firstdataunion.org](https://identity.firstdataunion.org)) or opt in for variable billing based on your usage (*coming soon!).
+To get more usage, visit the FIDU dashboard at [identity.firstdataunion.org](https://identity.firstdataunion.org) and purchase more credits via the 'Usage' tab.
 
 If you have any questions or feedback while we work on this area of the product, please get in touch at hello@firstdataunion.org`;
 
@@ -2162,7 +2272,9 @@ export default function PromptLabPage() {
   const spacing = useResponsiveSpacing();
 
   // Redux state
-  const { currentPrompt } = useAppSelector(state => state.promptLab);
+  const { currentPrompt: initialPromptValue } = useAppSelector(
+    state => state.promptLab
+  );
   const { currentProfile } = useAppSelector(state => state.auth);
   const {
     items: contexts,
@@ -2193,6 +2305,13 @@ export default function PromptLabPage() {
   );
   const isDirectOpenRouterEnabled = useFeatureFlag('direct_openrouter');
   const isSharedWorkspace = unifiedStorage.activeWorkspace?.type === 'shared';
+  const openToFirstPaintMarkRef = useRef<string | null>(
+    startPerfMark('promptlab_open_to_first_paint_ms')
+  );
+  const openToDataReadyMarkRef = useRef<string | null>(
+    startPerfMark('promptlab_open_to_initial_data_ready_ms')
+  );
+  const hasRecordedOpenDataReadyRef = useRef(false);
 
   // Load OpenRouter models when feature flag is enabled
   useEffect(() => {
@@ -2205,6 +2324,17 @@ export default function PromptLabPage() {
       });
     }
   }, [isDirectOpenRouterEnabled]);
+
+  useEffect(() => {
+    const firstPaintMark = openToFirstPaintMarkRef.current;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'promptlab_open_to_first_paint_ms',
+        endPerfMark(firstPaintMark)
+      );
+      openToFirstPaintMarkRef.current = null;
+    });
+  }, []);
 
   // Persistence keys for sessionStorage (memoized to prevent recreation)
   const STORAGE_KEYS = useMemo(
@@ -2276,9 +2406,22 @@ export default function PromptLabPage() {
   const [selectedModel, setSelectedModel] = useState(
     settings.lastUsedModel || 'auto-router'
   );
+  const isHardReloadRef = useRef(false);
+  const navigationTypeProbedRef = useRef(false);
+  if (typeof window !== 'undefined' && !navigationTypeProbedRef.current) {
+    navigationTypeProbedRef.current = true;
+    const navEntries = window.performance.getEntriesByType?.('navigation');
+    const nav =
+      navEntries && navEntries.length > 0
+        ? (navEntries[0] as PerformanceNavigationTiming)
+        : null;
+    isHardReloadRef.current = nav?.type === 'reload';
+  }
   const selectedModelRef = useRef(selectedModel);
   selectedModelRef.current = selectedModel;
   const lastSessionHydratedConversationIdRef = useRef<string | null>(null);
+  const pendingRefreshImageRetryConversationIdRef = useRef<string | null>(null);
+  const pendingRefreshImageRetryAttemptsRef = useRef(0);
 
   const [selectedContexts, setSelectedContexts] = useState<Context[]>(() => {
     const STORAGE_KEYS_TEMP = {
@@ -2304,9 +2447,14 @@ export default function PromptLabPage() {
     SystemPrompt[]
   >(() => loadFromSession(STORAGE_KEYS.systemPrompts) || []);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingConversationFromNavigation, setIsLoadingConversationFromNavigation] =
+    useState(false);
   const [isHydratingSessionImages, setIsHydratingSessionImages] =
     useState(false);
+  const [isRetryHydratingSessionImages, setIsRetryHydratingSessionImages] =
+    useState(false);
   const [isRetryingImageLoads, setIsRetryingImageLoads] = useState(false);
+  const recentConversationsRequestSeqRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [ghostMessages, setGhostMessages] = useState<Record<string, Message[]>>(
     {}
@@ -2376,6 +2524,28 @@ export default function PromptLabPage() {
       () => loadFromSession(STORAGE_KEYS.conversation) || null
     );
   const [isSavingConversation, setIsSavingConversation] = useState(false);
+  const pendingMessagesPaintMarkRef = useRef<string | null>(null);
+  const pendingSessionPersistTimerRef = useRef<number | null>(null);
+  const promptInputValueRef = useRef(initialPromptValue);
+  const promptInputElementRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
+    null
+  );
+
+  const setPromptInputValue = useCallback((nextValue: string) => {
+    promptInputValueRef.current = nextValue;
+    if (
+      promptInputElementRef.current
+      && promptInputElementRef.current.value !== nextValue
+    ) {
+      promptInputElementRef.current.value = nextValue;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialPromptValue !== promptInputValueRef.current) {
+      setPromptInputValue(initialPromptValue);
+    }
+  }, [initialPromptValue, setPromptInputValue]);
 
   // Update selectedModel when settings change (e.g., when settings are loaded from localStorage)
   useEffect(() => {
@@ -3186,6 +3356,10 @@ export default function PromptLabPage() {
     Conversation[]
   >([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
+  const [showRecentConversationsWarmupLoading, setShowRecentConversationsWarmupLoading] =
+    useState(false);
+  const [isRecentConversationsAdapterInitializing, setIsRecentConversationsAdapterInitializing] =
+    useState(false);
 
   // Modal states
   const [modelModalOpen, setModelModalOpen] = useState(false);
@@ -3204,11 +3378,6 @@ export default function PromptLabPage() {
     useState<{ messageIndex: number; mode: 'single' | 'from-here' } | null>(
       null
     );
-  const [messageActionsAnchorEl, setMessageActionsAnchorEl] =
-    useState<null | HTMLElement>(null);
-  const [messageActionsIndex, setMessageActionsIndex] = useState<number | null>(
-    null
-  );
 
   // System prompt change state
   const [changingSystemPrompt, setChangingSystemPrompt] =
@@ -3225,9 +3394,11 @@ export default function PromptLabPage() {
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [isSelectionDragging, setIsSelectionDragging] = useState(false);
   const [selectionHintOpen, setSelectionHintOpen] = useState(false);
   const promptAbortController = useRef<AbortController | null>(null);
+  const isSelectionDraggingRef = useRef(false);
+  const selectionDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const selectionDragMovedRef = useRef(false);
 
   // Show toast message
   const showToast = useCallback((message: string) => {
@@ -3238,14 +3409,34 @@ export default function PromptLabPage() {
   const handleMessagesMouseDown = useCallback(
     (event: MouseEvent<HTMLElement>) => {
       if (isMobile || event.button !== 0) return;
-      setIsSelectionDragging(true);
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          'button, [role="button"], a, input, textarea, [contenteditable="true"]'
+        )
+      ) {
+        return;
+      }
+      isSelectionDraggingRef.current = true;
+      selectionDragStartRef.current = { x: event.clientX, y: event.clientY };
+      selectionDragMovedRef.current = false;
     },
     [isMobile]
   );
 
   const handleMessagesMouseMove = useCallback(
     (event: MouseEvent<HTMLElement>) => {
-      if (!isSelectionDragging || isMobile) return;
+      if (!isSelectionDraggingRef.current || isMobile) return;
+      const start = selectionDragStartRef.current;
+      if (start) {
+        const movedEnough =
+          Math.abs(event.clientX - start.x) > 3
+          || Math.abs(event.clientY - start.y) > 3;
+        if (!movedEnough && !selectionDragMovedRef.current) {
+          return;
+        }
+        selectionDragMovedRef.current = true;
+      }
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed) return;
       const container = messagesContainerRef.current;
@@ -3267,19 +3458,28 @@ export default function PromptLabPage() {
         container.scrollBy({ top: Math.ceil(ratio * maxStep) });
       }
     },
-    [isSelectionDragging, isMobile]
+    [isMobile]
   );
 
-  const handleMessagesMouseUp = useCallback(() => {
-    setIsSelectionDragging(false);
+  const handleMessagesMouseUp = useCallback((event: MouseEvent<HTMLElement>) => {
+    isSelectionDraggingRef.current = false;
+    selectionDragStartRef.current = null;
+    if (!selectionDragMovedRef.current) {
+      selectionDragMovedRef.current = false;
+      return;
+    }
+    selectionDragMovedRef.current = false;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        'button, [role="button"], a, input, textarea, [contenteditable="true"]'
+      )
+    ) {
+      return;
+    }
     const selectionText = window.getSelection()?.toString().trim() || '';
     if (selectionText.length === 0) return;
     setSelectionHintOpen(true);
-  }, []);
-
-  const closeMessageActionsMenu = useCallback(() => {
-    setMessageActionsAnchorEl(null);
-    setMessageActionsIndex(null);
   }, []);
 
   const downloadConversationRange = useCallback(
@@ -3437,14 +3637,6 @@ export default function PromptLabPage() {
     executeMessageDownload,
   ]);
 
-  const handleMessageActionMenuOpen = useCallback(
-    (event: MouseEvent<HTMLElement>, messageIndex: number) => {
-      setMessageActionsAnchorEl(event.currentTarget);
-      setMessageActionsIndex(messageIndex);
-    },
-    []
-  );
-
   // Get conversation ID for filtering alerts
   const currentConversationId = currentConversation?.id;
 
@@ -3474,7 +3666,11 @@ export default function PromptLabPage() {
   }, []);
 
   useEffect(() => {
-    const clearSelectionDrag = () => setIsSelectionDragging(false);
+    const clearSelectionDrag = () => {
+      isSelectionDraggingRef.current = false;
+      selectionDragStartRef.current = null;
+      selectionDragMovedRef.current = false;
+    };
     document.addEventListener('mouseup', clearSelectionDrag);
     return () => document.removeEventListener('mouseup', clearSelectionDrag);
   }, []);
@@ -3508,20 +3704,60 @@ export default function PromptLabPage() {
 
   // Load contexts and system prompts
   useEffect(() => {
-    if (currentProfile) {
-      dispatch(fetchContexts(currentProfile.id)).catch(error => {
-        console.log(
-          'Initial contexts fetch failed, will retry when auth completes:',
-          error
-        );
-      });
-      dispatch(fetchSystemPrompts(currentProfile.id)).catch(error => {
-        console.log(
-          'Initial system prompts fetch failed, will retry when auth completes:',
-          error
-        );
-      });
-    }
+    if (!currentProfile) return;
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+
+    const runInitialFetches = () => {
+      if (cancelled) return;
+      const contextsLoadMark = startPerfMark('promptlab_open_contexts_fetch_ms');
+      dispatch(fetchContexts(currentProfile.id))
+        .catch(error => {
+          console.log(
+            'Initial contexts fetch failed, will retry when auth completes:',
+            error
+          );
+        })
+        .finally(() => {
+          recordPerfMetric(
+            'promptlab_open_contexts_fetch_ms',
+            endPerfMark(contextsLoadMark)
+          );
+        });
+
+      const systemPromptsLoadMark = startPerfMark(
+        'promptlab_open_system_prompts_fetch_ms'
+      );
+      dispatch(fetchSystemPrompts(currentProfile.id))
+        .catch(error => {
+          console.log(
+            'Initial system prompts fetch failed, will retry when auth completes:',
+            error
+          );
+        })
+        .finally(() => {
+          recordPerfMetric(
+            'promptlab_open_system_prompts_fetch_ms',
+            endPerfMark(systemPromptsLoadMark)
+          );
+        });
+    };
+
+    // Prioritize first visual render, then start non-critical startup fetches.
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(runInitialFetches, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [currentProfile, dispatch, unifiedStorage.googleDrive.isAuthenticated]);
 
   // Set default system prompt when loaded
@@ -3538,8 +3774,13 @@ export default function PromptLabPage() {
   // Load recent conversations
   const loadRecentConversations = useCallback(async () => {
     if (!currentProfile) return;
+    const requestSeq = ++recentConversationsRequestSeqRef.current;
 
+    const recentConversationsMark = startPerfMark(
+      'promptlab_open_recent_conversations_load_ms'
+    );
     setLoadingConversations(true);
+    setIsRecentConversationsAdapterInitializing(false);
     try {
       const response = await conversationsService.getAll(
         {},
@@ -3547,7 +3788,9 @@ export default function PromptLabPage() {
         5,
         currentProfile.id
       );
-      setRecentConversations(response.conversations);
+      if (requestSeq === recentConversationsRequestSeqRef.current) {
+        setRecentConversations(response.conversations);
+      }
     } catch (error: any) {
       // Check if this is a storage initialization timing issue
       if (
@@ -3557,33 +3800,181 @@ export default function PromptLabPage() {
         console.warn(
           'Storage not ready for recent conversations, will skip for now'
         );
-        setRecentConversations([]);
+        if (requestSeq === recentConversationsRequestSeqRef.current) {
+          setIsRecentConversationsAdapterInitializing(true);
+        }
       } else {
         console.error('Error loading recent conversations:', error);
       }
     } finally {
-      setLoadingConversations(false);
+      if (requestSeq === recentConversationsRequestSeqRef.current) {
+        setLoadingConversations(false);
+      }
+      recordPerfMetric(
+        'promptlab_open_recent_conversations_load_ms',
+        endPerfMark(recentConversationsMark)
+      );
     }
   }, [currentProfile]);
 
   useEffect(() => {
-    loadRecentConversations();
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
+
+    rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled) {
+          void loadRecentConversations();
+        }
+      }, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [loadRecentConversations]);
+
+  const shouldStartRecentConversationsWarmupWindow =
+    isRecentConversationsInChatPageEnabled
+    && conversationsDrawerOpen
+    && unifiedStorage.mode === 'cloud'
+    && unifiedStorage.googleDrive.isAuthenticated
+    && !loadingConversations
+    && recentConversations.length === 0;
+
+  useEffect(() => {
+    if (!shouldStartRecentConversationsWarmupWindow) {
+      setShowRecentConversationsWarmupLoading(false);
+      return;
+    }
+
+    setShowRecentConversationsWarmupLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowRecentConversationsWarmupLoading(false);
+    }, 12000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [shouldStartRecentConversationsWarmupWindow]);
+
+  useEffect(() => {
+    if (!isRecentConversationsAdapterInitializing || loadingConversations) return;
+    const retryId = window.setTimeout(() => {
+      void loadRecentConversations();
+    }, 1200);
+    return () => window.clearTimeout(retryId);
+  }, [
+    isRecentConversationsAdapterInitializing,
+    loadingConversations,
+    loadRecentConversations,
+  ]);
+
+  useEffect(() => {
+    const onSyncComplete = () => {
+      if (!isRecentConversationsInChatPageEnabled) return;
+      if (!currentProfile?.id) return;
+      void loadRecentConversations();
+    };
+    window.addEventListener('chatlab-sync-complete', onSyncComplete);
+    return () => {
+      window.removeEventListener('chatlab-sync-complete', onSyncComplete);
+    };
+  }, [
+    isRecentConversationsInChatPageEnabled,
+    currentProfile?.id,
+    loadRecentConversations,
+  ]);
+
+  useEffect(() => {
+    if (!isRecentConversationsInChatPageEnabled) return;
+    if (!conversationsDrawerOpen) return;
+    if (loadingConversations) return;
+    if (recentConversations.length > 0) return;
+    void loadRecentConversations();
+  }, [
+    isRecentConversationsInChatPageEnabled,
+    conversationsDrawerOpen,
+    loadingConversations,
+    recentConversations.length,
+    loadRecentConversations,
+  ]);
+
+  useEffect(() => {
+    if (!conversationsDrawerOpen) return;
+    if (!showRecentConversationsWarmupLoading) return;
+    if (loadingConversations) return;
+    if (recentConversations.length > 0) return;
+
+    const intervalId = window.setInterval(() => {
+      void loadRecentConversations();
+    }, 2000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    conversationsDrawerOpen,
+    showRecentConversationsWarmupLoading,
+    loadingConversations,
+    recentConversations.length,
+    loadRecentConversations,
+  ]);
 
   // Persist conversation state to sessionStorage
   useEffect(() => {
-    if (messages.length > 0) {
+    if (pendingSessionPersistTimerRef.current !== null) {
+      window.clearTimeout(pendingSessionPersistTimerRef.current);
+      pendingSessionPersistTimerRef.current = null;
+    }
+
+    if (messages.length === 0) return;
+
+    const snapshot = messages;
+    pendingSessionPersistTimerRef.current = window.setTimeout(() => {
+      pendingSessionPersistTimerRef.current = null;
+      const persistMark = startPerfMark('promptlab_session_messages_persist_ms');
       saveToSession(
         STORAGE_KEYS.messages,
-        sanitizeMessagesForSession(messages)
+        sanitizeMessagesForSession(snapshot)
       );
-    }
+      recordPerfMetric(
+        'promptlab_session_messages_persist_ms',
+        endPerfMark(persistMark)
+      );
+    }, 250);
+
+    return () => {
+      if (pendingSessionPersistTimerRef.current !== null) {
+        window.clearTimeout(pendingSessionPersistTimerRef.current);
+        pendingSessionPersistTimerRef.current = null;
+      }
+    };
   }, [
     messages,
     saveToSession,
     sanitizeMessagesForSession,
     STORAGE_KEYS.messages,
   ]);
+
+  useEffect(() => {
+    if (!pendingMessagesPaintMarkRef.current) return;
+    const markId = pendingMessagesPaintMarkRef.current;
+    pendingMessagesPaintMarkRef.current = null;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'promptlab_messages_state_to_next_paint_ms',
+        endPerfMark(markId)
+      );
+    });
+  }, [messages]);
 
   useEffect(() => {
     if (currentConversation) {
@@ -3613,22 +4004,64 @@ export default function PromptLabPage() {
   // Handle conversation loading when navigating from conversations page
   useEffect(() => {
     if (location.state?.loadConversation && location.state?.conversationId) {
+      const conversationId = location.state.conversationId;
+
+      // Full reload: history may still carry loadConversation; skip replay and
+      // keep session-restored state. In-session navigation: if this conversation
+      // is already hydrated, only clear stale location.state.
+      if (isHardReloadRef.current) {
+        navigate('/prompt-lab', { replace: true });
+        return;
+      }
+
+      if (currentConversation?.id === conversationId && messages.length > 0) {
+        navigate('/prompt-lab', { replace: true });
+        return;
+      }
+
       const loadConversationFromState = async () => {
+        const navLoadMark = startPerfMark(
+          'promptlab_open_navigation_conversation_load_ms'
+        );
         try {
+          setIsLoadingConversationFromNavigation(true);
           const conversationId = location.state.conversationId;
+          // Prevent showing stale previous conversation while the selected
+          // conversation is fetched.
+          setMessages([]);
+
+          if (location.state.conversation) {
+            setCurrentConversation(location.state.conversation);
+            // Restore prompt/system settings immediately so the page context
+            // matches the selected conversation before async message load.
+            if (location.state.conversation.originalPrompt) {
+              restoreConversationSettings(location.state.conversation);
+            }
+          } else {
+            const placeholderConversation: Conversation = {
+              id: conversationId,
+              title: location.state.conversationTitle || 'Conversation',
+              platform: location.state.platform || 'other',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastMessage: '',
+              messageCount: 0,
+              tags: location.state.tags || [],
+              isArchived: false,
+              isFavorite: false,
+              participants: [],
+              status: 'active',
+            };
+            setCurrentConversation(placeholderConversation);
+          }
+
           // Get messages for the conversation
           const messages =
             await conversationsService.getMessages(conversationId);
 
           // Use the complete conversation object from navigation state
           if (location.state.conversation) {
-            setCurrentConversation(location.state.conversation);
             setMessages(messages);
-
-            // Restore system prompts from the conversation
-            if (location.state.conversation.originalPrompt) {
-              restoreConversationSettings(location.state.conversation);
-            }
 
             // Update unread alert count for this conversation
             setUnreadAlertCount(getUnreadAlertCount(conversationId));
@@ -3636,26 +4069,20 @@ export default function PromptLabPage() {
             // Clear the navigation state to prevent reloading on subsequent renders
             navigate('/prompt-lab', { replace: true });
           } else {
-            // Fallback: create a minimal conversation object
-            const conversation: Conversation = {
-              id: conversationId,
-              title: location.state.conversationTitle || 'Conversation',
-              platform: location.state.platform || 'other',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              lastMessage:
-                messages.length > 0
-                  ? messages[messages.length - 1].content
-                  : '',
-              messageCount: messages.length,
-              tags: location.state.tags || [],
-              isArchived: false,
-              isFavorite: false,
-              participants: [],
-              status: 'active',
-            };
-
-            setCurrentConversation(conversation);
+            // Update placeholder with fetched metadata.
+            setCurrentConversation(prev =>
+              prev && prev.id === conversationId
+                ? {
+                    ...prev,
+                    lastMessage:
+                      messages.length > 0
+                        ? messages[messages.length - 1].content
+                        : '',
+                    messageCount: messages.length,
+                    updatedAt: new Date().toISOString(),
+                  }
+                : prev
+            );
             setMessages(messages);
 
             // Update unread alert count for this conversation
@@ -3670,12 +4097,24 @@ export default function PromptLabPage() {
             error
           );
           setError('Failed to load conversation');
+        } finally {
+          setIsLoadingConversationFromNavigation(false);
+          recordPerfMetric(
+            'promptlab_open_navigation_conversation_load_ms',
+            endPerfMark(navLoadMark)
+          );
         }
       };
 
       loadConversationFromState();
     }
-  }, [location.state, navigate, restoreConversationSettings]);
+  }, [
+    location.state,
+    navigate,
+    restoreConversationSettings,
+    currentConversation?.id,
+    messages.length,
+  ]);
 
   // On hard refresh/navigation, state can be restored from sessionStorage.
   // Re-load canonical messages from local storage once per conversation so we
@@ -3691,11 +4130,25 @@ export default function PromptLabPage() {
     }
     lastSessionHydratedConversationIdRef.current = currentConversation.id;
     (async () => {
+      const sessionHydrationMark = startPerfMark(
+        'promptlab_open_session_image_hydration_ms'
+      );
       setIsHydratingSessionImages(true);
       try {
         const storage = getUnifiedStorageService();
         const hydrated = await storage.getMessages(currentConversation.id);
-        setMessages(hydrated);
+        setMessages(prev => {
+          // Keep the session-restored snapshot if canonical hydration
+          // transiently returns empty during startup/sync race windows.
+          if (hydrated.length === 0 && prev.length > 0) {
+            pendingRefreshImageRetryConversationIdRef.current =
+              currentConversation.id;
+            pendingRefreshImageRetryAttemptsRef.current = 0;
+            setIsRetryHydratingSessionImages(true);
+            return prev;
+          }
+          return hydrated;
+        });
       } catch (error) {
         console.warn(
           'Failed to hydrate session-restored drive_ref images after refresh:',
@@ -3703,9 +4156,89 @@ export default function PromptLabPage() {
         );
       } finally {
         setIsHydratingSessionImages(false);
+        recordPerfMetric(
+          'promptlab_open_session_image_hydration_ms',
+          endPerfMark(sessionHydrationMark)
+        );
       }
     })();
   }, [currentConversation?.id, location.state?.loadConversation]);
+
+  // If we preserved session-restored messages because canonical hydration
+  // returned empty during refresh startup, retry a few times so drive_ref image
+  // URLs hydrate without requiring route navigation.
+  useEffect(() => {
+    if (!currentConversation?.id) return;
+    if (
+      pendingRefreshImageRetryConversationIdRef.current !== currentConversation.id
+    ) {
+      return;
+    }
+    const hasUnresolvedDriveRefImages = messages.some(message =>
+      (message.attachments ?? []).some(att => {
+        if (!(att.type === 'image' && att.storage === 'drive_ref')) {
+          return false;
+        }
+        return (
+          !att.url
+          || att.status === 'pending_upload'
+          || att.status === 'missing'
+          || att.lastHydrationErrorCode === 'display_fetch_failed'
+        );
+      })
+    );
+    if (!hasUnresolvedDriveRefImages) {
+      pendingRefreshImageRetryConversationIdRef.current = null;
+      pendingRefreshImageRetryAttemptsRef.current = 0;
+      setIsRetryHydratingSessionImages(false);
+      return;
+    }
+
+    if (pendingRefreshImageRetryAttemptsRef.current >= 6) {
+      pendingRefreshImageRetryConversationIdRef.current = null;
+      pendingRefreshImageRetryAttemptsRef.current = 0;
+      setIsRetryHydratingSessionImages(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      pendingRefreshImageRetryAttemptsRef.current += 1;
+      try {
+        const storage = getUnifiedStorageService();
+        const refreshed = await storage.getMessages(currentConversation.id);
+        if (!cancelled && refreshed.length > 0) {
+          setMessages(refreshed);
+        }
+      } catch {
+        // Non-blocking retry path; polling effect/manual retry can still recover.
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentConversation?.id, messages]);
+
+  useEffect(() => {
+    if (hasRecordedOpenDataReadyRef.current) return;
+    if (contextsLoading || systemPromptsLoading || loadingConversations) return;
+    if (isHydratingSessionImages) return;
+    hasRecordedOpenDataReadyRef.current = true;
+    runAfterNextFrame(() => {
+      recordPerfMetric(
+        'promptlab_open_to_initial_data_ready_ms',
+        endPerfMark(openToDataReadyMarkRef.current)
+      );
+      openToDataReadyMarkRef.current = null;
+    });
+  }, [
+    contextsLoading,
+    systemPromptsLoading,
+    loadingConversations,
+    isHydratingSessionImages,
+  ]);
 
   // Handle system prompt application from navigation
   useEffect(() => {
@@ -3713,13 +4246,18 @@ export default function PromptLabPage() {
       location.state?.openSystemPromptDrawer
       && location.state?.applySystemPrompt
     ) {
+      if (isHardReloadRef.current) {
+        navigate('/prompt-lab', { replace: true });
+        return;
+      }
+
       const systemPrompt = location.state.applySystemPrompt;
 
       // Handle different scenarios based on navigation state
       if (location.state.startNew) {
         // Start new conversation - clear existing state
         setMessages([]);
-        dispatch(clearCurrentPrompt());
+        setPromptInputValue('');
         setSelectedContexts([]);
         setSelectedSystemPrompts([systemPrompt]);
         setCurrentConversation(null);
@@ -3754,20 +4292,35 @@ export default function PromptLabPage() {
       // Clear the navigation state to prevent reloading on subsequent renders
       navigate('/prompt-lab', { replace: true });
     }
-  }, [location.state, navigate, clearSession, dispatch]);
+  }, [
+    location.state,
+    navigate,
+    clearSession,
+    dispatch,
+    currentConversation?.id,
+    messages.length,
+  ]);
 
   // Keep image upload/hydration status fresh while viewing a conversation.
-  // Sync reconciliation can update attachment status in storage after the bubble
-  // has already rendered, so we periodically re-read messages to surface warnings.
+  // Only poll while there are unresolved image states; otherwise avoid
+  // re-hydrating the whole conversation in the background.
   useEffect(() => {
     if (!currentConversation?.id) return;
     if (isLoading || isSavingConversation || isRetryingImageLoads) return;
-    const hasDriveRefImages = messages.some(message =>
-      (message.attachments ?? []).some(
-        att => att.type === 'image' && att.storage === 'drive_ref'
-      )
+    const hasUnresolvedDriveRefImages = messages.some(message =>
+      (message.attachments ?? []).some(att => {
+        if (!(att.type === 'image' && att.storage === 'drive_ref')) {
+          return false;
+        }
+        return (
+          !att.url
+          || att.status === 'pending_upload'
+          || att.status === 'missing'
+          || att.lastHydrationErrorCode === 'display_fetch_failed'
+        );
+      })
     );
-    if (!hasDriveRefImages) return;
+    if (!hasUnresolvedDriveRefImages) return;
 
     let cancelled = false;
     const intervalId = window.setInterval(async () => {
@@ -3780,13 +4333,31 @@ export default function PromptLabPage() {
             const prevSig = JSON.stringify(
               prev.map(m => ({
                 id: m.id,
-                attachments: m.attachments,
+                attachments: (m.attachments ?? []).map(att => ({
+                  id: att.id,
+                  storage: att.storage,
+                  type: att.type,
+                  status: att.status,
+                  url: att.url,
+                  driveFileId: att.driveFileId,
+                  imageId: att.imageId,
+                  lastHydrationErrorCode: att.lastHydrationErrorCode,
+                })),
               }))
             );
             const nextSig = JSON.stringify(
               refreshed.map(m => ({
                 id: m.id,
-                attachments: m.attachments,
+                attachments: (m.attachments ?? []).map(att => ({
+                  id: att.id,
+                  storage: att.storage,
+                  type: att.type,
+                  status: att.status,
+                  url: att.url,
+                  driveFileId: att.driveFileId,
+                  imageId: att.imageId,
+                  lastHydrationErrorCode: att.lastHydrationErrorCode,
+                })),
               }))
             );
             return prevSig === nextSig ? prev : refreshed;
@@ -3795,7 +4366,7 @@ export default function PromptLabPage() {
       } catch {
         // Non-blocking background refresh.
       }
-    }, 8000);
+    }, 15000);
 
     return () => {
       cancelled = true;
@@ -3990,12 +4561,13 @@ export default function PromptLabPage() {
   // Handle sending a message
   const handleSendMessage = async () => {
     if (
-      !currentPrompt.trim()
+      !promptInputValueRef.current.trim()
       || !selectedModel
       || !selectedSystemPrompts.length
       || !currentProfile
     )
       return;
+    const promptText = promptInputValueRef.current;
 
     // Close the system prompt drawer when sending a message
     if (systemPromptDrawerOpen) {
@@ -4013,7 +4585,7 @@ export default function PromptLabPage() {
       // Create a conversation object immediately so it exists from the first message
       const newConversation: Conversation = {
         id: conversationId,
-        title: currentPrompt.substring(0, 40) || 'New Conversation',
+        title: promptText.substring(0, 40) || 'New Conversation',
         platform: selectedModel as any,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -4026,7 +4598,7 @@ export default function PromptLabPage() {
         status: 'active',
         modelsUsed: [],
         originalPrompt: {
-          promptText: currentPrompt,
+          promptText: promptText,
           contexts: selectedContexts,
           context: selectedContexts[0] || null, // Keep for backward compatibility
           systemPrompts: selectedSystemPrompts,
@@ -4080,15 +4652,18 @@ export default function PromptLabPage() {
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
       conversationId: conversationId,
-      content: currentPrompt,
+      content: promptText,
       role: 'user',
       timestamp: new Date().toISOString(),
       platform: selectedModel, // Store the selected model ID
       isEdited: false,
     };
 
+    pendingMessagesPaintMarkRef.current = startPerfMark(
+      'promptlab_messages_state_to_next_paint_ms'
+    );
     setMessages(prev => [...prev, userMessage]);
-    dispatch(clearCurrentPrompt());
+    setPromptInputValue('');
     setIsLoading(true);
     setError(null);
     promptAbortController.current = new AbortController();
@@ -4117,11 +4692,12 @@ export default function PromptLabPage() {
     }
 
     try {
+      const executePromptMark = startPerfMark('promptlab_execute_prompt_ms');
       // Call the actual API to get AI response
       const response = await promptsApi.executePrompt(
         messages, // Pass existing conversation history
         selectedContexts,
-        currentPrompt,
+        promptText,
         selectedModel,
         currentProfile.id,
         selectedSystemPrompts, // Pass the full array of selected system prompts
@@ -4139,6 +4715,10 @@ export default function PromptLabPage() {
               );
             }
           : undefined
+      );
+      recordPerfMetric(
+        'promptlab_execute_prompt_ms',
+        endPerfMark(executePromptMark)
       );
 
       // Track successful message sent to model (safely handle if MetricsService unavailable)
@@ -4439,7 +5019,7 @@ export default function PromptLabPage() {
     // Only copy current message and initialize greeting for fresh wizard conversations
     if (wizardMessages.length === 0) {
       // Copy current message to wizard initial message for new conversations
-      setWizardInitialMessage(currentPrompt);
+      setWizardInitialMessage(promptInputValueRef.current);
 
       // Initialize wizard with greeting
       const greetingMessage: WizardMessage = {
@@ -4603,7 +5183,7 @@ export default function PromptLabPage() {
   };
 
   const handleCopyWizardResult = (content: string) => {
-    dispatch(setCurrentPrompt(content));
+    setPromptInputValue(content);
     showToast('Prompt copied to chat input!');
     setWizardMinimized(true);
   };
@@ -5012,7 +5592,7 @@ export default function PromptLabPage() {
           }));
 
           // Load the message content into the chat text box
-          dispatch(setCurrentPrompt(targetMessage.content));
+          setPromptInputValue(targetMessage.content);
           // Remove all messages after this point (including the target message)
           setMessages(prev => prev.slice(0, messageIndex));
           // Clear any errors
@@ -5053,7 +5633,7 @@ export default function PromptLabPage() {
       setError(null);
 
       // Set the user message content for resending
-      dispatch(setCurrentPrompt(lastUserMessage.content));
+      setPromptInputValue(lastUserMessage.content);
 
       // Show loading state
       setIsLoading(true);
@@ -5154,6 +5734,9 @@ export default function PromptLabPage() {
               )
             );
           } else {
+          pendingMessagesPaintMarkRef.current = startPerfMark(
+            'promptlab_messages_state_to_next_paint_ms'
+          );
             setMessages(prev => [...prev, aiMessage]);
             focusAssistantResponse(aiMessage.id, {
               smooth: true,
@@ -5218,6 +5801,7 @@ export default function PromptLabPage() {
           platform: selectedModel,
           isEdited: false,
         };
+
         setMessages(prev => {
           const base = useStreaming
             ? prev.filter(m => m.id !== assistantMessageId)
@@ -5236,7 +5820,7 @@ export default function PromptLabPage() {
       } finally {
         setIsLoading(false);
         setTemporaryStreamBottomSpacer(false);
-        dispatch(clearCurrentPrompt()); // Clear the input after retry
+        setPromptInputValue(''); // Clear the input after retry
       }
     },
     [
@@ -5263,12 +5847,12 @@ export default function PromptLabPage() {
       [], // Embellishments removed
       selectedContexts,
       messages,
-      currentPrompt.trim()
+      promptInputValueRef.current.trim()
         || (messages.length > 0
           ? messages.filter(m => m.role === 'user').pop()?.content || ''
           : '')
     );
-  }, [selectedSystemPrompts, selectedContexts, messages, currentPrompt]);
+  }, [selectedSystemPrompts, selectedContexts, messages]);
 
   const handleRetryImageLoads = useCallback(async () => {
     if (isRetryingImageLoads) {
@@ -5680,7 +6264,8 @@ export default function PromptLabPage() {
                             : `${stalledPendingImages.length} generated images are unavailable because their uploads did not complete.`}
                         </Alert>
                       )}
-                      {isHydratingSessionImages
+                      {(isHydratingSessionImages
+                        || isRetryHydratingSessionImages)
                         && unresolvedDriveImages.length > 0 && (
                           <Alert
                             severity="info"
@@ -5866,57 +6451,14 @@ export default function PromptLabPage() {
               {!isGhost
                 && message.role === 'assistant'
                 && !message.content.startsWith('Error:') && (
-                  <Tooltip
-                    title="Copy / Download message"
-                    placement="top"
-                    arrow
-                  >
-                    <IconButton
-                      onClick={event =>
-                        handleMessageActionMenuOpen(event, messageIndex)}
-                      sx={{
-                        position: 'absolute',
-                        top: isMobile ? 6 : 8,
-                        right: isMobile ? 6 : 8,
-                        width: isMobile ? 40 : 36,
-                        height: isMobile ? 40 : 36,
-                        borderRadius: '50%',
-                        backgroundColor:
-                          theme.palette.mode === 'light'
-                            ? 'rgba(0,0,0,0.14)'
-                            : 'rgba(255,255,255,0.24)',
-                        color:
-                          theme.palette.mode === 'light'
-                            ? 'text.primary'
-                            : 'white',
-                        opacity: 0.9,
-                        zIndex: 10,
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.24)',
-                        '&:hover': {
-                          backgroundColor:
-                            theme.palette.mode === 'light'
-                              ? 'rgba(0,0,0,0.22)'
-                              : 'rgba(255,255,255,0.36)',
-                          opacity: 1,
-                          transform: 'scale(1.1)',
-                          boxShadow: '0 5px 10px rgba(0,0,0,0.34)',
-                        },
-                        '&:active': isMobile
-                          ? {
-                              transform: 'scale(0.95)',
-                              backgroundColor:
-                                theme.palette.mode === 'light'
-                                  ? 'rgba(0,0,0,0.28)'
-                                  : 'rgba(255,255,255,0.44)',
-                            }
-                          : {},
-                        transition: 'all 0.2s ease',
-                      }}
-                      aria-label="Copy / Download message"
-                    >
-                      <ContentCopyIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
-                    </IconButton>
-                  </Tooltip>
+                  <MessageActionsButton
+                    messageIndex={messageIndex}
+                    isMobile={isMobile}
+                    themeMode={theme.palette.mode}
+                    onCopySingleMessage={copySingleMessage}
+                    onCopyConversationRange={copyConversationRange}
+                    onRequestDownload={requestMessageDownloadFormat}
+                  />
                 )}
 
               {/* Retry Button for Error Messages */}
@@ -5980,10 +6522,56 @@ export default function PromptLabPage() {
       isSharedWorkspace,
       isMobile,
       messages.length,
-      handleMessageActionMenuOpen,
+      copySingleMessage,
+      copyConversationRange,
+      requestMessageDownloadFormat,
       getModelInfo,
       theme.palette.mode,
     ]
+  );
+
+  const handlePromptInputChange = useCallback(
+    (nextValue: string) => {
+      const markId = startPerfMark('promptlab_typing_to_next_paint_ms');
+      promptInputValueRef.current = nextValue;
+      runAfterNextFrame(() => {
+        recordPerfMetric(
+          'promptlab_typing_to_next_paint_ms',
+          endPerfMark(markId)
+        );
+      });
+    },
+    []
+  );
+
+  const visibleMessages = useMemo(
+    () =>
+      messages.filter((msg, i) => {
+        // Hide empty assistant message when showing thinking bubble
+        if (
+          isLoading
+          && i === messages.length - 1
+          && msg.role === 'assistant'
+          && msg.content.length === 0
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [messages, isLoading]
+  );
+
+  const renderedConversationStartGhostMessages = useMemo(
+    () =>
+      (ghostMessages['conversation_start'] ?? []).map((message, messageIndex) =>
+        renderMessage(message, messageIndex, true)
+      ),
+    [ghostMessages, renderMessage]
+  );
+
+  const renderedVisibleMessages = useMemo(
+    () => visibleMessages.map((message, messageIndex) => renderMessage(message, messageIndex)),
+    [visibleMessages, renderMessage]
   );
 
   return (
@@ -6039,6 +6627,7 @@ export default function PromptLabPage() {
             height: '100%',
             overflowY: 'auto',
             overflowX: 'hidden', // Prevent horizontal scrolling
+            overflowAnchor: 'none',
             p: isMobile ? spacing.padding.sm : 3,
             pb: isMobile ? 25 : 24, // Extra bottom padding for mobile input box
             display: 'flex',
@@ -6059,6 +6648,39 @@ export default function PromptLabPage() {
             }),
           }}
         >
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2,
+              pointerEvents: 'none',
+              opacity: isLoadingConversationFromNavigation ? 1 : 0,
+              transition: 'opacity 220ms ease',
+              background:
+                'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+            }}
+          >
+            <Paper
+              elevation={2}
+              sx={{
+                px: 2,
+                py: 1.25,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+                borderRadius: 2,
+              }}
+            >
+              <CircularProgress size={18} thickness={5} />
+              <Typography variant="body2">Loading conversation...</Typography>
+            </Paper>
+          </Box>
           {/* New Conversation Button - Top Right (when context is selected and messages exist) - Desktop Only */}
           {!isMobile
             && selectedContexts.length > 0
@@ -6173,26 +6795,8 @@ export default function PromptLabPage() {
             </Box>
           ) : (
             <>
-              {ghostMessages['conversation_start']?.map(
-                (message, messageIndex) =>
-                  renderMessage(message, messageIndex, true)
-              )}
-              {messages
-                .filter((msg, i) => {
-                  // Hide empty assistant message when showing thinking bubble
-                  if (
-                    isLoading
-                    && i === messages.length - 1
-                    && msg.role === 'assistant'
-                    && msg.content.length === 0
-                  ) {
-                    return false;
-                  }
-                  return true;
-                })
-                .map((message, messageIndex) =>
-                  renderMessage(message, messageIndex)
-                )}
+              {renderedConversationStartGhostMessages}
+              {renderedVisibleMessages}
 
               {/* Loading indicator - hide when streaming has begun (assistant message has content) */}
               {isLoading
@@ -6697,8 +7301,9 @@ export default function PromptLabPage() {
                 placeholder={
                   isMobile ? 'Type your message...' : 'Type your message...'
                 }
-                value={currentPrompt}
-                onChange={e => dispatch(setCurrentPrompt(e.target.value))}
+                defaultValue={initialPromptValue}
+                inputRef={promptInputElementRef}
+                onChange={e => handlePromptInputChange(e.target.value)}
                 onKeyPress={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -6767,7 +7372,7 @@ export default function PromptLabPage() {
               {/* Send Button - Inside text box */}
               <IconButton
                 onClick={handleSendMessage}
-                disabled={!currentPrompt.trim() || isLoading}
+                disabled={isLoading}
                 sx={{
                   position: 'absolute',
                   right: isMobile ? 10 : 8,
@@ -7128,7 +7733,7 @@ export default function PromptLabPage() {
               Recent Conversations:
             </Typography>
 
-            {loadingConversations ? (
+            {(loadingConversations || showRecentConversationsWarmupLoading) ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
@@ -7388,46 +7993,50 @@ export default function PromptLabPage() {
         )}
 
       {/* Modals */}
-      <ModelSelectionModal
-        open={modelModalOpen}
-        onClose={() => setModelModalOpen(false)}
-        onSelectModel={model => {
-          setSelectedModel(model);
-          dispatch(updateLastUsedModel(model));
-          setModelModalOpen(false);
-        }}
-        onAutoModeToggle={model => {
-          setSelectedModel(model);
-          dispatch(updateLastUsedModel(model));
-          // Don't close the modal for auto mode toggles
-        }}
-        selectedModel={selectedModel}
-      />
+      {modelModalOpen && (
+        <ModelSelectionModal
+          open={modelModalOpen}
+          onClose={() => setModelModalOpen(false)}
+          onSelectModel={model => {
+            setSelectedModel(model);
+            dispatch(updateLastUsedModel(model));
+            setModelModalOpen(false);
+          }}
+          onAutoModeToggle={model => {
+            setSelectedModel(model);
+            dispatch(updateLastUsedModel(model));
+            // Don't close the modal for auto mode toggles
+          }}
+          selectedModel={selectedModel}
+        />
+      )}
 
-      <ContextSelectionModal
-        open={contextModalOpen}
-        onClose={() => setContextModalOpen(false)}
-        onAddContext={context => {
-          setSelectedContexts(prev => {
-            // Prevent duplicates
-            if (prev.some(ctx => ctx.id === context.id)) {
-              return prev;
-            }
-            return [...prev, context];
-          });
-        }}
-        onRemoveContext={contextId => {
-          setSelectedContexts(prev => prev.filter(ctx => ctx.id !== contextId));
-        }}
-        contexts={contexts}
-        selectedContexts={selectedContexts}
-        loading={contextsLoading}
-        error={contextsError}
-        onCreateNewContext={() => setCreateContextModalOpen(true)}
-        onClearAllContexts={() => {
-          setSelectedContexts([]);
-        }}
-      />
+      {contextModalOpen && (
+        <ContextSelectionModal
+          open={contextModalOpen}
+          onClose={() => setContextModalOpen(false)}
+          onAddContext={context => {
+            setSelectedContexts(prev => {
+              // Prevent duplicates
+              if (prev.some(ctx => ctx.id === context.id)) {
+                return prev;
+              }
+              return [...prev, context];
+            });
+          }}
+          onRemoveContext={contextId => {
+            setSelectedContexts(prev => prev.filter(ctx => ctx.id !== contextId));
+          }}
+          contexts={contexts}
+          selectedContexts={selectedContexts}
+          loading={contextsLoading}
+          error={contextsError}
+          onCreateNewContext={() => setCreateContextModalOpen(true)}
+          onClearAllContexts={() => {
+            setSelectedContexts([]);
+          }}
+        />
+      )}
 
       {/* Create Context Modal */}
       <Dialog
@@ -7482,13 +8091,14 @@ export default function PromptLabPage() {
         </DialogActions>
       </Dialog>
 
-      <SystemPromptSelectionModal
-        open={systemPromptModalOpen}
-        onClose={() => {
-          setSystemPromptModalOpen(false);
-          setChangingSystemPrompt(null); // Reset change state when closing
-        }}
-        onSelectSystemPrompt={systemPrompt => {
+      {systemPromptModalOpen && (
+        <SystemPromptSelectionModal
+          open={systemPromptModalOpen}
+          onClose={() => {
+            setSystemPromptModalOpen(false);
+            setChangingSystemPrompt(null); // Reset change state when closing
+          }}
+          onSelectSystemPrompt={systemPrompt => {
           if (changingSystemPrompt) {
             // Replace the specific system prompt
             setSelectedSystemPrompts(prev =>
@@ -7530,42 +8140,45 @@ export default function PromptLabPage() {
               showToast(`System prompt "${systemPrompt.name}" added`);
             }
           }
-          setSystemPromptModalOpen(false);
-        }}
-        systemPrompts={systemPrompts}
-        selectedSystemPrompts={selectedSystemPrompts}
-        onRemoveSystemPrompt={handleRemoveSystemPrompt}
-        onOpenLibrarianWizard={() => {
-          setSystemPromptModalOpen(false);
-          handleOpenSystemPromptSuggestor();
-        }}
-        loading={systemPromptsLoading}
-        error={systemPromptsError}
-        title={
-          changingSystemPrompt
-            ? `Change System Prompt: ${changingSystemPrompt.name}`
-            : 'Add System Prompt'
-        }
-      />
+            setSystemPromptModalOpen(false);
+          }}
+          systemPrompts={systemPrompts}
+          selectedSystemPrompts={selectedSystemPrompts}
+          onRemoveSystemPrompt={handleRemoveSystemPrompt}
+          onOpenLibrarianWizard={() => {
+            setSystemPromptModalOpen(false);
+            handleOpenSystemPromptSuggestor();
+          }}
+          loading={systemPromptsLoading}
+          error={systemPromptsError}
+          title={
+            changingSystemPrompt
+              ? `Change System Prompt: ${changingSystemPrompt.name}`
+              : 'Add System Prompt'
+          }
+        />
+      )}
 
-      <ConversationCopyExportDialog
-        open={conversationExportDialogOpen}
-        onClose={() => setConversationExportDialogOpen(false)}
-        messages={messages}
-        conversationTitle={currentConversation?.title}
-        fullPromptText={constructFullPrompt()}
-        onToast={showToast}
-        initialDownloadFormat={
-          settings.conversationDownloadFormatPreference || 'markdown'
-        }
-        onDownloadFormatChange={format => {
-          dispatch(
-            updateMessageDownloadPreferences({
-              conversationFormat: format,
-            })
-          );
-        }}
-      />
+      {conversationExportDialogOpen && (
+        <ConversationCopyExportDialog
+          open={conversationExportDialogOpen}
+          onClose={() => setConversationExportDialogOpen(false)}
+          messages={messages}
+          conversationTitle={currentConversation?.title}
+          fullPromptText={constructFullPrompt()}
+          onToast={showToast}
+          initialDownloadFormat={
+            settings.conversationDownloadFormatPreference || 'markdown'
+          }
+          onDownloadFormatChange={format => {
+            dispatch(
+              updateMessageDownloadPreferences({
+                conversationFormat: format,
+              })
+            );
+          }}
+        />
+      )}
 
       <Dialog
         open={messageDownloadFormatDialogOpen}
@@ -7643,88 +8256,45 @@ export default function PromptLabPage() {
         </DialogActions>
       </Dialog>
 
-      <Menu
-        anchorEl={messageActionsAnchorEl}
-        open={Boolean(messageActionsAnchorEl)}
-        onClose={closeMessageActionsMenu}
-      >
-        <MenuItem
-          onClick={async () => {
-            const index = messageActionsIndex;
-            closeMessageActionsMenu();
-            if (index === null) return;
-            await copySingleMessage(index);
-          }}
-        >
-          Copy this message to clipboard
-        </MenuItem>
-        <MenuItem
-          onClick={async () => {
-            const index = messageActionsIndex;
-            closeMessageActionsMenu();
-            if (index === null) return;
-            await copyConversationRange(index);
-          }}
-        >
-          Copy this message and all below to clipboard
-        </MenuItem>
-        <MenuItem
-          onClick={async () => {
-            const index = messageActionsIndex;
-            closeMessageActionsMenu();
-            if (index === null) return;
-            requestMessageDownloadFormat(index, 'single');
-          }}
-        >
-          Download this message as file
-        </MenuItem>
-        <MenuItem
-          onClick={async () => {
-            const index = messageActionsIndex;
-            closeMessageActionsMenu();
-            if (index === null) return;
-            requestMessageDownloadFormat(index, 'from-here');
-          }}
-        >
-          Download this message and all below
-        </MenuItem>
-      </Menu>
-
       {/* Wizard Window */}
-      <WizardWindow
-        open={wizardOpen}
-        onClose={handleCloseWizard}
-        onMinimize={handleMinimizeWizard}
-        title="Prompt Wizard"
-        messages={wizardMessages}
-        isLoading={wizardLoading}
-        error={wizardError}
-        onSendMessage={handleWizardSendMessage}
-        onCopyResult={handleCopyWizardResult}
-        onClearConversation={handleClearWizardConversation}
-        initialMessage={wizardInitialMessage}
-        modelName="GPT-OSS 120B"
-      />
+      {wizardOpen && (
+        <WizardWindow
+          open={wizardOpen}
+          onClose={handleCloseWizard}
+          onMinimize={handleMinimizeWizard}
+          title="Prompt Wizard"
+          messages={wizardMessages}
+          isLoading={wizardLoading}
+          error={wizardError}
+          onSendMessage={handleWizardSendMessage}
+          onCopyResult={handleCopyWizardResult}
+          onClearConversation={handleClearWizardConversation}
+          initialMessage={wizardInitialMessage}
+          modelName="GPT-OSS 120B"
+        />
+      )}
 
       {/* System Prompt Suggestor Wizard Window */}
-      <WizardWindow
-        open={systemPromptSuggestorOpen}
-        onClose={handleCloseSystemPromptSuggestor}
-        onMinimize={handleMinimizeSystemPromptSuggestor}
-        title="System Prompt Librarian"
-        messages={systemPromptSuggestorMessages}
-        isLoading={systemPromptSuggestorLoading}
-        error={systemPromptSuggestorError}
-        onSendMessage={handleSystemPromptSuggestorSendMessage}
-        onCopyResult={handleCopySystemPromptSuggestorResult}
-        onClearConversation={handleClearSystemPromptSuggestorConversation}
-        initialMessage={systemPromptSuggestorInitialMessage}
-        modelName="GPT-OSS 120B"
-        onAddSystemPrompt={handleAddSystemPromptFromWizard}
-        systemPrompts={systemPrompts}
-        showCopyButton={false}
-        icon={<MenuBookIcon color="secondary" />}
-      />
+      {systemPromptSuggestorOpen && (
+        <WizardWindow
+          open={systemPromptSuggestorOpen}
+          onClose={handleCloseSystemPromptSuggestor}
+          onMinimize={handleMinimizeSystemPromptSuggestor}
+          title="System Prompt Librarian"
+          messages={systemPromptSuggestorMessages}
+          isLoading={systemPromptSuggestorLoading}
+          error={systemPromptSuggestorError}
+          onSendMessage={handleSystemPromptSuggestorSendMessage}
+          onCopyResult={handleCopySystemPromptSuggestorResult}
+          onClearConversation={handleClearSystemPromptSuggestorConversation}
+          initialMessage={systemPromptSuggestorInitialMessage}
+          modelName="GPT-OSS 120B"
+          onAddSystemPrompt={handleAddSystemPromptFromWizard}
+          systemPrompts={systemPrompts}
+          showCopyButton={false}
+          icon={<MenuBookIcon color="secondary" />}
+        />
+      )}
 
       {/* Toast Notification */}
       <Snackbar
@@ -8045,24 +8615,26 @@ export default function PromptLabPage() {
       </Dialog>
 
       {/* Alert Timeline Modal */}
-      <AlertTimelineModal
-        open={timelineModalOpen}
-        onClose={() => {
-          setTimelineModalOpen(false);
-          // Refresh counts when closing (filtered by current conversation)
-          // The useEffect will handle the update automatically
-        }}
-        conversationId={currentConversationId}
-        currentAgents={backgroundAgents}
-        onAlertsChanged={() => {
-          // Refresh counts when alerts change (filtered by current conversation)
-          setUnreadAlertCount(
-            currentConversationId
-              ? getUnreadAlertCount(currentConversationId)
-              : 0
-          );
-        }}
-      />
+      {timelineModalOpen && (
+        <AlertTimelineModal
+          open={timelineModalOpen}
+          onClose={() => {
+            setTimelineModalOpen(false);
+            // Refresh counts when closing (filtered by current conversation)
+            // The useEffect will handle the update automatically
+          }}
+          conversationId={currentConversationId}
+          currentAgents={backgroundAgents}
+          onAlertsChanged={() => {
+            // Refresh counts when alerts change (filtered by current conversation)
+            setUnreadAlertCount(
+              currentConversationId
+                ? getUnreadAlertCount(currentConversationId)
+                : 0
+            );
+          }}
+        />
+      )}
     </Box>
   );
 }

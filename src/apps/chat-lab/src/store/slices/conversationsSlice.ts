@@ -67,8 +67,21 @@ export const fetchConversation = createAsyncThunk(
 
 export const fetchConversationMessages = createAsyncThunk(
   'conversations/fetchConversationMessages',
-  async (conversationId: string) => {
-    const messages = await conversationsService.getMessages(conversationId);
+  async (
+    payload:
+      | string
+      | {
+          conversationId: string;
+          hydrateImages?: boolean;
+        }
+  ) => {
+    const conversationId =
+      typeof payload === 'string' ? payload : payload.conversationId;
+    const hydrateImages =
+      typeof payload === 'string' ? true : payload.hydrateImages;
+    const messages = await conversationsService.getMessages(conversationId, {
+      hydrateImages,
+    });
     return messages;
   }
 );

@@ -72,10 +72,6 @@ export const fetchSystemPrompts = createAsyncThunk(
         error.message?.includes('Cloud storage adapter not initialized')
         || error.message?.includes('Cloud storage not fully initialized')
       ) {
-        console.warn(
-          'Storage adapter not ready yet for system prompts, will retry later:',
-          error.message
-        );
         return rejectWithValue('Storage not ready, retrying...');
       }
       console.error(

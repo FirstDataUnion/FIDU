@@ -96,9 +96,12 @@ export class UnifiedStorageService {
     return await adapter.getConversationById(id);
   }
 
-  async getMessages(conversationId: string): Promise<Message[]> {
+  async getMessages(
+    conversationId: string,
+    options?: { hydrateImages?: boolean }
+  ): Promise<Message[]> {
     const adapter = this.storageService.getAdapter();
-    return await adapter.getMessages(conversationId);
+    return await adapter.getMessages(conversationId, options);
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

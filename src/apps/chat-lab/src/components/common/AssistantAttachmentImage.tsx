@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   CircularProgress,
@@ -49,6 +49,11 @@ export function AssistantAttachmentImage({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [attachment.url]);
 
   return (
     <Box

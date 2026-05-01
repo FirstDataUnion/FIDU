@@ -3,7 +3,11 @@
  */
 
 // Routes that don't require authentication
-export const PUBLIC_ROUTES = ['/privacy-policy', '/terms-of-use'];
+export const PUBLIC_ROUTES = [
+  '/privacy-policy',
+  '/terms-of-use',
+  '/oauth-callback',
+];
 
 /**
  * Check if a given pathname is a public route

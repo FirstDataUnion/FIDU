@@ -43,6 +43,8 @@ export class CloudStorageAdapter implements StorageAdapter {
   private imageObjectStore: DriveImageObjectStoreService | null = null;
   private userId: string | null = null;
   private config: StorageConfig;
+  private initialSyncPromise: Promise<void> | null = null;
+  private hasStartedInitialSync = false;
 
   constructor(config: StorageConfig) {
     this.config = config;
@@ -156,20 +158,25 @@ export class CloudStorageAdapter implements StorageAdapter {
       }
     }
 
-    try {
-      await this.syncService.fullSync({
-        version: '1',
-        fileIds, // Pass file IDs for shared workspaces
-      });
-    } catch (error) {
-      console.error(
-        'Initial sync failed, continuing with empty database:',
-        error
-      );
+    if (!this.hasStartedInitialSync) {
+      this.hasStartedInitialSync = true;
+      this.initialSyncPromise = this.syncService
+        .fullSync({
+          version: '1',
+          fileIds, // Pass file IDs for shared workspaces
+        })
+        .catch(error => {
+          console.error(
+            'Initial sync failed, continuing with empty database:',
+            error
+          );
+        })
+        .finally(() => {
+          // Enable smart auto-sync after initial sync attempt finishes.
+          this.smartAutoSyncService?.enable();
+          this.initialSyncPromise = null;
+        });
     }
-
-    // Enable smart auto-sync
-    this.smartAutoSyncService.enable();
 
     // Ensure database is ready
     if (!this.dbManager?.isInitialized()) {
@@ -412,7 +419,10 @@ export class CloudStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getMessages(conversationId: string): Promise<Message[]> {
+  async getMessages(
+    conversationId: string,
+    options?: { hydrateImages?: boolean }
+  ): Promise<Message[]> {
     await this.ensureAuthenticated();
 
     try {
@@ -572,41 +582,11 @@ export class CloudStorageAdapter implements StorageAdapter {
         }
       );
 
-      const hydratedMessages = this.imageObjectStore
-        ? await this.imageObjectStore.hydrateMessagesForDisplay(messages)
-        : messages;
-
-      // Debug: Log alerts found in loaded messages
-      const messagesWithAlerts = hydratedMessages.filter(
-        (m: Message) => (m.metadata?.backgroundAgentAlerts?.length ?? 0) > 0
-      );
-      if (messagesWithAlerts.length > 0) {
-        const totalAlerts = messagesWithAlerts.reduce(
-          (sum: number, m: Message) =>
-            sum + (m.metadata?.backgroundAgentAlerts?.length ?? 0),
-          0
-        );
-        console.log(
-          `📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, ${messagesWithAlerts.length} with alerts (${totalAlerts} total alerts)`
-        );
-        messagesWithAlerts.forEach((msg: Message) => {
-          const alerts = msg.metadata?.backgroundAgentAlerts || [];
-          console.log(
-            `📋 [CloudStorage]   Message ${msg.id} (${msg.role}): ${alerts.length} alert(s)`,
-            alerts.map((a: any) => ({
-              agent: a.agentName || a.agentId,
-              severity: a.severity,
-              rating: a.rating,
-              hasShortMessage: !!a.shortMessage,
-              hasDescription: !!a.description,
-            }))
-          );
-        });
-      } else {
-        console.log(
-          `📋 [CloudStorage] Loaded conversation ${conversationId}: ${messages.length} messages, no alerts found`
-        );
-      }
+      const shouldHydrateImages = options?.hydrateImages ?? true;
+      const hydratedMessages =
+        shouldHydrateImages && this.imageObjectStore
+          ? await this.imageObjectStore.hydrateMessagesForDisplay(messages)
+          : messages;
 
       return hydratedMessages;
     } catch (error) {
@@ -1422,6 +1402,8 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.dbManager = null;
     this.driveService = null;
     this.syncService = null;
+    this.initialSyncPromise = null;
+    this.hasStartedInitialSync = false;
 
     // Clean up smart auto-sync service
     if (this.smartAutoSyncService) {
@@ -2090,5 +2072,7 @@ export class CloudStorageAdapter implements StorageAdapter {
     this.driveService = null;
     this.syncService = null;
     this.smartAutoSyncService = null;
+    this.initialSyncPromise = null;
+    this.hasStartedInitialSync = false;
   }
 }
