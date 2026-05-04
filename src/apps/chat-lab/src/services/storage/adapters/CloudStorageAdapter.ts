@@ -838,7 +838,10 @@ export class CloudStorageAdapter implements StorageAdapter {
       throw new Error('Context ID is required to update context');
     }
 
-    const dataPacket = this.transformContextToDataPacket(context, profileId);
+    const existing = await this.getContextById(context.id);
+    const merged = { ...existing, ...context };
+
+    const dataPacket = this.transformContextToDataPacket(merged, profileId);
     const requestId = this.generateRequestId();
 
     try {

@@ -5,13 +5,17 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### [0.3.1] - [UNRELEASED]
+### [0.3.1] - 2026-05-03
 
 ### Changed 
 - **Copy Message Button Behaviour**: Added more useful options when using the "Copy" button on each message, allowing for the quick copying of a message, copying of the message and all following messages, or the quick download of that or subsequent messages to a file.
 
+- **Page Optimisation**: The whole chatlab app should feel a lot snappier! 
+
 ### Added
 - **Download / Copy Conversations**: Added more options to the Copy / Export button on the chat-box allowing for: Viewing of a plain text transcript for easy copy + past, downloading of whole conversation (and images if requested) to a local file. Currently .md and .txt formats supported. 
+
+- **Add message to context**: The 'copy' button on message bubbles also allow you to add messages straight to a new or existing context. 
 
 ### Fixed
 - **Menu Button Contrast**: Improved the visibility of many dialog option buttons so they're easier to spot in dark mode. 

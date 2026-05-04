@@ -867,8 +867,8 @@ const ConversationsPage: React.FC = React.memo(() => {
                         color="text.secondary"
                         sx={{ mb: 2 }}
                       >
-                        We are downloading your conversations. They should appear
-                        shortly.
+                        We are downloading your conversations. They should
+                        appear shortly.
                       </Typography>
                     </>
                   ) : (
@@ -992,7 +992,7 @@ const ConversationsPage: React.FC = React.memo(() => {
           onContextPreviewChange={setContextPreview}
         />
 
-        {showAddToContextDialog && (
+        {showAddToContextDialog && selectedConversationForContext && (
           <AddToContextDialog
             open={showAddToContextDialog}
             onClose={() => {
@@ -1002,7 +1002,7 @@ const ConversationsPage: React.FC = React.memo(() => {
               setNewContextTitle('');
               setIsAddingToContext(false);
             }}
-            selectedConversation={selectedConversationForContext}
+            sourceSubtitle={selectedConversationForContext.title}
             selectedContextId={selectedContextId}
             newContextTitle={newContextTitle}
             contexts={contexts}
@@ -1530,7 +1530,7 @@ const ConversationsPage: React.FC = React.memo(() => {
         onContextPreviewChange={setContextPreview}
       />
 
-      {showAddToContextDialog && (
+      {showAddToContextDialog && selectedConversationForContext && (
         <AddToContextDialog
           open={showAddToContextDialog}
           onClose={() => {
@@ -1540,7 +1540,7 @@ const ConversationsPage: React.FC = React.memo(() => {
             setNewContextTitle('');
             setIsAddingToContext(false);
           }}
-          selectedConversation={selectedConversationForContext}
+          sourceSubtitle={selectedConversationForContext.title}
           selectedContextId={selectedContextId}
           newContextTitle={newContextTitle}
           contexts={contexts}

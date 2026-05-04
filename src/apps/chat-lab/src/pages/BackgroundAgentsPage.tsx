@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Box,
   Typography,
@@ -1013,7 +1019,11 @@ const OptimizedBackgroundAgentsGrid = React.memo<{
             }}
           >
             <CircularProgress size={28} />
-            <Typography variant="body2" color="text.secondary" textAlign="center">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              textAlign="center"
+            >
               Loading more agents from cloud...
             </Typography>
           </Card>
@@ -1127,7 +1137,9 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
 
     const runFetch = () => {
       if (cancelled) return;
-      const fetchMark = startPerfMark('background_agents_open_documents_fetch_ms');
+      const fetchMark = startPerfMark(
+        'background_agents_open_documents_fetch_ms'
+      );
       dispatch(fetchDocuments(effectiveProfileId))
         .catch(error => {
           console.log(
@@ -1206,7 +1218,9 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
     rafId = window.requestAnimationFrame(() => {
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
-        const fetchMark = startPerfMark('background_agents_open_agents_fetch_ms');
+        const fetchMark = startPerfMark(
+          'background_agents_open_agents_fetch_ms'
+        );
         void loadAgents().finally(() => {
           recordPerfMetric(
             'background_agents_open_agents_fetch_ms',
@@ -2112,255 +2126,203 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
 
       {/* View/Edit Dialog */}
       {viewEditDialogOpen && (
-      <Dialog
-        open={viewEditDialogOpen}
-        onClose={() => setViewEditDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 0, sm: 2 },
-            height: { xs: '100vh', sm: 'auto' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          {selectedAgent?.isSystem
-            ? 'View Background Agent Settings'
-            : 'View/Edit Background Agent'}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}
-          >
-            {selectedAgent?.name}
-            {selectedAgent?.isSystem && (
-              <Typography
-                component="span"
-                variant="caption"
-                sx={{ ml: 1, fontStyle: 'italic' }}
-              >
-                (Built-in template - only settings can be customized)
-              </Typography>
-            )}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <Box sx={{ pt: 1 }}>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="Agent Name"
-                value={viewEditForm.name}
-                onChange={e =>
-                  setViewEditForm(prev => ({ ...prev, name: e.target.value }))
-                }
-                disabled={selectedAgent?.isSystem}
-                slotProps={{
-                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-                }}
-                helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                value={viewEditForm.description}
-                onChange={e =>
-                  setViewEditForm(prev => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                disabled={selectedAgent?.isSystem}
-                multiline
-                rows={2}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              <FormControl
-                fullWidth
-                disabled={selectedAgent?.isSystem}
-                required
-              >
-                <InputLabel id="view-edit-action-type-label">
-                  Action Type
-                </InputLabel>
-                <Select
-                  labelId="view-edit-action-type-label"
-                  value={viewEditForm.actionType || 'alert'}
-                  label="Action Type"
-                  required
-                  onChange={e =>
-                    setViewEditForm(prev => ({
-                      ...prev,
-                      actionType: e.target.value as AgentActionType,
-                    }))
-                  }
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      fontSize: { xs: '0.875rem', sm: '1rem' },
-                    },
-                  }}
+        <Dialog
+          open={viewEditDialogOpen}
+          onClose={() => setViewEditDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              m: { xs: 0, sm: 2 },
+              height: { xs: '100vh', sm: 'auto' },
+              maxHeight: { xs: '100vh', sm: '90vh' },
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            {selectedAgent?.isSystem
+              ? 'View Background Agent Settings'
+              : 'View/Edit Background Agent'}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}
+            >
+              {selectedAgent?.name}
+              {selectedAgent?.isSystem && (
+                <Typography
+                  component="span"
+                  variant="caption"
+                  sx={{ ml: 1, fontStyle: 'italic' }}
                 >
-                  <MenuItem value="alert">
-                    <Box>
-                      <Typography variant="body1">Alert</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Creates alerts and notifications based on analysis
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                  {isOutputToDocumentEnabled && (
-                    <MenuItem value="update_document">
-                      <Box>
-                        <Typography variant="body1">Update Document</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Updates a document based on analysis
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel id="view-edit-model-label">Model</InputLabel>
-                <Select
-                  labelId="view-edit-model-label"
-                  value={viewEditForm.modelId}
-                  label="Model"
-                  onChange={e =>
-                    setViewEditForm(prev => ({
-                      ...prev,
-                      modelId: e.target.value,
-                    }))
-                  }
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      fontSize: { xs: '0.875rem', sm: '1rem' },
-                    },
-                  }}
-                >
-                  {availableBackgroundAgentModels.map(model => (
-                    <MenuItem key={model.id} value={model.id}>
-                      <Box>
-                        <Typography variant="body1">{model.name}</Typography>
-                        {model.description && (
-                          <Typography variant="caption" color="text.secondary">
-                            {model.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={viewEditForm.enabled}
-                    onChange={e =>
-                      setViewEditForm(prev => ({
-                        ...prev,
-                        enabled: e.target.checked,
-                      }))
-                    }
-                  />
-                }
-                label="Enabled"
-              />
-              <Divider />
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
-                  gap: 2,
-                }}
-              >
+                  (Built-in template - only settings can be customized)
+                </Typography>
+              )}
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <Box sx={{ pt: 1 }}>
+              <Stack spacing={2}>
                 <TextField
                   fullWidth
-                  label="Run Every N Turns"
-                  type="number"
-                  value={viewEditForm.runEveryNTurns}
+                  label="Agent Name"
+                  value={viewEditForm.name}
                   onChange={e =>
-                    setViewEditForm(prev => ({
-                      ...prev,
-                      runEveryNTurns:
-                        parseInt(e.target.value)
-                        || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
-                    }))
+                    setViewEditForm(prev => ({ ...prev, name: e.target.value }))
                   }
-                  helperText={
-                    "a 'turn' is a message pair (user message + assistant message)"
-                  }
-                  inputProps={{
-                    min: DEFAULT_AGENT_CONFIG.MIN_TURNS,
-                    max: DEFAULT_AGENT_CONFIG.MAX_TURNS,
+                  disabled={selectedAgent?.isSystem}
+                  slotProps={{
+                    htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
                   }}
+                  helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
                   sx={{
                     '& .MuiInputBase-root': {
                       fontSize: { xs: '0.875rem', sm: '1rem' },
                     },
                   }}
                 />
-                {viewEditForm.contextWindowStrategy === 'lastNMessages' && (
-                  <TextField
-                    fullWidth
-                    label="Context Messages"
-                    type="number"
-                    value={
-                      viewEditForm.contextParams.lastN
-                      || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
-                    }
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={viewEditForm.description}
+                  onChange={e =>
+                    setViewEditForm(prev => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  disabled={selectedAgent?.isSystem}
+                  multiline
+                  rows={2}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    },
+                  }}
+                />
+                <FormControl
+                  fullWidth
+                  disabled={selectedAgent?.isSystem}
+                  required
+                >
+                  <InputLabel id="view-edit-action-type-label">
+                    Action Type
+                  </InputLabel>
+                  <Select
+                    labelId="view-edit-action-type-label"
+                    value={viewEditForm.actionType || 'alert'}
+                    label="Action Type"
+                    required
                     onChange={e =>
                       setViewEditForm(prev => ({
                         ...prev,
-                        contextParams: {
-                          ...prev.contextParams,
-                          lastN:
-                            parseInt(e.target.value)
-                            || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES,
-                        },
+                        actionType: e.target.value as AgentActionType,
+                      }))
+                    }
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        fontSize: { xs: '0.875rem', sm: '1rem' },
+                      },
+                    }}
+                  >
+                    <MenuItem value="alert">
+                      <Box>
+                        <Typography variant="body1">Alert</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Creates alerts and notifications based on analysis
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                    {isOutputToDocumentEnabled && (
+                      <MenuItem value="update_document">
+                        <Box>
+                          <Typography variant="body1">
+                            Update Document
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Updates a document based on analysis
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel id="view-edit-model-label">Model</InputLabel>
+                  <Select
+                    labelId="view-edit-model-label"
+                    value={viewEditForm.modelId}
+                    label="Model"
+                    onChange={e =>
+                      setViewEditForm(prev => ({
+                        ...prev,
+                        modelId: e.target.value,
+                      }))
+                    }
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        fontSize: { xs: '0.875rem', sm: '1rem' },
+                      },
+                    }}
+                  >
+                    {availableBackgroundAgentModels.map(model => (
+                      <MenuItem key={model.id} value={model.id}>
+                        <Box>
+                          <Typography variant="body1">{model.name}</Typography>
+                          {model.description && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {model.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={viewEditForm.enabled}
+                      onChange={e =>
+                        setViewEditForm(prev => ({
+                          ...prev,
+                          enabled: e.target.checked,
+                        }))
+                      }
+                    />
+                  }
+                  label="Enabled"
+                />
+                <Divider />
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                    gap: 2,
+                  }}
+                >
+                  <TextField
+                    fullWidth
+                    label="Run Every N Turns"
+                    type="number"
+                    value={viewEditForm.runEveryNTurns}
+                    onChange={e =>
+                      setViewEditForm(prev => ({
+                        ...prev,
+                        runEveryNTurns:
+                          parseInt(e.target.value)
+                          || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
                       }))
                     }
                     helperText={
-                      <Box
-                        component="span"
-                        sx={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                        }}
-                      >
-                        <Typography component="span" variant="caption">
-                          Number of recent messages to include when evaluating
-                        </Typography>
-                        <Tooltip
-                          title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
-                          arrow
-                          placement="top"
-                        >
-                          <HelpOutlineIcon
-                            sx={{
-                              fontSize: '0.875rem',
-                              color: 'text.secondary',
-                              cursor: 'help',
-                            }}
-                          />
-                        </Tooltip>
-                      </Box>
+                      "a 'turn' is a message pair (user message + assistant message)"
                     }
                     inputProps={{
-                      min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
-                      max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES,
+                      min: DEFAULT_AGENT_CONFIG.MIN_TURNS,
+                      max: DEFAULT_AGENT_CONFIG.MAX_TURNS,
                     }}
                     sx={{
                       '& .MuiInputBase-root': {
@@ -2368,635 +2330,291 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
                       },
                     }}
                   />
-                )}
-              </Box>
-              {viewEditForm.actionType === 'alert' && (
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    gutterBottom
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                  >
-                    Alert Sensitivity
-                    <Tooltip
-                      title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
-                      arrow
-                      placement="top"
-                    >
-                      <HelpOutlineIcon
-                        sx={{
-                          fontSize: '1rem',
-                          color: 'text.secondary',
-                          cursor: 'help',
-                        }}
-                      />
-                    </Tooltip>
-                  </Typography>
-                  <Box sx={{ px: 1, pt: 1 }}>
-                    <Slider
-                      value={viewEditForm.verbosityThreshold}
-                      onChange={(_, value) =>
+                  {viewEditForm.contextWindowStrategy === 'lastNMessages' && (
+                    <TextField
+                      fullWidth
+                      label="Context Messages"
+                      type="number"
+                      value={
+                        viewEditForm.contextParams.lastN
+                        || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
+                      }
+                      onChange={e =>
                         setViewEditForm(prev => ({
                           ...prev,
-                          verbosityThreshold: value as number,
+                          contextParams: {
+                            ...prev.contextParams,
+                            lastN:
+                              parseInt(e.target.value)
+                              || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES,
+                          },
                         }))
                       }
-                      min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-                      max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-                      step={5}
-                      marks={[
-                        {
-                          value: THRESHOLD_PRESETS.CRITICAL_ONLY,
-                          label: 'Critical',
-                        },
-                        {
-                          value: THRESHOLD_PRESETS.BALANCED,
-                          label: 'Balanced',
-                        },
-                        { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
-                      ]}
-                      valueLabelDisplay="on"
-                      valueLabelFormat={value => `${value}/100`}
+                      helperText={
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                          }}
+                        >
+                          <Typography component="span" variant="caption">
+                            Number of recent messages to include when evaluating
+                          </Typography>
+                          <Tooltip
+                            title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
+                            arrow
+                            placement="top"
+                          >
+                            <HelpOutlineIcon
+                              sx={{
+                                fontSize: '0.875rem',
+                                color: 'text.secondary',
+                                cursor: 'help',
+                              }}
+                            />
+                          </Tooltip>
+                        </Box>
+                      }
+                      inputProps={{
+                        min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
+                        max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES,
+                      }}
                       sx={{
-                        '& .MuiSlider-markLabel': {
-                          fontSize: '0.75rem',
+                        '& .MuiInputBase-root': {
+                          fontSize: { xs: '0.875rem', sm: '1rem' },
                         },
                       }}
                     />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 1 }}
-                  >
-                    {`Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
-                  </Typography>
+                  )}
                 </Box>
-              )}
-              {viewEditForm.actionType === 'update_document' && (
-                <FormControl fullWidth required>
-                  <InputLabel id="view-edit-output-document-label">
-                    Output Document
-                  </InputLabel>
-                  <Select
-                    labelId="view-edit-output-document-label"
-                    value={viewEditForm.outputDocumentId || ''}
-                    label="Output Document"
-                    required
-                    onChange={e =>
-                      setViewEditForm(prev => ({
-                        ...prev,
-                        outputDocumentId: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="">Create New Document</MenuItem>
-                    {documents
-                      && documents.length > 0
-                      && documents.map((doc: any) => (
-                        <MenuItem key={doc.id} value={doc.id}>
-                          {doc.title || `Untitled (${doc.id})`}
-                        </MenuItem>
-                      ))}
-                  </Select>
-                </FormControl>
-              )}
-              {viewEditForm.actionType === 'update_document'
-                && !viewEditForm.outputDocumentId && (
-                  <TextField
-                    fullWidth
-                    label="New Output Document Title"
-                    value={viewEditForm.newOutputDocumentTitle || ''}
-                    onChange={e =>
-                      setViewEditForm(prev => ({
-                        ...prev,
-                        newOutputDocumentTitle: e.target.value,
-                      }))
-                    }
-                    helperText={`Create a new document with this title. (${viewEditForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
-                    slotProps={{
-                      htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-                    }}
-                  />
+                {viewEditForm.actionType === 'alert' && (
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      gutterBottom
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
+                      Alert Sensitivity
+                      <Tooltip
+                        title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
+                        arrow
+                        placement="top"
+                      >
+                        <HelpOutlineIcon
+                          sx={{
+                            fontSize: '1rem',
+                            color: 'text.secondary',
+                            cursor: 'help',
+                          }}
+                        />
+                      </Tooltip>
+                    </Typography>
+                    <Box sx={{ px: 1, pt: 1 }}>
+                      <Slider
+                        value={viewEditForm.verbosityThreshold}
+                        onChange={(_, value) =>
+                          setViewEditForm(prev => ({
+                            ...prev,
+                            verbosityThreshold: value as number,
+                          }))
+                        }
+                        min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                        max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                        step={5}
+                        marks={[
+                          {
+                            value: THRESHOLD_PRESETS.CRITICAL_ONLY,
+                            label: 'Critical',
+                          },
+                          {
+                            value: THRESHOLD_PRESETS.BALANCED,
+                            label: 'Balanced',
+                          },
+                          { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
+                        ]}
+                        valueLabelDisplay="on"
+                        valueLabelFormat={value => `${value}/100`}
+                        sx={{
+                          '& .MuiSlider-markLabel': {
+                            fontSize: '0.75rem',
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 1 }}
+                    >
+                      {`Alerts when rating ≤ ${viewEditForm.verbosityThreshold}`}
+                    </Typography>
+                  </Box>
                 )}
-              <TextField
-                fullWidth
-                label="Prompt Template"
-                value={viewEditForm.promptTemplate}
-                onChange={e =>
-                  setViewEditForm(prev => ({
-                    ...prev,
-                    promptTemplate: e.target.value,
-                  }))
-                }
-                disabled={selectedAgent?.isSystem}
-                multiline
-                rows={12}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    minHeight: { xs: '300px', sm: '250px' },
-                  },
-                }}
-              />
-            </Stack>
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            justifyContent: 'space-between',
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
-          }}
-        >
-          <Box sx={{ order: { xs: 2, sm: 1 } }}>
-            {!selectedAgent?.isSystem && (
-              <Button
-                onClick={() => setDeleteDialogOpen(true)}
-                color="error"
-                variant="outlined"
-                size="small"
-                sx={{
-                  width: { xs: '100%', sm: 'auto' },
-                  py: { xs: 1.5, sm: 0.5 },
-                }}
-              >
-                Delete
-              </Button>
-            )}
-          </Box>
-          <Box
+                {viewEditForm.actionType === 'update_document' && (
+                  <FormControl fullWidth required>
+                    <InputLabel id="view-edit-output-document-label">
+                      Output Document
+                    </InputLabel>
+                    <Select
+                      labelId="view-edit-output-document-label"
+                      value={viewEditForm.outputDocumentId || ''}
+                      label="Output Document"
+                      required
+                      onChange={e =>
+                        setViewEditForm(prev => ({
+                          ...prev,
+                          outputDocumentId: e.target.value,
+                        }))
+                      }
+                    >
+                      <MenuItem value="">Create New Document</MenuItem>
+                      {documents
+                        && documents.length > 0
+                        && documents.map((doc: any) => (
+                          <MenuItem key={doc.id} value={doc.id}>
+                            {doc.title || `Untitled (${doc.id})`}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {viewEditForm.actionType === 'update_document'
+                  && !viewEditForm.outputDocumentId && (
+                    <TextField
+                      fullWidth
+                      label="New Output Document Title"
+                      value={viewEditForm.newOutputDocumentTitle || ''}
+                      onChange={e =>
+                        setViewEditForm(prev => ({
+                          ...prev,
+                          newOutputDocumentTitle: e.target.value,
+                        }))
+                      }
+                      helperText={`Create a new document with this title. (${viewEditForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
+                      slotProps={{
+                        htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                      }}
+                    />
+                  )}
+                <TextField
+                  fullWidth
+                  label="Prompt Template"
+                  value={viewEditForm.promptTemplate}
+                  onChange={e =>
+                    setViewEditForm(prev => ({
+                      ...prev,
+                      promptTemplate: e.target.value,
+                    }))
+                  }
+                  disabled={selectedAgent?.isSystem}
+                  multiline
+                  rows={12}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                      minHeight: { xs: '300px', sm: '250px' },
+                    },
+                  }}
+                />
+              </Stack>
+            </Box>
+          </DialogContent>
+          <DialogActions
             sx={{
-              display: 'flex',
-              gap: 1,
-              order: { xs: 1, sm: 2 },
+              justifyContent: 'space-between',
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
               flexDirection: { xs: 'column', sm: 'row' },
-              width: { xs: '100%', sm: 'auto' },
+              gap: { xs: 1, sm: 0 },
             }}
           >
-            <Button
-              onClick={() => setViewEditDialogOpen(false)}
+            <Box sx={{ order: { xs: 2, sm: 1 } }}>
+              {!selectedAgent?.isSystem && (
+                <Button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    py: { xs: 1.5, sm: 0.5 },
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
+            </Box>
+            <Box
               sx={{
-                color: 'primary.dark',
+                display: 'flex',
+                gap: 1,
+                order: { xs: 1, sm: 2 },
+                flexDirection: { xs: 'column', sm: 'row' },
                 width: { xs: '100%', sm: 'auto' },
-                py: { xs: 1.5, sm: 1 },
               }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleViewEditSubmit}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                py: { xs: 1.5, sm: 1 },
-              }}
-            >
-              {selectedAgent?.isSystem ? 'Save Settings' : 'Save Changes'}
-            </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
+              <Button
+                onClick={() => setViewEditDialogOpen(false)}
+                sx={{
+                  color: 'primary.dark',
+                  width: { xs: '100%', sm: 'auto' },
+                  py: { xs: 1.5, sm: 1 },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleViewEditSubmit}
+                sx={{
+                  width: { xs: '100%', sm: 'auto' },
+                  py: { xs: 1.5, sm: 1 },
+                }}
+              >
+                {selectedAgent?.isSystem ? 'Save Settings' : 'Save Changes'}
+              </Button>
+            </Box>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && (
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 2, sm: 2 },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          Delete Background Agent
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <DialogContentText sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-            Are you sure you want to delete "{selectedAgent?.name}"? This action
-            cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
           sx={{
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
+            '& .MuiDialog-paper': {
+              m: { xs: 2, sm: 2 },
+            },
           }}
         >
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            Delete Background Agent
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <DialogContentText
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            >
+              Are you sure you want to delete "{selectedAgent?.name}"? This
+              action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions
             sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteAgent}
-            color="error"
-            variant="contained"
-            sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-      )}
-
-      {/* Create New Agent Dialog */}
-      {createDialogOpen && (
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 0, sm: 2 },
-            height: { xs: '100vh', sm: 'auto' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          Create New Background Agent
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <Box sx={{ pt: 1 }}>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="Agent Name"
-                value={createForm.name}
-                onChange={e =>
-                  setCreateForm(prev => ({ ...prev, name: e.target.value }))
-                }
-                required
-                slotProps={{
-                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-                }}
-                helperText={`${createForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                value={createForm.description}
-                onChange={e =>
-                  setCreateForm(prev => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                multiline
-                rows={2}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              <FormControl fullWidth required>
-                <InputLabel id="create-action-type-label">
-                  Action Type
-                </InputLabel>
-                <Select
-                  labelId="create-action-type-label"
-                  value={createForm.actionType || 'alert'}
-                  label="Action Type"
-                  required
-                  onChange={e =>
-                    setCreateForm(prev => ({
-                      ...prev,
-                      actionType: e.target.value as AgentActionType,
-                    }))
-                  }
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      fontSize: { xs: '0.875rem', sm: '1rem' },
-                    },
-                  }}
-                >
-                  <MenuItem value="alert">
-                    <Box>
-                      <Typography variant="body1">Alert</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Creates alerts and notifications based on analysis
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                  {isOutputToDocumentEnabled && (
-                    <MenuItem value="update_document">
-                      <Box>
-                        <Typography variant="body1">Update Document</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Updates a document based on analysis
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel id="create-model-label">Model</InputLabel>
-                <Select
-                  labelId="create-model-label"
-                  value={createForm.modelId}
-                  label="Model"
-                  onChange={e =>
-                    setCreateForm(prev => ({
-                      ...prev,
-                      modelId: e.target.value,
-                    }))
-                  }
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      fontSize: { xs: '0.875rem', sm: '1rem' },
-                    },
-                  }}
-                >
-                  {availableBackgroundAgentModels.map(model => (
-                    <MenuItem key={model.id} value={model.id}>
-                      <Box>
-                        <Typography variant="body1">{model.name}</Typography>
-                        {model.description && (
-                          <Typography variant="caption" color="text.secondary">
-                            {model.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={createForm.enabled}
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        enabled: e.target.checked,
-                      }))
-                    }
-                  />
-                }
-                label="Enabled"
-              />
-              <Divider />
-              <TextField
-                fullWidth
-                label="Run Every N Turns"
-                type="number"
-                value={createForm.runEveryNTurns}
-                onChange={e =>
-                  setCreateForm(prev => ({
-                    ...prev,
-                    runEveryNTurns:
-                      parseInt(e.target.value)
-                      || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
-                  }))
-                }
-                inputProps={{
-                  min: DEFAULT_AGENT_CONFIG.MIN_TURNS,
-                  max: DEFAULT_AGENT_CONFIG.MAX_TURNS,
-                }}
-                helperText="How often the agent should run (every N conversation turns)"
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Context Messages"
-                type="number"
-                value={
-                  viewEditForm.contextParams.lastN
-                  || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
-                }
-                onChange={e =>
-                  setViewEditForm(prev => ({
-                    ...prev,
-                    contextParams: {
-                      ...prev.contextParams,
-                      lastN:
-                        parseInt(e.target.value)
-                        || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES,
-                    },
-                  }))
-                }
-                helperText={
-                  <Box
-                    component="span"
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                    }}
-                  >
-                    <Typography component="span" variant="caption">
-                      Number of recent messages to include when evaluating
-                    </Typography>
-                    <Tooltip
-                      title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
-                      arrow
-                      placement="top"
-                    >
-                      <HelpOutlineIcon
-                        sx={{
-                          fontSize: '0.875rem',
-                          color: 'text.secondary',
-                          cursor: 'help',
-                        }}
-                      />
-                    </Tooltip>
-                  </Box>
-                }
-                inputProps={{
-                  min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
-                  max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES,
-                }}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                  },
-                }}
-              />
-              {createForm.actionType === 'alert' && (
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    gutterBottom
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                  >
-                    Alert Sensitivity
-                    <Tooltip
-                      title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
-                      arrow
-                      placement="top"
-                    >
-                      <HelpOutlineIcon
-                        sx={{
-                          fontSize: '1rem',
-                          color: 'text.secondary',
-                          cursor: 'help',
-                        }}
-                      />
-                    </Tooltip>
-                  </Typography>
-                  <Box sx={{ px: 1, pt: 1 }}>
-                    <Slider
-                      value={createForm.verbosityThreshold}
-                      onChange={(_, value) =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          verbosityThreshold: value as number,
-                        }))
-                      }
-                      min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
-                      max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
-                      step={5}
-                      marks={[
-                        {
-                          value: THRESHOLD_PRESETS.CRITICAL_ONLY,
-                          label: 'Critical',
-                        },
-                        {
-                          value: THRESHOLD_PRESETS.BALANCED,
-                          label: 'Balanced',
-                        },
-                        { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
-                      ]}
-                      valueLabelDisplay="on"
-                      valueLabelFormat={value => `${value}/100`}
-                      sx={{
-                        '& .MuiSlider-markLabel': {
-                          fontSize: '0.75rem',
-                        },
-                      }}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 1 }}
-                  >
-                    Current: {createForm.verbosityThreshold}/100 - Alerts when
-                    rating ≤ {createForm.verbosityThreshold}
-                  </Typography>
-                </Box>
-              )}
-              {createForm.actionType === 'update_document' && (
-                <FormControl fullWidth required>
-                  <InputLabel id="create-output-document-label">
-                    Output Document
-                  </InputLabel>
-                  <Select
-                    labelId="create-output-document-label"
-                    value={createForm.outputDocumentId || ''}
-                    label="Output Document"
-                    required
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        outputDocumentId: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="">Create New Document</MenuItem>
-                    {documents
-                      && documents.length > 0
-                      && documents.map((doc: any) => (
-                        <MenuItem key={doc.id} value={doc.id}>
-                          {doc.title || `Untitled (${doc.id})`}
-                        </MenuItem>
-                      ))}
-                  </Select>
-                </FormControl>
-              )}
-              {createForm.actionType === 'update_document'
-                && !createForm.outputDocumentId && (
-                  <TextField
-                    fullWidth
-                    label="New Output Document Title"
-                    value={createForm.newOutputDocumentTitle || ''}
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        newOutputDocumentTitle: e.target.value,
-                      }))
-                    }
-                    helperText={`Create a new document with this title. (${createForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
-                    slotProps={{
-                      htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-                    }}
-                  />
-                )}
-              <TextField
-                fullWidth
-                label="Prompt Template"
-                value={createForm.promptTemplate}
-                onChange={e =>
-                  setCreateForm(prev => ({
-                    ...prev,
-                    promptTemplate: e.target.value,
-                  }))
-                }
-                required
-                multiline
-                rows={12}
-                placeholder="Enter the prompt template for your background agent..."
-                sx={{
-                  '& .MuiInputBase-root': {
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    minHeight: { xs: '300px', sm: '250px' },
-                  },
-                }}
-              />
-            </Stack>
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            justifyContent: 'space-between',
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
-          }}
-        >
-          <Box sx={{ order: { xs: 2, sm: 1 } }} />
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 1,
-              order: { xs: 1, sm: 2 },
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
               flexDirection: { xs: 'column', sm: 'row' },
-              width: { xs: '100%', sm: 'auto' },
+              gap: { xs: 1, sm: 0 },
             }}
           >
             <Button
-              onClick={() => setCreateDialogOpen(false)}
+              onClick={() => setDeleteDialogOpen(false)}
               sx={{
-                color: 'primary.dark',
                 width: { xs: '100%', sm: 'auto' },
                 py: { xs: 1.5, sm: 1 },
               }}
@@ -3004,21 +2622,429 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
               Cancel
             </Button>
             <Button
+              onClick={handleDeleteAgent}
+              color="error"
               variant="contained"
-              onClick={handleCreateAgentSubmit}
-              disabled={
-                !createForm.name.trim() || !createForm.promptTemplate.trim()
-              }
               sx={{
                 width: { xs: '100%', sm: 'auto' },
                 py: { xs: 1.5, sm: 1 },
               }}
             >
-              Create Agent
+              Delete
             </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Create New Agent Dialog */}
+      {createDialogOpen && (
+        <Dialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              m: { xs: 0, sm: 2 },
+              height: { xs: '100vh', sm: 'auto' },
+              maxHeight: { xs: '100vh', sm: '90vh' },
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            Create New Background Agent
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <Box sx={{ pt: 1 }}>
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Agent Name"
+                  value={createForm.name}
+                  onChange={e =>
+                    setCreateForm(prev => ({ ...prev, name: e.target.value }))
+                  }
+                  required
+                  slotProps={{
+                    htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                  }}
+                  helperText={`${createForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={createForm.description}
+                  onChange={e =>
+                    setCreateForm(prev => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  multiline
+                  rows={2}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    },
+                  }}
+                />
+                <FormControl fullWidth required>
+                  <InputLabel id="create-action-type-label">
+                    Action Type
+                  </InputLabel>
+                  <Select
+                    labelId="create-action-type-label"
+                    value={createForm.actionType || 'alert'}
+                    label="Action Type"
+                    required
+                    onChange={e =>
+                      setCreateForm(prev => ({
+                        ...prev,
+                        actionType: e.target.value as AgentActionType,
+                      }))
+                    }
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        fontSize: { xs: '0.875rem', sm: '1rem' },
+                      },
+                    }}
+                  >
+                    <MenuItem value="alert">
+                      <Box>
+                        <Typography variant="body1">Alert</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Creates alerts and notifications based on analysis
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                    {isOutputToDocumentEnabled && (
+                      <MenuItem value="update_document">
+                        <Box>
+                          <Typography variant="body1">
+                            Update Document
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Updates a document based on analysis
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel id="create-model-label">Model</InputLabel>
+                  <Select
+                    labelId="create-model-label"
+                    value={createForm.modelId}
+                    label="Model"
+                    onChange={e =>
+                      setCreateForm(prev => ({
+                        ...prev,
+                        modelId: e.target.value,
+                      }))
+                    }
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        fontSize: { xs: '0.875rem', sm: '1rem' },
+                      },
+                    }}
+                  >
+                    {availableBackgroundAgentModels.map(model => (
+                      <MenuItem key={model.id} value={model.id}>
+                        <Box>
+                          <Typography variant="body1">{model.name}</Typography>
+                          {model.description && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {model.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={createForm.enabled}
+                      onChange={e =>
+                        setCreateForm(prev => ({
+                          ...prev,
+                          enabled: e.target.checked,
+                        }))
+                      }
+                    />
+                  }
+                  label="Enabled"
+                />
+                <Divider />
+                <TextField
+                  fullWidth
+                  label="Run Every N Turns"
+                  type="number"
+                  value={createForm.runEveryNTurns}
+                  onChange={e =>
+                    setCreateForm(prev => ({
+                      ...prev,
+                      runEveryNTurns:
+                        parseInt(e.target.value)
+                        || DEFAULT_AGENT_CONFIG.RUN_EVERY_N_TURNS,
+                    }))
+                  }
+                  inputProps={{
+                    min: DEFAULT_AGENT_CONFIG.MIN_TURNS,
+                    max: DEFAULT_AGENT_CONFIG.MAX_TURNS,
+                  }}
+                  helperText="How often the agent should run (every N conversation turns)"
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Context Messages"
+                  type="number"
+                  value={
+                    viewEditForm.contextParams.lastN
+                    || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES
+                  }
+                  onChange={e =>
+                    setViewEditForm(prev => ({
+                      ...prev,
+                      contextParams: {
+                        ...prev.contextParams,
+                        lastN:
+                          parseInt(e.target.value)
+                          || DEFAULT_AGENT_CONFIG.CONTEXT_LAST_N_MESSAGES,
+                      },
+                    }))
+                  }
+                  helperText={
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                      }}
+                    >
+                      <Typography component="span" variant="caption">
+                        Number of recent messages to include when evaluating
+                      </Typography>
+                      <Tooltip
+                        title="Number of recent messages to include when evaluating. The agent analyzes only the last N messages from the conversation. Lower values = less context (faster, may miss earlier context). Higher values = more context (slower, more comprehensive analysis)."
+                        arrow
+                        placement="top"
+                      >
+                        <HelpOutlineIcon
+                          sx={{
+                            fontSize: '0.875rem',
+                            color: 'text.secondary',
+                            cursor: 'help',
+                          }}
+                        />
+                      </Tooltip>
+                    </Box>
+                  }
+                  inputProps={{
+                    min: DEFAULT_AGENT_CONFIG.MIN_CONTEXT_MESSAGES,
+                    max: DEFAULT_AGENT_CONFIG.MAX_CONTEXT_MESSAGES,
+                  }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    },
+                  }}
+                />
+                {createForm.actionType === 'alert' && (
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      gutterBottom
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
+                      Alert Sensitivity
+                      <Tooltip
+                        title="Alerts appear when the agent's rating is at or below this threshold. Higher values = more sensitive (more alerts). Lower values = less sensitive (fewer alerts, only critical issues)."
+                        arrow
+                        placement="top"
+                      >
+                        <HelpOutlineIcon
+                          sx={{
+                            fontSize: '1rem',
+                            color: 'text.secondary',
+                            cursor: 'help',
+                          }}
+                        />
+                      </Tooltip>
+                    </Typography>
+                    <Box sx={{ px: 1, pt: 1 }}>
+                      <Slider
+                        value={createForm.verbosityThreshold}
+                        onChange={(_, value) =>
+                          setCreateForm(prev => ({
+                            ...prev,
+                            verbosityThreshold: value as number,
+                          }))
+                        }
+                        min={DEFAULT_AGENT_CONFIG.MIN_THRESHOLD}
+                        max={DEFAULT_AGENT_CONFIG.MAX_THRESHOLD}
+                        step={5}
+                        marks={[
+                          {
+                            value: THRESHOLD_PRESETS.CRITICAL_ONLY,
+                            label: 'Critical',
+                          },
+                          {
+                            value: THRESHOLD_PRESETS.BALANCED,
+                            label: 'Balanced',
+                          },
+                          { value: THRESHOLD_PRESETS.ALL_ISSUES, label: 'All' },
+                        ]}
+                        valueLabelDisplay="on"
+                        valueLabelFormat={value => `${value}/100`}
+                        sx={{
+                          '& .MuiSlider-markLabel': {
+                            fontSize: '0.75rem',
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 1 }}
+                    >
+                      Current: {createForm.verbosityThreshold}/100 - Alerts when
+                      rating ≤ {createForm.verbosityThreshold}
+                    </Typography>
+                  </Box>
+                )}
+                {createForm.actionType === 'update_document' && (
+                  <FormControl fullWidth required>
+                    <InputLabel id="create-output-document-label">
+                      Output Document
+                    </InputLabel>
+                    <Select
+                      labelId="create-output-document-label"
+                      value={createForm.outputDocumentId || ''}
+                      label="Output Document"
+                      required
+                      onChange={e =>
+                        setCreateForm(prev => ({
+                          ...prev,
+                          outputDocumentId: e.target.value,
+                        }))
+                      }
+                    >
+                      <MenuItem value="">Create New Document</MenuItem>
+                      {documents
+                        && documents.length > 0
+                        && documents.map((doc: any) => (
+                          <MenuItem key={doc.id} value={doc.id}>
+                            {doc.title || `Untitled (${doc.id})`}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {createForm.actionType === 'update_document'
+                  && !createForm.outputDocumentId && (
+                    <TextField
+                      fullWidth
+                      label="New Output Document Title"
+                      value={createForm.newOutputDocumentTitle || ''}
+                      onChange={e =>
+                        setCreateForm(prev => ({
+                          ...prev,
+                          newOutputDocumentTitle: e.target.value,
+                        }))
+                      }
+                      helperText={`Create a new document with this title. (${createForm.newOutputDocumentTitle?.length || 0}/${RESOURCE_TITLE_MAX_LENGTH} characters)`}
+                      slotProps={{
+                        htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                      }}
+                    />
+                  )}
+                <TextField
+                  fullWidth
+                  label="Prompt Template"
+                  value={createForm.promptTemplate}
+                  onChange={e =>
+                    setCreateForm(prev => ({
+                      ...prev,
+                      promptTemplate: e.target.value,
+                    }))
+                  }
+                  required
+                  multiline
+                  rows={12}
+                  placeholder="Enter the prompt template for your background agent..."
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                      minHeight: { xs: '300px', sm: '250px' },
+                    },
+                  }}
+                />
+              </Stack>
+            </Box>
+          </DialogContent>
+          <DialogActions
+            sx={{
+              justifyContent: 'space-between',
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1, sm: 0 },
+            }}
+          >
+            <Box sx={{ order: { xs: 2, sm: 1 } }} />
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                order: { xs: 1, sm: 2 },
+                flexDirection: { xs: 'column', sm: 'row' },
+                width: { xs: '100%', sm: 'auto' },
+              }}
+            >
+              <Button
+                onClick={() => setCreateDialogOpen(false)}
+                sx={{
+                  color: 'primary.dark',
+                  width: { xs: '100%', sm: 'auto' },
+                  py: { xs: 1.5, sm: 1 },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCreateAgentSubmit}
+                disabled={
+                  !createForm.name.trim() || !createForm.promptTemplate.trim()
+                }
+                sx={{
+                  width: { xs: '100%', sm: 'auto' },
+                  py: { xs: 1.5, sm: 1 },
+                }}
+              >
+                Create Agent
+              </Button>
+            </Box>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Floating Export Actions */}
@@ -3033,36 +3059,37 @@ export default function BackgroundAgentsPage(): React.JSX.Element {
 
       {/* Resource Import Dialog */}
       {showImportDialog && (
-      <ResourceImportDialog
-        open={showImportDialog}
-        onClose={() => setShowImportDialog(false)}
-        onImportComplete={() => {
-          // Refresh background agents after import
-          if (effectiveProfileId) {
-            const load = async () => {
-              try {
-                const storage = getUnifiedStorageService();
-                const { backgroundAgents } = await storage.getBackgroundAgents(
-                  undefined,
-                  1,
-                  20,
-                  effectiveProfileId
-                );
-                const customAgents = (backgroundAgents || [])
-                  .filter((a: BackgroundAgent) => !a.isSystem)
-                  .map((agent: BackgroundAgent) => ({
-                    ...agent,
-                    modelId: normalizeBackgroundAgentModelId(agent.modelId),
-                  }));
-                setAgents(customAgents);
-              } catch (e: any) {
-                setError(e?.message || 'Failed to load background agents');
-              }
-            };
-            void load();
-          }
-        }}
-      />
+        <ResourceImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            // Refresh background agents after import
+            if (effectiveProfileId) {
+              const load = async () => {
+                try {
+                  const storage = getUnifiedStorageService();
+                  const { backgroundAgents } =
+                    await storage.getBackgroundAgents(
+                      undefined,
+                      1,
+                      20,
+                      effectiveProfileId
+                    );
+                  const customAgents = (backgroundAgents || [])
+                    .filter((a: BackgroundAgent) => !a.isSystem)
+                    .map((agent: BackgroundAgent) => ({
+                      ...agent,
+                      modelId: normalizeBackgroundAgentModelId(agent.modelId),
+                    }));
+                  setAgents(customAgents);
+                } catch (e: any) {
+                  setError(e?.message || 'Failed to load background agents');
+                }
+              };
+              void load();
+            }
+          }}
+        />
       )}
     </Box>
   );

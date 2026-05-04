@@ -1,12 +1,12 @@
 {
   "name": "fidu-chat-lab",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --project tsconfig.app.json && vite build",
-    "lint": "eslint .",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --cache",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
     "preview": "vite preview",

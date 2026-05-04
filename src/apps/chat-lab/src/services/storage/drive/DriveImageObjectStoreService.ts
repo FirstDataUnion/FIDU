@@ -138,6 +138,15 @@ export class DriveImageObjectStoreService {
     this.driveService = driveService;
   }
 
+  /**
+   * Clears process-wide display URL caches used for deduping/in-flight coalescing.
+   * Call from tests so static state does not leak across cases (Jest runs one process).
+   */
+  static resetSharedDisplayUrlCachesForTests(): void {
+    DriveImageObjectStoreService.sharedDisplayUrlCache.clear();
+    DriveImageObjectStoreService.sharedInFlightDisplayUrlLoads.clear();
+  }
+
   private async ensureImagesFolderId(): Promise<string> {
     if (this.imagesFolderId) return this.imagesFolderId;
     this.imagesFolderId =

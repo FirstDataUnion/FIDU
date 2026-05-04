@@ -3,6 +3,10 @@ import { DriveImageObjectStoreService } from '../DriveImageObjectStoreService';
 import { webcrypto } from 'crypto';
 
 describe('DriveImageObjectStoreService', () => {
+  beforeEach(() => {
+    DriveImageObjectStoreService.resetSharedDisplayUrlCachesForTests();
+  });
+
   const dataUrlPng =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const dataUrlPngAlt =

@@ -76,7 +76,9 @@ describe('ConversationCopyExportDialog', () => {
 
     expect(onDownloadFormatChange).toHaveBeenCalledWith('txt');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Download conversation' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Download conversation' })
+    );
 
     await waitFor(() => {
       expect(exportUtils.downloadTextFile).toHaveBeenCalledTimes(1);

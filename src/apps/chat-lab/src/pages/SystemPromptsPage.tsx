@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Box,
   Typography,
@@ -70,6 +76,10 @@ import {
   runAfterNextFrame,
   startPerfMark,
 } from '../utils/perfMarks';
+import {
+  getPromptLabSessionScope,
+  getPromptLabSessionStorageKeys,
+} from '../utils/promptLabSessionStorage';
 
 // Extracted SystemPromptCard component for better performance
 const SystemPromptCard = React.memo<{
@@ -499,7 +509,11 @@ const OptimizedSystemPromptsGrid = React.memo<{
               }}
             >
               <CircularProgress size={28} />
-              <Typography variant="body2" color="text.secondary" textAlign="center">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                textAlign="center"
+              >
                 Loading more prompts from cloud...
               </Typography>
             </Card>
@@ -542,9 +556,8 @@ const SystemPromptsPage = React.memo(() => {
   );
   const hasRecordedOpenDataReadyRef = useRef(false);
   const navigate = useNavigate();
-  const { currentProfile, currentWorkspace, user, isAuthenticated } = useAppSelector(
-    state => state.auth
-  );
+  const { currentProfile, currentWorkspace, user, isAuthenticated } =
+    useAppSelector(state => state.auth);
   const { items: systemPrompts, loading } = useAppSelector(
     state => state.systemPrompts
   );
@@ -973,11 +986,14 @@ const SystemPromptsPage = React.memo(() => {
 
   const handleTryPrompt = useCallback(
     (systemPrompt: any) => {
-      // Check if there's existing state in the prompt lab
-      const existingMessages = sessionStorage.getItem('promptlab_messages');
-      const existingContext = sessionStorage.getItem('promptlab_context');
+      // Check if there's existing state in the prompt lab (profile-scoped keys)
+      const plKeys = getPromptLabSessionStorageKeys(
+        getPromptLabSessionScope(effectiveProfileId)
+      );
+      const existingMessages = sessionStorage.getItem(plKeys.messages);
+      const existingContext = sessionStorage.getItem(plKeys.context);
       const existingSystemPrompts = sessionStorage.getItem(
-        'promptlab_system_prompts'
+        plKeys.systemPrompts
       );
 
       // Check if there's any existing conversation state
@@ -998,7 +1014,7 @@ const SystemPromptsPage = React.memo(() => {
         });
       }
     },
-    [navigate]
+    [navigate, effectiveProfileId]
   );
 
   // Export handlers
@@ -1119,7 +1135,13 @@ const SystemPromptsPage = React.memo(() => {
     } finally {
       setIsUpdating(false); // Changed from isViewEditing to isUpdating
     }
-  }, [dispatch, selectedSystemPrompt, effectiveProfileId, viewEditForm]);
+  }, [
+    dispatch,
+    currentProfile?.id,
+    selectedSystemPrompt,
+    effectiveProfileId,
+    viewEditForm,
+  ]);
 
   // Memoize search query change handler with performance optimization
   const handleSearchQueryChange = useCallback(
@@ -1508,7 +1530,8 @@ const SystemPromptsPage = React.memo(() => {
               Loading system prompts from cloud...
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              We are downloading your system prompts. They should appear shortly.
+              We are downloading your system prompts. They should appear
+              shortly.
             </Typography>
           </Box>
         ) : (
@@ -1578,642 +1601,653 @@ const SystemPromptsPage = React.memo(() => {
 
       {/* Create System Prompt Dialog */}
       {createDialogOpen && (
-      <Dialog
-        open={createDialogOpen}
-        onClose={handleCloseCreateDialog}
-        maxWidth="md"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 0, sm: 2 },
-            height: { xs: '100vh', sm: 'auto' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          Create New System Prompt
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="System Prompt Name"
-              value={systemPromptForm.name}
-              onChange={e =>
-                setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))
-              }
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Description (optional)"
-              value={systemPromptForm.description}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Categories (optional)"
-              value={systemPromptForm.categories}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  categories: e.target.value,
-                }))
-              }
-              placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="System Prompt Content"
-              multiline
-              rows={6}
-              value={systemPromptForm.content}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  content: e.target.value,
-                }))
-              }
-              placeholder="You are an expert... (define the AI's role and behavior)"
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                  minHeight: { xs: '200px', sm: '150px' },
-                },
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions
+        <Dialog
+          open={createDialogOpen}
+          onClose={handleCloseCreateDialog}
+          maxWidth="md"
+          fullWidth
           sx={{
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
+            '& .MuiDialog-paper': {
+              m: { xs: 0, sm: 2 },
+              height: { xs: '100vh', sm: 'auto' },
+              maxHeight: { xs: '100vh', sm: '90vh' },
+            },
           }}
         >
-          <Button
-            onClick={() => setCreateDialogOpen(false)}
-            sx={{
-              color: 'primary.dark',
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateSystemPromptSubmit}
-            disabled={
-              isCreating
-              || !systemPromptForm.name.trim()
-              || !systemPromptForm.content.trim()
-            }
-            sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            {isCreating ? 'Creating...' : 'Create System Prompt'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      )}
-
-      {/* Edit System Prompt Dialog */}
-      {editDialogOpen && (
-      <Dialog
-        open={editDialogOpen}
-        onClose={handleCloseEditDialog}
-        maxWidth="md"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 0, sm: 2 },
-            height: { xs: '100vh', sm: 'auto' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          Edit System Prompt
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="System Prompt Name"
-              value={systemPromptForm.name}
-              onChange={e =>
-                setSystemPromptForm(prev => ({ ...prev, name: e.target.value }))
-              }
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Description (optional)"
-              value={systemPromptForm.description}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Categories (optional)"
-              value={systemPromptForm.categories}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  categories: e.target.value,
-                }))
-              }
-              placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="System Prompt Content"
-              multiline
-              rows={6}
-              value={systemPromptForm.content}
-              onChange={e =>
-                setSystemPromptForm(prev => ({
-                  ...prev,
-                  content: e.target.value,
-                }))
-              }
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                  minHeight: { xs: '200px', sm: '150px' },
-                },
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
-          }}
-        >
-          <Button
-            onClick={() => setEditDialogOpen(false)}
-            sx={{
-              color: 'primary.dark',
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateSystemPromptSubmit}
-            disabled={
-              isUpdating
-              || !systemPromptForm.name.trim()
-              || !systemPromptForm.content.trim()
-            }
-            sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            {isUpdating ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      )}
-
-      {/* View/Edit System Prompt Dialog */}
-      {viewEditDialogOpen && (
-      <Dialog
-        open={viewEditDialogOpen}
-        onClose={() => setViewEditDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 0, sm: 2 },
-            height: { xs: '100vh', sm: 'auto' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          {selectedSystemPrompt?.isBuiltIn
-            ? 'View System Prompt'
-            : 'View/Edit System Prompt'}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}
-          >
-            {selectedSystemPrompt?.name}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="System Prompt Name"
-              value={viewEditForm.name}
-              onChange={e =>
-                setViewEditForm(prev => ({ ...prev, name: e.target.value }))
-              }
-              disabled={selectedSystemPrompt?.isBuiltIn}
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Description (optional)"
-              value={viewEditForm.description}
-              onChange={e =>
-                setViewEditForm(prev => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              disabled={selectedSystemPrompt?.isBuiltIn}
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Categories (optional)"
-              value={viewEditForm.categories}
-              onChange={e =>
-                setViewEditForm(prev => ({
-                  ...prev,
-                  categories: e.target.value,
-                }))
-              }
-              disabled={selectedSystemPrompt?.isBuiltIn}
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' },
-                },
-              }}
-            />
-            <TextField
-              fullWidth
-              label="System Prompt Content"
-              multiline
-              rows={12}
-              value={viewEditForm.content}
-              onChange={e =>
-                setViewEditForm(prev => ({ ...prev, content: e.target.value }))
-              }
-              disabled={selectedSystemPrompt?.isBuiltIn}
-              sx={{
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                  minHeight: { xs: '300px', sm: '250px' },
-                },
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            justifyContent: 'space-between',
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
-          }}
-        >
-          <Box sx={{ order: { xs: 2, sm: 1 } }}>
-            {!selectedSystemPrompt?.isBuiltIn && (
-              <Button
-                onClick={() => setDeleteDialogOpen(true)}
-                color="error"
-                variant="outlined"
-                size="small"
-                sx={{
-                  width: { xs: '100%', sm: 'auto' },
-                  py: { xs: 1.5, sm: 0.5 },
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            Create New System Prompt
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="System Prompt Name"
+                value={systemPromptForm.name}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
                 }}
-              >
-                Delete
-              </Button>
-            )}
-          </Box>
-          <Box
+                helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Description (optional)"
+                value={systemPromptForm.description}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Categories (optional)"
+                value={systemPromptForm.categories}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    categories: e.target.value,
+                  }))
+                }
+                placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="System Prompt Content"
+                multiline
+                rows={6}
+                value={systemPromptForm.content}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    content: e.target.value,
+                  }))
+                }
+                placeholder="You are an expert... (define the AI's role and behavior)"
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                    minHeight: { xs: '200px', sm: '150px' },
+                  },
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions
             sx={{
-              display: 'flex',
-              gap: 1,
-              order: { xs: 1, sm: 2 },
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
               flexDirection: { xs: 'column', sm: 'row' },
-              width: { xs: '100%', sm: 'auto' },
+              gap: { xs: 1, sm: 0 },
             }}
           >
             <Button
-              onClick={() => setViewEditDialogOpen(false)}
+              onClick={() => setCreateDialogOpen(false)}
               sx={{
                 color: 'primary.dark',
                 width: { xs: '100%', sm: 'auto' },
                 py: { xs: 1.5, sm: 1 },
               }}
             >
-              {selectedSystemPrompt?.isBuiltIn ? 'Close' : 'Cancel'}
+              Cancel
             </Button>
-            {!selectedSystemPrompt?.isBuiltIn && (
-              <Button
-                variant="contained"
-                onClick={handleViewEditSubmit}
-                disabled={
-                  !viewEditForm.name.trim() || !viewEditForm.content.trim()
+            <Button
+              variant="contained"
+              onClick={handleCreateSystemPromptSubmit}
+              disabled={
+                isCreating
+                || !systemPromptForm.name.trim()
+                || !systemPromptForm.content.trim()
+              }
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              {isCreating ? 'Creating...' : 'Create System Prompt'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Edit System Prompt Dialog */}
+      {editDialogOpen && (
+        <Dialog
+          open={editDialogOpen}
+          onClose={handleCloseEditDialog}
+          maxWidth="md"
+          fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              m: { xs: 0, sm: 2 },
+              height: { xs: '100vh', sm: 'auto' },
+              maxHeight: { xs: '100vh', sm: '90vh' },
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            Edit System Prompt
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="System Prompt Name"
+                value={systemPromptForm.name}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                }}
+                helperText={`${systemPromptForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Description (optional)"
+                value={systemPromptForm.description}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
                 }
                 sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Categories (optional)"
+                value={systemPromptForm.categories}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    categories: e.target.value,
+                  }))
+                }
+                placeholder="e.g., Technical, Development, Code Quality (comma-separated)"
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="System Prompt Content"
+                multiline
+                rows={6}
+                value={systemPromptForm.content}
+                onChange={e =>
+                  setSystemPromptForm(prev => ({
+                    ...prev,
+                    content: e.target.value,
+                  }))
+                }
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                    minHeight: { xs: '200px', sm: '150px' },
+                  },
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions
+            sx={{
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1, sm: 0 },
+            }}
+          >
+            <Button
+              onClick={() => setEditDialogOpen(false)}
+              sx={{
+                color: 'primary.dark',
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleUpdateSystemPromptSubmit}
+              disabled={
+                isUpdating
+                || !systemPromptForm.name.trim()
+                || !systemPromptForm.content.trim()
+              }
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              {isUpdating ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* View/Edit System Prompt Dialog */}
+      {viewEditDialogOpen && (
+        <Dialog
+          open={viewEditDialogOpen}
+          onClose={() => setViewEditDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              m: { xs: 0, sm: 2 },
+              height: { xs: '100vh', sm: 'auto' },
+              maxHeight: { xs: '100vh', sm: '90vh' },
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            {selectedSystemPrompt?.isBuiltIn
+              ? 'View System Prompt'
+              : 'View/Edit System Prompt'}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}
+            >
+              {selectedSystemPrompt?.name}
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="System Prompt Name"
+                value={viewEditForm.name}
+                onChange={e =>
+                  setViewEditForm(prev => ({ ...prev, name: e.target.value }))
+                }
+                disabled={selectedSystemPrompt?.isBuiltIn}
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                }}
+                helperText={`${viewEditForm.name.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Description (optional)"
+                value={viewEditForm.description}
+                onChange={e =>
+                  setViewEditForm(prev => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                disabled={selectedSystemPrompt?.isBuiltIn}
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Categories (optional)"
+                value={viewEditForm.categories}
+                onChange={e =>
+                  setViewEditForm(prev => ({
+                    ...prev,
+                    categories: e.target.value,
+                  }))
+                }
+                disabled={selectedSystemPrompt?.isBuiltIn}
+                sx={{
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                  },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="System Prompt Content"
+                multiline
+                rows={12}
+                value={viewEditForm.content}
+                onChange={e =>
+                  setViewEditForm(prev => ({
+                    ...prev,
+                    content: e.target.value,
+                  }))
+                }
+                disabled={selectedSystemPrompt?.isBuiltIn}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                    minHeight: { xs: '300px', sm: '250px' },
+                  },
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions
+            sx={{
+              justifyContent: 'space-between',
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1, sm: 0 },
+            }}
+          >
+            <Box sx={{ order: { xs: 2, sm: 1 } }}>
+              {!selectedSystemPrompt?.isBuiltIn && (
+                <Button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    py: { xs: 1.5, sm: 0.5 },
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                order: { xs: 1, sm: 2 },
+                flexDirection: { xs: 'column', sm: 'row' },
+                width: { xs: '100%', sm: 'auto' },
+              }}
+            >
+              <Button
+                onClick={() => setViewEditDialogOpen(false)}
+                sx={{
+                  color: 'primary.dark',
                   width: { xs: '100%', sm: 'auto' },
                   py: { xs: 1.5, sm: 1 },
                 }}
               >
-                Save Changes
+                {selectedSystemPrompt?.isBuiltIn ? 'Close' : 'Cancel'}
               </Button>
-            )}
-          </Box>
-        </DialogActions>
-      </Dialog>
+              {!selectedSystemPrompt?.isBuiltIn && (
+                <Button
+                  variant="contained"
+                  onClick={handleViewEditSubmit}
+                  disabled={
+                    !viewEditForm.name.trim() || !viewEditForm.content.trim()
+                  }
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    py: { xs: 1.5, sm: 1 },
+                  }}
+                >
+                  Save Changes
+                </Button>
+              )}
+            </Box>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && (
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 2, sm: 2 },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-          Delete System Prompt
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <DialogContentText sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-            Are you sure you want to delete "{selectedSystemPrompt?.name}"? This
-            action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
           sx={{
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 1, sm: 0 },
+            '& .MuiDialog-paper': {
+              m: { xs: 2, sm: 2 },
+            },
           }}
         >
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
+          <DialogTitle sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+            Delete System Prompt
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <DialogContentText
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            >
+              Are you sure you want to delete "{selectedSystemPrompt?.name}"?
+              This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions
             sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1, sm: 0 },
             }}
           >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteSystemPrompt}
-            color="error"
-            variant="contained"
-            sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Button
+              onClick={() => setDeleteDialogOpen(false)}
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteSystemPrompt}
+              color="error"
+              variant="contained"
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Try Prompt Confirmation Dialog */}
       {showTryPromptDialog && (
-      <Dialog
-        open={showTryPromptDialog}
-        onClose={handleCancelTryPrompt}
-        maxWidth="sm"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: { xs: 2, sm: 2 },
-          },
-        }}
-      >
-        <DialogTitle
+        <Dialog
+          open={showTryPromptDialog}
+          onClose={handleCancelTryPrompt}
+          maxWidth="sm"
+          fullWidth
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            fontSize: { xs: '1.25rem', sm: '1.5rem' },
+            '& .MuiDialog-paper': {
+              m: { xs: 2, sm: 2 },
+            },
           }}
         >
-          <PlayArrowIcon color="primary" />
-          Try This Prompt
-        </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
-          <DialogContentText
-            sx={{
-              mb: 2,
-              fontSize: { xs: '0.875rem', sm: '1rem' },
-            }}
-          >
-            You have an existing conversation in the Prompt Lab. How would you
-            like to use the system prompt "{promptToTry?.name}"?
-          </DialogContentText>
-          <Box
+          <DialogTitle
             sx={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              color: 'primary.dark',
+              alignItems: 'center',
+              gap: 1,
+              fontSize: { xs: '1.25rem', sm: '1.5rem' },
             }}
           >
-            <Button
-              variant="outlined"
-              onClick={handleAddToCurrentConversation}
+            <PlayArrowIcon color="primary" />
+            Try This Prompt
+          </DialogTitle>
+          <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+            <DialogContentText
               sx={{
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                py: { xs: 2, sm: 1.5 },
-                px: { xs: 2, sm: 2 },
+                mb: 2,
+                fontSize: { xs: '0.875rem', sm: '1rem' },
               }}
             >
-              <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                  }}
-                >
-                  Add to Current Conversation
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                  }}
-                >
-                  Keep your existing messages and add this system prompt to your
-                  current selection
-                </Typography>
-              </Box>
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={handleStartNewConversation}
+              You have an existing conversation in the Prompt Lab. How would you
+              like to use the system prompt "{promptToTry?.name}"?
+            </DialogContentText>
+            <Box
               sx={{
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                py: { xs: 2, sm: 1.5 },
-                px: { xs: 2, sm: 2 },
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                color: 'primary.dark',
               }}
             >
-              <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                  }}
-                >
-                  Start New Conversation
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                  }}
-                >
-                  Clear your current conversation and start fresh with this
-                  system prompt
-                </Typography>
-              </Box>
-            </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2 },
-          }}
-        >
-          <Button
-            onClick={handleCancelTryPrompt}
+              <Button
+                variant="outlined"
+                onClick={handleAddToCurrentConversation}
+                sx={{
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  py: { xs: 2, sm: 1.5 },
+                  px: { xs: 2, sm: 2 },
+                }}
+              >
+                <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                    }}
+                  >
+                    Add to Current Conversation
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                    }}
+                  >
+                    Keep your existing messages and add this system prompt to
+                    your current selection
+                  </Typography>
+                </Box>
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleStartNewConversation}
+                sx={{
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  py: { xs: 2, sm: 1.5 },
+                  px: { xs: 2, sm: 2 },
+                }}
+              >
+                <Box sx={{ textAlign: 'left', color: 'primary.dark' }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                    }}
+                  >
+                    Start New Conversation
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                    }}
+                  >
+                    Clear your current conversation and start fresh with this
+                    system prompt
+                  </Typography>
+                </Box>
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions
             sx={{
-              width: { xs: '100%', sm: 'auto' },
-              py: { xs: 1.5, sm: 1 },
+              px: { xs: 2, sm: 3 },
+              pb: { xs: 2, sm: 2 },
             }}
           >
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Button
+              onClick={handleCancelTryPrompt}
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                py: { xs: 1.5, sm: 1 },
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Help Modal */}
       {helpModalOpen && (
-      <SystemPromptHelpModal
-        open={helpModalOpen}
-        onClose={() => setHelpModalOpen(false)}
-      />
+        <SystemPromptHelpModal
+          open={helpModalOpen}
+          onClose={() => setHelpModalOpen(false)}
+        />
       )}
 
       {/* Error Notification Snackbar */}
       {errorSnackbar.open && (
-      <Snackbar
-        open={errorSnackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setErrorSnackbar({ open: false, message: '' })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
+        <Snackbar
+          open={errorSnackbar.open}
+          autoHideDuration={6000}
           onClose={() => setErrorSnackbar({ open: false, message: '' })}
-          severity="error"
-          variant="filled"
-          sx={{ width: '100%' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          {errorSnackbar.message}
-        </Alert>
-      </Snackbar>
+          <Alert
+            onClose={() => setErrorSnackbar({ open: false, message: '' })}
+            severity="error"
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {errorSnackbar.message}
+          </Alert>
+        </Snackbar>
       )}
 
       {/* Floating Export Actions */}
@@ -2228,16 +2262,16 @@ const SystemPromptsPage = React.memo(() => {
 
       {/* Resource Import Dialog */}
       {showImportDialog && (
-      <ResourceImportDialog
-        open={showImportDialog}
-        onClose={() => setShowImportDialog(false)}
-        onImportComplete={() => {
-          // Refresh system prompts after import
-          if (effectiveProfileId) {
-            dispatch(fetchSystemPrompts(effectiveProfileId));
-          }
-        }}
-      />
+        <ResourceImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            // Refresh system prompts after import
+            if (effectiveProfileId) {
+              dispatch(fetchSystemPrompts(effectiveProfileId));
+            }
+          }}
+        />
       )}
     </Box>
   );

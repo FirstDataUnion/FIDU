@@ -45,6 +45,7 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
 }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { currentProfile } = useAppSelector(state => state.auth);
   const { currentMessages, messagesLoading, error } = useAppSelector(
     state => state.conversations
   );
@@ -142,6 +143,7 @@ const ConversationViewer: React.FC<ConversationViewerProps> = ({
         conversationId: conversation.id,
         conversation: conversation,
         loadConversation: true,
+        profileId: currentProfile?.id,
       },
     });
   };

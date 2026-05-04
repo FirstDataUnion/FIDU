@@ -41,7 +41,9 @@ type PerfStore = Record<string, number[]>;
 type PerfConsoleApi = {
   setEnabled: (enabled: boolean) => void;
   clear: () => void;
-  summarize: (metricName?: string) => PerfMetricSummary | Record<string, PerfMetricSummary> | null;
+  summarize: (
+    metricName?: string
+  ) => PerfMetricSummary | Record<string, PerfMetricSummary> | null;
   getSamples: (metricName: string) => number[];
 };
 
@@ -133,7 +135,11 @@ const installConsoleApi = (): void => {
 };
 
 const installLongTaskDebugObserver = (): void => {
-  if (!hasWindow() || longTaskObserverInstalled || !('PerformanceObserver' in window)) {
+  if (
+    !hasWindow()
+    || longTaskObserverInstalled
+    || !('PerformanceObserver' in window)
+  ) {
     return;
   }
   if (!isDevBuild()) return;
@@ -146,26 +152,26 @@ const installLongTaskDebugObserver = (): void => {
         if (entry.duration < 120) return;
         const route = window.location.pathname;
         const visibility = document.visibilityState;
-        console.warn(
-          '[ChatLabPerf] Long task detected',
-          {
-            name: entry.name,
-            durationMs: Math.round(entry.duration * 10) / 10,
-            startTimeMs: Math.round(entry.startTime * 10) / 10,
-            route,
-            visibility,
-          }
-        );
+        console.warn('[ChatLabPerf] Long task detected', {
+          name: entry.name,
+          durationMs: Math.round(entry.duration * 10) / 10,
+          startTimeMs: Math.round(entry.startTime * 10) / 10,
+          route,
+          visibility,
+        });
       });
     });
 
     // Supported in Chromium; no-op fallback via catch on unsupported types.
-    observer.observe({ type: 'longtask', buffered: true } as PerformanceObserverInit);
+    observer.observe({
+      type: 'longtask',
+      buffered: true,
+    } as PerformanceObserverInit);
     longTaskObserverInstalled = true;
     console.info(
       '[ChatLabPerf] Long-task debug active. Disable via localStorage.chatlab_longtask_debug=0'
     );
-  } catch (_err) {
+  } catch {
     // Ignore if unsupported in current browser/runtime.
   }
 };

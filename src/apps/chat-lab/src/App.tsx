@@ -19,6 +19,7 @@ import {
   checkGoogleDriveAuthStatus,
   loadWorkspaces,
   switchWorkspace,
+  setGoogleDriveLoading,
 } from './store/slices/unifiedStorageSlice';
 import { authenticateGoogleDrive } from './store/slices/unifiedStorageSlice';
 import { useStorageUserId } from './hooks/useStorageUserId';
@@ -299,7 +300,9 @@ const AppContent: React.FC<AppContentProps> = () => {
   const visibilityRestoreTimeoutRef = useRef<number | null>(null);
   const appWasHiddenRef = useRef(false);
   const cloudFinalizeStartedRef = useRef(false);
-  const appStartupMarkRef = useRef<string | null>(startPerfMark('app_open_total_ms'));
+  const appStartupMarkRef = useRef<string | null>(
+    startPerfMark('app_open_total_ms')
+  );
   const loadingScreenVisibleMarkRef = useRef<string | null>(null);
 
   // Sync user ID with storage service when auth state changes
@@ -705,39 +708,41 @@ const AppContent: React.FC<AppContentProps> = () => {
           console.log('🔄 Initializing centralized AuthManager...');
           updateLoadingStep('google-drive', 'in_progress');
 
-          const authManager = getAuthManager(dispatch);
-          const googleDriveAuthService = await getGoogleDriveAuthService();
-          authManager.setGoogleDriveAuthService(googleDriveAuthService);
+          // Drive cookie restore / token refresh can take up to HTTP timeouts; this flag
+          // lets the global loader reflect only that in-flight probe (see waitingForCloudAuth).
+          dispatch(setGoogleDriveLoading(true));
+          try {
+            const authManager = getAuthManager(dispatch);
+            const googleDriveAuthService = await getGoogleDriveAuthService();
+            authManager.setGoogleDriveAuthService(googleDriveAuthService);
 
-          // Initialize authentication through the AuthManager
-          const authManagerInitMark = startPerfMark(
-            'app_open_auth_manager_initialize_ms'
-          );
-          await authManager.initialize();
-          recordPerfMetric(
-            'app_open_auth_manager_initialize_ms',
-            endPerfMark(authManagerInitMark)
-          );
-          console.log('✅ AuthManager initialization complete');
-
-          // Quick Win #1: Trust AuthManager state instead of probing
-          // If AuthManager confirms authentication, storage is ready
-          const authStatus = authManager.getAuthStatus();
-
-          if (authStatus.isAuthenticated && authStatus.user) {
-            console.log(
-              '✅ [Optimization] AuthManager confirms authentication - skipping probe loop'
+            const authManagerInitMark = startPerfMark(
+              'app_open_auth_manager_initialize_ms'
             );
-            updateLoadingStep('google-drive', 'completed');
-            updateLoadingStep('data-sync', 'completed'); // Data is already synced
-            // Storage is ready, no need to probe
-          } else {
-            console.log(
-              'ℹ️  [Optimization] No authentication confirmed - user needs to connect'
+            await authManager.initialize();
+            recordPerfMetric(
+              'app_open_auth_manager_initialize_ms',
+              endPerfMark(authManagerInitMark)
             );
-            updateLoadingStep('google-drive', 'completed'); // Mark as complete (will need manual auth)
-            updateLoadingStep('data-sync', 'completed'); // Skip sync for now
-            // User needs to authenticate, storage will be configured after OAuth
+            console.log('✅ AuthManager initialization complete');
+
+            const authStatus = authManager.getAuthStatus();
+
+            if (authStatus.isAuthenticated && authStatus.user) {
+              console.log(
+                '✅ [Optimization] AuthManager confirms authentication - skipping probe loop'
+              );
+              updateLoadingStep('google-drive', 'completed');
+              updateLoadingStep('data-sync', 'completed');
+            } else {
+              console.log(
+                'ℹ️  [Optimization] No authentication confirmed - user needs to connect'
+              );
+              updateLoadingStep('google-drive', 'completed');
+              updateLoadingStep('data-sync', 'completed');
+            }
+          } finally {
+            dispatch(setGoogleDriveLoading(false));
           }
         } else {
           // Local mode - skip Google Drive and sync steps
@@ -957,7 +962,11 @@ const AppContent: React.FC<AppContentProps> = () => {
   ]);
 
   useEffect(() => {
-    if (!storageInitialized || !cloudAdapterFullyInitialized || workspaceRestored) {
+    if (
+      !storageInitialized
+      || !cloudAdapterFullyInitialized
+      || workspaceRestored
+    ) {
       setWorkspaceRestoreWaitExceeded(false);
       return;
     }
@@ -1029,7 +1038,10 @@ const AppContent: React.FC<AppContentProps> = () => {
         const authManager = getAuthManager(dispatch);
         await authManager.checkAndRestore();
       } catch (error) {
-        console.warn('Failed to restore authentication on app visibility:', error);
+        console.warn(
+          'Failed to restore authentication on app visibility:',
+          error
+        );
       } finally {
         visibilityRestoreInFlightRef.current = false;
       }
@@ -1145,12 +1157,17 @@ const AppContent: React.FC<AppContentProps> = () => {
   const isCloudMode = unifiedStorage.mode === 'cloud';
   const authFailed = unifiedStorage.googleDrive.error !== null;
   const needsConfiguration = unifiedStorage.status !== 'configured';
+  // Only hold the full-screen loader while we are actively resolving Drive auth (cookie
+  // restore, token refresh). If the user simply is not connected, we show the in-app
+  // connect flow instead of blocking here indefinitely—or for the whole HTTP timeout window
+  // after we already know the outcome.
   const waitingForCloudAuth =
     isCloudMode
     && !unifiedStorage.googleDrive.isAuthenticated
     && storageInitialized
     && !authFailed
-    && !needsConfiguration;
+    && !needsConfiguration
+    && unifiedStorage.googleDrive.isLoading;
 
   // In cloud mode, also wait for CloudStorageAdapter to be fully initialized
   const waitingForCloudAdapter = isCloudMode && !cloudAdapterFullyInitialized;
@@ -1190,7 +1207,10 @@ const AppContent: React.FC<AppContentProps> = () => {
       endPerfMark(loadingScreenVisibleMarkRef.current)
     );
     loadingScreenVisibleMarkRef.current = null;
-    recordPerfMetric('app_open_total_ms', endPerfMark(appStartupMarkRef.current));
+    recordPerfMetric(
+      'app_open_total_ms',
+      endPerfMark(appStartupMarkRef.current)
+    );
     appStartupMarkRef.current = null;
   }, [shouldShowLoadingScreen]);
 

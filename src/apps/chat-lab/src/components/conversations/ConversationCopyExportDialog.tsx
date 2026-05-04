@@ -109,7 +109,7 @@ export function ConversationCopyExportDialog({
       try {
         await downloadImageByUrl(image.url, imageFilename);
         successCount += 1;
-      } catch (_err) {
+      } catch {
         failedCount += 1;
       }
     }

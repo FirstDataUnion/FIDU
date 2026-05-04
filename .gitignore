@@ -164,3 +164,4 @@ src/apps/chat-lab/coverage/
 
 # Deployment configurations
 src/apps/chat-lab/nginx-setup/
+src/apps/chat-lab/.eslintcache

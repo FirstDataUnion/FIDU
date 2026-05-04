@@ -114,12 +114,21 @@ export const ImportExportSettings: React.FC = () => {
         and become part of your active profile.
       </Typography>
 
-      <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      <Box
+        sx={{
+          mt: 3,
+          p: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+        }}
+      >
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
           Chat Message Download Preferences
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Controls the default format for downloading a single message from the chat bubble action menu.
+          Controls the default format for downloading a single message from the
+          chat bubble action menu.
         </Typography>
         <Stack spacing={2}>
           <FormControl fullWidth size="small">
@@ -138,7 +147,10 @@ export const ImportExportSettings: React.FC = () => {
           </FormControl>
           <FormControlLabel
             control={
-              <Switch checked={askEachTime} onChange={handleAskEachTimeChange} />
+              <Switch
+                checked={askEachTime}
+                onChange={handleAskEachTimeChange}
+              />
             }
             label="Always ask format before downloading single message"
           />

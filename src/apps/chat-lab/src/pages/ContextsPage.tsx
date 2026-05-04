@@ -129,7 +129,10 @@ export default function ContextsPage() {
   useEffect(() => {
     const firstPaintMark = openToFirstPaintMarkRef.current;
     runAfterNextFrame(() => {
-      recordPerfMetric('contexts_open_to_first_paint_ms', endPerfMark(firstPaintMark));
+      recordPerfMetric(
+        'contexts_open_to_first_paint_ms',
+        endPerfMark(firstPaintMark)
+      );
       openToFirstPaintMarkRef.current = null;
     });
   }, []);
@@ -733,7 +736,11 @@ export default function ContextsPage() {
               {showCloudWarmupLoading ? (
                 <>
                   <CircularProgress size={44} sx={{ mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="h6"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
                     Loading contexts from cloud...
                   </Typography>
                   <Typography
@@ -741,7 +748,8 @@ export default function ContextsPage() {
                     color="text.secondary"
                     sx={{ mb: 3 }}
                   >
-                    We are downloading your contexts. They should appear shortly.
+                    We are downloading your contexts. They should appear
+                    shortly.
                   </Typography>
                 </>
               ) : (
@@ -749,7 +757,11 @@ export default function ContextsPage() {
                   <FolderIcon
                     sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}
                   />
-                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="h6"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
                     No contexts found
                   </Typography>
                   <Typography
@@ -802,316 +814,318 @@ export default function ContextsPage() {
 
       {/* Create Context Dialog */}
       {createDialogOpen && (
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Create New Context</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="Context Title"
-              value={contextForm.title}
-              onChange={e =>
-                setContextForm(prev => ({ ...prev, title: e.target.value }))
-              }
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Context Body"
-              multiline
-              rows={4}
-              value={contextForm.body}
-              onChange={e =>
-                setContextForm(prev => ({ ...prev, body: e.target.value }))
-              }
-              sx={{ mb: 2 }}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateConversationSelectionDialogOpen(true)}
-              sx={{
-                borderColor: 'primary.dark',
-                color: 'primary.dark',
-                '&:hover': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
+        <Dialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Create New Context</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="Context Title"
+                value={contextForm.title}
+                onChange={e =>
+                  setContextForm(prev => ({ ...prev, title: e.target.value }))
+                }
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                }}
+                helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Context Body"
+                multiline
+                rows={4}
+                value={contextForm.body}
+                onChange={e =>
+                  setContextForm(prev => ({ ...prev, body: e.target.value }))
+                }
+                sx={{ mb: 2 }}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateConversationSelectionDialogOpen(true)}
+                sx={{
                   borderColor: 'primary.dark',
-                },
-              }}
+                  color: 'primary.dark',
+                  '&:hover': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    borderColor: 'primary.dark',
+                  },
+                }}
+              >
+                Add Existing Conversation to Context
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setCreateDialogOpen(false)}
+              sx={{ color: 'primary.dark' }}
             >
-              Add Existing Conversation to Context
+              Cancel
             </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setCreateDialogOpen(false)}
-            sx={{ color: 'primary.dark' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateContextSubmit}
-            disabled={isCreating || !contextForm.title.trim()}
-          >
-            {isCreating ? 'Creating...' : 'Create Context'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Button
+              variant="contained"
+              onClick={handleCreateContextSubmit}
+              disabled={isCreating || !contextForm.title.trim()}
+            >
+              {isCreating ? 'Creating...' : 'Create Context'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Edit Context Dialog */}
       {editDialogOpen && (
-      <Dialog
-        open={editDialogOpen}
-        onClose={() => setEditDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Edit Context</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="Context Title"
-              value={contextForm.title}
-              onChange={e =>
-                setContextForm(prev => ({ ...prev, title: e.target.value }))
-              }
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Context Body"
-              multiline
-              rows={4}
-              value={contextForm.body}
-              onChange={e =>
-                setContextForm(prev => ({ ...prev, body: e.target.value }))
-              }
-              sx={{ mb: 2 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setEditDialogOpen(false)}
-            sx={{ color: 'primary.dark' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateContextSubmit}
-            disabled={isUpdating || !contextForm.title.trim()}
-          >
-            {isUpdating ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Dialog
+          open={editDialogOpen}
+          onClose={() => setEditDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Edit Context</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="Context Title"
+                value={contextForm.title}
+                onChange={e =>
+                  setContextForm(prev => ({ ...prev, title: e.target.value }))
+                }
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                }}
+                helperText={`${contextForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Context Body"
+                multiline
+                rows={4}
+                value={contextForm.body}
+                onChange={e =>
+                  setContextForm(prev => ({ ...prev, body: e.target.value }))
+                }
+                sx={{ mb: 2 }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setEditDialogOpen(false)}
+              sx={{ color: 'primary.dark' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleUpdateContextSubmit}
+              disabled={isUpdating || !contextForm.title.trim()}
+            >
+              {isUpdating ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* View/Edit Context Dialog */}
       {viewEditDialogOpen && (
-      <Dialog
-        open={viewEditDialogOpen}
-        onClose={() => setViewEditDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          {selectedContext?.isBuiltIn ? 'View Context' : 'View/Edit Context'}
-          <Typography variant="body2" color="text.secondary">
-            {selectedContext?.title}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="Context Title"
-              value={viewEditForm.title}
-              onChange={e =>
-                setViewEditForm(prev => ({ ...prev, title: e.target.value }))
-              }
-              slotProps={{
-                htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
-              }}
-              helperText={`${viewEditForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
-              disabled={selectedContext?.isBuiltIn}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Context Content"
-              multiline
-              rows={12}
-              value={viewEditForm.body}
-              onChange={e =>
-                setViewEditForm(prev => ({ ...prev, body: e.target.value }))
-              }
-              disabled={selectedContext?.isBuiltIn}
-              sx={{ fontFamily: 'monospace' }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}>
-            {!selectedContext?.isBuiltIn && (
-              <>
-                <Button
-                  onClick={() => setDeleteDialogOpen(true)}
-                  color="error"
-                  variant="outlined"
-                  size="small"
-                >
-                  Delete
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setConversationSelectionDialogOpen(true)}
-                  sx={{
-                    borderColor: 'primary.dark',
-                    color: 'primary.dark',
-                    '&:hover': {
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      borderColor: 'primary.dark',
-                    },
-                  }}
-                >
-                  Add Existing Conversation to Context
-                </Button>
-              </>
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              onClick={() => setViewEditDialogOpen(false)}
-              sx={{ color: 'primary.dark' }}
-            >
-              Close
-            </Button>
-            {!selectedContext?.isBuiltIn && (
-              <Button
-                variant="contained"
-                onClick={handleViewEditSubmit}
-                disabled={
-                  isViewEditing
-                  || !viewEditForm.title.trim()
-                  || !viewEditForm.body.trim()
+        <Dialog
+          open={viewEditDialogOpen}
+          onClose={() => setViewEditDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            {selectedContext?.isBuiltIn ? 'View Context' : 'View/Edit Context'}
+            <Typography variant="body2" color="text.secondary">
+              {selectedContext?.title}
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                fullWidth
+                label="Context Title"
+                value={viewEditForm.title}
+                onChange={e =>
+                  setViewEditForm(prev => ({ ...prev, title: e.target.value }))
                 }
+                slotProps={{
+                  htmlInput: { maxLength: RESOURCE_TITLE_MAX_LENGTH },
+                }}
+                helperText={`${viewEditForm.title.length}/${RESOURCE_TITLE_MAX_LENGTH} characters`}
+                disabled={selectedContext?.isBuiltIn}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Context Content"
+                multiline
+                rows={12}
+                value={viewEditForm.body}
+                onChange={e =>
+                  setViewEditForm(prev => ({ ...prev, body: e.target.value }))
+                }
+                disabled={selectedContext?.isBuiltIn}
+                sx={{ fontFamily: 'monospace' }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Box
+              sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}
+            >
+              {!selectedContext?.isBuiltIn && (
+                <>
+                  <Button
+                    onClick={() => setDeleteDialogOpen(true)}
+                    color="error"
+                    variant="outlined"
+                    size="small"
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setConversationSelectionDialogOpen(true)}
+                    sx={{
+                      borderColor: 'primary.dark',
+                      color: 'primary.dark',
+                      '&:hover': {
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                        borderColor: 'primary.dark',
+                      },
+                    }}
+                  >
+                    Add Existing Conversation to Context
+                  </Button>
+                </>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                onClick={() => setViewEditDialogOpen(false)}
+                sx={{ color: 'primary.dark' }}
               >
-                {isViewEditing ? 'Saving...' : 'Save Changes'}
+                Close
               </Button>
-            )}
-          </Box>
-        </DialogActions>
-      </Dialog>
+              {!selectedContext?.isBuiltIn && (
+                <Button
+                  variant="contained"
+                  onClick={handleViewEditSubmit}
+                  disabled={
+                    isViewEditing
+                    || !viewEditForm.title.trim()
+                    || !viewEditForm.body.trim()
+                  }
+                >
+                  {isViewEditing ? 'Saving...' : 'Save Changes'}
+                </Button>
+              )}
+            </Box>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Delete Context Dialog */}
       {deleteDialogOpen && (
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Confirm Deletion</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete the context "
-            {selectedContext?.title}"? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            sx={{ color: 'primary.dark' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteContext}
-            color="error"
-            variant="contained"
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete the context "
+              {selectedContext?.title}"? This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setDeleteDialogOpen(false)}
+              sx={{ color: 'primary.dark' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteContext}
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {/* Conversation Selection Dialog */}
       {conversationSelectionDialogOpen && (
-      <Dialog
-        open={conversationSelectionDialogOpen}
-        onClose={() => setConversationSelectionDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          Add Conversation to Context
-          <Typography variant="body2" color="text.secondary">
-            Select a conversation to append to "{selectedContext?.title}"
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <ConversationSelectionList
-            onConversationSelect={handleAddConversationToContext}
-            currentProfileId={currentProfile?.id}
-          />
-        </DialogContent>
-      </Dialog>
+        <Dialog
+          open={conversationSelectionDialogOpen}
+          onClose={() => setConversationSelectionDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            Add Conversation to Context
+            <Typography variant="body2" color="text.secondary">
+              Select a conversation to append to "{selectedContext?.title}"
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <ConversationSelectionList
+              onConversationSelect={handleAddConversationToContext}
+              currentProfileId={currentProfile?.id}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Create Conversation Selection Dialog */}
       {createConversationSelectionDialogOpen && (
-      <Dialog
-        open={createConversationSelectionDialogOpen}
-        onClose={() => setCreateConversationSelectionDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          Add Conversation to New Context
-          <Typography variant="body2" color="text.secondary">
-            Select a conversation to append to the new context "
-            {contextForm.title}"
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <ConversationSelectionList
-            onConversationSelect={handleAddConversationToNewContext}
-            currentProfileId={currentProfile?.id}
-          />
-        </DialogContent>
-      </Dialog>
+        <Dialog
+          open={createConversationSelectionDialogOpen}
+          onClose={() => setCreateConversationSelectionDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            Add Conversation to New Context
+            <Typography variant="body2" color="text.secondary">
+              Select a conversation to append to the new context "
+              {contextForm.title}"
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <ConversationSelectionList
+              onConversationSelect={handleAddConversationToNewContext}
+              currentProfileId={currentProfile?.id}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Help Modal */}
       {helpModalOpen && (
-      <ContextHelpModal
-        open={helpModalOpen}
-        onClose={() => setHelpModalOpen(false)}
-      />
+        <ContextHelpModal
+          open={helpModalOpen}
+          onClose={() => setHelpModalOpen(false)}
+        />
       )}
 
       {/* Floating Export Actions */}
@@ -1126,16 +1140,16 @@ export default function ContextsPage() {
 
       {/* Resource Import Dialog */}
       {showImportDialog && (
-      <ResourceImportDialog
-        open={showImportDialog}
-        onClose={() => setShowImportDialog(false)}
-        onImportComplete={() => {
-          // Refresh contexts after import
-          if (currentProfile?.id) {
-            dispatch(fetchContexts(currentProfile.id));
-          }
-        }}
-      />
+        <ResourceImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            // Refresh contexts after import
+            if (currentProfile?.id) {
+              dispatch(fetchContexts(currentProfile.id));
+            }
+          }}
+        />
       )}
     </Box>
   );
