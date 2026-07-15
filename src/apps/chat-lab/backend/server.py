@@ -145,7 +145,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title=f"FIDU Chat Lab ({ENVIRONMENT})", lifespan=lifespan)
 
 # Store client-side logs in memory
-client_logs = []
+client_logs: list[dict[str, object]] = []
 
 # Prometheus metrics for the backend itself
 backend_requests_total = Counter(

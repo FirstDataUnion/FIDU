@@ -5,6 +5,12 @@ All notable changes to FIDU Chat Lab will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.4.1] - 2026-07-15
+
+### Fixed
+- **Dependency security updates**: Updated `cryptography` and `python-multipart` to resolve known vulnerabilities flagged by CI Safety scans.
+- **MyPy typing**: Added an explicit type annotation for the in-memory client logs buffer so the backend type check passes in CI.
+
 ### [0.4.0] - 2026-07-15
 
 ### Changed
