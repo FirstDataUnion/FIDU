@@ -152,7 +152,7 @@ describe('useFiduAuth (Simplified)', () => {
 
       expect(getFiduAuthService().clearAllAuthTokens).toHaveBeenCalled();
       expect(mockOnError).toHaveBeenCalledWith(
-        'Authentication failed. Please try again.'
+        'Wrong username or password, please try again.'
       );
     });
   });

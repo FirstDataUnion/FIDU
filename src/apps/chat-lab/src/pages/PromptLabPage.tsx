@@ -1353,6 +1353,78 @@ To get more usage, visit the FIDU dashboard at [identity.firstdataunion.org](htt
 
 If you have any questions or feedback while we work on this area of the product, please get in touch at hello@firstdataunion.org`;
 
+type ContextWindowOverflowDetails = {
+  maxContextTokens?: number;
+  requestedTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+};
+
+const parseContextWindowOverflowDetails = (
+  message: string
+): ContextWindowOverflowDetails | null => {
+  const normalized = message.toLowerCase();
+  if (
+    !normalized.includes('maximum context length')
+    || !normalized.includes('requested')
+  ) {
+    return null;
+  }
+
+  const details: ContextWindowOverflowDetails = {};
+  const maxMatch = message.match(/maximum context length is\s+(\d+)\s+tokens/i);
+  const requestedMatch = message.match(
+    /requested(?: about)?\s+(\d+)\s+tokens/i
+  );
+  const breakdownMatch = message.match(
+    /\((\d+)\s+of text input,\s*(\d+)\s+in the output\)/i
+  );
+
+  if (maxMatch?.[1]) {
+    details.maxContextTokens = Number.parseInt(maxMatch[1], 10);
+  }
+  if (requestedMatch?.[1]) {
+    details.requestedTokens = Number.parseInt(requestedMatch[1], 10);
+  }
+  if (breakdownMatch?.[1] && breakdownMatch?.[2]) {
+    details.inputTokens = Number.parseInt(breakdownMatch[1], 10);
+    details.outputTokens = Number.parseInt(breakdownMatch[2], 10);
+  }
+
+  return details;
+};
+
+const formatTokenCount = (value?: number): string | null =>
+  Number.isFinite(value) ? Number(value).toLocaleString() : null;
+
+const buildContextWindowOverflowMessage = (
+  details: ContextWindowOverflowDetails
+): string => {
+  const maxTokens = formatTokenCount(details.maxContextTokens);
+  const requestedTokens = formatTokenCount(details.requestedTokens);
+  const inputTokens = formatTokenCount(details.inputTokens);
+  const outputTokens = formatTokenCount(details.outputTokens);
+
+  if (maxTokens && requestedTokens && inputTokens && outputTokens) {
+    return `This request is too large for the selected model's context window (${maxTokens} tokens max, ${requestedTokens} requested as ${inputTokens} input + ${outputTokens} output). The context includes the whole conversation, not just your latest message. Please shorten your prompt/context, start a new conversation, or pick a model from the list with a larger token window.`;
+  }
+
+  if (maxTokens && requestedTokens) {
+    return `This request is too large for the selected model's context window (${maxTokens} tokens max, ${requestedTokens} requested). The context includes the whole conversation, not just your latest message. Please shorten your prompt/context, start a new conversation, or pick a model from the list with a larger token window.`;
+  }
+
+  return 'This request is too large for the selected model context window. The context includes the whole conversation, not just your latest message. Please shorten your prompt/context, start a new conversation, or pick a model from the list with a larger token window.';
+};
+
+const getContextWindowOverflowDetailsFromError = (
+  error: unknown
+): ContextWindowOverflowDetails | null => {
+  if (!(error instanceof Error) || !error.message) {
+    return null;
+  }
+  return parseContextWindowOverflowDetails(error.message);
+};
+
 const getErrorMessage = (
   error: unknown,
   selectedModel?: string
@@ -1465,6 +1537,21 @@ const getErrorMessage = (
     return {
       userMessage: USAGE_LIMIT_REACHED_MESSAGE,
       debugInfo: { ...debugInfo, cause: 'Usage limit reached' },
+    };
+  }
+
+  const contextWindowOverflowDetails =
+    getContextWindowOverflowDetailsFromError(error);
+  if (contextWindowOverflowDetails) {
+    return {
+      userMessage: buildContextWindowOverflowMessage(
+        contextWindowOverflowDetails
+      ),
+      debugInfo: {
+        ...debugInfo,
+        cause: 'Context window exceeded',
+        contextWindowOverflowDetails,
+      },
     };
   }
 
@@ -5199,7 +5286,16 @@ export default function PromptLabPage() {
         return;
       }
 
-      console.error('Error getting AI response:', error);
+      const contextWindowOverflow =
+        getContextWindowOverflowDetailsFromError(error);
+      if (contextWindowOverflow) {
+        console.warn(
+          'AI request exceeded model context window (expected user error):',
+          contextWindowOverflow
+        );
+      } else {
+        console.error('Error getting AI response:', error);
+      }
 
       // Track error message sent to model (safely handle if MetricsService unavailable)
       safeRecordMessageSent(selectedModel, 'error');
@@ -6038,7 +6134,16 @@ export default function PromptLabPage() {
           return;
         }
 
-        console.error('Error retrying message:', error);
+        const contextWindowOverflow =
+          getContextWindowOverflowDetailsFromError(error);
+        if (contextWindowOverflow) {
+          console.warn(
+            'AI retry exceeded model context window (expected user error):',
+            contextWindowOverflow
+          );
+        } else {
+          console.error('Error retrying message:', error);
+        }
 
         // Determine user-friendly error message and debug info
         const { userMessage: errorUserMessage, debugInfo } = getErrorMessage(

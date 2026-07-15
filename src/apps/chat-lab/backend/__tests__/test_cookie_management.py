@@ -129,7 +129,7 @@ class TestOAuthEndpoints:
     """Test OAuth endpoints with cookie integration."""
 
     def test_oauth_exchange_code_endpoint(self):
-        """Test OAuth code exchange with cookie setting."""
+        """Test OAuth code exchange returns refresh token and stores in identity vault."""
         # Mock the OpenBao secrets loading and set global variable
         with patch("server.load_chatlab_secrets_from_openbao") as mock_openbao:
             mock_secrets = Mock()
@@ -146,52 +146,58 @@ class TestOAuthEndpoints:
 
             # Mock the OAuth exchange
             with patch("server.httpx.AsyncClient") as mock_client:
-                mock_response = Mock()
-                mock_response.is_success = True
-                mock_response.json.return_value = {
+                google_token_response = Mock()
+                google_token_response.is_success = True
+                google_token_response.json.return_value = {
                     "access_token": "test_access_token",
                     "refresh_token": "test_refresh_token",
                     "expires_in": 3600,
                     "scope": "test_scope",
                 }
 
+                google_userinfo_response = Mock()
+                google_userinfo_response.is_success = True
+                google_userinfo_response.json.return_value = {
+                    "email": "google@example.com"
+                }
+
+                identity_store_response = Mock()
+                identity_store_response.is_success = True
+                identity_store_response.status_code = 200
+
                 mock_client.return_value.__aenter__.return_value.post.return_value = (
-                    mock_response
+                    google_token_response
+                )
+                mock_client.return_value.__aenter__.return_value.get.return_value = (
+                    google_userinfo_response
+                )
+                mock_client.return_value.__aenter__.return_value.put.return_value = (
+                    identity_store_response
                 )
 
-                # Mock encryption service methods
-                with (
-                    patch(
-                        "server.encryption_service.get_user_encryption_key",
-                        new_callable=AsyncMock,
-                    ) as mock_get_key,
-                    patch(
-                        "server.encryption_service.encrypt_refresh_token"
-                    ) as mock_encrypt_token,
-                ):
-                    mock_get_key.return_value = "test_encryption_key"
-                    mock_encrypt_token.return_value = "encrypted_refresh_token"
+                response = client.post(
+                    "/fidu-chat-lab/api/oauth/exchange-code",
+                    headers={"Authorization": "Bearer test_fidu_token"},
+                    json={
+                        "code": "test_code",
+                        "redirect_uri": "http://localhost:3000/callback",
+                    },
+                )
 
-                    response = client.post(
-                        "/fidu-chat-lab/api/oauth/exchange-code",
-                        json={
-                            "code": "test_code",
-                            "redirect_uri": "http://localhost:3000/callback",
-                        },
-                    )
+                assert response.status_code == 200
+                data = response.json()
+                assert "access_token" in data
+                assert "refresh_token" in data
+                assert data["refresh_token"] == "test_refresh_token"
+                assert data["provider_email"] == "google@example.com"
+                assert data["stored_in_vault"] is True
+                assert "expires_in" in data
 
-                    assert response.status_code == 200
-                    data = response.json()
-                    assert "access_token" in data
-                    assert "expires_in" in data
-
-                    # Check that cookie was set
-                    assert "set-cookie" in response.headers
-                    cookie_header = response.headers["set-cookie"]
-                    assert "google_refresh_token" in cookie_header
+                # Refresh tokens are stored in the identity service vault, not cookies
+                assert "set-cookie" not in response.headers
 
     def test_oauth_refresh_token_endpoint(self):
-        """Test OAuth token refresh with cookie reading."""
+        """Test OAuth token refresh with refresh token supplied in request body."""
         # Mock the OpenBao secrets loading and set global variable
         with patch("server.load_chatlab_secrets_from_openbao") as mock_openbao:
             mock_secrets = Mock()
@@ -206,7 +212,6 @@ class TestOAuthEndpoints:
 
             client = TestClient(app)
 
-            # Mock the refresh token request
             with patch("server.httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.is_success = True
@@ -219,42 +224,16 @@ class TestOAuthEndpoints:
                     mock_response
                 )
 
-                # Mock decryption
-                with (
-                    patch(
-                        "server.decrypt_refresh_token", new_callable=AsyncMock
-                    ) as mock_decrypt,
-                    patch("server.httpx.AsyncClient") as mock_fidu_client,
-                ):
-                    mock_decrypt.return_value = "original_refresh_token"
+                response = client.post(
+                    "/fidu-chat-lab/api/oauth/refresh-token",
+                    headers={"Authorization": "Bearer test_token"},
+                    json={"refresh_token": "original_refresh_token"},
+                )
 
-                    # Mock FIDU identity service response
-                    mock_fidu_response = Mock()
-                    mock_fidu_response.is_success = True
-                    mock_fidu_response.json.return_value = {
-                        "access_token": "new_fidu_access_token",
-                        "expires_in": 1800,
-                    }
-                    mock_fidu_client.return_value.__aenter__.return_value.post.return_value = (
-                        mock_fidu_response
-                    )
-
-                    # Set up cookies with proper user ID
-                    client.cookies.set("google_refresh_token", "encrypted_token")
-                    client.cookies.set(
-                        "fidu_user_dev",
-                        '{"id": "test_user_123", "email": "test@example.com"}',
-                    )
-
-                    response = client.post(
-                        "/fidu-chat-lab/api/oauth/refresh-token",
-                        headers={"Authorization": "Bearer test_token"},
-                    )
-
-                    assert response.status_code == 200
-                    data = response.json()
-                    assert "access_token" in data
-                    assert "expires_in" in data
+                assert response.status_code == 200
+                data = response.json()
+                assert "access_token" in data
+                assert "expires_in" in data
 
 
 class TestFiduAuthEndpoints:
@@ -488,14 +467,22 @@ class TestErrorHandling:
             assert exc_info.value.status_code == 500
             assert "Failed to encrypt refresh token" in str(exc_info.value.detail)
 
-    def test_missing_cookie_error_handling(self):
-        """Test handling of missing cookies."""
+    def test_missing_refresh_token_error_handling(self):
+        """Test handling of a missing refresh token in the request body."""
         client = TestClient(app)
 
-        # Request without cookies should return 401
+        # Empty body (no refresh_token from identity service vault)
         response = client.post("/fidu-chat-lab/api/oauth/refresh-token")
         assert response.status_code == 401
-        assert "No refresh token found" in response.json()["detail"]
+        assert "No refresh token provided" in response.json()["detail"]
+
+        # Explicit empty body should also return 401
+        response = client.post(
+            "/fidu-chat-lab/api/oauth/refresh-token",
+            json={},
+        )
+        assert response.status_code == 401
+        assert "No refresh token provided" in response.json()["detail"]
 
 
 if __name__ == "__main__":

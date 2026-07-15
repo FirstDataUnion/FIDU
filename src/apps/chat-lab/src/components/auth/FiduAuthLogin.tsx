@@ -20,17 +20,9 @@ declare global {
 }
 
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  CircularProgress,
-  Alert,
-  Button,
-} from '@mui/material';
+import { Box, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 import { useFiduSDK } from '../../hooks/useFiduSDK';
 import { useFiduAuth } from '../../hooks/useFiduAuth';
-import { getFiduAuthService } from '../../services/auth/FiduAuthService';
 import type { IdentityServiceUser } from '../../types';
 
 const FiduAuthLogin: React.FC = () => {
@@ -245,34 +237,6 @@ const FiduAuthLogin: React.FC = () => {
         ) : (
           <Box sx={{ minHeight: 250 }}>
             <div id="fiduAuthContainer" style={{ minHeight: 250 }} />
-            {error && (
-              <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  If the login form doesn't appear, you can try:
-                </Typography>
-                <Button
-                  variant="outlined"
-                  onClick={() => window.location.reload()}
-                  sx={{ mr: 1 }}
-                >
-                  Reload Page
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    getFiduAuthService().clearAllAuthTokens();
-                    window.location.reload();
-                  }}
-                  sx={{ mr: 1 }}
-                >
-                  Clear Cache & Reload
-                </Button>
-              </Box>
-            )}
           </Box>
         )}
       </Paper>

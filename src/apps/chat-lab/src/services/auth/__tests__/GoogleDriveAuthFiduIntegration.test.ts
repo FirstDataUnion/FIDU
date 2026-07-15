@@ -31,6 +31,12 @@ import * as environmentUtils from '../../../utils/environment';
 
 jest.mock('../../api/apiClientIdentityService', () => ({
   identityServiceAPIClient: {
+    getGoogleIntegrationStatus: jest
+      .fn()
+      .mockResolvedValue({ connected: true }),
+    getGoogleRefreshToken: jest.fn().mockResolvedValue('google-refresh-token'),
+    storeGoogleIntegration: jest.fn().mockResolvedValue(undefined),
+    disconnectGoogleIntegration: jest.fn().mockResolvedValue(undefined),
     updateGoogleEmail: jest.fn().mockResolvedValue({
       message: 'Google email updated successfully',
       user: {
@@ -145,12 +151,6 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
   }
 
   function setUpValidFiduAppEndpoints() {
-    fiduApp.get('/api/oauth/get-tokens', (req: Request, res: Response) => {
-      res.json({
-        has_tokens: true,
-        refresh_token: googleRefreshToken,
-      });
-    });
     fiduApp.post('/api/oauth/refresh-token', (req: Request, res: Response) => {
       res.json({
         access_token: googleAccessToken,
@@ -161,8 +161,10 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
     fiduApp.post('/api/oauth/exchange-code', (req: Request, res: Response) => {
       res.json({
         access_token: googleAccessToken,
+        refresh_token: googleRefreshToken,
         expires_in: 3600,
         scope: scope_string,
+        stored_in_vault: true,
       });
     });
   }
@@ -399,8 +401,19 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
       expect((googleDriveAuth as any).tokens).toEqual(
         expect.objectContaining({
           accessToken: googleAccessToken,
+          refreshToken: googleRefreshToken,
         })
       );
+      const { identityServiceAPIClient } = jest.requireMock(
+        '../../api/apiClientIdentityService'
+      );
+      expect(
+        identityServiceAPIClient.storeGoogleIntegration
+      ).toHaveBeenCalledWith({
+        refresh_token: googleRefreshToken,
+        provider_email: 'google@example.com',
+        scopes: scope_string,
+      });
       expect(fiduAppCallHistory).toEqual([
         expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
       ]);
@@ -432,7 +445,6 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         })
       );
       expect(fiduAppCallHistory).toEqual([
-        expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
         expect.objectContaining({ authorization: `Bearer ${fiduAccessToken}` }),
       ]);
     });
@@ -469,8 +481,15 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         expect((googleDriveAuth as any).tokens).toEqual(
           expect.objectContaining({
             accessToken: googleAccessToken,
+            refreshToken: googleRefreshToken,
           })
         );
+        const { identityServiceAPIClient } = jest.requireMock(
+          '../../api/apiClientIdentityService'
+        );
+        expect(
+          identityServiceAPIClient.storeGoogleIntegration
+        ).toHaveBeenCalled();
         expect(fiduAppCallHistory).toEqual([
           expect.objectContaining({
             authorization: `Bearer ${fiduAccessToken}`,
@@ -516,9 +535,6 @@ describe('GoogleDriveAuth FiduAuthService Integration', () => {
         expect(fiduAppCallHistory).toEqual([
           expect.objectContaining({
             authorization: `Bearer ${fiduAccessToken}`,
-          }),
-          expect.objectContaining({
-            authorization: `Bearer ${fiduRefreshedAccessToken}`,
           }),
           expect.objectContaining({
             authorization: `Bearer ${fiduRefreshedAccessToken}`,

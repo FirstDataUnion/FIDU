@@ -416,6 +416,91 @@ class IdentityServiceAPIClient {
   }
 
   /**
+   * Google Drive integration status (no refresh token).
+   */
+  async getGoogleIntegrationStatus(): Promise<{
+    connected: boolean;
+    provider_email?: string | null;
+    scopes?: string | null;
+  }> {
+    try {
+      const response = await this.client.get('/user/integrations/google');
+      const data = response.data;
+      return {
+        connected:
+          data.connected === true
+          || data.has_refresh_token === true
+          || (typeof data.provider_email === 'string'
+            && data.provider_email.trim() !== ''),
+        provider_email: data.provider_email ?? null,
+        scopes: data.scopes ?? null,
+      };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return { connected: false };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve the stored Google refresh token from the identity service vault.
+   */
+  async getGoogleRefreshToken(): Promise<string | null> {
+    try {
+      const response = await this.client.get('/user/integrations/google/token');
+      const refreshToken = parseGoogleVaultRefreshToken(response.data);
+      if (refreshToken) {
+        return refreshToken;
+      }
+
+      console.warn(
+        '⚠️ [IdentityServiceClient] Google vault token response had no refresh_token:',
+        response.data
+      );
+      return null;
+    } catch (error) {
+      if (
+        error instanceof ApiError
+        && (error.status === 404 || error.status === 401)
+      ) {
+        return null;
+      }
+      console.warn(
+        '⚠️ [IdentityServiceClient] Failed to retrieve Google refresh token:',
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Store or update the Google refresh token in the identity service vault.
+   * Also updates user.google_email when provider_email is supplied.
+   */
+  async storeGoogleIntegration(params: {
+    refresh_token: string;
+    provider_email: string;
+    scopes: string;
+  }): Promise<void> {
+    console.log(
+      '🔄 [IdentityServiceClient] Storing Google integration in vault for',
+      params.provider_email
+    );
+    await this.client.put('/user/integrations/google', params);
+    console.log(
+      '✅ [IdentityServiceClient] Google integration stored in vault'
+    );
+  }
+
+  /**
+   * Disconnect Google Drive integration and delete the stored refresh token.
+   */
+  async disconnectGoogleIntegration(): Promise<void> {
+    await this.client.delete('/user/integrations/google');
+  }
+
+  /**
    * Update user's Google email address
    */
   async updateGoogleEmail(googleEmail: string): Promise<{
@@ -436,6 +521,36 @@ class IdentityServiceAPIClient {
 
 // Create and export a singleton instance
 export const identityServiceAPIClient = new IdentityServiceAPIClient();
+
+function parseGoogleVaultRefreshToken(data: unknown): string | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const record = data as Record<string, unknown>;
+  const direct = record.refresh_token;
+  if (typeof direct === 'string' && direct.trim() !== '') {
+    return direct;
+  }
+
+  for (const key of [
+    'integration',
+    'google',
+    'google_integration',
+    'data',
+    'token',
+  ]) {
+    const nested = record[key];
+    if (nested && typeof nested === 'object') {
+      const nestedToken = (nested as Record<string, unknown>).refresh_token;
+      if (typeof nestedToken === 'string' && nestedToken.trim() !== '') {
+        return nestedToken;
+      }
+    }
+  }
+
+  return null;
+}
 
 export async function fetchCurrentUser() {
   return await identityServiceAPIClient.fetchCurrentUser();

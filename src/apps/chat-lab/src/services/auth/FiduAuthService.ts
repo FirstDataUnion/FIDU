@@ -228,6 +228,10 @@ export class FiduAuthService {
     }
   }
 
+  getMemoryAccessToken(): string | null {
+    return this.cachedAccessToken;
+  }
+
   private async getAccessToken(): Promise<string | null> {
     try {
       await this.ensureAccessToken();
@@ -708,7 +712,7 @@ export class FiduAuthService {
                 '🔐 Ensuring FIDU auth before identity service request...'
               ),
           });
-          const token = this.cachedAccessToken;
+          const token = getFiduAuthService().getMemoryAccessToken();
 
           if (token && token.trim() !== '') {
             headers.Authorization = `Bearer ${token}`;

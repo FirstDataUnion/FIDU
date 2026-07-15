@@ -16,6 +16,12 @@ import { getFiduAuthService } from '../FiduAuthService';
 jest.mock('../FiduAuthService');
 jest.mock('../../api/apiClientIdentityService', () => ({
   identityServiceAPIClient: {
+    getGoogleIntegrationStatus: jest
+      .fn()
+      .mockResolvedValue({ connected: true }),
+    getGoogleRefreshToken: jest.fn().mockResolvedValue('refresh-token'),
+    storeGoogleIntegration: jest.fn().mockResolvedValue(undefined),
+    disconnectGoogleIntegration: jest.fn().mockResolvedValue(undefined),
     updateGoogleEmail: jest.fn().mockResolvedValue(undefined),
   },
 }));
@@ -83,7 +89,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to succeed and actually set tokens
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockImplementation(async () => {
           // Simulate what restoreFromCookies actually does - sets tokens
           (authService as any).tokens = {
@@ -109,7 +115,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to fail
       jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(false);
 
       // Execute & Verify
@@ -129,7 +135,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to succeed
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
       // Mock refreshAccessToken
@@ -168,18 +174,16 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to succeed
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
-      // Mock loadTokensFromCookies
-      jest
-        .spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: Date.now() + 3600000,
-          scope: 'test-scope',
-        });
+      // Mock loadTokensFromVault
+      jest.spyOn(authService as any, 'loadTokensFromVault').mockResolvedValue({
+        refreshToken: 'refresh-token',
+        accessToken: '',
+        expiresAt: Date.now() + 3600000,
+        scope: 'test-scope',
+      });
 
       // Execute
       const token = await authService.getAccessToken();
@@ -256,18 +260,16 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
-      // Mock loadTokensFromCookies
-      jest
-        .spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: 0,
-          scope: 'test-scope',
-        });
+      // Mock loadTokensFromVault
+      jest.spyOn(authService as any, 'loadTokensFromVault').mockResolvedValue({
+        refreshToken: 'refresh-token',
+        accessToken: '',
+        expiresAt: 0,
+        scope: 'test-scope',
+      });
 
       // Mock refreshAccessToken
       jest
@@ -288,7 +290,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to fail
       jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(false);
 
       // Execute
@@ -309,18 +311,16 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
-      // Mock loadTokensFromCookies
-      jest
-        .spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: Date.now() + 3600000,
-          scope: 'test-scope',
-        });
+      // Mock loadTokensFromVault
+      jest.spyOn(authService as any, 'loadTokensFromVault').mockResolvedValue({
+        refreshToken: 'refresh-token',
+        accessToken: '',
+        expiresAt: Date.now() + 3600000,
+        scope: 'test-scope',
+      });
 
       // Mock refreshAccessToken
       jest
@@ -341,7 +341,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to throw
       jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockRejectedValue(new Error('Restoration failed'));
 
       // Execute
@@ -619,18 +619,16 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
-      // Mock loadTokensFromCookies
-      jest
-        .spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: 0,
-          scope: 'test-scope',
-        });
+      // Mock loadTokensFromVault
+      jest.spyOn(authService as any, 'loadTokensFromVault').mockResolvedValue({
+        refreshToken: 'refresh-token',
+        accessToken: '',
+        expiresAt: 0,
+        scope: 'test-scope',
+      });
 
       // Mock refreshAccessToken
       jest
@@ -735,7 +733,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies
       const restoreSpy = jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockResolvedValue(true);
 
       // Execute
@@ -809,7 +807,7 @@ describe('GoogleDriveAuth - Token Management', () => {
 
       // Mock restoreFromCookies to throw
       jest
-        .spyOn(authService as any, 'restoreFromCookies')
+        .spyOn(authService as any, 'restoreFromVault')
         .mockRejectedValue(new Error('Restore error'));
 
       // Execute - should not throw
@@ -878,15 +876,13 @@ describe('GoogleDriveAuth - Token Management', () => {
       // Setup: tokens are null
       (authService as any).tokens = null;
 
-      // Mock loadTokensFromCookies
-      jest
-        .spyOn(authService as any, 'loadTokensFromCookies')
-        .mockResolvedValue({
-          refreshToken: 'refresh-token',
-          accessToken: '',
-          expiresAt: 0,
-          scope: 'test-scope',
-        });
+      // Mock loadTokensFromVault
+      jest.spyOn(authService as any, 'loadTokensFromVault').mockResolvedValue({
+        refreshToken: 'refresh-token',
+        accessToken: '',
+        expiresAt: 0,
+        scope: 'test-scope',
+      });
 
       // Mock refreshAccessToken
       jest
@@ -918,6 +914,11 @@ describe('GoogleDriveAuth - Token Management', () => {
         expiresAt: Date.now() + 30 * 60 * 1000,
         scope: 'test-scope',
       };
+
+      // Mock vault restoration so initialize uses in-memory tokens
+      jest
+        .spyOn(authService as any, 'restoreFromVault')
+        .mockResolvedValue(false);
 
       // Mock validateToken
       jest

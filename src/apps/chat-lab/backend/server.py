@@ -265,12 +265,10 @@ async def decrypt_refresh_token(
     Decrypt refresh token using user-specific encryption key.
     """
     try:
-        # Get user-specific encryption key from identity service
         encryption_key = await encryption_service.get_user_encryption_key(
             user_id, auth_token
         )
 
-        # Decrypt the token using the user's key
         token = encryption_service.decrypt_refresh_token(
             encrypted_token, encryption_key
         )
@@ -286,6 +284,70 @@ async def decrypt_refresh_token(
         raise HTTPException(
             status_code=500, detail="Failed to decrypt refresh token"
         ) from e
+
+
+async def fetch_google_provider_email(access_token: str) -> str:
+    """Fetch the Google account email for a freshly issued access token."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=30.0,
+        )
+
+        if not response.is_success:
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to fetch Google account email after OAuth exchange",
+            )
+
+        email = response.json().get("email")
+        if not email:
+            raise HTTPException(
+                status_code=502,
+                detail="Google account email missing from userinfo response",
+            )
+
+        return email
+
+
+async def store_google_integration_in_vault(
+    auth_token: str,
+    refresh_token: str,
+    provider_email: str,
+    scopes: str,
+) -> None:
+    """Store Google refresh token in the identity service provider token vault."""
+    async with httpx.AsyncClient() as client:
+        response = await client.put(
+            f"{identity_service_url}/user/integrations/google",
+            headers={"Authorization": f"Bearer {auth_token}"},
+            json={
+                "refresh_token": refresh_token,
+                "provider_email": provider_email,
+                "scopes": scopes,
+            },
+            timeout=30.0,
+        )
+
+        if response.status_code == 401:
+            raise IdentityServiceUnauthorizedError(
+                "Authentication to identity service failed while storing Google integration"
+            )
+
+        if not response.is_success:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Failed to store Google integration in identity service: "
+                    f"{response.text}"
+                ),
+            )
+
+    logger.info(
+        "✅ Stored Google refresh token in identity service vault for %s",
+        provider_email,
+    )
 
 
 # Cookie management utilities
@@ -661,7 +723,6 @@ async def exchange_oauth_code(
         data = await request.json()
         code = data.get("code")
         redirect_uri = data.get("redirect_uri")
-        environment = data.get("environment", "prod")  # Default to prod
 
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code")
@@ -704,90 +765,46 @@ async def exchange_oauth_code(
             logger.info("Token response keys: %s", list(token_data.keys()))
             logger.info("Has refresh token: %s", bool(token_data.get("refresh_token")))
 
-            # Create response with HTTP-only cookie for refresh token
-            response_data = {
-                "access_token": token_data["access_token"],
-                "expires_in": token_data["expires_in"],
-                "scope": token_data["scope"],
-            }
+            auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+            provider_email = None
+            stored_in_vault = False
 
-            # Create response object to set cookie
-            fastapi_response = JSONResponse(content=response_data)
-
-            # Store refresh token in encrypted HTTP-only cookie (30 days) if present
-            if token_data.get("refresh_token"):
-                logger.info("🔄 Storing refresh token in HTTP-only cookie...")
-                # Get user ID for encryption
-                user_id = get_user_id_from_request(request)
-                auth_token = request.headers.get("Authorization", "").replace(
-                    "Bearer ", ""
+            if token_data.get("refresh_token") and auth_token:
+                provider_email = await fetch_google_provider_email(
+                    token_data["access_token"]
                 )
-
-                # Create environment-specific cookie name
-                suffix = "_" + environment if environment != "prod" else ""
-                cookie_name = f"google_refresh_token{suffix}"
-                logger.info("Using cookie name: %s", cookie_name)
-
-                # For OAuth exchange, we may not have an auth token yet
-                # Use a simpler encryption approach for initial OAuth flow
-                try:
-                    if auth_token:
-                        # If we have an auth token, use the full encryption
-                        encrypted_token = await encrypt_refresh_token(
-                            token_data["refresh_token"], user_id, auth_token
-                        )
-                    else:
-                        # For OAuth exchange without auth token, use simpler encryption
-                        # This allows storing the refresh token before full authentication
-                        encryption_key = (
-                            await encryption_service.get_user_encryption_key(
-                                user_id,
-                                "",  # Empty auth token for pre-auth refresh tokens
-                            )
-                        )
-                        encrypted_token = encryption_service.encrypt_refresh_token(
-                            token_data["refresh_token"], encryption_key
-                        )
-                        logger.info(
-                            "Using simplified encryption for OAuth exchange refresh token"
-                        )
-
-                    set_secure_cookie(
-                        fastapi_response,
-                        cookie_name,
-                        encrypted_token,
-                        max_age=30 * 24 * 60 * 60,  # 30 days
-                    )
-                    logger.info(
-                        "✅ Encrypted refresh token stored in HTTP-only cookie "
-                        "for user %s in %s environment",
-                        user_id,
-                        environment,
-                    )
-                except IdentityServiceUnauthorizedError as e:
-                    logger.error(
-                        "Failed to encrypt refresh token during OAuth exchange due to 401: %s",
-                        e,
-                    )
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "Authentication to identity service failed"},
-                    )
-                except Exception as e:
-                    logger.error(
-                        "Failed to encrypt refresh token during OAuth exchange: %s", e
-                    )
-                    raise HTTPException(
-                        status_code=500,
-                        detail="Failed to encrypt refresh token securely",
-                    ) from e
+                await store_google_integration_in_vault(
+                    auth_token=auth_token,
+                    refresh_token=token_data["refresh_token"],
+                    provider_email=provider_email,
+                    scopes=token_data.get("scope", ""),
+                )
+                stored_in_vault = True
+            elif token_data.get("refresh_token") and not auth_token:
+                logger.warning(
+                    "⚠️ Google refresh token received but no FIDU auth token present; "
+                    "client must store integration in identity service vault"
+                )
             else:
                 logger.warning(
                     "⚠️ No refresh token provided by Google OAuth - "
                     "user may need to re-authorize with prompt=consent"
                 )
 
-            return fastapi_response
+            response_data = {
+                "access_token": token_data["access_token"],
+                "expires_in": token_data["expires_in"],
+                "scope": token_data["scope"],
+            }
+
+            if token_data.get("refresh_token"):
+                response_data["refresh_token"] = token_data["refresh_token"]
+            if provider_email:
+                response_data["provider_email"] = provider_email
+            if stored_in_vault:
+                response_data["stored_in_vault"] = True
+
+            return JSONResponse(content=response_data)
 
     except HTTPException:
         raise
@@ -804,79 +821,44 @@ async def refresh_oauth_token(request: Request):
     """
     Refresh an OAuth access token (server-side only).
 
-    This keeps the client secret secure on the server. The refresh token
-    is automatically retrieved from HTTP-only cookies, making it more secure
-    and persistent than localStorage.
+    This keeps the client secret secure on the server. The refresh token is
+    supplied by the client after retrieval from the identity service vault.
 
     Query params:
         - env: Environment identifier (dev, prod, local)
 
+    Request body:
+        - refresh_token: Google refresh token from the identity service vault
+
     Returns:
         - access_token: New Google access token
         - expires_in: Token expiration time in seconds
+        - refresh_token: New refresh token (only when Google rotates tokens)
     """
     try:
         # Get environment from query params
         environment = request.query_params.get("env", "prod")
 
-        # Create environment-specific cookie name
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            data = {}
+
+        if not isinstance(data, dict):
+            data = {}
+
+        refresh_token = data.get("refresh_token")
+
+        if not refresh_token:
+            raise HTTPException(
+                status_code=401,
+                detail="No refresh token provided",
+            )
+
+        # Create environment-specific cookie name for legacy cookie cleanup
         cookie_name = (
             f"google_refresh_token{'_' + environment if environment != 'prod' else ''}"
         )
-
-        # Get encrypted refresh token from HTTP-only cookie
-        encrypted_token = get_cookie_value(request, cookie_name)
-
-        if not encrypted_token:
-            raise HTTPException(
-                status_code=401,
-                detail=f"No refresh token found in cookies for {environment} environment",
-            )
-
-        # Get user ID and auth token for decryption
-        user_id = get_user_id_from_request(request)
-        auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-
-        # Decrypt the refresh token using appropriate method
-        if auth_token:
-            try:
-                # If we have an auth token, use the full decryption
-                refresh_token = await decrypt_refresh_token(
-                    encrypted_token, user_id, auth_token
-                )
-            except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt refresh token due to 401: %s", e)
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Authentication to identity service failed"},
-                )
-            except Exception as e:
-                logger.error("Failed to decrypt refresh token: %s", e)
-                raise HTTPException(
-                    status_code=401, detail="Invalid refresh token"
-                ) from e
-        else:
-            # If no auth token, try simpler decryption approaches
-            try:
-                # Try encryption service with empty auth token
-                encryption_key = await encryption_service.get_user_encryption_key(
-                    user_id, ""  # Empty auth token for pre-auth refresh tokens
-                )
-                refresh_token = encryption_service.decrypt_refresh_token(
-                    encrypted_token, encryption_key
-                )
-            except IdentityServiceUnauthorizedError as e:
-                logger.error("Failed to decrypt refresh token due to 401: %s", e)
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Authentication to identity service failed"},
-                )
-            except Exception as exc:
-                # No fallback - if encryption fails, the token is invalid
-                logger.error("Failed to decrypt refresh token with encryption service")
-                raise HTTPException(
-                    status_code=401, detail="Invalid or corrupted refresh token"
-                ) from exc
 
         if not chatlab_secrets:
             logger.error(
@@ -940,10 +922,14 @@ async def refresh_oauth_token(request: Request):
 
             logger.info("✅ OAuth token refresh successful")
 
-            return {
+            response_data = {
                 "access_token": token_data["access_token"],
                 "expires_in": token_data["expires_in"],
             }
+            if token_data.get("refresh_token"):
+                response_data["refresh_token"] = token_data["refresh_token"]
+
+            return response_data
 
     except HTTPException:
         raise

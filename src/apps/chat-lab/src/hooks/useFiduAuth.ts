@@ -175,7 +175,7 @@ export function useFiduAuth(
     (_err: any) => {
       // Clear any existing auth data to prevent loops
       getFiduAuthService().clearAllAuthTokens();
-      onError('Authentication failed. Please try again.');
+      onError('Wrong username or password, please try again.');
     },
     [onError]
   );

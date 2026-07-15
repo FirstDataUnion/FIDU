@@ -158,16 +158,15 @@ export class GoogleDriveAuthService {
       return;
     }
 
-    // Primary approach: Always attempt to restore from HTTP-only cookies first
-    // This is more secure and persistent than localStorage
+    // Primary approach: restore Google refresh token from identity service vault
     console.log(
-      '🔄 Attempting primary authentication restoration from HTTP-only cookies...'
+      '🔄 Attempting primary authentication restoration from identity service vault...'
     );
-    const restored = await this.restoreFromCookies();
+    const restored = await this.restoreFromVault();
 
     if (restored) {
       console.log(
-        '✅ Successfully restored authentication from HTTP-only cookies'
+        '✅ Successfully restored authentication from identity service vault'
       );
       // Ensure user info is loaded (will update Google email if FIDU auth is ready)
       if (!this.user) {
@@ -247,7 +246,7 @@ export class GoogleDriveAuthService {
       }
     } else {
       console.log(
-        '❌ No authentication found in cookies or memory - user needs to authenticate'
+        '❌ No authentication found in vault or memory - user needs to authenticate'
       );
     }
   }
@@ -271,12 +270,12 @@ export class GoogleDriveAuthService {
    * Get current access token (refreshes if needed, restores if missing)
    */
   async getAccessToken(retry: boolean = true): Promise<string> {
-    // If tokens missing, try to restore from cookies first
+    // If tokens missing, try to restore from identity service vault first
     if (!this.tokens) {
       console.log(
-        '🔄 Tokens missing from memory, attempting to restore from cookies...'
+        '🔄 Tokens missing from memory, attempting to restore from identity service vault...'
       );
-      const restored = await this.restoreFromCookies();
+      const restored = await this.restoreFromVault();
       if (!restored || !this.tokens) {
         throw new Error(
           'User not authenticated. Please reconnect Google Drive.'
@@ -293,9 +292,9 @@ export class GoogleDriveAuthService {
       if (!this.tokens.refreshToken) {
         // Try one more time to restore from cookies
         console.log(
-          '🔄 Refresh token missing, attempting cookie restoration...'
+          '🔄 Refresh token missing, attempting vault restoration...'
         );
-        const restored = await this.restoreFromCookies();
+        const restored = await this.restoreFromVault();
         if (!restored || !this.tokens) {
           throw new Error(
             'Token expired and no refresh token available. Please reconnect Google Drive.'
@@ -320,10 +319,10 @@ export class GoogleDriveAuthService {
           }
           // If refresh fails, try to restore from cookies as fallback
           console.warn(
-            '⚠️ Token refresh failed, attempting cookie restoration as fallback:',
+            '⚠️ Token refresh failed, attempting vault restoration as fallback:',
             error
           );
-          const restored = await this.restoreFromCookies();
+          const restored = await this.restoreFromVault();
           if (!restored || !retry) {
             throw new Error(
               'Failed to refresh token. Please reconnect Google Drive.'
@@ -551,21 +550,35 @@ export class GoogleDriveAuthService {
     // Clear Google Drive tokens from localStorage (only Google Drive tokens)
     this.clearStoredTokens();
 
-    // Clear HTTP-only Google Drive cookies via backend (this only clears Google Drive cookies, not FIDU)
+    // Clear HTTP-only Google Drive cookies via backend (legacy cleanup only)
     const basePath = window.location.pathname.includes('/fidu-chat-lab')
       ? '/fidu-chat-lab'
       : '';
     const environment = detectRuntimeEnvironment();
 
     try {
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
+      await identityServiceAPIClient.disconnectGoogleIntegration();
+      console.log(
+        '✅ Google Drive integration removed from identity service vault'
+      );
+    } catch (error) {
+      console.warn(
+        '⚠️ Failed to disconnect Google Drive from identity service (continuing anyway):',
+        error
+      );
+    }
+
+    try {
       await fetch(`${basePath}/api/oauth/logout?env=${environment}`, {
         method: 'POST',
         credentials: 'include', // Include HTTP-only cookies
       });
-      console.log('✅ Google Drive HTTP-only cookies cleared');
+      console.log('✅ Legacy Google Drive HTTP-only cookies cleared');
     } catch (error) {
       console.warn(
-        '⚠️ Failed to clear Google Drive HTTP-only cookies (continuing anyway):',
+        '⚠️ Failed to clear legacy Google Drive HTTP-only cookies (continuing anyway):',
         error
       );
       // Continue even if cookie clearing fails
@@ -608,11 +621,11 @@ export class GoogleDriveAuthService {
       return true;
     }
 
-    // Slow path: try to restore from cookies
+    // Slow path: try to restore from identity service vault
     if (!this.tokens || this.tokens.expiresAt <= Date.now() + 5 * 60 * 1000) {
       try {
         console.log('🔄 Authentication not valid, attempting restoration...');
-        const restored = await this.restoreFromCookies();
+        const restored = await this.restoreFromVault();
         if (restored) {
           console.log('✅ Authentication restored successfully');
           return true;
@@ -763,18 +776,59 @@ export class GoogleDriveAuthService {
 
       // Exchange code for tokens
       console.log('🔄 Exchanging code for tokens...');
-      const tokens = await this.exchangeCodeForTokens(code);
-      console.log('✅ Token exchange successful');
+      const { tokens, refreshTokenFromExchange, storedInVault } =
+        await this.exchangeCodeForTokens(code);
+      console.log('✅ Token exchange successful', {
+        hasRefreshTokenFromExchange: !!refreshTokenFromExchange,
+        storedInVault,
+      });
 
+      let refreshToken = refreshTokenFromExchange;
+      if (!refreshToken) {
+        const { identityServiceAPIClient } =
+          await import('../api/apiClientIdentityService');
+        refreshToken =
+          (await identityServiceAPIClient.getGoogleRefreshToken()) ?? undefined;
+      }
+
+      if (!refreshToken) {
+        throw new Error(
+          'Google did not return a refresh token. Please reconnect and accept all permissions.'
+        );
+      }
+
+      tokens.refreshToken = refreshToken;
       this.tokens = tokens;
       this.storeTokens(tokens);
 
       // Reset explicitly disconnected flag since user has successfully reconnected
       this.explicitlyDisconnected = false;
 
-      // Fetch user info (will update Google email if FIDU auth is ready)
-      console.log('🔄 Fetching user info...');
-      await this.fetchUserInfo();
+      console.log('🔄 Fetching Google account profile...');
+      const googleUser = await this.fetchGoogleUserProfile(tokens.accessToken);
+      this.user = googleUser;
+      this.storeUserInfo(googleUser);
+
+      console.log(
+        '🔄 Storing Google refresh token in identity service vault...'
+      );
+      await this.storeRefreshTokenInVault(
+        refreshToken,
+        googleUser.email,
+        tokens.scope,
+        { required: true }
+      );
+
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
+      const persistedToken =
+        await identityServiceAPIClient.getGoogleRefreshToken();
+      if (!persistedToken) {
+        throw new Error(
+          'Google Drive connection could not be saved to your account. Please try connecting again.'
+        );
+      }
+      console.log('✅ Verified Google refresh token in identity service vault');
 
       // Start proactive refresh and periodic validation after successful OAuth
       this.startProactiveRefresh();
@@ -790,9 +844,11 @@ export class GoogleDriveAuthService {
     }
   }
 
-  private async exchangeCodeForTokens(
-    code: string
-  ): Promise<GoogleDriveTokens> {
+  private async exchangeCodeForTokens(code: string): Promise<{
+    tokens: GoogleDriveTokens;
+    refreshTokenFromExchange?: string;
+    storedInVault: boolean;
+  }> {
     // Use backend endpoint for secure token exchange
     try {
       await getFiduAuthService().ensureAccessToken({
@@ -820,20 +876,42 @@ export class GoogleDriveAuthService {
     });
 
     if (response.status === 200) {
-      const data = response.data;
+      const data =
+        typeof response.data === 'string'
+          ? JSON.parse(response.data)
+          : response.data;
 
-      const tokens = {
+      const refreshTokenFromExchange =
+        typeof data.refresh_token === 'string'
+        && data.refresh_token.trim() !== ''
+          ? data.refresh_token
+          : undefined;
+      const storedInVault = data.stored_in_vault === true;
+
+      console.log('🔍 OAuth exchange response:', {
+        hasRefreshToken: !!refreshTokenFromExchange,
+        storedInVault,
+        hasProviderEmail: !!data.provider_email,
+      });
+
+      const tokens: GoogleDriveTokens = {
         accessToken: data.access_token,
-        refreshToken: 'stored-in-cookie', // Refresh token is now in HTTP-only cookie
+        refreshToken: refreshTokenFromExchange,
         expiresAt: Date.now() + data.expires_in * 1000,
         scope: data.scope,
       };
+
+      if (!refreshTokenFromExchange && !storedInVault) {
+        console.warn(
+          '⚠️ No refresh token returned from OAuth exchange - user may need to re-authorize with consent'
+        );
+      }
 
       // Validate that we received the required scopes
       this.validateScopes(tokens.scope);
 
       console.log('✅ Token exchange via backend (secure)');
-      return tokens;
+      return { tokens, refreshTokenFromExchange, storedInVault };
     }
 
     // Backend returned error (400/500)  don't fall back, this is a backend issue
@@ -931,7 +1009,9 @@ export class GoogleDriveAuthService {
 
     const response = await this.client.post(
       `/api/oauth/refresh-token?env=${environment}`,
-      {}
+      {
+        refresh_token: this.tokens!.refreshToken,
+      }
     );
 
     if (response.status === 200) {
@@ -944,6 +1024,15 @@ export class GoogleDriveAuthService {
       // Update scope if provided (may not always be included in refresh response)
       if (data.scope) {
         this.tokens!.scope = data.scope;
+      }
+
+      if (data.refresh_token) {
+        this.tokens!.refreshToken = data.refresh_token;
+        await this.storeRefreshTokenInVault(
+          data.refresh_token,
+          this.user?.email,
+          this.tokens!.scope
+        );
       }
 
       // Store updated tokens
@@ -1000,9 +1089,9 @@ export class GoogleDriveAuthService {
     throw new Error('Unexpected state in token refresh');
   }
 
-  private async fetchUserInfo(): Promise<void> {
-    const accessToken = await this.getAccessToken();
-
+  private async fetchGoogleUserProfile(
+    accessToken: string
+  ): Promise<GoogleDriveUser> {
     const response = await fetch(
       'https://www.googleapis.com/oauth2/v2/userinfo',
       {
@@ -1013,81 +1102,115 @@ export class GoogleDriveAuthService {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to fetch user info');
+      throw new Error('Failed to fetch Google account profile');
     }
 
     const userData = await response.json();
-    this.user = {
+    return {
       id: userData.id,
       email: userData.email,
       name: userData.name,
       picture: userData.picture,
     };
+  }
+
+  private async fetchUserInfo(): Promise<void> {
+    const accessToken = await this.getAccessToken();
+
+    const user = await this.fetchGoogleUserProfile(accessToken);
+    this.user = user;
 
     // Persist user info to localStorage
     this.storeUserInfo(this.user);
-
-    // Update Google email in identity service (if FIDU auth is ready)
-    // This will skip silently if auth isn't ready to avoid triggering logout
-    await this.updateGoogleEmailInIdentityService(userData.email);
   }
 
   /**
-   * Update Google email in identity service
-   * Called after successful Google Drive authentication
-   * Safely skips update if FIDU authentication isn't ready to avoid triggering logout
+   * Store Google refresh token in the identity service provider token vault.
    */
-  private async updateGoogleEmailInIdentityService(
-    googleEmail: string
+  private async storeRefreshTokenInVault(
+    refreshToken: string,
+    providerEmail?: string,
+    scopes?: string,
+    options: { required?: boolean } = {}
   ): Promise<void> {
+    const { required = false } = options;
+
+    if (!refreshToken?.trim()) {
+      if (required) {
+        throw new Error('Missing Google refresh token for vault storage');
+      }
+      return;
+    }
+
+    const fiduAuthService = getFiduAuthService();
+
     try {
-      const fiduAuthService = getFiduAuthService();
-
-      // Check if FIDU auth is ready before attempting API call
-      // The axios interceptor will trigger logout if AuthenticationRequiredError is thrown,
-      // so we need to verify auth is ready first
-      if (!(await fiduAuthService.isAuthenticated())) {
-        console.log(
-          'ℹ️ FIDU authentication not ready - skipping Google email update'
-        );
-        return;
-      }
-
-      // Dynamically import to avoid circular dependencies
-      const { identityServiceAPIClient } =
-        await import('../api/apiClientIdentityService');
-      await identityServiceAPIClient.updateGoogleEmail(googleEmail);
-      console.log('✅ Google email updated in identity service:', googleEmail);
-    } catch (error: any) {
-      // Silently handle auth errors - these can trigger logout if not caught
-      // This is expected during initialization/login when FIDU auth isn't ready yet
-      if (error instanceof Error) {
-        const errorMessage = error.message.toLowerCase();
-        if (
-          errorMessage.includes('authentication required')
-          || errorMessage.includes('please log in again')
-          || errorMessage.includes('user not authenticated')
-          || errorMessage.includes('authenticationrequirederror')
-          || error.name === 'AuthenticationRequiredError'
-        ) {
+      await fiduAuthService.ensureAccessToken({
+        onWait: () =>
           console.log(
-            'ℹ️ FIDU authentication not ready - Google email update will be retried later'
+            '🔐 Ensuring FIDU auth before storing Google refresh token in vault...'
+          ),
+      });
+    } catch (error) {
+      if (required) {
+        if (error instanceof AuthenticationRequiredError) {
+          throw new Error(
+            'FIDU authentication required before storing Google Drive connection. Please log in again.'
           );
-          return;
         }
+        throw error;
       }
 
-      // Handle 401 errors (API errors)
-      if (error?.status === 401 || error?.response?.status === 401) {
-        console.log(
-          'ℹ️ Received 401 from identity service - FIDU auth may not be ready'
-        );
-        return;
+      console.log(
+        'ℹ️ FIDU authentication not ready - skipping Google vault store'
+      );
+      return;
+    }
+
+    const accessTokenForStore = fiduAuthService.getMemoryAccessToken();
+    if (!accessTokenForStore?.trim()) {
+      const message =
+        'FIDU access token unavailable while saving Google Drive connection';
+      if (required) {
+        throw new Error(message);
+      }
+      console.warn(`⚠️ ${message}`);
+      return;
+    }
+
+    const { identityServiceAPIClient } =
+      await import('../api/apiClientIdentityService');
+
+    const email = providerEmail || this.user?.email;
+    if (!email) {
+      const message =
+        'Cannot store Google refresh token in vault without provider email';
+      if (required) {
+        throw new Error(message);
+      }
+      console.warn(`⚠️ ${message}`);
+      return;
+    }
+
+    try {
+      await identityServiceAPIClient.storeGoogleIntegration({
+        refresh_token: refreshToken,
+        provider_email: email,
+        scopes: scopes || this.config.scopes.join(' '),
+      });
+      console.log('✅ Google refresh token stored in identity service vault');
+    } catch (error: any) {
+      if (required) {
+        const message =
+          error?.response?.data?.message
+          || error?.response?.data?.error
+          || error?.message
+          || 'Failed to store Google refresh token in identity service vault';
+        throw new Error(message);
       }
 
-      // Log other errors but don't throw - this is a non-critical operation
       console.warn(
-        '⚠️ Failed to update Google email in identity service:',
+        '⚠️ Failed to store Google refresh token in identity service vault:',
         error
       );
     }
@@ -1151,26 +1274,26 @@ export class GoogleDriveAuthService {
   }
 
   /**
-   * Check if we have a stored refresh token in cookies
+   * Check if we have a stored refresh token in the identity service vault
    */
   private async hasStoredRefreshToken(): Promise<boolean> {
     try {
-      const tokens = await this.loadTokensFromCookies();
-      return !!tokens?.refreshToken;
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
+      const refreshToken =
+        await identityServiceAPIClient.getGoogleRefreshToken();
+      return !!refreshToken;
     } catch (error) {
-      console.warn('Error checking for stored refresh token:', error);
+      console.warn('Error checking for stored Google refresh token:', error);
       return false;
     }
   }
 
   /**
-   * Load Google Drive tokens from HTTP-only cookies
+   * Load Google Drive refresh token from the identity service vault
    */
-  private async loadTokensFromCookies(): Promise<GoogleDriveTokens | null> {
+  private async loadTokensFromVault(): Promise<GoogleDriveTokens | null> {
     try {
-      // Detect environment for cookie isolation using shared utility
-      const environment = detectRuntimeEnvironment();
-
       const fiduTokenService = getFiduAuthService();
 
       try {
@@ -1196,41 +1319,29 @@ export class GoogleDriveAuthService {
         throw error;
       }
 
-      const response = await this.client.get(
-        `/api/oauth/get-tokens?env=${environment}`,
-        {}
-      );
+      const { identityServiceAPIClient } =
+        await import('../api/apiClientIdentityService');
+      const refreshToken =
+        await identityServiceAPIClient.getGoogleRefreshToken();
 
-      if (response.status === 200) {
-        const data = response.data;
-
-        if (data.has_tokens && data.refresh_token) {
-          console.log(
-            '✅ Google Drive refresh token retrieved from HTTP-only cookies'
-          );
-
-          // Create a token object with the refresh token
-          // We'll need to refresh to get the access token
-          return {
-            accessToken: '', // Will be populated by refresh
-            refreshToken: data.refresh_token,
-            expiresAt: 0, // Will be updated by refresh
-            scope: '', // Will be updated by refresh
-          };
-        } else {
-          console.log('ℹ️ No Google Drive tokens found in HTTP-only cookies');
-          return null;
-        }
-      } else {
-        console.warn(
-          '⚠️ Failed to retrieve Google Drive tokens from cookies:',
-          response.status
+      if (refreshToken) {
+        console.log(
+          '✅ Google Drive refresh token retrieved from identity service vault'
         );
-        return null;
+
+        return {
+          accessToken: '',
+          refreshToken,
+          expiresAt: 0,
+          scope: '',
+        };
       }
+
+      console.log('ℹ️ No Google Drive tokens found in identity service vault');
+      return null;
     } catch (error) {
       console.warn(
-        '⚠️ Error retrieving Google Drive tokens from cookies:',
+        '⚠️ Error retrieving Google Drive tokens from identity service vault:',
         error
       );
       return null;
@@ -1238,57 +1349,56 @@ export class GoogleDriveAuthService {
   }
 
   /**
-   * Attempt to restore authentication from HTTP-only cookies
-   * This is called when the app becomes visible or during initialization
+   * Attempt to restore authentication from the identity service vault
    */
-  async restoreFromCookies(): Promise<boolean> {
-    // If explicitly disconnected, don't attempt restoration
+  async restoreFromVault(): Promise<boolean> {
     if (this.explicitlyDisconnected) {
       console.log(
-        'ℹ️ Google Drive was explicitly disconnected, skipping cookie restoration'
+        'ℹ️ Google Drive was explicitly disconnected, skipping vault restoration'
       );
       return false;
     }
 
     try {
       console.log(
-        '🔄 Attempting to restore authentication from HTTP-only cookies...'
+        '🔄 Attempting to restore authentication from identity service vault...'
       );
 
-      // First, try to load tokens from cookies
-      const tokensFromCookies = await this.loadTokensFromCookies();
+      const tokensFromVault = await this.loadTokensFromVault();
 
-      if (!tokensFromCookies) {
-        console.log('❌ No Google Drive tokens found in HTTP-only cookies');
+      if (!tokensFromVault) {
+        console.log(
+          '❌ No Google Drive tokens found in identity service vault'
+        );
         return false;
       }
 
-      // Set the tokens in memory
-      this.tokens = tokensFromCookies;
+      this.tokens = tokensFromVault;
 
-      // Now try to refresh the access token using the loaded refresh token
       const newAccessToken = await this.refreshAccessToken();
 
       if (newAccessToken) {
-        // Reset explicitly disconnected flag since we successfully restored
         this.explicitlyDisconnected = false;
 
-        // Load user info if we don't have it (will update Google email if FIDU auth is ready)
         if (!this.user) {
           await this.fetchUserInfo();
         }
 
-        // Start proactive refresh after restoration
         this.startProactiveRefresh();
 
         return true;
-      } else {
-        return false;
       }
+
+      return false;
     } catch (error) {
-      console.log('❌ Failed to restore from cookies:', error);
+      console.log('❌ Failed to restore from identity service vault:', error);
       return false;
     }
+  }
+
+  /** @deprecated Use restoreFromVault */
+  async restoreFromCookies(): Promise<boolean> {
+    return this.restoreFromVault();
   }
 
   /**
@@ -1301,16 +1411,16 @@ export class GoogleDriveAuthService {
   /**
    * Enhanced restoration that handles network state
    */
-  async restoreFromCookiesWithRetry(maxRetries: number = 3): Promise<boolean> {
+  async restoreFromVaultWithRetry(maxRetries: number = 3): Promise<boolean> {
     if (!this.isOnline()) {
-      console.log('🔄 Offline - skipping cookie restoration');
+      console.log('🔄 Offline - skipping vault restoration');
       return false;
     }
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Cookie restoration attempt ${attempt}/${maxRetries}`);
-        const success = await this.restoreFromCookies();
+        console.log(`🔄 Vault restoration attempt ${attempt}/${maxRetries}`);
+        const success = await this.restoreFromVault();
 
         if (success) {
           return true;
@@ -1344,11 +1454,11 @@ export class GoogleDriveAuthService {
           continue;
         }
 
-        console.warn(`❌ Cookie restoration attempt ${attempt} failed:`, error);
+        console.warn(`❌ Vault restoration attempt ${attempt} failed:`, error);
 
         // If this is the last attempt or a non-retryable error, fail
         if (attempt === maxRetries || error instanceof ConfigurationError) {
-          console.error('❌ All cookie restoration attempts failed');
+          console.error('❌ All vault restoration attempts failed');
           return false;
         }
 
@@ -1364,6 +1474,11 @@ export class GoogleDriveAuthService {
     return false;
   }
 
+  /** @deprecated Use restoreFromVaultWithRetry */
+  async restoreFromCookiesWithRetry(maxRetries: number = 3): Promise<boolean> {
+    return this.restoreFromVaultWithRetry(maxRetries);
+  }
+
   private storeTokens(tokens: GoogleDriveTokens): void {
     try {
       // Validate token structure before storing
@@ -1372,18 +1487,16 @@ export class GoogleDriveAuthService {
         return;
       }
 
-      // Primary storage: HTTP-only cookies (handled by backend)
       // Only store access token in localStorage for immediate use (not refresh token)
       const tokenData = {
         accessToken: tokens.accessToken,
         expiresAt: tokens.expiresAt,
         scope: tokens.scope,
-        // Note: refreshToken is NOT stored in localStorage - it's in HTTP-only cookies
       };
 
       localStorage.setItem('google_drive_tokens', JSON.stringify(tokenData));
       console.log(
-        '✅ Stored Google Drive access token in localStorage (refresh token in HTTP-only cookie)'
+        '✅ Stored Google Drive access token in localStorage (refresh token in identity service vault)'
       );
     } catch (error) {
       console.warn('Failed to store tokens:', error);
@@ -1493,7 +1606,7 @@ export class GoogleDriveAuthService {
             console.log(
               '🔄 Periodic check: tokens missing, attempting restoration...'
             );
-            const restored = await this.restoreFromCookies();
+            const restored = await this.restoreFromVault();
             if (restored) {
               console.log('✅ Periodic check: tokens restored');
               this.startProactiveRefresh(); // Start proactive refresh after restoration
@@ -1515,8 +1628,8 @@ export class GoogleDriveAuthService {
                 '⚠️ Periodic check: token refresh failed, attempting restoration:',
                 error
               );
-              // Try to restore from cookies
-              await this.restoreFromCookies();
+              // Try to restore from identity service vault
+              await this.restoreFromVault();
             }
           }
         } catch (error) {
@@ -1538,35 +1651,46 @@ export class GoogleDriveAuthService {
   }
 
   /**
-   * Logout from Google Drive by clearing tokens and HTTP-only cookies
+   * Logout from Google Drive by clearing tokens and vault integration
    */
   async logout(): Promise<void> {
     try {
       console.log('🔄 Logging out from Google Drive...');
 
-      // Stop proactive refresh and periodic validation
       this.stopProactiveRefresh();
       this.stopPeriodicValidation();
 
-      // Clear local tokens
       this.clearStoredTokens();
       this.tokens = null;
       this.user = null;
 
-      // Clear HTTP-only cookie via backend
+      try {
+        const { identityServiceAPIClient } =
+          await import('../api/apiClientIdentityService');
+        await identityServiceAPIClient.disconnectGoogleIntegration();
+        console.log(
+          '✅ Google Drive integration removed from identity service vault'
+        );
+      } catch (error) {
+        console.warn(
+          'Failed to disconnect Google Drive from identity service:',
+          error
+        );
+      }
+
       const basePath = window.location.pathname.includes('/fidu-chat-lab')
         ? '/fidu-chat-lab'
         : '';
+      const environment = detectRuntimeEnvironment();
 
       try {
-        await fetch(`${basePath}/api/oauth/logout`, {
+        await fetch(`${basePath}/api/oauth/logout?env=${environment}`, {
           method: 'POST',
-          credentials: 'include', // Include HTTP-only cookies
+          credentials: 'include',
         });
-        console.log('✅ HTTP-only cookie cleared via backend');
+        console.log('✅ Legacy Google Drive cookies cleared via backend');
       } catch (error) {
-        console.warn('Failed to clear HTTP-only cookie via backend:', error);
-        // Continue with logout even if backend call fails
+        console.warn('Failed to clear legacy Google Drive cookies:', error);
       }
 
       console.log('✅ Google Drive logout completed');

@@ -132,7 +132,7 @@ export class AuthManager {
         return;
       }
 
-      // Step 3: Try to restore Google Drive authentication from cookies
+      // Step 3: Try to restore Google Drive authentication from identity service vault
       console.log(
         '🔄 [AuthManager] Attempting Google Drive authentication restoration...'
       );
@@ -140,7 +140,7 @@ export class AuthManager {
 
       if (restored) {
         console.log(
-          '✅ [AuthManager] Google Drive authentication restored from cookies'
+          '✅ [AuthManager] Google Drive authentication restored from identity service vault'
         );
         this.notifySubscribers('auth-restored', this.getAuthStatus());
         await this.syncToRedux();
