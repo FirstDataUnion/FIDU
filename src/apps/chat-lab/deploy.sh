@@ -203,7 +203,9 @@ if [ "$ENVIRONMENT" = "prod" ]; then
 [Unit]
 Description=FIDU Chat Lab (${ENVIRONMENT})
 After=network.target openbao-agent-chat-lab-prod.service
-Requires=openbao-agent-chat-lab-prod.service
+Wants=openbao-agent-chat-lab-prod.service
+StartLimitIntervalSec=0
+
 [Service]
 Type=simple
 User=fidu-chat-lab-${ENVIRONMENT}
@@ -257,10 +259,19 @@ cat > "$LOCAL_BUILD_DIR/start.sh" << EOF
 set -e
 cd ${DEPLOY_PATH}
 TOKEN_FILE="/run/openbao-agent-chatlab/chat-lab-prod.token"
-if [ ! -s "\$TOKEN_FILE" ]; then
-    echo "❌ OpenBao token file missing or empty: \$TOKEN_FILE"
-    exit 1
-fi
+WAIT_SECS=120
+WAITED=0
+while [ ! -s "\$TOKEN_FILE" ]; do
+    if [ "\$WAITED" -ge "\$WAIT_SECS" ]; then
+        echo "❌ OpenBao token file missing or empty after \${WAIT_SECS}s: \$TOKEN_FILE"
+        exit 1
+    fi
+    if [ \$((WAITED % 10)) -eq 0 ]; then
+        echo "Waiting for OpenBao token (\$WAITED/\${WAIT_SECS}s): \$TOKEN_FILE"
+    fi
+    sleep 1
+    WAITED=\$((WAITED + 1))
+done
 export OPENBAO_TOKEN=\$(tr -d '\r\n' < "\$TOKEN_FILE")
 exec ${DEPLOY_PATH}/venv/bin/python ${DEPLOY_PATH}/backend/server.py
 EOF
@@ -409,7 +420,7 @@ These are set at build time from ${ENV_FILE}:
 These are read from server environment or .env file:
 - OPENBAO_ENABLED - Enable OpenBao integration
 - OPENBAO_ADDRESS - OpenBao server URL
-- OPENBAO_TOKEN - OpenBao access token (prod: injected at startup from /run/openbao-agent-chatlab/chat-lab-prod.token)
+- OPENBAO_TOKEN - OpenBao access token (prod: start.sh waits up to 120s for /run/openbao-agent-chatlab/chat-lab-prod.token, then exports it)
 - OPENBAO_SECRET_PATH - Path to secrets in OpenBao
 - GOOGLE_CLIENT_ID - Fallback client ID
 - GOOGLE_CLIENT_SECRET - Fallback client secret
@@ -422,8 +433,9 @@ These are read from server environment or .env file:
 The service is configured to:
 - Run as user: fidu-chat-lab-${ENVIRONMENT}
 - Listen on port: ${PORT}
-- Auto-restart on failure
+- Auto-restart on failure (Restart=always, RestartSec=5)
 - Start on boot
+- Prod only: Wants=openbao-agent-chat-lab-prod.service, StartLimitIntervalSec=0; OpenBao token wait lives in start.sh (not a systemd drop-in)
 
 Commands:
 - Start: \`sudo systemctl start ${SERVICE_NAME}\`

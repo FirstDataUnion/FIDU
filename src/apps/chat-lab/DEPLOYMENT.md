@@ -364,6 +364,8 @@ curl http://localhost:8119/health  # dev
 curl http://localhost:8118/health  # prod
 ```
 
+**Prod OpenBao startup**: `fidu-chat-lab-prod` uses `Wants=openbao-agent-chat-lab-prod.service` and `StartLimitIntervalSec=0`. `start.sh` waits up to 120s for `/run/openbao-agent-chatlab/chat-lab-prod.token`, then exports `OPENBAO_TOKEN`. There is no token-wait `ExecStartPre` and no host drop-in under `fidu-chat-lab-prod.service.d/` (remove any leftover `override.conf` after deploy, then `daemon-reload` and restart). Dev units have no OpenBao agent dependency.
+
 ### Service URLs
 
 | Environment | Port | URL |
