@@ -130,13 +130,26 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    # Same as PyCQA/bandit-action@v1, which hard-codes Python 3.8 (no longer
+    # available on ubuntu-latest). Findings are reported to code scanning and
+    # do not fail the build, as before.
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
     - name: Bandit Scan
-      uses: PyCQA/bandit-action@v1
-      with: 
-        targets: src/
-        severity: medium
-        confidence: medium
-        
+      run: |
+        pip install 'bandit[sarif]'
+        bandit --severity-level medium --confidence-level medium \
+          -x '.svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg' \
+          -r src/ -f sarif -o results.sarif || true
+
+    - name: Upload Bandit results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+
     - name: Run Safety check
       uses: pyupio/safety-action@v1
       with:
